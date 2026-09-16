@@ -9,7 +9,7 @@ interface Props {
 }
 
 // Deep link a WhatsApp con mensaje prellenado (ver Glosario, sección 3, y flujo de la sección 4).
-export function BotonWhatsApp({ numero, mensaje = 'Hola, vi tu publicación en Cuervo de Paz' }: Props) {
+export function BotonWhatsApp({ numero, mensaje = 'Hola, vi tu publicación en Cuervo Pass' }: Props) {
   const abrirWhatsApp = () => {
     const numeroLimpio = numero.replace(/\D/g, '');
     Linking.openURL(`https://wa.me/${numeroLimpio}?text=${encodeURIComponent(mensaje)}`);

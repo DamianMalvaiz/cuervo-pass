@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "cuervo-de-paz",
-    "slug": "cuervo-de-paz",
+    "name": "Cuervo Pass",
+    "slug": "cuervo-pass",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "cuervodepaz",
+    "scheme": "cuervopass",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"

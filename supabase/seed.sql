@@ -1,4 +1,4 @@
--- Cuervo de Paz — datos de prueba para la demo (sección 19 del doc maestro).
+-- Cuervo Pass — datos de prueba para la demo (sección 19 del doc maestro).
 -- No registres usuarios en vivo frente a la maestra: carga esto con antelación.
 --
 -- Cómo usar:
@@ -6,9 +6,9 @@
 -- 2) Los 3 perfiles de ejemplo SÍ necesitan una cuenta real de Supabase Auth (usuarios.id
 --    referencia auth.users). Créalas UNA VEZ, desde la app (pantalla de registro) o desde
 --    el dashboard de Supabase (Authentication > Users > Add user), con estos correos:
---      perfil-a@demo.cuervodepaz.com
---      perfil-b@demo.cuervodepaz.com
---      perfil-c@demo.cuervodepaz.com
+--      perfil-a@demo.cuervopass.com
+--      perfil-b@demo.cuervopass.com
+--      perfil-c@demo.cuervopass.com
 --    Al registrarte desde la app se crea la fila en `usuarios` automáticamente (ver
 --    src/app/(auth)/registro.tsx). Luego corre los UPDATE de abajo para completar
 --    presupuesto/mascotas/ruido de cada perfil.

@@ -1,4 +1,4 @@
-# Cuervo de Paz
+# Cuervo Pass
 
 App móvil para que alumnos universitarios encuentren departamento y compañeros de vivienda compatibles, usando un motor de sugerencias que combina filtros ponderados con matching semántico por embeddings.
 

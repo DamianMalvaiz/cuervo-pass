@@ -43,7 +43,7 @@ export default function LoginScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title">Cuervo de Paz</ThemedText>
+      <ThemedText type="title">Cuervo Pass</ThemedText>
       <ThemedText type="small" style={styles.subtitulo}>
         Inicia sesión para ver tus sugerencias
       </ThemedText>

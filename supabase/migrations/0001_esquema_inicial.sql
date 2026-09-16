@@ -1,4 +1,4 @@
--- Cuervo de Paz — esquema inicial
+-- Cuervo Pass — esquema inicial
 -- Fuente: documento maestro, secciones 7 (modelo de datos) y 8 (Row Level Security).
 -- Corre con `supabase db push` (CLI vinculado a tu proyecto) o pegado en el SQL editor de Supabase.
 
