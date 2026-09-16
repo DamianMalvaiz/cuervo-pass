@@ -13,7 +13,9 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 const esquemaRegistro = z
   .object({
-    nombreCompleto: z.string().min(2, 'Escribe tu nombre'),
+    nombre: z.string().min(2, 'Escribe tu nombre'),
+    apellidoPaterno: z.string().min(2, 'Escribe tu apellido paterno'),
+    apellidoMaterno: z.string().optional(),
     nombreUsuario: z
       .string()
       .min(3, 'Mínimo 3 caracteres')
@@ -49,10 +51,13 @@ export default function RegistroScreen() {
       if (sesion.user) {
         // Fila inicial en `usuarios` — la policy "solo el dueno inserta su fila inicial" (sección 8)
         // exige que auth.uid() = id, por eso se hace justo después del signUp, con sesión ya activa.
+        const nombreCompleto = [datos.nombre, datos.apellidoPaterno, datos.apellidoMaterno]
+          .filter(Boolean)
+          .join(' ');
         const { error: errorInsert } = await supabase.from('usuarios').insert({
           id: sesion.user.id,
           nombre_usuario: datos.nombreUsuario,
-          nombre_completo: datos.nombreCompleto,
+          nombre_completo: nombreCompleto,
         });
         if (errorInsert) throw errorInsert;
       }
@@ -70,12 +75,30 @@ export default function RegistroScreen() {
 
       <Controller
         control={control}
-        name="nombreCompleto"
+        name="nombre"
         render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput style={styles.input} placeholder="Nombre completo" onBlur={onBlur} onChangeText={onChange} value={value} />
+          <TextInput style={styles.input} placeholder="Nombre(s)" onBlur={onBlur} onChangeText={onChange} value={value} />
         )}
       />
-      {errors.nombreCompleto && <ThemedText style={styles.error}>{errors.nombreCompleto.message}</ThemedText>}
+      {errors.nombre && <ThemedText style={styles.error}>{errors.nombre.message}</ThemedText>}
+
+      <Controller
+        control={control}
+        name="apellidoPaterno"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput style={styles.input} placeholder="Apellido paterno" onBlur={onBlur} onChangeText={onChange} value={value} />
+        )}
+      />
+      {errors.apellidoPaterno && <ThemedText style={styles.error}>{errors.apellidoPaterno.message}</ThemedText>}
+
+      <Controller
+        control={control}
+        name="apellidoMaterno"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput style={styles.input} placeholder="Apellido materno (opcional)" onBlur={onBlur} onChangeText={onChange} value={value} />
+        )}
+      />
+      {errors.apellidoMaterno && <ThemedText style={styles.error}>{errors.apellidoMaterno.message}</ThemedText>}
 
       <Controller
         control={control}
