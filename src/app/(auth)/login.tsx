@@ -17,6 +17,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppColors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
 const esquemaLogin = z.object({
@@ -43,7 +44,16 @@ export default function LoginScreen() {
     setEnviando(true);
     try {
       await iniciarSesion(datos.email, datos.password);
-      router.replace('/(tabs)/inicio');
+      const { data: sesion } = await supabase.auth.getUser();
+      // Si esta cuenta se quedó a medias del cuestionario inicial (ej. salió
+      // de la app antes de terminarlo), regresarla ahí en vez de mandarla
+      // directo a Sugerencias sin universidad/presupuesto configurados.
+      const { data: perfil } = await supabase
+        .from('usuarios')
+        .select('universidad')
+        .eq('id', sesion.user?.id ?? '')
+        .single();
+      router.replace(perfil?.universidad ? '/(tabs)/inicio' : '/(auth)/cuestionario-inicial');
     } catch (e) {
       setErrorServidor(e instanceof Error ? e.message : 'No se pudo iniciar sesión');
     } finally {
