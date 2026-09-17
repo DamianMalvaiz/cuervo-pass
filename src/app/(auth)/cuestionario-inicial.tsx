@@ -16,8 +16,11 @@ export default function CuestionarioInicialScreen() {
 
   const onCompletar = async (respuestas: RespuestasCuestionario) => {
     if (!session?.user.id) return;
-    // Sin coordenadas si Mapbox falla — el cuestionario igual se guarda (sección 17).
-    const coords = await geocodificarDireccion(respuestas.universidad);
+    // Universidad conocida (lista curada) trae coordenadas ya verificadas — solo
+    // se geocodifica texto libre para "Otra", con las limitaciones que eso implica
+    // (nombres/abreviaturas ambiguos pueden no ubicarse bien; ver lib/universidades.ts).
+    // Nunca bloquea el flujo si Mapbox falla (sección 17).
+    const coords = respuestas.universidadCoords ?? (await geocodificarDireccion(respuestas.universidad));
     await actualizarPerfil(session.user.id, {
       universidad: respuestas.universidad,
       presupuesto_min: respuestas.presupuestoMin,

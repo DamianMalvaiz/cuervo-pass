@@ -2,20 +2,32 @@ import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
 import { AppColors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { buscarPorCodigoPostal } from '@/lib/direccionMx';
+import { buscarCalles } from '@/lib/mapboxAutocomplete';
 import type { FotoEntrada } from '@/services/publicaciones.service';
 import { ThemedText } from './themed-text';
 
 const MAX_FOTOS = 5;
 
+// Formulario de dirección estructurado (calle/número/colonia/...) en vez de un
+// solo campo de texto libre — más fácil de llenar para quien publica, y produce
+// una dirección mejor formada para el geocoding de Mapbox (menos ambigüedad).
 const esquema = z.object({
-  direccion: z.string().min(5, 'Escribe una dirección o zona'),
+  calle: z.string().min(3, 'Escribe la calle'),
+  numeroExterior: z.string().min(1, 'Escribe el número exterior'),
+  numeroInterior: z.string().optional(),
+  codigoPostal: z.string().regex(/^\d{5}$/, 'Código postal a 5 dígitos'),
+  colonia: z.string().min(2, 'Escribe la colonia'),
+  localidad: z.string().min(2, 'Escribe la localidad'),
+  municipio: z.string().min(2, 'Escribe el municipio'),
+  estado: z.string().min(2, 'Escribe el estado'),
   precioRenta: z
     .string()
     .min(1, 'Escribe el precio')
@@ -25,7 +37,17 @@ const esquema = z.object({
   whatsapp: z.string().regex(/^\d{10}$/, 'Agrega un número a 10 dígitos'),
 });
 
-export type ValoresFormularioPublicacion = z.infer<typeof esquema>;
+type FormPublicacion = z.infer<typeof esquema>;
+
+// Forma externa que ya consumen publicacion/nueva.tsx y publicacion/editar/[id].tsx
+// — se mantiene igual (un solo `direccion`) para no tener que tocar el servicio
+// ni el geocoding; el armado de las partes a texto pasa aquí adentro.
+export interface ValoresFormularioPublicacion {
+  direccion: string;
+  precioRenta: string;
+  descripcion?: string;
+  whatsapp: string;
+}
 
 export interface DatosGuardarPublicacion extends ValoresFormularioPublicacion {
   fotos: FotoEntrada[];
@@ -38,6 +60,175 @@ interface Props {
   onGuardar: (datos: DatosGuardarPublicacion) => Promise<void>;
 }
 
+function armarDireccion(v: FormPublicacion): string {
+  const numero = v.numeroInterior ? `${v.numeroExterior} Int. ${v.numeroInterior}` : v.numeroExterior;
+  return `${v.calle} ${numero}, ${v.colonia}, ${v.localidad}, ${v.municipio}, ${v.estado}, CP ${v.codigoPostal}`;
+}
+
+interface CampoDesplegableProps {
+  valor: string | undefined;
+  onSeleccionar: (texto: string) => void;
+  // Si se pasa, cada tecleo dentro del modal dispara una búsqueda externa
+  // (async, ej. Mapbox) y `opciones` se toma tal cual venga — sin filtrar aquí
+  // otra vez. Si no se pasa, `opciones` es una lista fija que sí se filtra
+  // localmente conforme se escribe (ej. las colonias del código postal).
+  onBuscar?: (texto: string) => void;
+  opciones: string[];
+  cargando?: boolean;
+  titulo: string;
+  placeholder: string;
+  accessibilityLabel: string;
+  estilo: (object | undefined)[];
+  theme: ReturnType<typeof useTheme>;
+  // false: sin buscador — solo despliega la lista fija tal cual, y agrega una
+  // fila "Otra (escribir)" al final para texto libre (ej. Colonia: la lista ya
+  // viene acotada por el código postal, un buscador ahí encima sería redundante).
+  permiteBuscar?: boolean;
+}
+
+const OTRA_SENTINEL = '__otra__';
+
+// Campo tipo "select": tocarlo despliega el menú justo debajo, en el mismo
+// lugar (no una pantalla/modal aparte) — se cierra al tocar de nuevo el campo
+// o al elegir una opción. Siempre se puede confirmar lo escrito aunque no esté
+// en la lista (sección 17: nunca bloquear el flujo por datos que no cuadran exacto).
+function CampoDesplegable({
+  valor,
+  onSeleccionar,
+  onBuscar,
+  opciones,
+  cargando,
+  titulo,
+  placeholder,
+  accessibilityLabel,
+  estilo,
+  theme,
+  permiteBuscar = true,
+}: CampoDesplegableProps) {
+  const [abierto, setAbierto] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
+  const [escribiendoLibre, setEscribiendoLibre] = useState(false);
+
+  const alternar = () => {
+    if (!abierto) setBusqueda(valor ?? '');
+    setAbierto((v) => !v);
+  };
+
+  const onCambiaBusqueda = (texto: string) => {
+    setBusqueda(texto);
+    onBuscar?.(texto);
+  };
+
+  const onElegir = (texto: string) => {
+    onSeleccionar(texto);
+    setAbierto(false);
+  };
+
+  const volverALista = () => {
+    setEscribiendoLibre(false);
+    setBusqueda('');
+    setAbierto(true);
+  };
+
+  if (escribiendoLibre) {
+    return (
+      <View style={styles.filaEscribirLibre}>
+        <TextInput
+          style={[...estilo, styles.inputEscribirLibre]}
+          placeholder={placeholder}
+          placeholderTextColor={theme.textSecondary}
+          accessibilityLabel={accessibilityLabel}
+          autoFocus
+          onChangeText={onSeleccionar}
+          value={valor}
+        />
+        <Pressable
+          onPress={volverALista}
+          style={styles.botonVolverLista}
+          accessibilityRole="button"
+          accessibilityLabel={`Elegir ${titulo} de la lista`}
+          hitSlop={8}
+        >
+          <Ionicons name="list" size={20} color={theme.textSecondary} />
+        </Pressable>
+      </View>
+    );
+  }
+
+  const opcionesFiltradas =
+    !permiteBuscar || onBuscar ? opciones : opciones.filter((o) => o.toLowerCase().includes(busqueda.trim().toLowerCase()));
+  const coincideExacto = opcionesFiltradas.some((o) => o.toLowerCase() === busqueda.trim().toLowerCase());
+  const datosLista = permiteBuscar
+    ? busqueda.trim() && !coincideExacto
+      ? [...opcionesFiltradas, `usar:${busqueda}`]
+      : opcionesFiltradas
+    : [...opcionesFiltradas, OTRA_SENTINEL];
+
+  return (
+    <View style={[styles.envolturaDesplegable, abierto && styles.envolturaDesplegableAbierta]}>
+      <Pressable
+        onPress={alternar}
+        style={[...estilo, styles.campoDesplegable]}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityState={{ expanded: abierto }}
+      >
+        <ThemedText style={!valor ? { color: theme.textSecondary } : undefined} numberOfLines={1}>
+          {valor || placeholder}
+        </ThemedText>
+        <Ionicons name={abierto ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textSecondary} />
+      </Pressable>
+
+      {abierto && (
+        <View style={[styles.desplegable, { borderColor: theme.border, backgroundColor: theme.background }]}>
+          {permiteBuscar && (
+            <TextInput
+              style={[styles.buscadorDesplegable, { borderColor: theme.border, color: theme.text }]}
+              placeholder={`Buscar ${titulo.toLowerCase()}`}
+              placeholderTextColor={theme.textSecondary}
+              accessibilityLabel={`Buscar ${accessibilityLabel}`}
+              autoFocus
+              onChangeText={onCambiaBusqueda}
+              value={busqueda}
+            />
+          )}
+          {cargando && <ActivityIndicator style={styles.cargandoSugerencias} size="small" />}
+
+          <FlatList
+            style={styles.listaDesplegable}
+            data={datosLista}
+            keyExtractor={(item) => item}
+            keyboardShouldPersistTaps="handled"
+            ItemSeparatorComponent={() => <View style={[styles.separadorDesplegable, { backgroundColor: theme.border }]} />}
+            renderItem={({ item }) => {
+              const esOtra = item === OTRA_SENTINEL;
+              const esUsarTexto = item.startsWith('usar:');
+              const texto = esUsarTexto ? item.slice(5) : item;
+              return (
+                <Pressable
+                  onPress={() => (esOtra ? setEscribiendoLibre(true) : onElegir(texto))}
+                  style={styles.filaMenu}
+                  accessibilityRole="button"
+                  accessibilityLabel={esOtra ? `Escribir ${titulo} manualmente` : esUsarTexto ? `Usar "${texto}"` : `Elegir ${texto}`}
+                >
+                  <ThemedText type="small" style={esOtra ? styles.textoOtra : undefined}>
+                    {esOtra ? 'Otra (escribir)' : esUsarTexto ? `Usar "${texto}"` : texto}
+                  </ThemedText>
+                </Pressable>
+              );
+            }}
+            ListEmptyComponent={
+              <ThemedText type="small" style={styles.listaVacia}>
+                Escribe para buscar
+              </ThemedText>
+            }
+          />
+        </View>
+      )}
+    </View>
+  );
+}
+
 // Fila de fotos con miniaturas que se pueden quitar y placeholder para agregar
 // más — misma UI tanto para crear (fotosIniciales vacío) como para editar.
 export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], textoBoton, onGuardar }: Props) {
@@ -48,11 +239,72 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [sugerenciasCalle, setSugerenciasCalle] = useState<string[]>([]);
+  const [buscandoCalle, setBuscandoCalle] = useState(false);
+  const temporizadorCalle = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [opcionesColonia, setOpcionesColonia] = useState<string[]>([]);
+  const [buscandoCP, setBuscandoCP] = useState(false);
+  const [cpNoEncontrado, setCpNoEncontrado] = useState(false);
+  const ultimoCPBuscado = useRef<string | null>(null);
+
   const {
     control,
     handleSubmit,
+    setValue,
+    getValues,
     formState: { errors },
-  } = useForm<ValoresFormularioPublicacion>({ resolver: zodResolver(esquema), defaultValues: valoresIniciales });
+  } = useForm<FormPublicacion>({
+    resolver: zodResolver(esquema),
+    defaultValues: {
+      precioRenta: valoresIniciales?.precioRenta,
+      descripcion: valoresIniciales?.descripcion,
+      whatsapp: valoresIniciales?.whatsapp,
+    },
+  });
+
+  useEffect(() => {
+    return () => {
+      if (temporizadorCalle.current) clearTimeout(temporizadorCalle.current);
+    };
+  }, []);
+
+  const onCambiaCalle = (texto: string) => {
+    if (temporizadorCalle.current) clearTimeout(temporizadorCalle.current);
+    if (texto.trim().length < 4) {
+      setSugerenciasCalle([]);
+      return;
+    }
+    temporizadorCalle.current = setTimeout(async () => {
+      setBuscandoCalle(true);
+      const resultados = await buscarCalles(texto);
+      setSugerenciasCalle(resultados.map((r) => r.texto));
+      setBuscandoCalle(false);
+    }, 400);
+  };
+
+  const onCambiaCP = async (cp: string) => {
+    if (!/^\d{5}$/.test(cp)) {
+      setCpNoEncontrado(false);
+      return;
+    }
+    if (cp === ultimoCPBuscado.current) return;
+    ultimoCPBuscado.current = cp;
+    setBuscandoCP(true);
+    const datos = await buscarPorCodigoPostal(cp);
+    setBuscandoCP(false);
+    if (!datos) {
+      setCpNoEncontrado(true);
+      return;
+    }
+    setCpNoEncontrado(false);
+    setOpcionesColonia(datos.colonias);
+    // Solo rellena automático los campos que el usuario todavía no tocó — nunca
+    // pisa algo que ya haya escrito a mano.
+    if (!getValues('estado')) setValue('estado', datos.estado);
+    if (!getValues('municipio')) setValue('municipio', datos.municipio);
+    if (!getValues('localidad') && datos.localidad) setValue('localidad', datos.localidad);
+  };
 
   const uriDeFoto = (foto: FotoEntrada) => (foto.esNueva ? foto.uri : foto.url);
 
@@ -77,11 +329,17 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
     setFotos((prev) => prev.filter((f) => uriDeFoto(f) !== uriDeFoto(foto)));
   };
 
-  const onSubmit = async (valores: ValoresFormularioPublicacion) => {
+  const onSubmit = async (valores: FormPublicacion) => {
     setError(null);
     setEnviando(true);
     try {
-      await onGuardar({ ...valores, fotos });
+      await onGuardar({
+        direccion: armarDireccion(valores),
+        precioRenta: valores.precioRenta,
+        descripcion: valores.descripcion,
+        whatsapp: valores.whatsapp,
+        fotos,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo guardar la publicación');
     } finally {
@@ -93,23 +351,176 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
 
   return (
     <View style={styles.container}>
+      {valoresIniciales?.direccion && (
+        <ThemedText type="small" style={styles.direccionActual}>
+          Dirección actual: {valoresIniciales.direccion}
+        </ThemedText>
+      )}
+
+      <ThemedText type="small" style={styles.etiqueta}>
+        Dirección
+      </ThemedText>
       <Controller
         control={control}
-        name="direccion"
+        name="calle"
+        render={({ field: { onChange, value } }) => (
+          <CampoDesplegable
+            valor={value}
+            onSeleccionar={(texto) => {
+              onChange(texto);
+              setSugerenciasCalle([]);
+            }}
+            onBuscar={onCambiaCalle}
+            opciones={sugerenciasCalle}
+            cargando={buscandoCalle}
+            titulo="Calle"
+            placeholder="Calle"
+            accessibilityLabel="Calle"
+            estilo={estiloInput}
+            theme={theme}
+          />
+        )}
+      />
+      {errors.calle && <ThemedText style={styles.error}>{errors.calle.message}</ThemedText>}
+
+      <View style={styles.filaDos}>
+        <Controller
+          control={control}
+          name="numeroExterior"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <TextInput
+              style={[estiloInput, styles.inputMitad]}
+              placeholder="Número exterior"
+              placeholderTextColor={theme.textSecondary}
+              accessibilityLabel="Número exterior"
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="numeroInterior"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <TextInput
+              style={[estiloInput, styles.inputMitad]}
+              placeholder="Número interior (opcional)"
+              placeholderTextColor={theme.textSecondary}
+              accessibilityLabel="Número interior, opcional"
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+            />
+          )}
+        />
+      </View>
+      {errors.numeroExterior && <ThemedText style={styles.error}>{errors.numeroExterior.message}</ThemedText>}
+
+      <Controller
+        control={control}
+        name="codigoPostal"
         render={({ field: { onChange, onBlur, value } }) => (
           <TextInput
             style={estiloInput}
-            placeholder="Dirección o zona"
+            placeholder="Código postal"
             placeholderTextColor={theme.textSecondary}
-            accessibilityLabel="Dirección o zona"
+            keyboardType="numeric"
+            maxLength={5}
+            accessibilityLabel="Código postal"
+            onBlur={onBlur}
+            onChangeText={(texto) => {
+              onChange(texto);
+              onCambiaCP(texto);
+            }}
+            value={value}
+          />
+        )}
+      />
+      {buscandoCP && <ActivityIndicator style={styles.cargandoSugerencias} size="small" />}
+      {cpNoEncontrado && (
+        <ThemedText type="small" style={styles.avisoCpNoEncontrado}>
+          No encontramos ese código postal — puedes llenar colonia/municipio/estado a mano.
+        </ThemedText>
+      )}
+      {errors.codigoPostal && <ThemedText style={styles.error}>{errors.codigoPostal.message}</ThemedText>}
+
+      <Controller
+        control={control}
+        name="colonia"
+        render={({ field: { onChange, value } }) => (
+          <CampoDesplegable
+            valor={value}
+            onSeleccionar={(texto) => {
+              onChange(texto);
+            }}
+            opciones={opcionesColonia}
+            titulo="Colonia"
+            placeholder="Colonia"
+            accessibilityLabel="Colonia"
+            estilo={estiloInput}
+            theme={theme}
+            permiteBuscar={false}
+          />
+        )}
+      />
+      {errors.colonia && <ThemedText style={styles.error}>{errors.colonia.message}</ThemedText>}
+
+      <Controller
+        control={control}
+        name="localidad"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput
+            style={estiloInput}
+            placeholder="Localidad"
+            placeholderTextColor={theme.textSecondary}
+            accessibilityLabel="Localidad"
             onBlur={onBlur}
             onChangeText={onChange}
             value={value}
           />
         )}
       />
-      {errors.direccion && <ThemedText style={styles.error}>{errors.direccion.message}</ThemedText>}
+      {errors.localidad && <ThemedText style={styles.error}>{errors.localidad.message}</ThemedText>}
 
+      <View style={styles.filaDos}>
+        <Controller
+          control={control}
+          name="municipio"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <TextInput
+              style={[estiloInput, styles.inputMitad]}
+              placeholder="Municipio"
+              placeholderTextColor={theme.textSecondary}
+              accessibilityLabel="Municipio"
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="estado"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <TextInput
+              style={[estiloInput, styles.inputMitad]}
+              placeholder="Estado"
+              placeholderTextColor={theme.textSecondary}
+              accessibilityLabel="Estado"
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+            />
+          )}
+        />
+      </View>
+      {errors.municipio && <ThemedText style={styles.error}>{errors.municipio.message}</ThemedText>}
+      {errors.estado && <ThemedText style={styles.error}>{errors.estado.message}</ThemedText>}
+
+      <ThemedText type="small" style={styles.etiqueta}>
+        Detalles
+      </ThemedText>
       <Controller
         control={control}
         name="precioRenta"
@@ -211,10 +622,57 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
 
 const styles = StyleSheet.create({
   container: { gap: Spacing.two },
+  direccionActual: { fontStyle: 'italic', marginBottom: Spacing.one },
   input: { borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.three },
+  inputMitad: { flex: 1 },
+  filaDos: { flexDirection: 'row', gap: Spacing.two },
   descripcionInput: { minHeight: 80, textAlignVertical: 'top' },
   error: { color: AppColors.destructiveRed },
   etiqueta: { marginTop: Spacing.two },
+  cargandoSugerencias: { marginTop: Spacing.one, alignSelf: 'flex-start' },
+  avisoCpNoEncontrado: { color: AppColors.destructiveRed },
+  envolturaDesplegable: { position: 'relative', zIndex: 1 },
+  envolturaDesplegableAbierta: { zIndex: 30, elevation: 30 },
+  campoDesplegable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  desplegable: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: Spacing.one,
+    borderWidth: 1,
+    borderRadius: Spacing.two,
+    padding: Spacing.one,
+    maxHeight: 260,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    zIndex: 30,
+  },
+  buscadorDesplegable: {
+    borderWidth: 1,
+    borderRadius: Spacing.two,
+    padding: Spacing.two,
+    marginBottom: Spacing.one,
+  },
+  listaDesplegable: { maxHeight: 200 },
+  separadorDesplegable: { height: 1 },
+  listaVacia: { paddingVertical: Spacing.two, textAlign: 'center' },
+  textoOtra: { fontStyle: 'italic' },
+  filaEscribirLibre: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
+  inputEscribirLibre: { flex: 1 },
+  botonVolverLista: { padding: Spacing.one },
+  filaMenu: {
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.one,
+  },
   fotosFila: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   fotoMiniContenedor: { position: 'relative' },
   fotoMini: { width: 80, height: 80, borderRadius: Spacing.two },
