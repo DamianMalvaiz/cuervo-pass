@@ -36,6 +36,8 @@ yarn-error.*
 
 # ai-service (Python)
 ai-service/venv/
+ai-service/.venv/
+ai-service/.pytest_cache/
 ai-service/__pycache__/
 ai-service/**/__pycache__/
 *.pyc
