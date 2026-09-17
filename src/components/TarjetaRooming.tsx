@@ -1,6 +1,8 @@
+import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
 
 interface Props {
@@ -11,12 +13,18 @@ interface Props {
 }
 
 export function TarjetaRooming({ nombreUsuario, descripcionBusqueda, fotoUrl, onPress }: Props) {
+  const theme = useTheme();
   return (
-    <Pressable style={styles.tarjeta} onPress={onPress}>
+    <Pressable
+      style={styles.tarjeta}
+      onPress={onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={`${nombreUsuario}${descripcionBusqueda ? `, ${descripcionBusqueda}` : ''}`}
+    >
       {fotoUrl ? (
-        <View style={styles.avatar} />
+        <Image source={{ uri: fotoUrl }} style={styles.avatar} contentFit="cover" />
       ) : (
-        <View style={[styles.avatar, styles.avatarVacio]} />
+        <View style={[styles.avatar, { backgroundColor: theme.backgroundSelected }]} />
       )}
       <View style={styles.info}>
         <ThemedText type="smallBold">{nombreUsuario}</ThemedText>
@@ -33,6 +41,5 @@ export function TarjetaRooming({ nombreUsuario, descripcionBusqueda, fotoUrl, on
 const styles = StyleSheet.create({
   tarjeta: { flexDirection: 'row', gap: Spacing.three, padding: Spacing.two, alignItems: 'center' },
   avatar: { width: 48, height: 48, borderRadius: 24 },
-  avatarVacio: { backgroundColor: '#E0E1E6' },
   info: { flex: 1, gap: Spacing.half },
 });

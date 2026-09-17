@@ -1,11 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { ActivityIndicator, Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
-import { Spacing } from '@/constants/theme';
+import { AppColors, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import type { FotoEntrada } from '@/services/publicaciones.service';
 import { ThemedText } from './themed-text';
 
@@ -38,6 +41,7 @@ interface Props {
 // Fila de fotos con miniaturas que se pueden quitar y placeholder para agregar
 // más — misma UI tanto para crear (fotosIniciales vacío) como para editar.
 export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], textoBoton, onGuardar }: Props) {
+  const theme = useTheme();
   const [fotos, setFotos] = useState<FotoEntrada[]>(
     fotosIniciales.map((url) => ({ url, esNueva: false }))
   );
@@ -85,13 +89,23 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
     }
   };
 
+  const estiloInput = [styles.input, { borderColor: theme.border, color: theme.text }];
+
   return (
     <View style={styles.container}>
       <Controller
         control={control}
         name="direccion"
         render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput style={styles.input} placeholder="Dirección o zona" onBlur={onBlur} onChangeText={onChange} value={value} />
+          <TextInput
+            style={estiloInput}
+            placeholder="Dirección o zona"
+            placeholderTextColor={theme.textSecondary}
+            accessibilityLabel="Dirección o zona"
+            onBlur={onBlur}
+            onChangeText={onChange}
+            value={value}
+          />
         )}
       />
       {errors.direccion && <ThemedText style={styles.error}>{errors.direccion.message}</ThemedText>}
@@ -101,9 +115,11 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
         name="precioRenta"
         render={({ field: { onChange, onBlur, value } }) => (
           <TextInput
-            style={styles.input}
+            style={estiloInput}
             placeholder="Precio de renta (MXN/mes)"
+            placeholderTextColor={theme.textSecondary}
             keyboardType="numeric"
+            accessibilityLabel="Precio de renta mensual en pesos"
             onBlur={onBlur}
             onChangeText={onChange}
             value={value}
@@ -117,9 +133,11 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
         name="descripcion"
         render={({ field: { onChange, onBlur, value } }) => (
           <TextInput
-            style={[styles.input, styles.descripcionInput]}
+            style={[estiloInput, styles.descripcionInput]}
             placeholder="Descripción (amueblado, mascotas, servicios incluidos...)"
+            placeholderTextColor={theme.textSecondary}
             multiline
+            accessibilityLabel="Descripción de la publicación"
             onBlur={onBlur}
             onChangeText={onChange}
             value={value}
@@ -132,9 +150,11 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
         name="whatsapp"
         render={({ field: { onChange, onBlur, value } }) => (
           <TextInput
-            style={styles.input}
+            style={estiloInput}
             placeholder="WhatsApp (10 dígitos)"
+            placeholderTextColor={theme.textSecondary}
             keyboardType="numeric"
+            accessibilityLabel="Número de WhatsApp, 10 dígitos"
             onBlur={onBlur}
             onChangeText={onChange}
             value={value}
@@ -147,24 +167,42 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
         Fotos ({fotos.length}/{MAX_FOTOS})
       </ThemedText>
       <View style={styles.fotosFila}>
-        {fotos.map((foto) => (
-          <Pressable key={uriDeFoto(foto)} onPress={() => onQuitarFoto(foto)} style={styles.fotoMiniContenedor}>
-            <Image source={{ uri: uriDeFoto(foto) }} style={styles.fotoMini} />
-            <View style={styles.fotoMiniQuitar}>
-              <ThemedText style={styles.fotoMiniQuitarTexto}>✕</ThemedText>
-            </View>
-          </Pressable>
+        {fotos.map((foto, indice) => (
+          <View key={uriDeFoto(foto)} style={styles.fotoMiniContenedor}>
+            <Image source={{ uri: uriDeFoto(foto) }} style={styles.fotoMini} contentFit="cover" />
+            <Pressable
+              onPress={() => onQuitarFoto(foto)}
+              style={styles.fotoMiniQuitar}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={`Quitar foto ${indice + 1}`}
+            >
+              <Ionicons name="close" size={14} color="#fff" />
+            </Pressable>
+          </View>
         ))}
         {fotos.length < MAX_FOTOS && (
-          <Pressable onPress={onAgregarFotos} style={[styles.fotoMini, styles.fotoAgregar]}>
-            <ThemedText style={styles.fotoAgregarTexto}>+</ThemedText>
+          <Pressable
+            onPress={onAgregarFotos}
+            style={[styles.fotoMini, styles.fotoAgregar, { backgroundColor: theme.backgroundSelected }]}
+            accessibilityRole="button"
+            accessibilityLabel="Agregar foto"
+          >
+            <Ionicons name="add" size={28} color={theme.textSecondary} />
           </Pressable>
         )}
       </View>
 
       {error && <ThemedText style={styles.error}>{error}</ThemedText>}
 
-      <Pressable style={styles.boton} onPress={handleSubmit(onSubmit)} disabled={enviando}>
+      <Pressable
+        style={styles.boton}
+        onPress={handleSubmit(onSubmit)}
+        disabled={enviando}
+        accessibilityRole="button"
+        accessibilityLabel={textoBoton}
+        accessibilityState={{ disabled: enviando, busy: enviando }}
+      >
         {enviando ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.botonTexto}>{textoBoton}</ThemedText>}
       </Pressable>
     </View>
@@ -173,9 +211,9 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
 
 const styles = StyleSheet.create({
   container: { gap: Spacing.two },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: Spacing.two, padding: Spacing.three },
+  input: { borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.three },
   descripcionInput: { minHeight: 80, textAlignVertical: 'top' },
-  error: { color: '#d92d20' },
+  error: { color: AppColors.destructiveRed },
   etiqueta: { marginTop: Spacing.two },
   fotosFila: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   fotoMiniContenedor: { position: 'relative' },
@@ -184,16 +222,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -Spacing.half,
     right: -Spacing.half,
-    backgroundColor: '#d92d20',
+    backgroundColor: AppColors.destructiveRed,
     borderRadius: 10,
     width: 20,
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fotoMiniQuitarTexto: { color: '#fff', fontSize: 12, lineHeight: 14 },
-  fotoAgregar: { backgroundColor: '#E0E1E6', alignItems: 'center', justifyContent: 'center' },
-  fotoAgregarTexto: { fontSize: 28, lineHeight: 28, color: '#60646C' },
-  boton: { backgroundColor: '#208AEF', borderRadius: Spacing.two, padding: Spacing.three, alignItems: 'center', marginTop: Spacing.three },
+  fotoAgregar: { alignItems: 'center', justifyContent: 'center' },
+  boton: {
+    backgroundColor: AppColors.primary,
+    borderRadius: Spacing.two,
+    padding: Spacing.three,
+    alignItems: 'center',
+    marginTop: Spacing.three,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   botonTexto: { color: '#fff', fontWeight: '600' },
 });

@@ -1,11 +1,13 @@
+import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BotonWhatsApp } from '@/components/BotonWhatsApp';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { AppColors, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { obtenerPublicacion, registrarMatch, reportarPublicacion } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
@@ -14,6 +16,7 @@ const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits
 
 // TODO (Semana 4): mapa pequeño con la ubicación (lat/lng vienen de Mapbox Geocoding).
 export default function DetallePublicacionScreen() {
+  const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const session = useAuthStore((s) => s.session);
   const [publicacion, setPublicacion] = useState<Publicacion | null>(null);
@@ -36,16 +39,20 @@ export default function DetallePublicacionScreen() {
 
   const onReportar = () => {
     if (!session?.user.id || !publicacion) return;
+    const usuarioId = session.user.id;
+    const publicacionId = publicacion.id;
+    const enviar = async (motivo: string) => {
+      try {
+        await reportarPublicacion(usuarioId, publicacionId, motivo);
+        Alert.alert('Gracias', 'Reportamos esta publicación para revisión.');
+      } catch {
+        Alert.alert('No se pudo enviar el reporte', 'Intenta de nuevo en un momento.');
+      }
+    };
     Alert.alert('Reportar publicación', '¿Por qué la reportas?', [
       { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Contenido sospechoso',
-        onPress: () => reportarPublicacion(session.user.id, publicacion.id, 'contenido sospechoso'),
-      },
-      {
-        text: 'Información falsa',
-        onPress: () => reportarPublicacion(session.user.id, publicacion.id, 'información falsa'),
-      },
+      { text: 'Contenido sospechoso', onPress: () => enviar('contenido sospechoso') },
+      { text: 'Información falsa', onPress: () => enviar('información falsa') },
     ]);
   };
 
@@ -68,13 +75,19 @@ export default function DetallePublicacionScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {publicacion.fotos && publicacion.fotos.length > 0 ? (
-        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.carrusel}>
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          style={styles.carrusel}
+          accessibilityLabel={`${publicacion.fotos.length} fotos de la publicación`}
+        >
           {publicacion.fotos.map((url) => (
             <Image key={url} source={{ uri: url }} style={styles.foto} />
           ))}
         </ScrollView>
       ) : (
-        <View style={[styles.foto, styles.fotoVacia]} />
+        <View style={[styles.foto, styles.fotoAncha, { backgroundColor: theme.backgroundSelected }]} />
       )}
 
       <ThemedText type="title" style={styles.precio}>
@@ -91,9 +104,14 @@ export default function DetallePublicacionScreen() {
         />
       </View>
 
-      <ThemedText style={styles.reportarTexto} onPress={onReportar}>
-        Reportar publicación
-      </ThemedText>
+      <Pressable
+        onPress={onReportar}
+        style={styles.reportarBoton}
+        accessibilityRole="button"
+        accessibilityLabel="Reportar publicación"
+      >
+        <ThemedText style={styles.reportarTexto}>Reportar publicación</ThemedText>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -103,8 +121,9 @@ const styles = StyleSheet.create({
   container: { padding: Spacing.three, paddingBottom: Spacing.six },
   carrusel: { borderRadius: Spacing.two },
   foto: { width: 340, height: 220, borderRadius: Spacing.two, marginRight: Spacing.two },
-  fotoVacia: { width: '100%', height: 220, backgroundColor: '#E0E1E6' },
+  fotoAncha: { width: '100%' },
   precio: { fontSize: 28, lineHeight: 34, marginTop: Spacing.three },
   descripcion: { marginTop: Spacing.two },
-  reportarTexto: { color: '#d92d20', textAlign: 'center', marginTop: Spacing.four },
+  reportarBoton: { marginTop: Spacing.four, padding: Spacing.three, minHeight: 44, justifyContent: 'center' },
+  reportarTexto: { color: AppColors.destructiveRed, textAlign: 'center' },
 });

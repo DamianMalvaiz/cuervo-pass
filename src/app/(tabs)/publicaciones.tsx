@@ -5,12 +5,14 @@ import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 
 import { TarjetaPublicacion } from '@/components/TarjetaPublicacion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { AppColors, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { cambiarEstadoPublicacion, listarMisPublicaciones } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
 
 export default function PublicacionesScreen() {
+  const theme = useTheme();
   const session = useAuthStore((s) => s.session);
   const [publicaciones, setPublicaciones] = useState<Publicacion[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -56,7 +58,12 @@ export default function PublicacionesScreen() {
   return (
     <ThemedView style={{ flex: 1, padding: Spacing.three }}>
       <ThemedText type="title">Mis publicaciones</ThemedText>
-      <Pressable onPress={() => router.push('/publicacion/nueva')} style={styles.nuevaBoton}>
+      <Pressable
+        onPress={() => router.push('/publicacion/nueva')}
+        style={styles.nuevaBoton}
+        accessibilityRole="button"
+        accessibilityLabel="Nueva publicación"
+      >
         <ThemedText style={styles.nuevaBotonTexto}>+ Nueva publicación</ThemedText>
       </Pressable>
 
@@ -75,13 +82,29 @@ export default function PublicacionesScreen() {
                   fotoUrl={item.fotos?.[0]}
                   onPress={() => router.push(`/publicacion/${item.id}`)}
                 />
-                {!item.activa && <ThemedText style={styles.inactivaEtiqueta}>Inactiva</ThemedText>}
+                {!item.activa && (
+                  <ThemedText style={[styles.inactivaEtiqueta, { color: theme.textSecondary }]}>Inactiva</ThemedText>
+                )}
               </View>
               <View style={styles.acciones}>
-                <Pressable onPress={() => router.push(`/publicacion/editar/${item.id}`)} style={styles.accionBoton}>
+                <Pressable
+                  onPress={() => router.push(`/publicacion/editar/${item.id}`)}
+                  style={styles.accionBoton}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Editar publicación en ${item.direccion}`}
+                >
                   <ThemedText style={styles.editarTexto}>Editar</ThemedText>
                 </Pressable>
-                <Pressable onPress={() => onCambiarEstado(item)} style={styles.accionBoton}>
+                <Pressable
+                  onPress={() => onCambiarEstado(item)}
+                  style={styles.accionBoton}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    item.activa ? `Desactivar publicación en ${item.direccion}` : `Reactivar publicación en ${item.direccion}`
+                  }
+                >
                   <ThemedText style={item.activa ? styles.desactivarTexto : styles.reactivarTexto}>
                     {item.activa ? 'Desactivar' : 'Reactivar'}
                   </ThemedText>
@@ -97,13 +120,13 @@ export default function PublicacionesScreen() {
 }
 
 const styles = StyleSheet.create({
-  nuevaBoton: { marginVertical: Spacing.three },
-  nuevaBotonTexto: { color: '#208AEF', fontWeight: '600' },
+  nuevaBoton: { marginVertical: Spacing.three, padding: Spacing.two, minHeight: 44, justifyContent: 'center' },
+  nuevaBotonTexto: { color: AppColors.primary, fontWeight: '600' },
   fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  inactivaEtiqueta: { color: '#60646C', marginLeft: Spacing.two },
+  inactivaEtiqueta: { marginLeft: Spacing.two },
   acciones: { alignItems: 'flex-end', gap: Spacing.half },
-  accionBoton: { padding: Spacing.one },
-  editarTexto: { color: '#208AEF' },
-  desactivarTexto: { color: '#d92d20' },
-  reactivarTexto: { color: '#1a9d5c' },
+  accionBoton: { padding: Spacing.three, minHeight: 44, justifyContent: 'center' },
+  editarTexto: { color: AppColors.primary },
+  desactivarTexto: { color: AppColors.destructiveRed },
+  reactivarTexto: { color: AppColors.successGreen },
 });

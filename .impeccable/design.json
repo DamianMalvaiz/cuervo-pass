@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-17T00:00:00Z",
+  "title": "Design System: Cuervo Pass",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Utility Blue",
+        "canonical": "#208AEF",
+        "tonalRamp": ["#06213d", "#0d3c6e", "#14579f", "#1a70c9", "#208AEF", "#5aa8f3", "#94c7f8", "#dbeefd"]
+      },
+      "whatsapp-green": {
+        "role": "secondary",
+        "displayName": "WhatsApp Green",
+        "canonical": "#25D366",
+        "tonalRamp": ["#062e1f", "#0c5c3e", "#12895c", "#1caf7c", "#25D366", "#5fdf8d", "#96ecb2", "#d4f9e1"]
+      },
+      "success-green": {
+        "role": "tertiary",
+        "displayName": "Confirm Green",
+        "canonical": "#1a9d5c",
+        "tonalRamp": ["#062e1c", "#0c5c37", "#127f4b", "#188f54", "#1a9d5c", "#4fb885", "#8ad3ae", "#c7ecd9"]
+      },
+      "destructive-red": {
+        "role": "tertiary",
+        "displayName": "Alert Red",
+        "canonical": "#d92d20",
+        "tonalRamp": ["#3d0906", "#5f0f0b", "#911811", "#b82219", "#d92d20", "#e56a5f", "#f0a49b", "#f9d7d2"]
+      },
+      "neutral-surface": { "role": "neutral", "displayName": "Placeholder Gray", "canonical": "#E0E1E6" },
+      "text-secondary": { "role": "neutral", "displayName": "Secondary Text (light)", "canonical": "#60646C" },
+      "text-secondary-dark": { "role": "neutral", "displayName": "Secondary Text (dark)", "canonical": "#B0B4BA" }
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Title", "purpose": "One per screen, top of the screen only." },
+      "body": { "displayName": "Body / Default", "purpose": "Standard UI text, field values." },
+      "small": { "displayName": "Small", "purpose": "Secondary lines, hints, metadata." },
+      "smallBold": { "displayName": "Small Bold", "purpose": "The single emphasis style — currently only listing prices and usernames." }
+    },
+    "shadows": [],
+    "motion": [],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main call-to-action — Entrar, Crear cuenta, Publicar, Guardar.",
+      "html": "<button class=\"ds-btn-primary\">Entrar</button>",
+      "css": ".ds-btn-primary { background: #208AEF; color: #fff; padding: 16px; border-radius: 8px; border: none; font-weight: 600; font-size: 16px; width: 100%; transition: opacity 0.15s; } .ds-btn-primary:hover { opacity: 0.9; } .ds-btn-primary:focus-visible { outline: 2px solid #14579f; outline-offset: 2px; } .ds-btn-primary:active { opacity: 0.8; }"
+    },
+    {
+      "name": "WhatsApp Contact Button",
+      "kind": "button",
+      "refersTo": "button-whatsapp",
+      "description": "The single, exclusive contact action — opens a WhatsApp deep link.",
+      "html": "<button class=\"ds-btn-whatsapp\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"#fff\"><path d=\"M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.38 5.07L2 22l5.07-1.32A9.94 9.94 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18a7.9 7.9 0 01-4.03-1.1l-.29-.17-3 .78.8-2.93-.19-.3A7.93 7.93 0 014 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z\"/></svg>Contactar por WhatsApp</button>",
+      "css": ".ds-btn-whatsapp { display: flex; align-items: center; justify-content: center; gap: 8px; background: #25D366; color: #fff; padding: 16px; border-radius: 8px; border: none; font-weight: 600; font-size: 16px; width: 100%; } .ds-btn-whatsapp:hover { opacity: 0.9; } .ds-btn-whatsapp:focus-visible { outline: 2px solid #12895c; outline-offset: 2px; }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Filled destructive action — currently only Cerrar sesión (Desactivar/Reportar use the text-only variant instead; see Do's and Don'ts).",
+      "html": "<button class=\"ds-btn-destructive\">Cerrar sesión</button>",
+      "css": ".ds-btn-destructive { background: #d92d20; color: #fff; padding: 16px; border-radius: 8px; border: none; font-weight: 600; font-size: 16px; width: 100%; } .ds-btn-destructive:hover { opacity: 0.9; } .ds-btn-destructive:focus-visible { outline: 2px solid #911811; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Every form field in the app — same border, radius and padding regardless of context.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Correo\" />",
+      "css": ".ds-input { border: 1px solid #ccc; border-radius: 8px; padding: 16px; font-size: 16px; width: 100%; background: transparent; } .ds-input:focus { border-color: #208AEF; outline: none; }"
+    },
+    {
+      "name": "Listing Card",
+      "kind": "card",
+      "refersTo": "card-listing",
+      "description": "TarjetaPublicacion — photo thumbnail, price in Small Bold, address and distance in Small/secondary.",
+      "html": "<div class=\"ds-card-listing\"><div class=\"ds-card-listing-photo\"></div><div class=\"ds-card-listing-info\"><span class=\"ds-card-listing-price\">$2,800/mes</span><span class=\"ds-card-listing-address\">San Mateo Atenco</span></div></div>",
+      "css": ".ds-card-listing { display: flex; flex-direction: row; gap: 16px; padding: 8px; border-radius: 8px; } .ds-card-listing-photo { width: 88px; height: 88px; border-radius: 8px; background: #E0E1E6; flex-shrink: 0; } .ds-card-listing-info { display: flex; flex-direction: column; justify-content: center; gap: 2px; } .ds-card-listing-price { font-weight: 700; font-size: 14px; } .ds-card-listing-address { font-weight: 500; font-size: 14px; color: #60646C; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Reliable Move-In Companion",
+    "overview": "Cuervo Pass exists for the exact moment a student decides on housing they cannot see in person. The interface earns trust the way a good moving company does: nothing flashy, nothing that calls attention to itself, everything legible, predictable, and clearly working. This is an Operate-mode product — task completion (find, publish, contact, confirm) always outranks expression. Right now the system is deliberately plain: one accent color, system typography, no shadows, no illustration, no custom iconography. That plainness is currently more accident than decision — it is the byproduct of building screen-by-screen against a 12-week deadline rather than a chosen aesthetic. This file documents what exists today so future screens stay consistent with it; treat the flatness as a floor to build on, not a philosophy to defend.",
+    "keyCharacteristics": [
+      "One primary accent (#208AEF), used for calls-to-action and links only — never decoratively.",
+      "Flat everywhere: no shadows, no gradients, no elevation system yet.",
+      "System typography only (no custom or brand typeface has been chosen).",
+      "Every screen uses the same 8px spacing/radius grid; nothing is hand-tuned per screen."
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "#208AEF is the only color allowed to mean \"primary action.\" If a second blue-ish accent shows up anywhere, it is a mistake, not a variant.", "section": "colors" },
+      { "name": "The Two-Weight Rule", "body": "The entire app uses exactly two font weights that matter — 500 (default) and 600/700 (title and the one bold emphasis style). A third weight anywhere is unintentional drift.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "No shadow* or elevation prop has been used anywhere in the codebase. Any future shadow use is a deliberate new decision, not a continuation of an existing pattern.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep Utility Blue (#208AEF) as the only color that means \"you can act here\" — never introduce a second accent hue.",
+      "Do use WhatsApp Green (#25D366) exclusively for the WhatsApp contact action.",
+      "Do keep every corner radius at 8px (rounded.md) unless a component is fully circular (avatars).",
+      "Do put validation errors as red small-text below the field, never by recoloring the input border."
+    ],
+    "donts": [
+      "Don't add a shadow or elevation to any component without a deliberate Elevation & Depth decision first.",
+      "Don't treat \"Desactivar\"/\"Reportar\" (text-only red) and \"Cerrar sesión\" (filled red button) as the same component — reconcile which destructive actions are filled vs. text-only before adding a third one.",
+      "Don't style the bottom tab bar or any new screen against a generic Material/iOS default without checking this file first."
+    ]
+  }
+}

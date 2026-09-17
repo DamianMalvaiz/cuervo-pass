@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Linking, Pressable, StyleSheet } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
+import { AppColors, Spacing } from '@/constants/theme';
 import { ThemedText } from './themed-text';
 
 interface Props {
@@ -18,7 +19,14 @@ export function BotonWhatsApp({ numero, mensaje = 'Hola, vi tu publicación en C
   };
 
   return (
-    <Pressable style={styles.boton} onPress={abrirWhatsApp}>
+    <Pressable
+      style={styles.boton}
+      onPress={abrirWhatsApp}
+      accessibilityRole="button"
+      accessibilityLabel="Contactar por WhatsApp"
+      accessibilityHint="Abre WhatsApp con un mensaje ya escrito"
+    >
+      <Ionicons name="logo-whatsapp" size={20} color="#fff" />
       <ThemedText style={styles.texto}>Contactar por WhatsApp</ThemedText>
     </Pressable>
   );
@@ -26,10 +34,14 @@ export function BotonWhatsApp({ numero, mensaje = 'Hola, vi tu publicación en C
 
 const styles = StyleSheet.create({
   boton: {
-    backgroundColor: '#25D366',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    backgroundColor: AppColors.whatsappGreen,
     borderRadius: Spacing.two,
     padding: Spacing.three,
-    alignItems: 'center',
+    minHeight: 44,
   },
   texto: { color: '#fff', fontWeight: '600' },
 });

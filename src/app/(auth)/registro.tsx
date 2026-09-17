@@ -2,12 +2,21 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+} from 'react-native';
 import { z } from 'zod';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { AppColors, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -32,6 +41,7 @@ const esquemaRegistro = z
 type FormRegistro = z.infer<typeof esquemaRegistro>;
 
 export default function RegistroScreen() {
+  const theme = useTheme();
   const registrarse = useAuthStore((s) => s.registrarse);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -69,113 +79,177 @@ export default function RegistroScreen() {
     }
   };
 
+  const estiloInput = [styles.input, { borderColor: theme.border, color: theme.text }];
+
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">Crear cuenta</ThemedText>
+    <ThemedView style={{ flex: 1 }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+          <ThemedText type="title">Crear cuenta</ThemedText>
 
-      <Controller
-        control={control}
-        name="nombre"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput style={styles.input} placeholder="Nombre(s)" onBlur={onBlur} onChangeText={onChange} value={value} />
-        )}
-      />
-      {errors.nombre && <ThemedText style={styles.error}>{errors.nombre.message}</ThemedText>}
-
-      <Controller
-        control={control}
-        name="apellidoPaterno"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput style={styles.input} placeholder="Apellido paterno" onBlur={onBlur} onChangeText={onChange} value={value} />
-        )}
-      />
-      {errors.apellidoPaterno && <ThemedText style={styles.error}>{errors.apellidoPaterno.message}</ThemedText>}
-
-      <Controller
-        control={control}
-        name="apellidoMaterno"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput style={styles.input} placeholder="Apellido materno (opcional)" onBlur={onBlur} onChangeText={onChange} value={value} />
-        )}
-      />
-      {errors.apellidoMaterno && <ThemedText style={styles.error}>{errors.apellidoMaterno.message}</ThemedText>}
-
-      <Controller
-        control={control}
-        name="nombreUsuario"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            style={styles.input}
-            placeholder="Nombre de usuario"
-            autoCapitalize="none"
-            onBlur={onBlur}
-            onChangeText={onChange}
-            value={value}
+          <Controller
+            control={control}
+            name="nombre"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                style={estiloInput}
+                placeholder="Nombre(s)"
+                placeholderTextColor={theme.textSecondary}
+                accessibilityLabel="Nombre"
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={value}
+              />
+            )}
           />
-        )}
-      />
-      {errors.nombreUsuario && <ThemedText style={styles.error}>{errors.nombreUsuario.message}</ThemedText>}
+          {errors.nombre && <ThemedText style={styles.error}>{errors.nombre.message}</ThemedText>}
 
-      <Controller
-        control={control}
-        name="email"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            style={styles.input}
-            placeholder="Correo"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            onBlur={onBlur}
-            onChangeText={onChange}
-            value={value}
+          <Controller
+            control={control}
+            name="apellidoPaterno"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                style={estiloInput}
+                placeholder="Apellido paterno"
+                placeholderTextColor={theme.textSecondary}
+                accessibilityLabel="Apellido paterno"
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={value}
+              />
+            )}
           />
-        )}
-      />
-      {errors.email && <ThemedText style={styles.error}>{errors.email.message}</ThemedText>}
+          {errors.apellidoPaterno && <ThemedText style={styles.error}>{errors.apellidoPaterno.message}</ThemedText>}
 
-      <Controller
-        control={control}
-        name="password"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput style={styles.input} placeholder="Contraseña" secureTextEntry onBlur={onBlur} onChangeText={onChange} value={value} />
-        )}
-      />
-      {errors.password && <ThemedText style={styles.error}>{errors.password.message}</ThemedText>}
-
-      <Controller
-        control={control}
-        name="confirmarPassword"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            style={styles.input}
-            placeholder="Confirmar contraseña"
-            secureTextEntry
-            onBlur={onBlur}
-            onChangeText={onChange}
-            value={value}
+          <Controller
+            control={control}
+            name="apellidoMaterno"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                style={estiloInput}
+                placeholder="Apellido materno (opcional)"
+                placeholderTextColor={theme.textSecondary}
+                accessibilityLabel="Apellido materno, opcional"
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={value}
+              />
+            )}
           />
-        )}
-      />
-      {errors.confirmarPassword && <ThemedText style={styles.error}>{errors.confirmarPassword.message}</ThemedText>}
+          {errors.apellidoMaterno && <ThemedText style={styles.error}>{errors.apellidoMaterno.message}</ThemedText>}
 
-      {errorServidor && <ThemedText style={styles.error}>{errorServidor}</ThemedText>}
+          <Controller
+            control={control}
+            name="nombreUsuario"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                style={estiloInput}
+                placeholder="Nombre de usuario"
+                placeholderTextColor={theme.textSecondary}
+                autoCapitalize="none"
+                accessibilityLabel="Nombre de usuario"
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={value}
+              />
+            )}
+          />
+          {errors.nombreUsuario && <ThemedText style={styles.error}>{errors.nombreUsuario.message}</ThemedText>}
 
-      <Pressable style={styles.boton} onPress={handleSubmit(onSubmit)} disabled={enviando}>
-        {enviando ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.botonTexto}>Crear cuenta</ThemedText>}
-      </Pressable>
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                style={estiloInput}
+                placeholder="Correo"
+                placeholderTextColor={theme.textSecondary}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                accessibilityLabel="Correo electrónico"
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={value}
+              />
+            )}
+          />
+          {errors.email && <ThemedText style={styles.error}>{errors.email.message}</ThemedText>}
 
-      <Link href="/(auth)/login" style={styles.link}>
-        <ThemedText type="small">Ya tengo cuenta, entrar</ThemedText>
-      </Link>
+          <Controller
+            control={control}
+            name="password"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                style={estiloInput}
+                placeholder="Contraseña"
+                placeholderTextColor={theme.textSecondary}
+                secureTextEntry
+                accessibilityLabel="Contraseña"
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={value}
+              />
+            )}
+          />
+          {errors.password && <ThemedText style={styles.error}>{errors.password.message}</ThemedText>}
+
+          <Controller
+            control={control}
+            name="confirmarPassword"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                style={estiloInput}
+                placeholder="Confirmar contraseña"
+                placeholderTextColor={theme.textSecondary}
+                secureTextEntry
+                accessibilityLabel="Confirmar contraseña"
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={value}
+              />
+            )}
+          />
+          {errors.confirmarPassword && <ThemedText style={styles.error}>{errors.confirmarPassword.message}</ThemedText>}
+
+          {errorServidor && (
+            <ThemedText style={styles.error} accessibilityLiveRegion="assertive">
+              {errorServidor}
+            </ThemedText>
+          )}
+
+          <Pressable
+            style={styles.boton}
+            onPress={handleSubmit(onSubmit)}
+            disabled={enviando}
+            accessibilityRole="button"
+            accessibilityLabel="Crear cuenta"
+            accessibilityState={{ disabled: enviando, busy: enviando }}
+          >
+            {enviando ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.botonTexto}>Crear cuenta</ThemedText>}
+          </Pressable>
+
+          <Link href="/(auth)/login" style={styles.link} accessibilityRole="link">
+            <ThemedText type="small">Ya tengo cuenta, entrar</ThemedText>
+          </Link>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: Spacing.four, gap: Spacing.two },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: Spacing.two, padding: Spacing.three },
-  error: { color: '#d92d20' },
-  boton: { backgroundColor: '#208AEF', borderRadius: Spacing.two, padding: Spacing.three, alignItems: 'center', marginTop: Spacing.two },
+  container: { flexGrow: 1, justifyContent: 'center', padding: Spacing.four, gap: Spacing.two },
+  input: { borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.three },
+  error: { color: AppColors.destructiveRed },
+  boton: {
+    backgroundColor: AppColors.primary,
+    borderRadius: Spacing.two,
+    padding: Spacing.three,
+    alignItems: 'center',
+    marginTop: Spacing.two,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   botonTexto: { color: '#fff', fontWeight: '600' },
-  link: { alignSelf: 'center', marginTop: Spacing.one },
+  link: { alignSelf: 'center', marginTop: Spacing.one, padding: Spacing.two },
 });

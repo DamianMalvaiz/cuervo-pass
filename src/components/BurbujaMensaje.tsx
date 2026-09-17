@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
+import { AppColors, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
 
 interface Props {
@@ -9,8 +10,13 @@ interface Props {
 }
 
 export function BurbujaMensaje({ contenido, esMio }: Props) {
+  const theme = useTheme();
   return (
-    <View style={[styles.burbuja, esMio ? styles.mia : styles.ajena]}>
+    <View
+      style={[styles.burbuja, esMio ? styles.mia : { backgroundColor: theme.backgroundSelected, alignSelf: 'flex-start' }]}
+      accessibilityRole="text"
+      accessibilityLabel={`${esMio ? 'Tú' : 'Contacto'}: ${contenido}`}
+    >
       <ThemedText style={esMio ? styles.textoMio : undefined}>{contenido}</ThemedText>
     </View>
   );
@@ -24,7 +30,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     marginVertical: Spacing.half,
   },
-  mia: { alignSelf: 'flex-end', backgroundColor: '#208AEF' },
-  ajena: { alignSelf: 'flex-start', backgroundColor: '#E0E1E6' },
+  mia: { alignSelf: 'flex-end', backgroundColor: AppColors.primary },
   textoMio: { color: '#fff' },
 });

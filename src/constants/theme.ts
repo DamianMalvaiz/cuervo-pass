@@ -14,6 +14,7 @@ export const Colors = {
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    border: '#cccccc',
   },
   dark: {
     text: '#ffffff',
@@ -21,10 +22,20 @@ export const Colors = {
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    border: '#3A3D42',
   },
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+
+// Colores de marca/acción — según DESIGN.md, "The One Accent Rule": no cambian
+// entre claro/oscuro (a diferencia de Colors, que sí). Ver también .impeccable/design.json.
+export const AppColors = {
+  primary: '#208AEF',
+  whatsappGreen: '#25D366',
+  successGreen: '#1a9d5c',
+  destructiveRed: '#d92d20',
+} as const;
 
 export const Fonts = Platform.select({
   ios: {
