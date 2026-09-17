@@ -38,18 +38,22 @@ const APELLIDOS = [
 ];
 
 // Localidades/municipios reales alrededor de la UTVT (Santa María Atarasquillo,
-// Lerma) — para que las direcciones generadas se vean creíbles en la demo.
+// Lerma) — coordenadas geocodificadas de verdad (Mapbox), no inventadas, para
+// que la distancia mostrada corresponda con la dirección de texto. Antes esta
+// lista solo traía el texto y las coordenadas se ponían al azar cerca de la
+// UTVT sin relación con la colonia elegida — daba distancias falsas
+// (ej. "Toluca Centro", que está a ~21km, aparecía a 1-2km).
 const LOCALIDADES = [
-  { colonia: 'Santa María Atarasquillo', municipio: 'Lerma', estado: 'México', cp: '52044' },
-  { colonia: 'San Pedro Tultepec', municipio: 'Lerma', estado: 'México', cp: '52072' },
-  { colonia: 'Lerma de Villada Centro', municipio: 'Lerma', estado: 'México', cp: '52000' },
-  { colonia: 'San Mateo Atenco Centro', municipio: 'San Mateo Atenco', estado: 'México', cp: '50100' },
-  { colonia: 'San Francisco Putla', municipio: 'San Mateo Atenco', estado: 'México', cp: '50104' },
-  { colonia: 'Metepec Centro', municipio: 'Metepec', estado: 'México', cp: '52140' },
-  { colonia: 'San Miguel Totocuitlapilco', municipio: 'Metepec', estado: 'México', cp: '52166' },
-  { colonia: 'Toluca Centro', municipio: 'Toluca', estado: 'México', cp: '50000' },
-  { colonia: 'San Pablo Autopan', municipio: 'Toluca', estado: 'México', cp: '50170' },
-  { colonia: 'Capultitlán', municipio: 'Toluca', estado: 'México', cp: '50296' },
+  { colonia: 'Santa María Atarasquillo', municipio: 'Lerma', estado: 'México', cp: '52044', lat: 19.325679, lng: -99.458243 },
+  { colonia: 'San Pedro Tultepec', municipio: 'Lerma', estado: 'México', cp: '52072', lat: 19.266388, lng: -99.5088 },
+  { colonia: 'Lerma de Villada Centro', municipio: 'Lerma', estado: 'México', cp: '52000', lat: 19.286393, lng: -99.510969 },
+  { colonia: 'San Mateo Atenco Centro', municipio: 'San Mateo Atenco', estado: 'México', cp: '50100', lat: 19.26372, lng: -99.52952 },
+  { colonia: 'San Francisco Putla', municipio: 'San Mateo Atenco', estado: 'México', cp: '50104', lat: 19.258, lng: -99.545 },
+  { colonia: 'Metepec Centro', municipio: 'Metepec', estado: 'México', cp: '52140', lat: 19.252617, lng: -99.60566 },
+  { colonia: 'San Miguel Totocuitlapilco', municipio: 'Metepec', estado: 'México', cp: '52166', lat: 19.235, lng: -99.59 },
+  { colonia: 'Toluca Centro', municipio: 'Toluca', estado: 'México', cp: '50000', lat: 19.28808, lng: -99.65639 },
+  { colonia: 'San Pablo Autopan', municipio: 'Toluca', estado: 'México', cp: '50170', lat: 19.267832, lng: -99.672313 },
+  { colonia: 'Capultitlán', municipio: 'Toluca', estado: 'México', cp: '50296', lat: 19.245, lng: -99.68 },
 ];
 
 const CALLES = [
@@ -80,19 +84,19 @@ function sinAcentos(texto) {
   return texto.normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
-// Punto aleatorio a máximo ~4km de la UTVT — evita 100 llamadas a Mapbox y
-// aun así da distancias variadas para probar el motor de sugerencias de verdad.
-function coordenadaCercaDeUtvt() {
-  const radioKm = Math.random() * 4;
+// Punto aleatorio a máximo ~600m de la colonia elegida — variación realista
+// de calle sin alejarse de la ubicación real de esa colonia.
+function coordenadaCercaDe(base) {
+  const radioKm = Math.random() * 0.6;
   const angulo = Math.random() * 2 * Math.PI;
   const dLat = (radioKm / 111) * Math.cos(angulo);
-  const dLng = (radioKm / (111 * Math.cos((UTVT.lat * Math.PI) / 180))) * Math.sin(angulo);
-  return { lat: UTVT.lat + dLat, lng: UTVT.lng + dLng };
+  const dLng = (radioKm / (111 * Math.cos((base.lat * Math.PI) / 180))) * Math.sin(angulo);
+  return { lat: base.lat + dLat, lng: base.lng + dLng };
 }
 
 async function crearPublicacion(usuarioId, indice) {
   const loc = aleatorio(LOCALIDADES);
-  const coords = coordenadaCercaDeUtvt();
+  const coords = coordenadaCercaDe(loc);
   const direccion = `${aleatorio(CALLES)} ${enteroEntre(5, 450)}, ${loc.colonia}, ${loc.municipio}, ${loc.estado}, CP ${loc.cp}`;
   const { error } = await admin.from('publicaciones').insert({
     usuario_id: usuarioId,
@@ -130,7 +134,6 @@ async function main() {
 
     const presupuestoMin = enteroEntre(1500, 3000);
     const presupuestoMax = presupuestoMin + enteroEntre(800, 3000);
-    const coordsUsuario = coordenadaCercaDeUtvt();
 
     const { error: errorUsuario } = await admin.from('usuarios').insert({
       id: creado.user.id,
@@ -143,8 +146,11 @@ async function main() {
       fuma: Math.random() < 0.2,
       busca_roomie: Math.random() < 0.3,
       universidad: 'Universidad Tecnológica del Valle de Toluca (UTVT)',
-      latitud_universidad: coordsUsuario.lat,
-      longitud_universidad: coordsUsuario.lng,
+      // Todos estudian en la misma UTVT — coordenadas fijas y reales, no un
+      // punto al azar (antes cada cuenta demo tenía una "ubicación de
+      // universidad" distinta e inventada, lo cual no tiene sentido).
+      latitud_universidad: UTVT.lat,
+      longitud_universidad: UTVT.lng,
       activo: true,
     });
     if (errorUsuario) {
