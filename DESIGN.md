@@ -144,10 +144,11 @@ Every screen is a single-column, top-padded stack (`Spacing.three` = 16px on mos
 
 ## Elevation & Depth
 
-**Flat by default — no shadows exist anywhere in the app today.** Depth, where it appears at all, is conveyed only through flat color blocks (`neutral-surface` behind empty-state placeholders) rather than shadow or blur. This has not yet been tested against Dark Mode or Material elevation expectations (see Do's and Don'ts).
+**Flat by default — still true everywhere, including the roomie profile screen.** A first pass on the roomie profile screen (`perfil/[usuarioId].tsx`) tried colored shadows (glow ring on the avatar, a tinted shadow under the CTA) and a staggered spring entrance. Reverted: Android ignores `shadowColor` entirely (only `elevation` applies, always a flat gray/black tint), so the "brand-colored glow" rendered as a plain gray smudge there — inconsistent across platforms and off-brand. The spring/cascade motion was also the only bouncy, multi-step animation anywhere in the app; every other transition (`Collapsible.tsx`) is a single plain `FadeIn`, so the bounce read as inconsistent with the product's own voice, not confident. Depth still comes from flat color blocks only. The one addition worth keeping: a **tinted surface** (`tintedSurface`/`tintedBorder` tokens, a soft wash of the primary blue, not gray) for the compatibility card on that same screen — a flat-color trust cue, not a shadow.
 
 ### Named Rules
-**The Flat-By-Default Rule.** No `shadow*` or `elevation` prop has been used anywhere in the codebase. Any future shadow use is a deliberate new decision, not a continuation of an existing pattern — flag it for a design pass rather than copying an ad hoc value.
+**The Flat-By-Default Rule.** No `shadow*` or `elevation` prop is used anywhere in the codebase, full stop — the roomie profile screen tried and reverted it (see above). Any future shadow use is still a deliberate new decision requiring a real system update here, not a one-off prop.
+**Motion consistency rule (new).** Every entrance/appearance animation in the app is a single plain `FadeIn`, short duration, no spring/bounce, no staggering across sibling elements. A different feel needs a documented reason here first.
 
 ## Shapes
 
@@ -185,6 +186,7 @@ Corners are consistently rounded at `Spacing.two` (8px) — buttons, text inputs
 - **Do** put validation errors as red small-text below the field, never by recoloring the input border.
 
 ### Don't:
-- **Don't** add a shadow or elevation to any component without a deliberate Elevation & Depth decision first — right now "flat" is a fact, not yet a considered choice, so the first shadow added should come with a real system update, not a one-off `shadow*` prop.
+- **Don't** add a shadow or `elevation` prop anywhere — it was tried once (roomie profile screen) and reverted for looking inconsistent on Android; use a tinted flat surface (`tintedSurface`/`tintedBorder`) instead when a block needs to stand out.
+- **Don't** add a spring, bounce, or staggered multi-element entrance animation — every animation in the app is a single plain `FadeIn` (see Elevation & Depth); a bouncier one was tried and reverted for reading inconsistent with the rest of the product.
 - **Don't** treat "Desactivar"/"Reportar" (text-only red) and "Cerrar sesión" (filled red button) as the same component — reconcile which destructive actions are filled vs. text-only before adding a third one.
 - **Don't** style the bottom tab bar or any new screen against a generic Material/iOS default without checking this file first — the tab bar is currently unstyled by omission, not by decision, and is the top candidate for the app's next real design pass.

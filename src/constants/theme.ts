@@ -15,6 +15,11 @@ export const Colors = {
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
     border: '#cccccc',
+    // Superficie tintada con el acento de marca (no gris) — para paneles de
+    // "confianza" puntuales (ej. tarjeta de compatibilidad en perfil de roomie),
+    // nunca para contenido genérico. Ver DESIGN.md, Elevation & Depth.
+    tintedSurface: '#EAF4FE',
+    tintedBorder: '#BFE0FB',
   },
   dark: {
     text: '#ffffff',
@@ -23,6 +28,8 @@ export const Colors = {
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
     border: '#3A3D42',
+    tintedSurface: '#12283B',
+    tintedBorder: '#1F3A52',
   },
 } as const;
 
