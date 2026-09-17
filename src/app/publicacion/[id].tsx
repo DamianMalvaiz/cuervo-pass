@@ -19,7 +19,7 @@ const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits
 
 export default function DetallePublicacionScreen() {
   const theme = useTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, score } = useLocalSearchParams<{ id: string; score?: string }>();
   const session = useAuthStore((s) => s.session);
   const { perfil, cargarPerfil } = usePerfilStore();
   const [publicacion, setPublicacion] = useState<Publicacion | null>(null);
@@ -38,9 +38,11 @@ export default function DetallePublicacionScreen() {
 
   const onContactar = async () => {
     if (session?.user.id && publicacion) {
-      // score en 0 porque aquí no viene del motor de sugerencias (sección 14);
-      // cuando el usuario contacta desde "Sugerencias" (Semana 5+) sí se pasa el score real.
-      await registrarMatch(session.user.id, publicacion.id, 0).catch(() => {});
+      // Si se llegó desde "Sugerencias" (sección 14) viene el score real en la
+      // URL; si se llegó por otro camino (ej. futura búsqueda), 0 en vez de
+      // bloquear el registro del match.
+      const scoreNumerico = score ? Number(score) : 0;
+      await registrarMatch(session.user.id, publicacion.id, Number.isFinite(scoreNumerico) ? scoreNumerico : 0).catch(() => {});
     }
   };
 
