@@ -123,6 +123,10 @@ export interface Database {
         Args: { vector_perfil: string; ids_candidatos: string[] };
         Returns: { id: string; similitud: number }[];
       };
+      ordenar_roomings_por_similitud: {
+        Args: { vector_perfil: string; ids_candidatos: string[] };
+        Returns: { id: string; similitud: number }[];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
