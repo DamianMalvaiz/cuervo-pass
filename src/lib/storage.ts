@@ -6,17 +6,17 @@ const BUCKET = 'fotos';
 
 // Comprime/redimensiona antes de subir — nunca mandamos el archivo original
 // de la cámara (puede pesar varios MB) por WiFi lenta en la demo.
-async function comprimirImagen(uriLocal: string): Promise<string> {
+async function comprimirImagen(uriLocal: string, anchoMax: number): Promise<string> {
   const resultado = await ImageManipulator.manipulateAsync(
     uriLocal,
-    [{ resize: { width: 512 } }],
+    [{ resize: { width: anchoMax } }],
     { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
   );
   return resultado.uri;
 }
 
-async function subirArchivo(path: string, uriLocal: string): Promise<string> {
-  const uriComprimida = await comprimirImagen(uriLocal);
+async function subirArchivo(path: string, uriLocal: string, anchoMax: number): Promise<string> {
+  const uriComprimida = await comprimirImagen(uriLocal, anchoMax);
   const arrayBuffer = await fetch(uriComprimida).then((res) => res.arrayBuffer());
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, arrayBuffer, {
@@ -31,7 +31,16 @@ async function subirArchivo(path: string, uriLocal: string): Promise<string> {
 }
 
 export function subirFotoPerfil(usuarioId: string, uriLocal: string): Promise<string> {
-  return subirArchivo(`perfiles/${usuarioId}.jpg`, uriLocal);
+  return subirArchivo(`perfiles/${usuarioId}.jpg`, uriLocal, 512);
 }
 
-// TODO (Semana 3): subirFotoPublicacion(usuarioId, publicacionId, uriLocal) — hasta 5 fotos.
+// Hasta 5 fotos por publicación (sección 20, Semana 3). `indice` distingue cada
+// foto dentro de la misma publicación; re-subir el mismo índice la reemplaza.
+export function subirFotoPublicacion(
+  usuarioId: string,
+  publicacionId: string,
+  indice: number,
+  uriLocal: string
+): Promise<string> {
+  return subirArchivo(`publicaciones/${usuarioId}/${publicacionId}/${indice}.jpg`, uriLocal, 1024);
+}
