@@ -18,6 +18,7 @@ const esquema = z
     mascotas: z.boolean(),
     fuma: z.boolean(),
     buscaRoomie: z.boolean(),
+    textoLibre: z.string().optional(),
   })
   .refine((v) => Number(v.presupuestoMax) >= Number(v.presupuestoMin), {
     message: 'El máximo debe ser mayor o igual al mínimo',
@@ -42,11 +43,11 @@ export interface RespuestasCuestionario {
   // Informativo por ahora (sin efecto en la app todavía) — se usará cuando se
   // construya el matching de roomings, Semana 6/10.
   buscaRoomie: boolean;
-  // TODO (Semana 8): texto libre opcional -> POST /parsear-perfil (sección 11-12).
-  // Se deja fuera por ahora porque su almacenamiento cifrado depende del
-  // microservicio de IA (perfil_texto_cifrado, sección 18), que no existe todavía.
-  // TODO: nivel_ruido se quitó del cuestionario inicial (no quedaba claro para qué
-  // servía) — si se retoma, debe explicarse cómo se usa antes de volver a pedirlo.
+  // Opcional — el llamador decide qué hacer con esto (Semana 8: se manda a
+  // /parsear-perfil y se guarda cifrado, sección 11-12/18). Nunca se le pide
+  // directamente "nivel de ruido" a la persona (no quedaba claro para qué
+  // servía) — se infiere de aquí si escribe algo.
+  textoLibre?: string;
 }
 
 interface Props {
@@ -84,6 +85,7 @@ export function FormularioCuestionario({ onCompletar }: Props) {
         mascotas: valores.mascotas,
         fuma: valores.fuma,
         buscaRoomie: valores.buscaRoomie,
+        textoLibre: valores.textoLibre?.trim() || undefined,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo guardar el cuestionario');
@@ -225,6 +227,29 @@ export function FormularioCuestionario({ onCompletar }: Props) {
         />
       </View>
 
+      <ThemedText type="small" style={styles.etiqueta}>
+        Cuéntanos de ti (opcional)
+      </ThemedText>
+      <Controller
+        control={control}
+        name="textoLibre"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput
+            style={[estiloInput, styles.textoLibreInput]}
+            placeholder="Ej. soy tranquilo, tengo un gato, estudio en las mañanas..."
+            placeholderTextColor={theme.textSecondary}
+            accessibilityLabel="Cuéntanos de ti, texto libre opcional"
+            multiline
+            onBlur={onBlur}
+            onChangeText={onChange}
+            value={value}
+          />
+        )}
+      />
+      <ThemedText type="small" style={{ color: theme.textSecondary }}>
+        Ayuda a inferir cosas que no preguntamos directamente, como tu tolerancia al ruido.
+      </ThemedText>
+
       {error && <ThemedText style={styles.error}>{error}</ThemedText>}
 
       <Pressable
@@ -245,6 +270,7 @@ const styles = StyleSheet.create({
   container: { gap: Spacing.two },
   input: { borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.three },
   inputMitad: { flex: 1 },
+  textoLibreInput: { minHeight: 80, textAlignVertical: 'top' },
   filaPresupuesto: { flexDirection: 'row', gap: Spacing.two },
   etiqueta: { marginTop: Spacing.two },
   error: { color: AppColors.destructiveRed },

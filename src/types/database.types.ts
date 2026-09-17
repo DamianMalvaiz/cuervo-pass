@@ -106,7 +106,12 @@ export interface Database {
       reportes: Tabla<Reporte>;
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      guardar_perfil_texto: {
+        Args: { texto: string };
+        Returns: undefined;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

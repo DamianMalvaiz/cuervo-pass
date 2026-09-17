@@ -5,7 +5,9 @@ import { FormularioCuestionario, type RespuestasCuestionario } from '@/component
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { parsearPerfil } from '@/lib/aiService';
 import { geocodificarDireccion } from '@/lib/mapbox';
+import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 
@@ -21,6 +23,30 @@ export default function CuestionarioInicialScreen() {
     // (nombres/abreviaturas ambiguos pueden no ubicarse bien; ver lib/universidades.ts).
     // Nunca bloquea el flujo si Mapbox falla (sección 17).
     const coords = respuestas.universidadCoords ?? (await geocodificarDireccion(respuestas.universidad));
+
+    // Semana 8: el texto libre solo aporta nivel_ruido (no se pregunta directo
+    // porque no quedaba claro para qué servía) — fuma/mascotas ya vienen de los
+    // switches explícitos y esos ganan siempre, nunca se pisan con la inferencia
+    // de la IA. Si el microservicio falla o no hay texto, sigue el flujo igual
+    // (sección 17: nunca bloquear el registro por esto).
+    let nivelRuido: 'bajo' | 'medio' | 'alto' | null = null;
+    if (respuestas.textoLibre) {
+      try {
+        const parseo = await parsearPerfil(respuestas.textoLibre);
+        nivelRuido = parseo.nivel_ruido;
+      } catch (e) {
+        console.warn('parsearPerfil falló, se sigue sin nivel_ruido inferido:', e);
+      }
+      // Guardar el texto cifrado es independiente del parseo — si esto falla
+      // (ej. no se configuró app.perfil_encryption_key todavía) tampoco bloquea.
+      // supabase.rpc() regresa {error} en vez de aventar excepción, así que se
+      // revisa explícito en vez de un try/catch que no atraparía nada.
+      const { error: errorGuardarTexto } = await supabase.rpc('guardar_perfil_texto', {
+        texto: respuestas.textoLibre,
+      });
+      if (errorGuardarTexto) console.warn('guardar_perfil_texto falló:', errorGuardarTexto);
+    }
+
     await actualizarPerfil(session.user.id, {
       universidad: respuestas.universidad,
       presupuesto_min: respuestas.presupuestoMin,
@@ -28,6 +54,7 @@ export default function CuestionarioInicialScreen() {
       mascotas: respuestas.mascotas,
       fuma: respuestas.fuma,
       busca_roomie: respuestas.buscaRoomie,
+      ...(nivelRuido ? { nivel_ruido: nivelRuido } : {}),
       latitud_universidad: coords?.lat ?? null,
       longitud_universidad: coords?.lng ?? null,
     });
