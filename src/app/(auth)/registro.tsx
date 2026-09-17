@@ -71,7 +71,7 @@ export default function RegistroScreen() {
         });
         if (errorInsert) throw errorInsert;
       }
-      router.replace('/(tabs)/inicio');
+      router.replace('/(auth)/cuestionario-inicial');
     } catch (e) {
       setErrorServidor(e instanceof Error ? e.message : 'No se pudo crear la cuenta');
     } finally {

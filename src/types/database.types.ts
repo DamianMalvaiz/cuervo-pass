@@ -18,6 +18,7 @@ export interface Usuario {
   mascotas: boolean;
   fuma: boolean;
   nivel_ruido: 'bajo' | 'medio' | 'alto' | null;
+  busca_roomie: boolean;
   universidad: string | null;
   latitud_universidad: number | null;
   longitud_universidad: number | null;

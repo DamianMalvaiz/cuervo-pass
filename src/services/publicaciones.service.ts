@@ -1,3 +1,4 @@
+import { geocodificarDireccion } from '@/lib/mapbox';
 import { subirFotoPublicacion } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import type { Publicacion } from '@/types/database.types';
@@ -50,14 +51,19 @@ async function resolverFotos(usuarioId: string, publicacionId: string, fotos: Fo
   );
 }
 
-// TODO (Semana 4): geocoding con Mapbox antes de guardar lat/lng.
 // TODO (Semana 9): generar y guardar vector_embedding de la descripción.
 export async function crearPublicacion(datos: DatosPublicacion): Promise<Publicacion> {
+  // Nunca bloquea la publicación si Mapbox falla (sección 17) — coords quedan
+  // null y se puede reintentar el geocoding después (editar y guardar de nuevo).
+  const coords = await geocodificarDireccion(datos.direccion);
+
   const { data: fila, error } = await supabase
     .from('publicaciones')
     .insert({
       usuario_id: datos.usuarioId,
       direccion: datos.direccion,
+      latitud: coords?.lat,
+      longitud: coords?.lng,
       precio_renta: datos.precioRenta,
       descripcion: datos.descripcion,
       whatsapp: datos.whatsapp,
@@ -85,11 +91,16 @@ export async function crearPublicacion(datos: DatosPublicacion): Promise<Publica
 }
 
 export async function actualizarPublicacion(publicacionId: string, datos: DatosPublicacion): Promise<Publicacion> {
-  const urls = await resolverFotos(datos.usuarioId, publicacionId, datos.fotos);
+  const [urls, coords] = await Promise.all([
+    resolverFotos(datos.usuarioId, publicacionId, datos.fotos),
+    geocodificarDireccion(datos.direccion),
+  ]);
   const { data, error } = await supabase
     .from('publicaciones')
     .update({
       direccion: datos.direccion,
+      latitud: coords?.lat,
+      longitud: coords?.lng,
       precio_renta: datos.precioRenta,
       descripcion: datos.descripcion,
       whatsapp: datos.whatsapp,
