@@ -22,6 +22,12 @@ export interface Usuario {
   universidad: string | null;
   latitud_universidad: number | null;
   longitud_universidad: number | null;
+  // pgvector: se ESCRIBE como number[] plano (supabase-js lo serializa a JSON
+  // y Postgres lo parsea porque coincide con la sintaxis literal de vector),
+  // pero se LEE de vuelta como texto "[0.1,0.2,...]", nunca como array —
+  // verificado contra la base real. Nunca se necesita parsearlo en el cliente
+  // (la similitud de coseno se calcula del lado de Postgres, sección 15).
+  perfil_vector: string | number[] | null;
   activo: boolean;
   creado_en: string;
 }
@@ -37,6 +43,8 @@ export interface Publicacion {
   descripcion: string | null;
   fotos: string[] | null;
   whatsapp: string;
+  // Ver nota de Usuario.perfil_vector sobre la asimetría escritura/lectura.
+  vector_embedding: string | number[] | null;
   activa: boolean;
   reportes: number;
   creado_en: string;
@@ -110,6 +118,10 @@ export interface Database {
       guardar_perfil_texto: {
         Args: { texto: string };
         Returns: undefined;
+      };
+      ordenar_por_similitud: {
+        Args: { vector_perfil: string; ids_candidatos: string[] };
+        Returns: { id: string; similitud: number }[];
       };
     };
     Enums: Record<string, never>;

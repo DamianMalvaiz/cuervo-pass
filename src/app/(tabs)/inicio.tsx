@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { TarjetaPublicacion } from '@/components/TarjetaPublicacion';
@@ -10,10 +10,14 @@ import { AppColors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { calcularDistanciaKm } from '@/lib/distancia';
 import { calcularScore } from '@/lib/scoring';
-import { listarPublicacionesActivas } from '@/services/publicaciones.service';
+import { listarPublicacionesActivas, ordenarPorSimilitud } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import type { Publicacion } from '@/types/database.types';
+
+// Nivel 2 solo reordena dentro de este tope de candidatos que ya pasaron
+// Nivel 1 (sección 15: "aplicada solo al subconjunto que ya pasó el Nivel 1").
+const TOPE_CANDIDATOS_NIVEL_2 = 30;
 
 interface PublicacionSugerida extends Publicacion {
   distanciaKm?: number;
@@ -96,17 +100,18 @@ function SelectorOrden({ valor, onCambiar }: { valor: Orden; onCambiar: (v: Orde
   );
 }
 
-// "Recomendado" usa el motor de sugerencias Nivel 1 (sección 14 del doc
-// maestro: distancia + presupuesto + compatibilidad + frescura, ver
-// src/lib/scoring.ts) sin mostrar el número — solo ordena. Las demás opciones
-// son ordenamientos directos que la persona elige a mano.
-// TODO (Semana 9): combinar "Recomendado" con Nivel 2 (similitud de coseno, pgvector).
+// "Recomendado" combina Nivel 1 (sección 14: distancia + presupuesto +
+// compatibilidad + frescura, filtros ponderados en src/lib/scoring.ts) con
+// Nivel 2 (sección 15: similitud de coseno con pgvector) — Nivel 1 decide QUÉ
+// es viable, Nivel 2 reordena ESO por significado. Ninguno se muestra como
+// número, solo ordenan. Las demás opciones son ordenamientos directos.
 export default function InicioScreen() {
   const session = useAuthStore((s) => s.session);
   const { perfil, cargarPerfil } = usePerfilStore();
   const [publicaciones, setPublicaciones] = useState<Publicacion[]>([]);
   const [cargando, setCargando] = useState(true);
   const [orden, setOrden] = useState<Orden>('recomendado');
+  const [ordenNivel2, setOrdenNivel2] = useState<string[] | null>(null);
 
   const cargar = useCallback(async () => {
     if (!session?.user.id) return;
@@ -157,6 +162,39 @@ export default function InicioScreen() {
     }
   }, [publicaciones, perfil, orden]);
 
+  // Nivel 2: solo aplica sobre "Recomendado", solo si el perfil ya tiene
+  // embedding (perfil_vector se genera en el cuestionario inicial, Semana 9 —
+  // puede no existir si el microservicio falló en ese momento). Si la llamada
+  // falla o no hay vector, ordenNivel2 se queda null y se usa solo Nivel 1
+  // (nunca rompe las sugerencias, sección 17).
+  useEffect(() => {
+    // No hay nada que pedir — ordenNivel2 simplemente no se usa mientras estas
+    // condiciones no se cumplan (ver listaFinal), así que no hace falta
+    // resetearlo con un setState síncrono aquí (evita renders en cascada). Si
+    // vuelve a cumplirse la condición más tarde, esta misma rama de abajo pide
+    // un ordenNivel2 fresco.
+    if (orden !== 'recomendado' || typeof perfil?.perfil_vector !== 'string' || sugerencias.length === 0) return;
+    let activo = true;
+    const idsCandidatos = sugerencias.slice(0, TOPE_CANDIDATOS_NIVEL_2).map((s) => s.id);
+    ordenarPorSimilitud(perfil.perfil_vector as string, idsCandidatos).then((idsOrdenados) => {
+      if (activo) setOrdenNivel2(idsOrdenados);
+    });
+    return () => {
+      activo = false;
+    };
+  }, [orden, perfil?.perfil_vector, sugerencias]);
+
+  const listaFinal = useMemo(() => {
+    if (orden !== 'recomendado' || typeof perfil?.perfil_vector !== 'string' || !ordenNivel2 || ordenNivel2.length === 0) {
+      return sugerencias;
+    }
+    const porId = new Map(sugerencias.map((s) => [s.id, s]));
+    const reordenados = ordenNivel2.map((id) => porId.get(id)).filter((s): s is PublicacionSugerida => s != null);
+    const idsYaColocados = new Set(ordenNivel2);
+    const resto = sugerencias.filter((s) => !idsYaColocados.has(s.id));
+    return [...reordenados, ...resto];
+  }, [sugerencias, ordenNivel2, orden, perfil?.perfil_vector]);
+
   return (
     <ThemedView style={{ flex: 1, padding: Spacing.three }}>
       <View style={styles.encabezado}>
@@ -167,7 +205,7 @@ export default function InicioScreen() {
         <ActivityIndicator style={{ marginTop: Spacing.four }} />
       ) : (
         <FlatList
-          data={sugerencias}
+          data={listaFinal}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <TarjetaPublicacion

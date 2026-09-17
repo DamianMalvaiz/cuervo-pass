@@ -5,8 +5,9 @@ import { FormularioCuestionario, type RespuestasCuestionario } from '@/component
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { parsearPerfil } from '@/lib/aiService';
+import { generarEmbedding, parsearPerfil } from '@/lib/aiService';
 import { geocodificarDireccion } from '@/lib/mapbox';
+import { construirTextoPerfil } from '@/lib/perfilTexto';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
@@ -47,6 +48,26 @@ export default function CuestionarioInicialScreen() {
       if (errorGuardarTexto) console.warn('guardar_perfil_texto falló:', errorGuardarTexto);
     }
 
+    // Semana 9: embedding del perfil para el Nivel 2 (similitud de coseno,
+    // sección 15) — se genera de texto estructurado + libre, gratis y local
+    // (no necesita ANTHROPIC_API_KEY). Si el microservicio no responde, el
+    // perfil_vector queda null y las sugerencias simplemente usan solo Nivel 1
+    // para esta persona (nunca bloquea el registro, sección 17).
+    const textoPerfil = construirTextoPerfil({
+      universidad: respuestas.universidad,
+      presupuestoMin: respuestas.presupuestoMin,
+      presupuestoMax: respuestas.presupuestoMax,
+      mascotas: respuestas.mascotas,
+      fuma: respuestas.fuma,
+      textoLibre: respuestas.textoLibre,
+    });
+    let perfilVector: number[] | null = null;
+    try {
+      perfilVector = await generarEmbedding(textoPerfil);
+    } catch (e) {
+      console.warn('generarEmbedding (perfil) falló, se sigue sin él:', e);
+    }
+
     await actualizarPerfil(session.user.id, {
       universidad: respuestas.universidad,
       presupuesto_min: respuestas.presupuestoMin,
@@ -55,6 +76,7 @@ export default function CuestionarioInicialScreen() {
       fuma: respuestas.fuma,
       busca_roomie: respuestas.buscaRoomie,
       ...(nivelRuido ? { nivel_ruido: nivelRuido } : {}),
+      ...(perfilVector ? { perfil_vector: perfilVector } : {}),
       latitud_universidad: coords?.lat ?? null,
       longitud_universidad: coords?.lng ?? null,
     });

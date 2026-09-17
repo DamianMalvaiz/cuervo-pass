@@ -1,7 +1,28 @@
+import { generarEmbedding } from '@/lib/aiService';
 import { geocodificarDireccion } from '@/lib/mapbox';
 import { subirFotoPublicacion } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import type { Publicacion } from '@/types/database.types';
+
+// Sección 15 (Nivel 2): la descripción es lo semánticamente rico ("pet
+// friendly", "silencioso") — si no hay descripción, cae a algo genérico en
+// vez de fallar (el endpoint rechaza texto vacío).
+function textoParaEmbedding(datos: { descripcion?: string; direccion: string }): string {
+  return datos.descripcion?.trim() ? datos.descripcion : `Departamento en ${datos.direccion}`;
+}
+
+// Nunca bloquea crear/editar la publicación si el microservicio falla
+// (sección 17) — vector_embedding queda null y esa publicación simplemente no
+// participa en el reordenamiento de Nivel 2 hasta que se reintente (editar y
+// guardar de nuevo).
+async function generarEmbeddingSeguro(datos: { descripcion?: string; direccion: string }): Promise<number[] | null> {
+  try {
+    return await generarEmbedding(textoParaEmbedding(datos));
+  } catch (e) {
+    console.warn('generarEmbedding (publicación) falló:', e);
+    return null;
+  }
+}
 
 export async function listarPublicacionesActivas() {
   const { data, error } = await supabase
@@ -51,11 +72,13 @@ async function resolverFotos(usuarioId: string, publicacionId: string, fotos: Fo
   );
 }
 
-// TODO (Semana 9): generar y guardar vector_embedding de la descripción.
 export async function crearPublicacion(datos: DatosPublicacion): Promise<Publicacion> {
   // Nunca bloquea la publicación si Mapbox falla (sección 17) — coords quedan
   // null y se puede reintentar el geocoding después (editar y guardar de nuevo).
-  const coords = await geocodificarDireccion(datos.direccion);
+  const [coords, vectorEmbedding] = await Promise.all([
+    geocodificarDireccion(datos.direccion),
+    generarEmbeddingSeguro(datos),
+  ]);
 
   const { data: fila, error } = await supabase
     .from('publicaciones')
@@ -67,6 +90,7 @@ export async function crearPublicacion(datos: DatosPublicacion): Promise<Publica
       precio_renta: datos.precioRenta,
       descripcion: datos.descripcion,
       whatsapp: datos.whatsapp,
+      ...(vectorEmbedding ? { vector_embedding: vectorEmbedding } : {}),
     })
     .select()
     .single();
@@ -91,9 +115,10 @@ export async function crearPublicacion(datos: DatosPublicacion): Promise<Publica
 }
 
 export async function actualizarPublicacion(publicacionId: string, datos: DatosPublicacion): Promise<Publicacion> {
-  const [urls, coords] = await Promise.all([
+  const [urls, coords, vectorEmbedding] = await Promise.all([
     resolverFotos(datos.usuarioId, publicacionId, datos.fotos),
     geocodificarDireccion(datos.direccion),
+    generarEmbeddingSeguro(datos),
   ]);
   const { data, error } = await supabase
     .from('publicaciones')
@@ -105,6 +130,7 @@ export async function actualizarPublicacion(publicacionId: string, datos: DatosP
       descripcion: datos.descripcion,
       whatsapp: datos.whatsapp,
       fotos: urls,
+      ...(vectorEmbedding ? { vector_embedding: vectorEmbedding } : {}),
     })
     .eq('id', publicacionId)
     .select()
@@ -116,6 +142,23 @@ export async function actualizarPublicacion(publicacionId: string, datos: DatosP
 export async function cambiarEstadoPublicacion(id: string, activa: boolean) {
   const { error } = await supabase.from('publicaciones').update({ activa }).eq('id', id);
   if (error) throw error;
+}
+
+// Nivel 2 (sección 15): reordena por similitud de coseno SOLO dentro de los
+// candidatos que ya pasaron el Nivel 1 — nunca reemplaza ese filtro. Nunca
+// bloquea ni rompe las sugerencias si falla (sección 17): el llamador cae de
+// vuelta al orden de Nivel 1 si esto regresa null.
+export async function ordenarPorSimilitud(vectorPerfil: string, idsCandidatos: string[]): Promise<string[] | null> {
+  if (idsCandidatos.length === 0) return [];
+  const { data, error } = await supabase.rpc('ordenar_por_similitud', {
+    vector_perfil: vectorPerfil,
+    ids_candidatos: idsCandidatos,
+  });
+  if (error) {
+    console.warn('ordenarPorSimilitud falló:', error);
+    return null;
+  }
+  return data.map((fila) => fila.id);
 }
 
 // Registra el match cuando el usuario contacta por WhatsApp (sección 14, "usado de verdad").
