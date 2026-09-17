@@ -28,18 +28,31 @@ export async function obtenerPublicacion(id: string) {
   return data as Publicacion;
 }
 
-interface DatosNuevaPublicacion {
+// Una foto ya subida (viene con su URL pública) o una recién elegida en el
+// dispositivo (viene con su uri local, `file://...`) — el formulario de
+// publicación usa esta misma forma tanto al crear como al editar.
+export type FotoEntrada = { url: string; esNueva: false } | { uri: string; esNueva: true };
+
+interface DatosPublicacion {
   usuarioId: string;
   direccion: string;
   precioRenta: number;
   descripcion?: string;
   whatsapp: string;
-  fotosUris: string[];
+  fotos: FotoEntrada[];
+}
+
+async function resolverFotos(usuarioId: string, publicacionId: string, fotos: FotoEntrada[]): Promise<string[]> {
+  return Promise.all(
+    fotos.map((foto, indice) =>
+      foto.esNueva ? subirFotoPublicacion(usuarioId, publicacionId, indice, foto.uri) : foto.url
+    )
+  );
 }
 
 // TODO (Semana 4): geocoding con Mapbox antes de guardar lat/lng.
 // TODO (Semana 9): generar y guardar vector_embedding de la descripción.
-export async function crearPublicacion(datos: DatosNuevaPublicacion): Promise<Publicacion> {
+export async function crearPublicacion(datos: DatosPublicacion): Promise<Publicacion> {
   const { data: fila, error } = await supabase
     .from('publicaciones')
     .insert({
@@ -54,14 +67,12 @@ export async function crearPublicacion(datos: DatosNuevaPublicacion): Promise<Pu
   if (error) throw error;
   const publicacion = fila as Publicacion;
 
-  if (datos.fotosUris.length === 0) return publicacion;
+  if (datos.fotos.length === 0) return publicacion;
 
   // Las fotos se suben DESPUÉS del insert porque necesitan el id que Postgres
   // genera (gen_random_uuid()) para armar la ruta publicaciones/<usuario>/<id>/n.jpg
   // que las policies de Storage (migración 0002) esperan.
-  const urls = await Promise.all(
-    datos.fotosUris.map((uri, indice) => subirFotoPublicacion(datos.usuarioId, publicacion.id, indice, uri))
-  );
+  const urls = await resolverFotos(datos.usuarioId, publicacion.id, datos.fotos);
 
   const { data: actualizada, error: errorUpdate } = await supabase
     .from('publicaciones')
@@ -73,8 +84,26 @@ export async function crearPublicacion(datos: DatosNuevaPublicacion): Promise<Pu
   return actualizada as Publicacion;
 }
 
-export async function desactivarPublicacion(id: string) {
-  const { error } = await supabase.from('publicaciones').update({ activa: false }).eq('id', id);
+export async function actualizarPublicacion(publicacionId: string, datos: DatosPublicacion): Promise<Publicacion> {
+  const urls = await resolverFotos(datos.usuarioId, publicacionId, datos.fotos);
+  const { data, error } = await supabase
+    .from('publicaciones')
+    .update({
+      direccion: datos.direccion,
+      precio_renta: datos.precioRenta,
+      descripcion: datos.descripcion,
+      whatsapp: datos.whatsapp,
+      fotos: urls,
+    })
+    .eq('id', publicacionId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Publicacion;
+}
+
+export async function cambiarEstadoPublicacion(id: string, activa: boolean) {
+  const { error } = await supabase.from('publicaciones').update({ activa }).eq('id', id);
   if (error) throw error;
 }
 

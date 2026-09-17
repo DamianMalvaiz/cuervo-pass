@@ -6,7 +6,7 @@ import { TarjetaPublicacion } from '@/components/TarjetaPublicacion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { desactivarPublicacion, listarMisPublicaciones } from '@/services/publicaciones.service';
+import { cambiarEstadoPublicacion, listarMisPublicaciones } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
 
@@ -25,25 +25,32 @@ export default function PublicacionesScreen() {
     }
   }, [session?.user.id]);
 
-  // Recarga cada vez que la pestaña vuelve a estar en foco (ej. tras publicar una nueva).
+  // Recarga cada vez que la pestaña vuelve a estar en foco (ej. tras publicar o editar).
   useFocusEffect(
     useCallback(() => {
       cargar();
     }, [cargar])
   );
 
-  const onDesactivar = (publicacion: Publicacion) => {
-    Alert.alert('Desactivar publicación', '¿Seguro que quieres desactivarla? Dejará de verse para otros usuarios.', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Desactivar',
-        style: 'destructive',
-        onPress: async () => {
-          await desactivarPublicacion(publicacion.id);
-          cargar();
+  const onCambiarEstado = (publicacion: Publicacion) => {
+    const activar = !publicacion.activa;
+    Alert.alert(
+      activar ? 'Reactivar publicación' : 'Desactivar publicación',
+      activar
+        ? '¿Volver a mostrarla a otros usuarios?'
+        : '¿Seguro que quieres desactivarla? Dejará de verse para otros usuarios (puedes reactivarla después).',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: activar ? 'Reactivar' : 'Desactivar',
+          style: activar ? 'default' : 'destructive',
+          onPress: async () => {
+            await cambiarEstadoPublicacion(publicacion.id, activar);
+            cargar();
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   return (
@@ -70,11 +77,16 @@ export default function PublicacionesScreen() {
                 />
                 {!item.activa && <ThemedText style={styles.inactivaEtiqueta}>Inactiva</ThemedText>}
               </View>
-              {item.activa && (
-                <Pressable onPress={() => onDesactivar(item)} style={styles.desactivarBoton}>
-                  <ThemedText style={styles.desactivarTexto}>Desactivar</ThemedText>
+              <View style={styles.acciones}>
+                <Pressable onPress={() => router.push(`/publicacion/editar/${item.id}`)} style={styles.accionBoton}>
+                  <ThemedText style={styles.editarTexto}>Editar</ThemedText>
                 </Pressable>
-              )}
+                <Pressable onPress={() => onCambiarEstado(item)} style={styles.accionBoton}>
+                  <ThemedText style={item.activa ? styles.desactivarTexto : styles.reactivarTexto}>
+                    {item.activa ? 'Desactivar' : 'Reactivar'}
+                  </ThemedText>
+                </Pressable>
+              </View>
             </View>
           )}
           ListEmptyComponent={<ThemedText type="small">Aún no tienes publicaciones — crea la primera.</ThemedText>}
@@ -89,6 +101,9 @@ const styles = StyleSheet.create({
   nuevaBotonTexto: { color: '#208AEF', fontWeight: '600' },
   fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   inactivaEtiqueta: { color: '#60646C', marginLeft: Spacing.two },
-  desactivarBoton: { padding: Spacing.two },
+  acciones: { alignItems: 'flex-end', gap: Spacing.half },
+  accionBoton: { padding: Spacing.one },
+  editarTexto: { color: '#208AEF' },
   desactivarTexto: { color: '#d92d20' },
+  reactivarTexto: { color: '#1a9d5c' },
 });
