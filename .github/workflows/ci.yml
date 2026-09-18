@@ -83,6 +83,10 @@ jobs:
           # evitar. Lo que sí tiene parche se corrige subiendo la versión en
           # requirements.txt, no silenciándolo aquí.
           ignore-unfixed: true
+          # Excepciones con justificación escrita, una por una. Hoy solo
+          # contiene las dos que pip empaqueta dentro de sí mismo y que ninguna
+          # versión de pip trae corregidas.
+          trivyignores: ai-service/.trivyignore
       - name: Inventario de componentes
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
