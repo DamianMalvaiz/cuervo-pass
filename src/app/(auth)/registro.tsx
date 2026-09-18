@@ -14,10 +14,12 @@ import {
 import { z } from 'zod';
 
 import { Casilla } from '@/components/Casilla';
+import { RequisitosPassword } from '@/components/RequisitosPassword';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppColors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { evaluarPassword } from '@/lib/password';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -36,7 +38,7 @@ const esquemaRegistro = z
       .min(3, 'Mínimo 3 caracteres')
       .regex(/^[a-z0-9_]+$/i, 'Solo letras, números y guion bajo'),
     email: z.string().email('Correo inválido'),
-    password: z.string().min(6, 'Mínimo 6 caracteres'),
+    password: z.string(),
     confirmarPassword: z.string(),
     // §29: la casilla NO viene premarcada y el registro no avanza sin ella. La
     // marca de tiempo que se guarda en acepto_aviso_privacidad_en es la
@@ -46,6 +48,22 @@ const esquemaRegistro = z
   .refine((datos) => datos.password === datos.confirmarPassword, {
     message: 'Las contraseñas no coinciden',
     path: ['confirmarPassword'],
+  })
+  // La contraseña se valida contra el OBJETO entero, no de forma aislada: dos de
+  // las reglas (no contener el correo, el usuario ni el nombre) necesitan los
+  // otros campos. Por eso vive en un superRefine y no en el `z.string()`.
+  //
+  // Se reporta una sola incumplida: la lista completa está en pantalla marcándose
+  // mientras se escribe, y repetir seis errores bajo el campo solo estorba.
+  .superRefine((datos, ctx) => {
+    const { incumplidas } = evaluarPassword(datos.password, {
+      email: datos.email,
+      nombreUsuario: datos.nombreUsuario,
+      nombre: datos.nombre,
+    });
+    if (incumplidas.length) {
+      ctx.addIssue({ code: 'custom', message: incumplidas[0].etiqueta, path: ['password'] });
+    }
   });
 
 type FormRegistro = z.infer<typeof esquemaRegistro>;
@@ -59,11 +77,20 @@ export default function RegistroScreen() {
   const {
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<FormRegistro>({
     resolver: zodResolver(esquemaRegistro),
     defaultValues: { aceptoAviso: false as unknown as true },
   });
+
+  // Para que los requisitos se marquen mientras se escribe, no al enviar.
+  const passwordActual = watch('password') ?? '';
+  const contextoPassword = {
+    email: watch('email'),
+    nombreUsuario: watch('nombreUsuario'),
+    nombre: watch('nombre'),
+  };
 
   const onSubmit = async (datos: FormRegistro) => {
     setErrorServidor(null);
@@ -214,7 +241,7 @@ export default function RegistroScreen() {
               />
             )}
           />
-          {errors.password && <ThemedText style={styles.error}>{errors.password.message}</ThemedText>}
+          <RequisitosPassword password={passwordActual} contexto={contextoPassword} />
 
           <Controller
             control={control}

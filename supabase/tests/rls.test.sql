@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(12);
+select plan(15);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -132,6 +132,41 @@ select throws_ok(
      values ('00000000-0000-0000-0000-0000000000b2', 'Depa 16', 'depa', 'Calle 16', 2500, '5512345678') $$,
   null,
   'la publicación número 16 de una cuenta se rechaza' );
+
+-- ════════════════ 13, 14 y 15 · las policies de Storage existen ════════════════
+-- Estas tres comprueban EXISTENCIA, no comportamiento, y conviene ser honesto
+-- sobre la diferencia: ejercitar storage.objects de verdad exige montar el
+-- bucket y sus objetos, que es más de lo que esta suite hace.
+--
+-- Aun así valen. La 14 es la que habría atrapado el bug que corrige la 0019:
+-- src/lib/storage.ts sube con `upsert: true` desde el principio, y durante todo
+-- ese tiempo NO existió una policy de UPDATE para las fotos de publicaciones.
+-- Reemplazar una foto ya subida fallaba con error de RLS, y nadie lo notó porque
+-- subir una nueva —que es INSERT— sí funcionaba.
+--
+-- La 15 cubre el otro lado: una policy que permitiera ESCRIBIR sin sesión
+-- volvería a abrir el bucket que la 0016 cerró.
+select actuar_como_servicio();
+
+select ok(
+  exists (select 1 from pg_policies
+           where schemaname = 'storage' and tablename = 'objects'
+             and cmd = 'UPDATE' and policyname = 'el dueno reemplaza su propia foto de perfil'),
+  'existe la policy de UPDATE para la foto de perfil propia' );
+
+select ok(
+  exists (select 1 from pg_policies
+           where schemaname = 'storage' and tablename = 'objects'
+             and cmd = 'UPDATE' and policyname = 'el dueno reemplaza fotos de sus publicaciones'),
+  'existe la policy de UPDATE para las fotos de publicaciones propias (0019)' );
+
+select is(
+  (select count(*)::int from pg_policies
+    where schemaname = 'storage' and tablename = 'objects'
+      and cmd in ('INSERT', 'UPDATE', 'DELETE')
+      and ('anon' = any(roles) or 'public' = any(roles))),
+  0,
+  'ninguna policy de Storage permite escribir sin sesión' );
 
 select * from finish();
 rollback;

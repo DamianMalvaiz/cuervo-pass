@@ -4,7 +4,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { AVISO_INTRO, SECCIONES, type Bloque } from '@/lib/avisoPrivacidad';
+import { AVISO_ACTUALIZACION, AVISO_INTRO, SECCIONES, type Bloque } from '@/lib/avisoPrivacidad';
 
 // Documento maestro v5 · §29 — el aviso, dentro de la app.
 //
@@ -41,6 +41,15 @@ function BloqueAviso({ bloque }: { bloque: Bloque }) {
         <View style={styles.bloque}>
           <TextoConNegritas texto={bloque.texto} />
         </View>
+      );
+
+    // Los `###` del .md. Sin ellos, secciones como la 9 (tres bloques temáticos
+    // distintos) se leen como un muro.
+    case 'subtitulo':
+      return (
+        <ThemedText type="smallBold" style={styles.subtitulo}>
+          {bloque.texto}
+        </ThemedText>
       );
 
     case 'lista':
@@ -96,6 +105,9 @@ export default function AvisoPrivacidadScreen() {
   return (
     <ThemedView style={styles.pantalla}>
       <ScrollView contentContainerStyle={styles.contenido}>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.fecha}>
+          {AVISO_ACTUALIZACION}
+        </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={styles.intro}>
           {AVISO_INTRO}
         </ThemedText>
@@ -119,7 +131,9 @@ export default function AvisoPrivacidadScreen() {
 const styles = StyleSheet.create({
   pantalla: { flex: 1 },
   contenido: { padding: Spacing.four, paddingBottom: Spacing.six },
+  fecha: { marginBottom: Spacing.two, fontWeight: '600' },
   intro: { marginBottom: Spacing.five },
+  subtitulo: { marginTop: Spacing.two, marginBottom: Spacing.two },
   seccion: { marginBottom: Spacing.five },
   // El número como dato pequeño encima del título, en vez de "1." pegado al
   // texto: deja el título como la línea que el ojo encuentra al hojear.

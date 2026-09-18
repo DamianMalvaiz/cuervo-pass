@@ -127,6 +127,66 @@ evidencia más barata que existe.
   APK. Los scripts de Node leen de ahí, así que separarlo es trabajo de la
   semana 12, no un parche de hoy.
 
+### Endurecimiento de contraseñas y hallazgos del 18/09 (tarde)
+
+- **La contraseña solo exigía seis caracteres, y solo en el teléfono.** La
+  validación era `z.string().min(6)` dentro de `registro.tsx`: "123456" pasaba.
+  Además zod corre en el cliente, así que quien llamara a la API de Auth
+  directamente se la saltaba entera. Ahora hay dos barreras que dicen lo mismo:
+  `src/lib/password.ts` (10 caracteres, mayúscula, minúscula, dígito, que no
+  contenga el correo/usuario/nombre, que no esté en una lista de conocidas) y
+  `minimum_password_length = 10` + `password_requirements` en el proyecto real.
+  `password.test.ts` lee `config.toml` y falla si las dos dejan de coincidir.
+  Los requisitos ahora se **muestran** y se marcan mientras se escribe, en vez
+  de aparecer como error al enviar.
+- **`supabase config push` habría apagado el MFA.** El `config.toml` que generó
+  `supabase init` trae valores de PLANTILLA, y `config push` empuja todo lo que
+  el archivo declara. El diff previo mostró diez ajustes reales que habría
+  pisado: `mfa.totp.enroll_enabled` y `verify_enabled` (ambos **true** en el
+  proyecto y `false` en la plantilla), `email.otp_length` 8 → 6,
+  `email.max_frequency` 1m → 1s, el pooler a la mitad. La solución no fue
+  corregir los diez valores sino **dejarlos sin declarar**, porque lo que el
+  archivo no declara no se toca. Regla: ante `config push`, correr siempre
+  `config diff` antes y leerlo entero.
+- **Faltaba la policy de UPDATE de Storage (migración 0019).** La 0002 creó
+  INSERT y DELETE para `publicaciones/<uid>/...` pero nunca UPDATE, y
+  `subirFotoPublicacion` sube con `upsert: true`. Reemplazar una foto ya subida
+  fallaba con error de RLS; subir una nueva funcionaba, que es por lo que nadie
+  lo notó. Tres aserciones pgTAP nuevas (13, 14 y 15) lo cubren.
+- **`supabase stop` respalda la base local por omisión y la restaura al
+  arrancar.** Por eso la primera corrida de la aserción 14 falló: el stack
+  levantó el estado anterior a la 0019 en vez de reaplicar migraciones. Se
+  arregla con `supabase db reset`. Conviene saberlo: un `test db` después de un
+  `stop`/`start` puede estar probando un esquema viejo sin avisar.
+
+### El aviso de privacidad, reescrito frente a la LFPDPPP
+
+Pasó de 9 a 10 secciones. Le faltaban elementos exigidos por el art. 16 y por el
+art. 30 del Reglamento: **domicilio** del responsable (una dirección de correo
+no cubre la fracción I), distinción entre finalidades **primarias y
+secundarias** con el medio para negarse a estas últimas, cláusula de
+**transferencias**, procedimiento de **revocación**, **plazos** de 20 y 15 días
+hábiles, mención del **INAI**, advertencia sobre **datos sensibles** en el campo
+de texto libre, y fecha de última actualización.
+
+Dos decisiones de fondo:
+
+- **Supabase y Anthropic se declaran *encargados*, no terceros.** Tratan datos
+  por cuenta nuestra, así que conforme al art. 36 **no hay transferencia** y no
+  se requiere consentimiento adicional. Listarlos en una tabla de "con quién se
+  comparten", como hacía la versión anterior, daba a entender lo contrario.
+- **La sección de seguridad dice la verdad en vez de sonar bien.** Declara que
+  las fotos **no** están cifradas de extremo a extremo y explica qué sí las
+  protege —bucket privado, enlaces firmados a una hora, cifrado en reposo—
+  incluyendo la parte incómoda: mientras un enlace firmado no caduque, funciona
+  para quien lo tenga. Y aclara que la contraseña no se cifra sino que se
+  **hashea con bcrypt**, que no es lo mismo y es lo correcto. Un aviso que
+  exagera sus medidas es una declaración falsa, y `avisoPrivacidad.test.ts`
+  ahora verifica que esas afirmaciones sigan ahí.
+
+El domicilio se tomó del sitio oficial del Gobierno del Estado de México
+(utvt.edomex.gob.mx/ubicación), no de memoria ni de un directorio de terceros.
+
 ### Nota sobre el consentimiento de IA
 
 El `consiente_analisis_ia` de las 109 cuentas se otorgó manualmente el
@@ -150,6 +210,12 @@ era innecesario: `sugerencias_con_ranking` solo lee el `perfil_vector` de
       por defecto en vez de atributos extraídos del texto libre. Degrada sin
       romperse; decidir si se configura antes de la entrega.
 - [ ] Separar el `.env` de cliente y el de servidor (ver Hallazgos).
+- [ ] Activar **"Prevent use of leaked passwords"** en el panel
+      (Authentication → Attack Protection). Es la comprobación contra
+      HaveIBeenPwned, corre en el servidor y vale más que cualquier regla de
+      composición. No es configurable desde `config.toml`.
+- [ ] Las 109 cuentas existentes conservan su contraseña anterior: las reglas
+      nuevas aplican a registros nuevos y a cambios de contraseña.
 - [ ] Retirar la vista de compatibilidad `roomings` (migración 0011) cuando ya
       no quede ningún APK viejo instalado.
 - [ ] El túnel de cloudflared es efímero: `*.trycloudflare.com` cambia de
