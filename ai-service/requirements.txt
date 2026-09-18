@@ -36,3 +36,17 @@ torch==2.14.0
 anthropic==1.6.0
 slowapi==0.1.9
 pydantic==2.10.4
+
+# Transitivas que Trivy marcó y que no se arreglan subiendo a su paquete padre.
+# Se fijan aquí porque requirements.txt se instala DESPUÉS del `pip install
+# --upgrade setuptools` del Dockerfile, así que este pin es el que manda.
+#
+# setuptools 70.3.0 (la que arrastra torch): CVE-2025-47273, path traversal en
+# PackageIndex, corregida en 78.1.1.
+setuptools==84.0.0
+# msgpack 1.1.2: GHSA-6v7p-g79w-8964, lectura fuera de límites al reutilizar
+# Unpacker. Corregida en 1.2.1. No aparece al instalar en esta laptop —el
+# índice de torch para CPU que usa el Dockerfile resuelve distinto al build de
+# CUDA local—, así que la evidencia de que está en la imagen es el propio
+# escaneo de Trivy.
+msgpack==1.2.1
