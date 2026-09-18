@@ -65,6 +65,9 @@
     "preset": "jest-expo",
     "moduleNameMapper": {
       "\\.css$": "<rootDir>/jest.cssMock.js"
-    }
+    },
+    "modulePathIgnorePatterns": [
+      "<rootDir>/.claude/worktrees/"
+    ]
   }
 }
