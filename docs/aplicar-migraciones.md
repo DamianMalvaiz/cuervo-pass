@@ -151,53 +151,49 @@ carpeta que no existe. Corre siempre desde la raíz del proyecto.
 
 ---
 
-## Integrar con tu trabajo de la Semana 11
+## Tu trabajo de la Semana 11 ya está en esta rama
 
-Tienes push notifications **sin commitear** en `~/cuervo-pass`:
-
-```
-?? supabase/migrations/0008_notificaciones_push.sql
-?? src/lib/pushNotifications.ts
-?? eas.json
- M .env.example  app.json  package.json  package-lock.json
- M src/app/(tabs)/_layout.tsx  src/types/database.types.ts
-```
-
-Ya resolví las dos colisiones que **rompían** algo:
+Las notificaciones push existían solo como archivos sin versionar en
+`~/cuervo-pass`. Están incorporadas aquí, con las tres colisiones resueltas:
 
 | Colisión | Cómo quedó |
 |---|---|
-| Ambas migraciones se llamaban `0008_` | Las de v5 se renumeraron a **0009–0018**. Tu `0008_notificaciones_push.sql` conserva su lugar |
+| Ambas migraciones se llamaban `0008_` | Las de v5 se renumeraron a **0009–0018**. `0008_notificaciones_push.sql` conserva su lugar |
 | `crear_notificacion_mensaje()` usa `new.destinatario_id`, columna que v5 elimina — el push habría dejado de enviarse **sin un solo error en los logs** | La migración 0012 reimplementa el envío dentro de `al_insertar_mensaje()`, con un `if exists` para que corra igual si 0008 no está aplicada |
-| `push_tokens` faltaba en los tipos de la rama v5 | Agregada a `database.types.ts`, junto con `enviar_notificacion_push` |
+| El deep link abría `/chat/<remitente_id>`, ruta que ya no existe | Corregido a `conversacion_id`, que el trigger ya manda en los datos del push |
 
-**Queda una cosa por arreglar a mano, y es tuya:** en
-`src/lib/pushNotifications.ts`, línea 64:
+`push_tokens` y `enviar_notificacion_push` entran en `database.types.ts`, y el
+registro del token se combinó con el renombrado de la pestaña Roomings → Roomies.
 
-```ts
-router.push(`/chat/${datos.remitente_id}`);
+### Limpia las copias sin versionar antes de integrar
+
+En `~/cuervo-pass` siguen existiendo los archivos originales, sin versionar. Git
+se negará a hacer el merge mientras estén ahí («untracked working tree files
+would be overwritten»), porque la rama trae su propia versión de cada uno —
+mejor, en el caso de `pushNotifications.ts`.
+
+```bash
+cd ~/cuervo-pass
+
+# Red de seguridad, por si quieres comparar después
+git stash push -u -m "semana-11-original" \
+  eas.json src/lib/pushNotifications.ts \
+  supabase/migrations/0008_notificaciones_push.sql \
+  app.json package.json package-lock.json \
+  src/app/\(tabs\)/_layout.tsx .env.example
+
+git status --short     # debe quedar limpio, salvo .claude/worktrees/
 ```
 
-Bajo v5 la ruta es `chat/[conversacionId]`, no `chat/[usuarioId]`. Tocar la
-notificación abriría una ruta que ya no existe. La migración 0012 ya manda
-`conversacion_id` dentro de los datos del push, así que el arreglo es:
+Y ya con el árbol limpio, integra la rama (o haz merge del PR desde GitHub).
 
-```ts
-const datos = respuesta.notification.request.content.data as {
-  tipo?: string;
-  conversacion_id?: string;
-};
-if (datos?.tipo === 'nuevo_mensaje' && datos.conversacion_id) {
-  router.push(`/chat/${datos.conversacion_id}`);
-}
+Cuando confirmes que todo está bien, borra ese stash **por su nombre**, no con
+un `git stash drop` a secas:
+
+```bash
+git stash list            # localiza la línea con "semana-11-original"
+git stash drop 'stash@{N}'   # N es el índice que viste arriba
 ```
 
-No lo hice yo porque ese archivo no está versionado y sigue siendo tuyo: si lo
-copiara a esta rama, tendrías dos copias divergiendo.
-
-**El resto son conflictos normales de git**, todos aditivos: `.env.example`,
-`app.json`, `package.json`, `_layout.tsx`. Al integrar, quédate con **las dos**
-versiones de cada bloque — ninguna se contradice con la otra.
-
-Y antes de nada: **commitea tu trabajo de la Semana 11 en `main`**. Ahora mismo
-existe solo en el disco de tu laptop.
+`git stash drop` sin índice borra el más reciente, que en este proyecto puede ser
+de otra sesión: los worktrees comparten la misma pila de stashes.
