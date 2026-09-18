@@ -7,27 +7,26 @@ import { ThemedView } from '@/components/themed-view';
 import { AppColors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formateadorHora } from '@/lib/formatoHora';
-import { listarConversaciones, suscribirseAMensajes, type ResumenConversacion } from '@/services/mensajes.service';
-import { obtenerUsuariosPublicos } from '@/services/usuarios.service';
+import {
+  listarConversaciones,
+  suscribirseAMisChats,
+  type ResumenConversacion,
+} from '@/services/mensajes.service';
 import { useAuthStore } from '@/store/useAuthStore';
-import type { Usuario } from '@/types/database.types';
 
-interface ConversacionConNombre extends ResumenConversacion {
-  usuario: Usuario | null;
-}
-
-// Sección 9: "lista de conversaciones con último mensaje y hora".
+// Documento maestro v5 · §25. El nombre de la contraparte y el último mensaje
+// ya vienen resueltos desde el servicio: antes esta pantalla pedía los perfiles
+// aparte y armaba los hilos agrupando todos los mensajes del usuario.
 export default function ChatsScreen() {
   const theme = useTheme();
   const session = useAuthStore((s) => s.session);
-  const [conversaciones, setConversaciones] = useState<ConversacionConNombre[]>([]);
+  const [conversaciones, setConversaciones] = useState<ResumenConversacion[]>([]);
   const [cargando, setCargando] = useState(true);
   const idCargaActual = useRef(0);
 
   // `mostrarSpinner` es false para los refrescos disparados por Realtime — sin
-  // esto, CADA mensaje entrante (de cualquier conversación) reemplazaba toda la
-  // lista por un spinner y perdía el scroll. El contador de idCarga descarta
-  // respuestas que lleguen fuera de orden (dos cargar() en vuelo a la vez).
+  // esto, CADA mensaje entrante reemplazaba toda la lista por un spinner y
+  // perdía el scroll. El contador descarta respuestas fuera de orden.
   const cargar = useCallback(
     async (mostrarSpinner: boolean) => {
       const miId = session?.user.id;
@@ -36,10 +35,10 @@ export default function ChatsScreen() {
       if (mostrarSpinner) setCargando(true);
       try {
         const resumenes = await listarConversaciones(miId);
-        const usuarios = await obtenerUsuariosPublicos(resumenes.map((r) => r.otroUsuarioId));
         if (idCarga !== idCargaActual.current) return;
-        const porId = new Map(usuarios.map((u) => [u.id, u]));
-        setConversaciones(resumenes.map((r) => ({ ...r, usuario: porId.get(r.otroUsuarioId) ?? null })));
+        setConversaciones(resumenes);
+      } catch (e) {
+        console.warn('listarConversaciones falló:', e);
       } finally {
         if (idCarga === idCargaActual.current) setCargando(false);
       }
@@ -53,10 +52,8 @@ export default function ChatsScreen() {
     }, [cargar])
   );
 
-  // Refresca la lista cuando llega o se envía un mensaje mientras esta pantalla
-  // está abierta — no solo al reenfocarla. Sin spinner: es un refresco de fondo.
   useEffect(() => {
-    return suscribirseAMensajes(() => cargar(false));
+    return suscribirseAMisChats(() => cargar(false));
   }, [cargar]);
 
   return (
@@ -67,24 +64,26 @@ export default function ChatsScreen() {
       ) : (
         <FlatList
           data={conversaciones}
-          keyExtractor={(item) => item.otroUsuarioId}
+          keyExtractor={(item) => item.conversacionId}
           renderItem={({ item }) => (
             <Pressable
-              onPress={() => router.push(`/chat/${item.otroUsuarioId}`)}
+              onPress={() => router.push(`/chat/${item.conversacionId}`)}
               style={styles.fila}
               accessibilityRole="button"
-              accessibilityLabel={`Conversación con ${item.usuario?.nombre_completo ?? 'usuario'}`}
+              accessibilityLabel={`Conversación con ${item.otroUsuario.nombre_completo}`}
             >
               <View style={{ flex: 1 }}>
-                <ThemedText type="smallBold">{item.usuario?.nombre_completo ?? 'Usuario'}</ThemedText>
+                <ThemedText type="smallBold">{item.otroUsuario.nombre_completo}</ThemedText>
                 <ThemedText type="small" numberOfLines={1} style={{ color: theme.textSecondary }}>
-                  {item.ultimoMensaje.contenido}
+                  {item.ultimoMensaje?.contenido ?? 'Sin mensajes todavía'}
                 </ThemedText>
               </View>
               <View style={styles.derecha}>
-                <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                  {formateadorHora.format(new Date(item.ultimoMensaje.creado_en))}
-                </ThemedText>
+                {item.ultimoMensaje && (
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    {formateadorHora.format(new Date(item.ultimoMensaje.creado_en))}
+                  </ThemedText>
+                )}
                 {item.noLeidos > 0 && (
                   <View style={styles.insigniaNoLeidos}>
                     <ThemedText type="small" style={styles.textoInsignia}>

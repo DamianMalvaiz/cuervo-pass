@@ -1,0 +1,14 @@
+# Dependencias solo de pruebas. Separadas de requirements.txt a propósito: la
+# imagen de producción (Dockerfile) instala únicamente requirements.txt, así
+# que pytest y httpx no engordan la imagen ni amplían su superficie de ataque.
+#
+# Versiones exactas por la misma razón que el otro archivo (§33.3).
+pytest==9.1.1
+
+# El TestClient de FastAPI lo necesita. NO llega solo: fastapi solo depende de
+# pydantic/starlette/typing-extensions, y anthropic 1.x trae su propio `httpx2`
+# —un paquete distinto—, así que en un entorno limpio como el de CI `httpx` no
+# existe. Esto es lo que hacía fallar el job `servicio-ia` incluso después de
+# agregar pytest: `pytest: command not found` primero, y acto seguido
+# "the starlette.testclient module requires the httpx package to be installed".
+httpx==0.28.1

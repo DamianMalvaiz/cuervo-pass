@@ -1,62 +1,103 @@
+"""Documento maestro v5 · §20 y §22 — parseo de perfil con Claude Haiku.
+
+Dos cambios de fondo frente a v3:
+
+1. Las instrucciones van en `system` y el texto del usuario en su propio turno.
+   v3 hacía ``_plantilla.format(texto=texto)`` sobre un archivo que contenía
+   ejemplos en JSON; las llaves de esos ejemplos — ``{"fuma": false, ...}`` —
+   son marcadores de posición para ``str.format``, así que la llamada revienta
+   con ``KeyError: '"fuma"'`` en cuanto agregas los ejemplos que el propio
+   documento recomendaba agregar. Separarlos también reduce la superficie de
+   inyección de prompt: quien escriba "ignora las instrucciones anteriores"
+   está hablando dentro de su turno, no encima de las reglas.
+
+2. Cliente perezoso con timeout explícito, en vez de construirlo en tiempo de
+   import con una key que puede no existir.
+"""
+
 import json
 import logging
-import os
-from anthropic import Anthropic, APIError, APIConnectionError, APITimeoutError
 
-_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-_cliente = Anthropic(api_key=_API_KEY or "sin-configurar")
-_MODELO = "claude-haiku-4-5-20251001"
+from anthropic import Anthropic, APIConnectionError, APIError, APITimeoutError
 
-_VALORES_POR_DEFECTO = {
-    "fuma": False, "mascotas": False, "nivel_ruido": "medio",
-    "horario_predominante": "mixto", "notas": "no se pudo interpretar, valores por defecto"
+import config
+
+_SISTEMA = (config.PROMPTS / "parseo_perfil.txt").read_text(encoding="utf-8")
+
+# `degradado` dice si la respuesta vino del modelo o de los valores neutros. Sin
+# ese campo no hay forma de saber si el LLM funciona o si llevas dos semanas
+# guardando valores por omisión para todos los usuarios creyendo que sí.
+_POR_DEFECTO = {
+    "fuma": False,
+    "mascotas": False,
+    "nivel_ruido": "medio",
+    "horario_predominante": "mixto",
+    "notas": "",
+    "degradado": True,
 }
 
-with open("prompts/parseo_perfil.txt", encoding="utf-8") as f:
-    _plantilla = f.read()
+_cliente: Anthropic | None = None
+
+
+def _obtener_cliente() -> Anthropic | None:
+    global _cliente
+    if not config.ANTHROPIC_API_KEY:
+        return None
+    if _cliente is None:
+        _cliente = Anthropic(
+            api_key=config.ANTHROPIC_API_KEY,
+            timeout=config.TIMEOUT_LLM,
+            max_retries=1,
+        )
+    return _cliente
 
 
 def parsear_perfil(texto: str) -> dict:
-    # Sin key configurada (desarrollo temprano, o antes de activar el paso de
-    # pago en Anthropic) — degrada de inmediato sin intentar la llamada.
-    if not _API_KEY:
-        logging.warning("ANTHROPIC_API_KEY no configurada — usando valores por defecto.")
-        return _VALORES_POR_DEFECTO
+    cliente = _obtener_cliente()
+    if cliente is None:
+        return dict(_POR_DEFECTO)
 
-    prompt = _plantilla.format(texto=texto)
     try:
-        respuesta = _cliente.messages.create(
-            model=_MODELO,
+        respuesta = cliente.messages.create(
+            model=config.MODELO_LLM,
             max_tokens=300,
-            messages=[{"role": "user", "content": prompt}],
+            system=_SISTEMA,                         # instrucciones separadas del dato
+            messages=[{"role": "user", "content": texto}],
         )
     except (APIConnectionError, APITimeoutError, APIError, TypeError) as e:
-        # Sin internet, la API tarda demasiado, Anthropic regresó un error (rate
-        # limit, 5xx, etc.), o la key es inválida (el SDK nuevo lanza TypeError
-        # en vez de un error de autenticación para eso) — nunca dejes que esto
-        # tumbe el registro del usuario. Degrada a valores neutros y sigue el flujo.
-        logging.warning(f"Fallo al llamar a Claude Haiku: {e}")
-        return _VALORES_POR_DEFECTO
+        # Sin internet, la API tarda demasiado, Anthropic devolvió un error, o la
+        # key es inválida (el SDK lanza TypeError para eso). Nunca dejes que esto
+        # tumbe el registro del usuario. El texto NO se registra: §29, minimización.
+        logging.warning("Claude Haiku no respondió: %s", e)
+        return dict(_POR_DEFECTO)
 
-    contenido = respuesta.content[0].text.strip()
+    crudo = respuesta.content[0].text.strip()
+    if crudo.startswith("```"):                      # por si envuelve el JSON
+        crudo = crudo.strip("`").removeprefix("json").strip()
+
     try:
-        resultado = json.loads(contenido)
+        datos = json.loads(crudo)
     except json.JSONDecodeError:
-        # Respaldo si el modelo no regresa JSON perfecto (ej. texto extra alrededor)
-        return _VALORES_POR_DEFECTO
+        logging.warning("respuesta no parseable (%d caracteres)", len(crudo))
+        return dict(_POR_DEFECTO)
 
-    return _validar_resultado(resultado)
+    return _normalizar(datos)
 
 
-def _validar_resultado(resultado: dict) -> dict:
-    # Blindaje extra: si Claude regresa un valor fuera del check constraint de
-    # la tabla `usuarios` (ej. nivel_ruido: "extremo"), el insert en Supabase
-    # truena con un 500 feo. Mejor normalizar aquí, antes de que llegue a la DB.
-    if resultado.get("nivel_ruido") not in ("bajo", "medio", "alto"):
-        resultado["nivel_ruido"] = "medio"
-    if resultado.get("horario_predominante") not in ("diurno", "nocturno", "mixto"):
-        resultado["horario_predominante"] = "mixto"
-    resultado["fuma"] = bool(resultado.get("fuma", False))
-    resultado["mascotas"] = bool(resultado.get("mascotas", False))
-    resultado.setdefault("notas", "")
-    return resultado
+def _normalizar(d: dict) -> dict:
+    # Si el modelo devuelve algo fuera del CHECK de la tabla (nivel_ruido:
+    # "extremo"), el insert en Supabase falla con un 500 feo. Se normaliza aquí,
+    # que es la validación de salida del §28 contra inyección de prompt: nada de
+    # lo que diga el modelo llega a la base sin pasar por esta lista cerrada.
+    if d.get("nivel_ruido") not in ("bajo", "medio", "alto"):
+        d["nivel_ruido"] = "medio"
+    if d.get("horario_predominante") not in ("diurno", "nocturno", "mixto"):
+        d["horario_predominante"] = "mixto"
+    return {
+        "fuma": bool(d.get("fuma", False)),
+        "mascotas": bool(d.get("mascotas", False)),
+        "nivel_ruido": d["nivel_ruido"],
+        "horario_predominante": d["horario_predominante"],
+        "notas": str(d.get("notas", ""))[:120],
+        "degradado": False,
+    }

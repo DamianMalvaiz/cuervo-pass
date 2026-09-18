@@ -1,6 +1,52 @@
-fastapi==0.115.0
-uvicorn==0.30.6
-sentence-transformers==3.1.1
+# Versiones exactas (§33.3): es lo que impide que una versión menor rompa el
+# build el día de la entrega. Se actualizan con Dependabot en un PR que CI
+# valida, no a mano y en pánico.
+#
+# Las versiones de abajo subieron porque Trivy (job `imagen`) encontró CVEs con
+# parche disponible en las anteriores. El detalle de cada una está junto al
+# paquete que la traía.
+
+# starlette 0.41.3 (que arrastraba fastapi 0.115.6) tenía tres HIGH:
+# CVE-2025-62727 (DoS por cabecera Range), CVE-2026-48818 (SSRF y robo de
+# credenciales NTLM vía rutas UNC en StaticFiles) y CVE-2026-54283 (los
+# límites de request.form() se ignoraban en silencio → DoS). fastapi 0.141
+# admite starlette >= 0.46, que ya los trae corregidos.
+fastapi==0.141.1
+uvicorn[standard]==0.34.0
+
+# sentence-transformers 3.3.1 arrastraba transformers 4.57.6, con tres HIGH:
+# CVE-2026-4372 (ejecución remota de código), CVE-2026-5241 (ejecución
+# arbitraria por trust_remote_code sobrescrito) y CVE-2026-9856 (escritura
+# arbitraria de archivos por path traversal en nombres de plantilla).
+# La 6.x exige transformers 5.x, que los corrige.
+#
+# La API que usa este servicio es la misma en ambas versiones:
+# SentenceTransformer(nombre) y .encode(texto, normalize_embeddings=True).
+sentence-transformers==6.1.0
+transformers==5.17.0
+
+# torch 2.5.1 tenía CVE-2025-32434, CRITICAL, corregida en 2.6.0.
+# Sigue fijado y con el índice de CPU (ver Dockerfile): sin eso pip jala torch
+# con CUDA, ~3 GB de imagen, para correr en una CPU que nunca va a usar una GPU.
+torch==2.14.0
+
+# El documento maestro cita anthropic==0.42.0; se conserva la 1.x que el
+# proyecto ya usa, porque el SDK 1.x es el vigente y bajar de versión sería una
+# regresión. La API empleada aquí (messages.create con `system`) es la misma.
 anthropic==1.6.0
 slowapi==0.1.9
-python-dotenv==1.0.1
+pydantic==2.10.4
+
+# Transitivas que Trivy marcó y que no se arreglan subiendo a su paquete padre.
+# Se fijan aquí porque requirements.txt se instala DESPUÉS del `pip install
+# --upgrade setuptools` del Dockerfile, así que este pin es el que manda.
+#
+# setuptools 70.3.0 (la que arrastra torch): CVE-2025-47273, path traversal en
+# PackageIndex, corregida en 78.1.1.
+setuptools==84.0.0
+# msgpack 1.1.2: GHSA-6v7p-g79w-8964, lectura fuera de límites al reutilizar
+# Unpacker. Corregida en 1.2.1. No aparece al instalar en esta laptop —el
+# índice de torch para CPU que usa el Dockerfile resuelve distinto al build de
+# CUDA local—, así que la evidencia de que está en la imagen es el propio
+# escaneo de Trivy.
+msgpack==1.2.1

@@ -1,53 +1,124 @@
--- Cuervo Pass — datos de prueba para la demo (sección 19 del doc maestro).
+-- Cuervo Pass — datos de prueba para la demo. Documento maestro v5 · §36.
+--
 -- No registres usuarios en vivo frente a la maestra: carga esto con antelación.
 --
+-- CAMBIO IMPORTANTE frente a v3: las publicaciones ya NO se pueden insertar sin
+-- dueño. `publicaciones.usuario_id` es NOT NULL desde la migración 0010, porque
+-- una publicación huérfana no puede aparecer en sugerencias (la consulta une
+-- con `perfiles_publicos`) ni revelar contacto. Antes ese `null` permitía un
+-- seed de una sola línea y un catálogo que el motor nunca iba a devolver.
+--
 -- Cómo usar:
--- 1) Las publicaciones de abajo no requieren dueño (usuario_id nullable) — corren tal cual.
--- 2) Los 3 perfiles de ejemplo SÍ necesitan una cuenta real de Supabase Auth (usuarios.id
---    referencia auth.users). Créalas UNA VEZ, desde la app (pantalla de registro) o desde
---    el dashboard de Supabase (Authentication > Users > Add user), con estos correos:
---      perfil-a@demo.cuervopass.com
---      perfil-b@demo.cuervopass.com
---      perfil-c@demo.cuervopass.com
---    Al registrarte desde la app se crea la fila en `usuarios` automáticamente (ver
---    src/app/(auth)/registro.tsx). Luego corre los UPDATE de abajo para completar
---    presupuesto/mascotas/ruido de cada perfil.
+--   1) Crea las 3 cuentas demo UNA vez, desde la app o desde el panel de
+--      Supabase (Authentication > Users > Add user):
+--        perfil-a@demo.cuervopass.com
+--        perfil-b@demo.cuervopass.com
+--        perfil-c@demo.cuervopass.com
+--      El trigger handle_new_user (§12, migración 0009) crea su fila en
+--      `usuarios` automáticamente.
+--   2) Corre este archivo completo en el SQL Editor.
+--
+-- Para un catálogo grande y realista, usa scripts/seed-demo.mjs (100 cuentas
+-- alrededor de la UTVT) en vez de esto.
 
 -- ============================================================
--- Publicaciones de ejemplo (ajusta a tu zona real, ej. cerca de tu universidad)
+-- Perfiles de ejemplo
 -- ============================================================
-insert into publicaciones (direccion, precio_renta, descripcion, whatsapp, activa) values
-  ('San Mateo Atenco, Edo. Méx.', 2800, '1 recámara, amueblado, no mascotas', '5215500000001', true),
-  ('Metepec, Edo. Méx.', 4200, '2 recámaras, permite mascotas, cerca de transporte', '5215500000002', true),
-  ('Toluca centro, Edo. Méx.', 1800, 'Cuarto en casa compartida, ambiente tranquilo', '5215500000003', true),
-  ('Santa Fe, CDMX', 6500, '1 recámara, cerca de oficinas corporativas', '5215500000004', true),
-  ('San Mateo Atenco, Edo. Méx.', 3500, '2 recámaras, no fumadores', '5215500000005', true),
-  ('Toluca, Edo. Méx.', 2200, 'Loft pequeño, ideal para una persona', '5215500000006', true),
-  ('Metepec, Edo. Méx.', 2000, 'Casa compartida 3 recámaras por habitación, permite mascotas', '5215500000007', true),
-  ('Cerca de UTVT', 3000, 'Depa amueblado, incluye servicios', '5215500000008', true),
-  ('San Mateo Atenco, Edo. Méx.', 2500, '1 recámara, recién remodelado', '5215500000009', true),
-  ('Toluca, Edo. Méx.', 1500, 'Cuarto en depa compartido, ambiente de estudiantes', '5215500000010', true);
-
--- ============================================================
--- Perfiles de ejemplo — corre esto DESPUÉS de registrar las 3 cuentas demo (ver arriba)
--- ============================================================
--- Perfil A: presupuesto $2,000-$3,000, no mascotas, ruido bajo
+-- UTVT — coordenadas reales, no aproximadas: la distancia que se muestra en la
+-- demo tiene que corresponder con la dirección de verdad.
 update usuarios set
+  nombre_completo = 'Perfil A (demo)',
   presupuesto_min = 2000, presupuesto_max = 3000,
-  mascotas = false, fuma = false, nivel_ruido = 'bajo',
-  biografia = 'Soy tranquilo, estudio en las noches, no fumo'
-where nombre_usuario = 'perfil-a';
+  distancia_max_km = 10,
+  mascotas = false, fuma = false, nivel_ruido = 'bajo', horario_predominante = 'nocturno',
+  biografia = 'Soy tranquilo, estudio en las noches, no fumo',
+  perfil_texto = 'Prefiero el silencio para estudiar. No fumo y no tengo mascotas.',
+  universidad = 'Universidad Tecnológica del Valle de Toluca (UTVT)',
+  latitud_universidad = 19.32568, longitud_universidad = -99.458244,
+  cuestionario_completo = true,
+  acepto_aviso_privacidad_en = now(),
+  consiente_analisis_ia = true
+where id = (select id from auth.users where email = 'perfil-a@demo.cuervopass.com');
 
--- Perfil B: presupuesto $3,000-$4,500, tiene un perro pequeño, ruido medio
 update usuarios set
+  nombre_completo = 'Perfil B (demo)',
   presupuesto_min = 3000, presupuesto_max = 4500,
-  mascotas = true, fuma = false, nivel_ruido = 'medio',
-  biografia = 'Trabajo medio tiempo, tengo mascota, soy sociable'
-where nombre_usuario = 'perfil-b';
+  distancia_max_km = 15,
+  mascotas = true, fuma = false, nivel_ruido = 'medio', horario_predominante = 'mixto',
+  biografia = 'Trabajo medio tiempo, tengo mascota, soy sociable',
+  perfil_texto = 'Tengo un perro pequeño y trabajo medio tiempo. Me gusta convivir.',
+  universidad = 'Universidad Tecnológica del Valle de Toluca (UTVT)',
+  latitud_universidad = 19.32568, longitud_universidad = -99.458244,
+  cuestionario_completo = true,
+  acepto_aviso_privacidad_en = now(),
+  consiente_analisis_ia = true
+where id = (select id from auth.users where email = 'perfil-b@demo.cuervopass.com');
 
--- Perfil C: presupuesto $1,500-$2,200, sin mascotas, ruido bajo
 update usuarios set
+  nombre_completo = 'Perfil C (demo)',
   presupuesto_min = 1500, presupuesto_max = 2200,
-  mascotas = false, fuma = false, nivel_ruido = 'bajo',
-  biografia = 'Busco algo económico, silencioso, cerca de la escuela'
-where nombre_usuario = 'perfil-c';
+  distancia_max_km = 5,
+  mascotas = false, fuma = false, nivel_ruido = 'bajo', horario_predominante = 'diurno',
+  biografia = 'Busco algo económico, silencioso, cerca de la escuela',
+  perfil_texto = 'Busco algo barato y silencioso, lo más cerca posible del campus.',
+  universidad = 'Universidad Tecnológica del Valle de Toluca (UTVT)',
+  latitud_universidad = 19.32568, longitud_universidad = -99.458244,
+  cuestionario_completo = true,
+  acepto_aviso_privacidad_en = now(),
+  consiente_analisis_ia = true
+where id = (select id from auth.users where email = 'perfil-c@demo.cuervopass.com');
+
+-- ============================================================
+-- Publicaciones de ejemplo
+-- ============================================================
+-- Coordenadas verificadas a mano contra colonias reales del valle de Toluca.
+-- §9 y §36: geocodificar el catálogo de demo una sola vez, a mano, es el
+-- respaldo correcto aunque el geocoding en vivo funcione — y aquí queda
+-- declarado en `geocodificado_por`, que es lo que AUD-02 pide.
+--
+-- Los atributos van EXPLÍCITOS (permite_mascotas, amueblado...). v3 los dejaba
+-- escondidos en la descripción y el motor los adivinaba con `ilike '%mascota%'`,
+-- que hace que "no mascotas" cuente como que sí.
+with dueno as (
+  select id from auth.users where email = 'perfil-b@demo.cuervopass.com'
+)
+insert into publicaciones (
+  usuario_id, titulo, tipo, direccion, latitud, longitud, geocodificado_por,
+  precio_renta, descripcion, permite_mascotas, amueblado, servicios_incluidos,
+  recamaras, whatsapp, activa
+)
+select d.id, v.titulo, v.tipo, v.direccion, v.lat, v.lng, 'catalogo-demo-verificado-a-mano',
+       v.precio, v.descripcion, v.mascotas, v.amueblado, v.servicios, v.recamaras, v.whatsapp, true
+from dueno d
+cross join (values
+  ('Depa de 1 recámara amueblado', 'depa',
+   'Av. Solidaridad 120, Santa María Atarasquillo, Lerma, México, CP 52044',
+   19.325679, -99.458243, 2800, 'Una recámara, amueblado, listo para entrar.',
+   false, true, false, 1, '7221000001'),
+  ('Depa de 2 recámaras pet friendly', 'depa',
+   'Calle Reforma 45, San Pedro Tultepec, Lerma, México, CP 52072',
+   19.266388, -99.5088, 4200, 'Dos recámaras, acepta mascotas, cerca del transporte.',
+   true, false, false, 2, '7221000002'),
+  ('Cuarto en casa compartida tranquila', 'cuarto',
+   'Privada Hidalgo 8, Lerma de Villada Centro, Lerma, México, CP 52000',
+   19.286393, -99.510969, 1800, 'Ambiente tranquilo, ideal para estudiar.',
+   false, true, true, 1, '7221000003'),
+  ('Depa cerca del centro de San Mateo', 'depa',
+   'Av. Independencia 210, San Mateo Atenco Centro, San Mateo Atenco, México, CP 50100',
+   19.26372, -99.52952, 3500, 'Una recámara, no fumadores.',
+   false, true, false, 1, '7221000004'),
+  ('Loft pequeño para una persona', 'depa',
+   'Calle Morelos 33, Metepec Centro, Metepec, México, CP 52140',
+   19.252617, -99.60566, 2200, 'Loft de un ambiente, ideal para una persona.',
+   false, true, true, 1, '7221000005'),
+  ('Casa compartida por habitación', 'casa_compartida',
+   'Camino Real 77, San Miguel Totocuitlapilco, Metepec, México, CP 52166',
+   19.235, -99.59, 2000, 'Habitación en casa compartida, permite mascotas.',
+   true, false, false, 3, '7221000006')
+) as v(titulo, tipo, direccion, lat, lng, precio, descripcion,
+       mascotas, amueblado, servicios, recamaras, whatsapp)
+on conflict do nothing;
+
+-- Los vectores (perfil_vector y vector_embedding) NO se cargan aquí: se generan
+-- con scripts/backfill-embeddings.mjs, que llama al microservicio. Sin ellos la
+-- app funciona en Nivel 1, que es justamente la degradación que §18 describe.

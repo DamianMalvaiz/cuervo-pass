@@ -6,26 +6,30 @@ import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
 
 interface Props {
+  titulo: string;
   precio: number;
   direccion: string;
-  fotoUrl?: string;
-  distanciaKm?: number;
+  /** URL ya FIRMADA. El bucket es privado (§14): una ruta cruda no carga. */
+  fotoUrl?: string | null;
+  distanciaKm?: number | null;
   onPress?: () => void;
 }
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 
-export function TarjetaPublicacion({ precio, direccion, fotoUrl, distanciaKm, onPress }: Props) {
+export function TarjetaPublicacion({ titulo, precio, direccion, fotoUrl, distanciaKm, onPress }: Props) {
   const theme = useTheme();
   const precioTexto = `$${formateadorPrecio.format(precio)}/mes`;
-  const distanciaTexto = distanciaKm !== undefined ? `, a ${distanciaKm.toFixed(1)} km de la universidad` : '';
+  // §17: una publicación cuyo geocoding falló se muestra SIN distancia, no
+  // desaparece. Aquí eso significa omitir la línea, no escribir "0 km".
+  const distanciaTexto = distanciaKm != null ? `, a ${distanciaKm.toFixed(1)} km de la universidad` : '';
 
   return (
     <Pressable
       style={styles.tarjeta}
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={`${precioTexto}, ${direccion}${distanciaTexto}`}
+      accessibilityLabel={`${titulo}. ${precioTexto}, ${direccion}${distanciaTexto}`}
     >
       {fotoUrl ? (
         <Image source={{ uri: fotoUrl }} style={styles.foto} contentFit="cover" />
@@ -33,9 +37,14 @@ export function TarjetaPublicacion({ precio, direccion, fotoUrl, distanciaKm, on
         <View style={[styles.foto, { backgroundColor: theme.backgroundSelected }]} />
       )}
       <View style={styles.info}>
+        <ThemedText type="smallBold" numberOfLines={1}>
+          {titulo}
+        </ThemedText>
         <ThemedText type="smallBold">{precioTexto}</ThemedText>
-        <ThemedText type="small">{direccion}</ThemedText>
-        {distanciaKm !== undefined && <ThemedText type="small">{distanciaKm.toFixed(1)} km de la universidad</ThemedText>}
+        <ThemedText type="small" numberOfLines={1}>
+          {direccion}
+        </ThemedText>
+        {distanciaKm != null && <ThemedText type="small">{distanciaKm.toFixed(1)} km de la universidad</ThemedText>}
       </View>
     </Pressable>
   );

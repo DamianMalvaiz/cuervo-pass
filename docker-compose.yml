@@ -1,8 +1,17 @@
+# Documento maestro v5 · §23.
 services:
   ai-service:
-    build: ./ai-service
+    build:
+      context: ./ai-service
     ports:
       - "8000:8000"
-    environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - EMBEDDING_MODEL=all-MiniLM-L6-v2
+    env_file:
+      - ./ai-service/.env
+    restart: unless-stopped
+    volumes:
+      # El modelo sobrevive a los rebuilds: sin este volumen, cada `docker
+      # compose build` vuelve a bajar ~470 MB.
+      - hf-cache:/opt/hf
+
+volumes:
+  hf-cache:

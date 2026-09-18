@@ -2,6 +2,11 @@ import { create } from 'zustand';
 
 import type { Mensaje } from '@/types/database.types';
 
+// Documento maestro v5 · §26. La clave de `mensajesPorConversacion` ahora es el
+// `conversaciones.id` real de la base, no el id del otro usuario: antes era una
+// convención del cliente que no correspondía a nada en el esquema, y por eso la
+// lista de chats tenía que reconstruir los hilos agrupando en JavaScript.
+//
 // Referencia estable para "sin mensajes todavía" — un `?? []` inline en el
 // selector crearía un array nuevo en cada render y React (useSyncExternalStore,
 // que Zustand usa por dentro) lo detecta como snapshot inestable ("getSnapshot

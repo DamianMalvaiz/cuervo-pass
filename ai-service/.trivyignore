@@ -1,0 +1,44 @@
+# Excepciones del escaneo de vulnerabilidades. Cada línea necesita una
+# justificación: sin ella esto se convierte en el cajón donde se esconde lo
+# incómodo, que es peor que no escanear.
+#
+# Regla: aquí solo entra lo que NO tiene actualización posible. Lo que se puede
+# corregir subiendo versión se corrige en requirements.txt (así se resolvieron
+# las otras 64 que encontró el primer escaneo: torch, transformers, starlette,
+# setuptools y msgpack del proyecto, todas actualizadas).
+
+# ---------------------------------------------------------------------------
+# GHSA-6v7p-g79w-8964 — msgpack 1.1.2, lectura fuera de límites al reutilizar
+# Unpacker.
+# CVE-2025-47273    — setuptools 70.3.0, path traversal en PackageIndex.
+#
+# Ambas son copias que **pip empaqueta dentro de sí mismo**, no dependencias
+# del proyecto. Está escrito en su propio manifiesto,
+# /usr/local/lib/python3.11/site-packages/pip/_vendor/vendor.txt:
+#
+#     msgpack==1.1.2
+#     setuptools==70.3.0
+#
+# Las que instala este servicio sí están parchadas y conviven con esas:
+# msgpack 1.2.1 y setuptools 84.0.0 (ver requirements.txt).
+#
+# Por qué no se corrigen subiendo versión: la imagen ya usa pip 26.2.1, la
+# última publicada, y sigue trayendo esas dos versiones exactas. No existe pip
+# que las traiga parchadas.
+#
+# Por qué no son explotables aquí: solo se ejecutan cuando pip descarga o
+# cachea paquetes, algo que ocurre únicamente durante `docker build`. El
+# contenedor en marcha arranca uvicorn y su healthcheck usa urllib; pip nunca
+# se invoca, y el servicio no expone ninguna ruta que lo alcance.
+#
+# Alternativa considerada y descartada por ahora: desinstalar pip de la imagen
+# final (`RUN pip uninstall -y pip`) eliminaría el hallazgo de raíz en vez de
+# silenciarlo, y es práctica reconocida en imágenes de producción. Se descartó
+# a días de la entrega porque no hay Docker en el equipo para probar el build
+# antes de empujarlo, y romper la imagen ahora cuesta más que estas dos.
+# Revisar después de la entrega.
+#
+# Anotado el 2026-09-18.
+# ---------------------------------------------------------------------------
+GHSA-6v7p-g79w-8964
+CVE-2025-47273

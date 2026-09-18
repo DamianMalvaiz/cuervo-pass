@@ -1,23 +1,95 @@
+# Documento maestro v5 · §33.
 name: CI
 on: [push, pull_request]
+
+# §33.3: por omisión el token de Actions tiene permisos de ESCRITURA sobre el
+# repositorio. Un paso comprometido podría empujar código. Mínimo privilegio.
+permissions:
+  contents: read
+
 jobs:
+  # §33.1 · AUD-13 — las pruebas de acceso son código, no capturas de pantalla.
+  # Una captura no se vuelve a ejecutar, no rompe el build cuando alguien relaja
+  # una policy, y se ve idéntica el día que ya es mentira.
+  base-de-datos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - run: supabase start
+      - run: supabase test db
+
   frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm install
+        with: { node-version: 20, cache: npm }
+      # §33.3: `npm ci` instala exactamente el package-lock.json. `npm install`
+      # puede resolver versiones distintas y hacer que CI y la laptop difieran,
+      # que es el peor lugar donde descubrir una diferencia.
+      - run: npm ci
+      - run: npx tsc --noEmit
       - run: npm run lint
-      - run: npm test -- --watchAll=false
+      - run: npm test -- --watchAll=false --passWithNoTests
 
-  ai-service:
+  servicio-ia:
     runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: ai-service }
+    env:
+      # Vacío A PROPÓSITO: lo que se prueba es la degradación. Un test que gasta
+      # dinero en la API y falla cuando se cae la red no es un test, es una
+      # fuente de falsos negativos.
+      #
+      # Esto además es lo que hacía fallar el workflow de v3 en el primer push:
+      # models/parseo_llm.py leía os.environ["ANTHROPIC_API_KEY"] en tiempo de
+      # import, así que pytest no podía ni importar el módulo (§21).
+      ANTHROPIC_API_KEY: ""
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - uses: actions/cache@v4
         with:
-          python-version: "3.11"
-      - run: pip install -r ai-service/requirements.txt
-      - run: pytest ai-service/tests
+          path: ~/.cache/huggingface
+          key: hf-${{ hashFiles('ai-service/requirements.txt') }}
+      # requirements-dev.txt trae pytest y httpx, que el Dockerfile NO instala:
+      # las pruebas no tienen por qué viajar dentro de la imagen de producción.
+      - run: pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt -r requirements-dev.txt
+      - run: pytest tests -v
+
+  imagen:
+    runs-on: ubuntu-latest
+    needs: servicio-ia
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t ia:${{ github.sha }} ./ai-service
+      - name: Vulnerabilidades
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ia:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          # Que rompa el build, no que informe: §33.3, un reporte que nadie lee
+          # no es un control.
+          exit-code: '1'
+          # Solo falla ante lo que se puede accionar. La imagen base
+          # (python:3.11-slim, Debian 13) arrastra 54 HIGH y 3 CRITICAL del
+          # sistema operativo SIN parche publicado: la columna "Fixed Version"
+          # viene vacía. Sin esta línea el job queda en rojo permanentemente
+          # hagas lo que hagas, y una compuerta que siempre está roja se acaba
+          # ignorando o apagando — que es exactamente lo que §33.3 quiere
+          # evitar. Lo que sí tiene parche se corrige subiendo la versión en
+          # requirements.txt, no silenciándolo aquí.
+          ignore-unfixed: true
+          # Excepciones con justificación escrita, una por una. Hoy solo
+          # contiene las dos que pip empaqueta dentro de sí mismo y que ninguna
+          # versión de pip trae corregidas.
+          trivyignores: ai-service/.trivyignore
+      - name: Inventario de componentes
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          syft ia:${{ github.sha }} -o spdx-json > sbom.json
+      - uses: actions/upload-artifact@v4
+        with: { name: sbom, path: sbom.json }

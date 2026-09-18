@@ -9,10 +9,32 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppColors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { obtenerUsuarioPublico, reportarUsuario } from '@/services/usuarios.service';
+import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { abrirConversacion } from '@/services/mensajes.service';
+import { obtenerPerfilPublico, reportarUsuario } from '@/services/usuarios.service';
 import { useAuthStore } from '@/store/useAuthStore';
-import type { Usuario } from '@/types/database.types';
+import type { PerfilPublico } from '@/types/database.types';
 
+const ETIQUETA_RUIDO: Record<string, string> = {
+  bajo: 'Prefiere silencio',
+  medio: 'Ruido normal',
+  alto: 'Ambiente animado',
+};
+
+const ETIQUETA_HORARIO: Record<string, string> = {
+  diurno: 'De día',
+  nocturno: 'De noche',
+  mixto: 'Variable',
+};
+
+// Documento maestro v5 · §25 — el perfil ajeno muestra foto, biografía y
+// compatibilidad, SIN presupuesto ni universidad.
+//
+// Eso no es una decisión de diseño: es lo que la vista `perfiles_publicos`
+// permite ver. v3 hacía `from('usuarios').select('*')` y pintaba el rango de
+// presupuesto de cualquier persona en pantalla, porque su RLS filtraba filas y
+// no columnas. Ahora esos campos no llegan al cliente, punto.
+//
 // Sección 9: "esta pantalla es la que le da confianza a alguien como Karla,
 // que no puede visitar antes de mudarse". El tratamiento visual se apoya en
 // UN solo acento (el azul de marca, sección "The One Accent Rule" de
@@ -25,16 +47,37 @@ export default function PerfilRoomieScreen() {
   const theme = useTheme();
   const { usuarioId } = useLocalSearchParams<{ usuarioId: string }>();
   const session = useAuthStore((s) => s.session);
-  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const [usuario, setUsuario] = useState<PerfilPublico | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [abriendoChat, setAbriendoChat] = useState(false);
 
   useEffect(() => {
     if (!usuarioId) return;
-    obtenerUsuarioPublico(usuarioId)
+    obtenerPerfilPublico(usuarioId)
       .then(setUsuario)
       .catch(() => setUsuario(null))
       .finally(() => setCargando(false));
   }, [usuarioId]);
+
+  const urlsFirmadas = useFotosFirmadas([usuario?.foto_url]);
+
+  // AUD-07: la conversación la abre una función de Postgres, no un insert desde
+  // el cliente. Dos personas tocando el botón a la vez reciben el MISMO
+  // identificador, en vez de que la segunda vea un error de índice único justo
+  // al iniciar el chat.
+  const onIniciarChat = async () => {
+    if (!usuarioId || abriendoChat) return;
+    setAbriendoChat(true);
+    try {
+      const conversacionId = await abrirConversacion(usuarioId);
+      router.push(`/chat/${conversacionId}`);
+    } catch (e) {
+      console.warn('abrirConversacion falló:', e);
+      Alert.alert('No se pudo abrir el chat', 'Esta persona ya no está disponible.');
+    } finally {
+      setAbriendoChat(false);
+    }
+  };
 
   const onReportar = () => {
     const miId = session?.user.id;
@@ -71,19 +114,14 @@ export default function PerfilRoomieScreen() {
     );
   }
 
-  const rangoPresupuesto =
-    usuario.presupuesto_min != null && usuario.presupuesto_max != null
-      ? `$${usuario.presupuesto_min}–$${usuario.presupuesto_max}/mes`
-      : 'Sin especificar';
-
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <Stack.Screen options={{ title: usuario.nombre_completo }} />
 
       <Animated.View entering={FadeIn.duration(250)}>
         <View style={styles.encabezado}>
-          {usuario.foto_url ? (
-            <Image source={{ uri: usuario.foto_url }} style={styles.foto} contentFit="cover" />
+          {usuario.foto_url && urlsFirmadas.get(usuario.foto_url) ? (
+            <Image source={{ uri: urlsFirmadas.get(usuario.foto_url)! }} style={styles.foto} contentFit="cover" />
           ) : (
             <View style={[styles.foto, styles.fotoVacia, { backgroundColor: theme.backgroundSelected }]}>
               <Ionicons name="person" size={44} color={theme.textSecondary} />
@@ -92,14 +130,9 @@ export default function PerfilRoomieScreen() {
           <ThemedText type="title" style={styles.nombre} numberOfLines={1}>
             {usuario.nombre_completo}
           </ThemedText>
-          {usuario.universidad && (
-            <View style={styles.filaUniversidad}>
-              <Ionicons name="school-outline" size={14} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                {usuario.universidad}
-              </ThemedText>
-            </View>
-          )}
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>
+            @{usuario.nombre_usuario}
+          </ThemedText>
         </View>
 
         <View style={[styles.tarjeta, { backgroundColor: theme.tintedSurface, borderColor: theme.tintedBorder }]}>
@@ -111,9 +144,15 @@ export default function PerfilRoomieScreen() {
           </View>
 
           <FilaCompatibilidad
-            icono="wallet-outline"
-            etiqueta="Presupuesto"
-            valor={rangoPresupuesto}
+            icono="volume-low-outline"
+            etiqueta="Ruido"
+            valor={ETIQUETA_RUIDO[usuario.nivel_ruido ?? 'medio'] ?? 'Sin especificar'}
+            colorBorde={theme.tintedBorder}
+          />
+          <FilaCompatibilidad
+            icono="moon-outline"
+            etiqueta="Horario"
+            valor={ETIQUETA_HORARIO[usuario.horario_predominante ?? 'mixto'] ?? 'Variable'}
             colorBorde={theme.tintedBorder}
           />
           <FilaCompatibilidad
@@ -143,13 +182,21 @@ export default function PerfilRoomieScreen() {
         )}
 
         <Pressable
-          onPress={() => router.push(`/chat/${usuarioId}`)}
+          onPress={onIniciarChat}
+          disabled={abriendoChat}
           style={({ pressed }) => [styles.botonChat, pressed && styles.botonChatPresionado]}
           accessibilityRole="button"
           accessibilityLabel={`Chatear con ${usuario.nombre_completo}`}
+          accessibilityState={{ disabled: abriendoChat, busy: abriendoChat }}
         >
-          <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
-          <ThemedText style={styles.botonChatTexto}>Iniciar chat</ThemedText>
+          {abriendoChat ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
+              <ThemedText style={styles.botonChatTexto}>Iniciar chat</ThemedText>
+            </>
+          )}
         </Pressable>
 
         <Pressable
@@ -201,7 +248,6 @@ const styles = StyleSheet.create({
   foto: { width: 100, height: 100, borderRadius: 50 },
   fotoVacia: { alignItems: 'center', justifyContent: 'center' },
   nombre: { fontSize: 24, lineHeight: 28, marginTop: Spacing.two, textAlign: 'center' },
-  filaUniversidad: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half },
   tarjeta: {
     borderWidth: 1,
     borderRadius: Spacing.three,

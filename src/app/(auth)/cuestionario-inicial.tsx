@@ -6,79 +6,89 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { generarEmbedding, parsearPerfil } from '@/lib/aiService';
-import { geocodificarDireccion } from '@/lib/mapbox';
+import { geocodificarDireccion } from '@/lib/geocoding';
 import { construirTextoPerfil } from '@/lib/perfilTexto';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 
-// Entre registro y (tabs) — sección 10 del doc maestro (flujo de navegación).
+// Documento maestro v5 · §26 (el tercer estado de navegación) y §29.
 export default function CuestionarioInicialScreen() {
   const session = useAuthStore((s) => s.session);
   const actualizarPerfil = usePerfilStore((s) => s.actualizarPerfil);
 
   const onCompletar = async (respuestas: RespuestasCuestionario) => {
     if (!session?.user.id) return;
+
     // Universidad conocida (lista curada) trae coordenadas ya verificadas — solo
-    // se geocodifica texto libre para "Otra", con las limitaciones que eso implica
-    // (nombres/abreviaturas ambiguos pueden no ubicarse bien; ver lib/universidades.ts).
-    // Nunca bloquea el flujo si Mapbox falla (sección 17).
+    // se geocodifica texto libre para "Otra". Nunca bloquea el flujo si falla (§27).
     const coords = respuestas.universidadCoords ?? (await geocodificarDireccion(respuestas.universidad));
 
-    // Semana 8: el texto libre solo aporta nivel_ruido (no se pregunta directo
-    // porque no quedaba claro para qué servía) — fuma/mascotas ya vienen de los
-    // switches explícitos y esos ganan siempre, nunca se pisan con la inferencia
-    // de la IA. Si el microservicio falla o no hay texto, sigue el flujo igual
-    // (sección 17: nunca bloquear el registro por esto).
-    let nivelRuido: 'bajo' | 'medio' | 'alto' | null = null;
-    if (respuestas.textoLibre) {
+    // ═══ §29 · AUD-23 — el camino SIN IA ═══
+    // Sin consentimiento explícito: no se llama al modelo, no se genera vector,
+    // y esta persona recibe sugerencias de Nivel 1. No es una cortesía: es la
+    // diferencia entre un consentimiento real y una casilla decorativa.
+    //
+    // Y tiene un beneficio práctico inesperado: obliga a que el camino sin IA
+    // funcione perfectamente, que es exactamente el camino al que degrada el
+    // sistema cuando el microservicio se cae.
+    const usaIa = respuestas.consienteIa;
+
+    // El nivel de ruido ahora se pregunta directo; el parseo del texto libre
+    // solo aporta el horario predominante, que sí es incómodo de preguntar. Los
+    // switches explícitos (fuma, mascotas) ganan SIEMPRE sobre la inferencia.
+    let horario: 'diurno' | 'nocturno' | 'mixto' | null = null;
+    if (usaIa && respuestas.textoLibre) {
       try {
         const parseo = await parsearPerfil(respuestas.textoLibre);
-        nivelRuido = parseo.nivel_ruido;
+        if (!parseo.degradado) horario = parseo.horario_predominante;
       } catch (e) {
-        console.warn('parsearPerfil falló, se sigue sin nivel_ruido inferido:', e);
+        console.warn('parsearPerfil falló, se sigue sin horario inferido:', e);
       }
-      // Guardar el texto cifrado es independiente del parseo — si esto falla
-      // (ej. no se configuró app.perfil_encryption_key todavía) tampoco bloquea.
-      // supabase.rpc() regresa {error} en vez de aventar excepción, así que se
-      // revisa explícito en vez de un try/catch que no atraparía nada.
-      const { error: errorGuardarTexto } = await supabase.rpc('guardar_perfil_texto', {
-        texto: respuestas.textoLibre,
-      });
-      if (errorGuardarTexto) console.warn('guardar_perfil_texto falló:', errorGuardarTexto);
     }
 
-    // Semana 9: embedding del perfil para el Nivel 2 (similitud de coseno,
-    // sección 15) — se genera de texto estructurado + libre, gratis y local
-    // (no necesita ANTHROPIC_API_KEY). Si el microservicio no responde, el
-    // perfil_vector queda null y las sugerencias simplemente usan solo Nivel 1
-    // para esta persona (nunca bloquea el registro, sección 17).
+    // §30: el texto libre se guarda en claro. El cifrado de v3 no protegía nada
+    // —la clave viajaba en la consulta, el vector derivado quedaba legible y el
+    // resto de los datos sensibles nunca estuvo cifrado—. Lo que protege este
+    // campo es el control de acceso: la vista `perfiles_publicos` no lo expone.
     const textoPerfil = construirTextoPerfil({
       universidad: respuestas.universidad,
       presupuestoMin: respuestas.presupuestoMin,
       presupuestoMax: respuestas.presupuestoMax,
       mascotas: respuestas.mascotas,
       fuma: respuestas.fuma,
+      nivelRuido: respuestas.nivelRuido,
       textoLibre: respuestas.textoLibre,
     });
+
     let perfilVector: number[] | null = null;
-    try {
-      perfilVector = await generarEmbedding(textoPerfil);
-    } catch (e) {
-      console.warn('generarEmbedding (perfil) falló, se sigue sin él:', e);
+    if (usaIa) {
+      try {
+        perfilVector = await generarEmbedding(textoPerfil);
+      } catch (e) {
+        console.warn('generarEmbedding (perfil) falló, se sigue sin él:', e);
+      }
     }
 
     await actualizarPerfil(session.user.id, {
       universidad: respuestas.universidad,
       presupuesto_min: respuestas.presupuestoMin,
       presupuesto_max: respuestas.presupuestoMax,
+      distancia_max_km: respuestas.distanciaMaxKm,
       mascotas: respuestas.mascotas,
       fuma: respuestas.fuma,
+      nivel_ruido: respuestas.nivelRuido,
       busca_roomie: respuestas.buscaRoomie,
-      ...(nivelRuido ? { nivel_ruido: nivelRuido } : {}),
-      ...(perfilVector ? { perfil_vector: perfilVector } : {}),
+      perfil_texto: respuestas.textoLibre ?? null,
+      consiente_analisis_ia: usaIa,
+      ...(horario ? { horario_predominante: horario } : {}),
+      // Si no consintió, el vector se limpia: así "quitar el consentimiento"
+      // tiene efecto de verdad y no deja el embedding anterior dando vueltas.
+      perfil_vector: perfilVector,
       latitud_universidad: coords?.lat ?? null,
       longitud_universidad: coords?.lng ?? null,
+      // Se escribe AL FINAL, cuando ya quedó todo lo demás: es lo que el guard
+      // de §26 lee para decidir si esta persona puede entrar a las pestañas.
+      cuestionario_completo: true,
     });
     router.replace('/(tabs)/inicio');
   };

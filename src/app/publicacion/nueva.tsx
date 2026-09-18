@@ -22,9 +22,15 @@ export default function NuevaPublicacionScreen() {
               if (!session?.user.id) return;
               const publicacion = await crearPublicacion({
                 usuarioId: session.user.id,
+                titulo: datos.titulo,
+                tipo: datos.tipo,
                 direccion: datos.direccion,
                 precioRenta: Number(datos.precioRenta),
                 descripcion: datos.descripcion,
+                permiteMascotas: datos.permiteMascotas,
+                amueblado: datos.amueblado,
+                serviciosIncluidos: datos.serviciosIncluidos,
+                recamaras: Number(datos.recamaras),
                 whatsapp: datos.whatsapp,
                 fotos: datos.fotos,
               });

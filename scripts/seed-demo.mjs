@@ -61,15 +61,46 @@ const CALLES = [
   'Callejón del Refugio', 'Av. Las Torres', 'Calle Juárez', 'Privada Guadalupe', 'Camino Real',
 ];
 
-const DESCRIPCIONES = [
-  'Depa amueblado, cerca de la universidad, pet friendly.',
-  'Cuarto en casa compartida, ambiente tranquilo, no fumar dentro.',
-  'Departamento con servicios incluidos, acepta mascotas pequeñas.',
-  'Estudio independiente, entrada propia, buena iluminación.',
-  'Casa con jardín, ideal para 2 personas, se permite fumar en el patio.',
-  'Habitación en depa compartido con estudiantes, wifi incluido.',
-  'Depa nuevo, un nivel, cocina equipada, sin mascotas por favor.',
-  'Cuarto amplio, baño compartido, muy cerca del transporte público.',
+// Cada plantilla trae ya sus atributos EXPLÍCITOS, en vez de dejarlos escondidos
+// en la prosa: el esquema v5 (§11) tiene columnas para esto, y el filtro duro de
+// §17 depende de ellas. Antes el motor los adivinaba con `includes('mascota')`,
+// que hace que "sin mascotas por favor" cuente como que sí las acepta.
+const PLANTILLAS = [
+  { titulo: 'Depa amueblado cerca del campus', tipo: 'depa', recamaras: 1,
+    descripcion: 'Departamento amueblado a pocos minutos de la universidad.',
+    permiteMascotas: true, amueblado: true, serviciosIncluidos: false },
+  { titulo: 'Cuarto en casa compartida tranquila', tipo: 'cuarto', recamaras: 1,
+    descripcion: 'Ambiente tranquilo, ideal para estudiar. No se fuma dentro.',
+    permiteMascotas: false, amueblado: true, serviciosIncluidos: true },
+  { titulo: 'Departamento con servicios incluidos', tipo: 'depa', recamaras: 2,
+    descripcion: 'Agua, luz e internet incluidos en la renta.',
+    permiteMascotas: true, amueblado: false, serviciosIncluidos: true },
+  { titulo: 'Estudio independiente con entrada propia', tipo: 'depa', recamaras: 1,
+    descripcion: 'Entrada independiente y muy buena iluminación natural.',
+    permiteMascotas: false, amueblado: true, serviciosIncluidos: false },
+  { titulo: 'Casa con jardín para dos personas', tipo: 'casa_compartida', recamaras: 2,
+    descripcion: 'Casa con jardín, ideal para compartir entre dos.',
+    permiteMascotas: true, amueblado: false, serviciosIncluidos: false },
+  { titulo: 'Habitación en depa de estudiantes', tipo: 'cuarto', recamaras: 1,
+    descripcion: 'Depa compartido con estudiantes, wifi incluido.',
+    permiteMascotas: false, amueblado: true, serviciosIncluidos: true },
+  { titulo: 'Depa nuevo con cocina equipada', tipo: 'depa', recamaras: 2,
+    descripcion: 'Departamento recién remodelado, cocina equipada.',
+    permiteMascotas: false, amueblado: true, serviciosIncluidos: false },
+  { titulo: 'Cuarto amplio cerca del transporte', tipo: 'cuarto', recamaras: 1,
+    descripcion: 'Baño compartido, a una cuadra de la parada.',
+    permiteMascotas: true, amueblado: false, serviciosIncluidos: false },
+];
+
+const NIVELES_RUIDO = ['bajo', 'medio', 'alto'];
+const HORARIOS = ['diurno', 'nocturno', 'mixto'];
+
+const TEXTOS_PERFIL = [
+  'Soy tranquilo, estudio de noche y prefiero el silencio en casa.',
+  'Me gusta cocinar y convivir, pero respeto los horarios de todos.',
+  'Trabajo medio tiempo, casi no estoy en casa entre semana.',
+  'Tengo un gato muy tranquilo y busco un lugar donde lo acepten.',
+  'Soy ordenado, no fumo y me acuesto temprano.',
 ];
 
 function aleatorio(lista) {
@@ -97,15 +128,28 @@ function coordenadaCercaDe(base) {
 async function crearPublicacion(usuarioId, indice) {
   const loc = aleatorio(LOCALIDADES);
   const coords = coordenadaCercaDe(loc);
+  const plantilla = aleatorio(PLANTILLAS);
   const direccion = `${aleatorio(CALLES)} ${enteroEntre(5, 450)}, ${loc.colonia}, ${loc.municipio}, ${loc.estado}, CP ${loc.cp}`;
   const { error } = await admin.from('publicaciones').insert({
     usuario_id: usuarioId,
+    titulo: `${plantilla.titulo} — ${loc.colonia}`,
+    tipo: plantilla.tipo,
     direccion,
     latitud: coords.lat,
     longitud: coords.lng,
+    // §36: las coordenadas de demo se fijan a mano contra colonias reales, que
+    // es exactamente el respaldo que el documento recomienda tener listo aunque
+    // el geocoding en vivo funcione (AUD-02).
+    geocodificado_por: 'catalogo-demo-verificado-a-mano',
+    pendiente_geocoding: false,
     precio_renta: enteroEntre(1500, 6000),
-    descripcion: aleatorio(DESCRIPCIONES),
+    descripcion: plantilla.descripcion,
+    permite_mascotas: plantilla.permiteMascotas,
+    amueblado: plantilla.amueblado,
+    servicios_incluidos: plantilla.serviciosIncluidos,
+    recamaras: plantilla.recamaras,
     fotos: [],
+    // AUD-17: diez dígitos exactos, el mismo formato que exige el CHECK.
     whatsapp: `722${enteroEntre(1000000, 9999999)}`,
     activa: true,
   });
@@ -135,16 +179,28 @@ async function main() {
     const presupuestoMin = enteroEntre(1500, 3000);
     const presupuestoMax = presupuestoMin + enteroEntre(800, 3000);
 
-    const { error: errorUsuario } = await admin.from('usuarios').insert({
-      id: creado.user.id,
+    // UPDATE, no INSERT: desde la migración 0009 la fila de `usuarios` ya la
+    // creó el trigger handle_new_user al dar de alta la cuenta de Auth (§12).
+    // Insertarla otra vez chocaría contra la llave primaria.
+    const { error: errorUsuario } = await admin.from('usuarios').update({
       nombre_usuario: sinAcentos(`${nombre}${i}`).toLowerCase(),
       nombre_completo: `${nombre} ${apellidoP} ${apellidoM}`,
       biografia: 'Cuenta de prueba generada para probar sugerencias — Cuervo Pass.',
+      perfil_texto: aleatorio(TEXTOS_PERFIL),
       presupuesto_min: presupuestoMin,
       presupuesto_max: presupuestoMax,
+      distancia_max_km: enteroEntre(3, 15),
       mascotas: Math.random() < 0.4,
       fuma: Math.random() < 0.2,
+      nivel_ruido: aleatorio(NIVELES_RUIDO),
+      horario_predominante: aleatorio(HORARIOS),
       busca_roomie: Math.random() < 0.3,
+      // El guard de §26 manda al cuestionario a quien no lo tenga marcado; sin
+      // esto, iniciar sesión con una cuenta demo caería ahí en vez de en las
+      // sugerencias, justo en la demo.
+      cuestionario_completo: true,
+      acepto_aviso_privacidad_en: new Date().toISOString(),
+      consiente_analisis_ia: true,
       universidad: 'Universidad Tecnológica del Valle de Toluca (UTVT)',
       // Todos estudian en la misma UTVT — coordenadas fijas y reales, no un
       // punto al azar (antes cada cuenta demo tenía una "ubicación de
@@ -152,7 +208,7 @@ async function main() {
       latitud_universidad: UTVT.lat,
       longitud_universidad: UTVT.lng,
       activo: true,
-    });
+    }).eq('id', creado.user.id);
     if (errorUsuario) {
       console.warn(`  [${i}] insert usuarios falló:`, errorUsuario.message);
       continue;

@@ -1,0 +1,12 @@
+# v3 no tenía este archivo, y su `COPY . .` metía el .env con la API key DENTRO
+# de la imagen. Quien tuviera la imagen tenía la clave.
+.env
+.env.*
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+# Las dependencias de prueba no se instalan en la imagen (el Dockerfile solo
+# instala requirements.txt), así que este archivo tampoco tiene por qué viajar.
+requirements-dev.txt

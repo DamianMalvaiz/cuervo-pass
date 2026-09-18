@@ -4,10 +4,12 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   TextInput,
   View,
@@ -16,12 +18,14 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppColors, Spacing } from '@/constants/theme';
+import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
 import { subirFotoPerfil } from '@/lib/storage';
+import { eliminarMiCuenta, exportarMisDatos } from '@/services/usuarios.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 
-// TODO (Semana 4): campos del cuestionario (presupuesto, mascotas, ruido) editables aquí también.
+// Documento maestro v5 · §25 y §29 (derechos ARCO).
 export default function PerfilScreen() {
   const theme = useTheme();
   const session = useAuthStore((s) => s.session);
@@ -31,6 +35,7 @@ export default function PerfilScreen() {
   const [biografia, setBiografia] = useState('');
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [exportando, setExportando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Sincroniza el borrador local con el perfil cargado, sin useEffect: React
@@ -45,6 +50,11 @@ export default function PerfilScreen() {
   useEffect(() => {
     if (session?.user.id) cargarPerfil(session.user.id);
   }, [session?.user.id, cargarPerfil]);
+
+  // El bucket es privado (§14): `foto_url` guarda una ruta, y para mostrarla
+  // hay que firmarla.
+  const urlsFirmadas = useFotosFirmadas([perfil?.foto_url]);
+  const urlFoto = perfil?.foto_url ? urlsFirmadas.get(perfil.foto_url) : null;
 
   const onCambiarFoto = async () => {
     if (!session?.user.id) return;
@@ -64,8 +74,8 @@ export default function PerfilScreen() {
 
     setSubiendoFoto(true);
     try {
-      const url = await subirFotoPerfil(session.user.id, resultado.assets[0].uri);
-      await actualizarPerfil(session.user.id, { foto_url: url });
+      const ruta = await subirFotoPerfil(session.user.id, resultado.assets[0].uri);
+      await actualizarPerfil(session.user.id, { foto_url: ruta });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo subir la foto');
     } finally {
@@ -84,6 +94,49 @@ export default function PerfilScreen() {
     } finally {
       setGuardando(false);
     }
+  };
+
+  // ACCESO (§29). Se comparte como texto en vez de escribir un archivo: la app
+  // no tiene todavía una dependencia de sistema de archivos, y el volumen de
+  // datos de un usuario cabe de sobra. Si algún día no cabe, el cambio es
+  // expo-file-system aquí, no en la función de Postgres.
+  const onDescargarMisDatos = async () => {
+    setExportando(true);
+    try {
+      const datos = await exportarMisDatos();
+      await Share.share({
+        title: 'Mis datos en Cuervo Pass',
+        message: JSON.stringify(datos, null, 2),
+      });
+    } catch (e) {
+      Alert.alert('No se pudieron exportar tus datos', e instanceof Error ? e.message : 'Intenta de nuevo.');
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  // CANCELACIÓN (§29). Irreversible y en cascada: por eso se confirma dos veces
+  // y se dice exactamente qué desaparece.
+  const onEliminarCuenta = () => {
+    Alert.alert(
+      'Eliminar mi cuenta',
+      'Se borran tu perfil, tus publicaciones, tus fotos y tus mensajes. No se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await eliminarMiCuenta();
+              router.replace('/(auth)/login');
+            } catch (e) {
+              Alert.alert('No se pudo eliminar la cuenta', e instanceof Error ? e.message : 'Intenta de nuevo.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const onCerrarSesion = async () => {
@@ -113,8 +166,8 @@ export default function PerfilScreen() {
             accessibilityLabel="Cambiar foto de perfil"
             accessibilityState={{ busy: subiendoFoto }}
           >
-            {perfil?.foto_url ? (
-              <Image source={{ uri: perfil.foto_url }} style={styles.foto} />
+            {urlFoto ? (
+              <Image source={{ uri: urlFoto }} style={styles.foto} />
             ) : (
               <View style={[styles.foto, { backgroundColor: theme.backgroundSelected }]} />
             )}
@@ -157,6 +210,51 @@ export default function PerfilScreen() {
             {guardando ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.botonTexto}>Guardar</ThemedText>}
           </Pressable>
 
+          {/* §25: el cuestionario es editable desde aquí. Antes solo se podía
+              contestar una vez, al registrarse, así que cambiar de presupuesto
+              o de universidad exigía crear otra cuenta. */}
+          <Pressable
+            style={[styles.boton, styles.botonSecundario, { borderColor: theme.border }]}
+            onPress={() => router.push('/perfil/preferencias')}
+            accessibilityRole="button"
+            accessibilityLabel="Editar mis preferencias de búsqueda"
+          >
+            <ThemedText style={[styles.botonTexto, { color: theme.text }]}>Editar mis preferencias</ThemedText>
+          </Pressable>
+
+          <View style={[styles.bloqueDatos, { borderColor: theme.border }]}>
+            <ThemedText type="smallBold">Tus datos</ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              Puedes llevarte una copia de todo lo que guardamos, o borrarlo por completo.
+            </ThemedText>
+
+            <Pressable
+              style={[styles.boton, styles.botonSecundario, { borderColor: theme.border }]}
+              onPress={onDescargarMisDatos}
+              disabled={exportando}
+              accessibilityRole="button"
+              accessibilityLabel="Descargar mis datos"
+              accessibilityState={{ disabled: exportando, busy: exportando }}
+            >
+              {exportando ? (
+                <ActivityIndicator />
+              ) : (
+                <ThemedText style={[styles.botonTexto, { color: theme.text }]}>Descargar mis datos</ThemedText>
+              )}
+            </Pressable>
+
+            <Pressable
+              style={[styles.boton, styles.botonPeligro]}
+              onPress={onEliminarCuenta}
+              accessibilityRole="button"
+              accessibilityLabel="Eliminar mi cuenta"
+            >
+              <ThemedText style={[styles.botonTexto, { color: AppColors.destructiveRed }]}>
+                Eliminar mi cuenta
+              </ThemedText>
+            </Pressable>
+          </View>
+
           <Pressable
             style={[styles.boton, styles.botonCerrarSesion]}
             onPress={onCerrarSesion}
@@ -196,6 +294,15 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
+  botonSecundario: { backgroundColor: 'transparent', borderWidth: 1 },
+  botonPeligro: { backgroundColor: 'transparent', borderWidth: 1, borderColor: AppColors.destructiveRed },
   botonCerrarSesion: { backgroundColor: AppColors.destructiveRed },
   botonTexto: { color: '#fff', fontWeight: '600' },
+  bloqueDatos: {
+    borderWidth: 1,
+    borderRadius: Spacing.two,
+    padding: Spacing.three,
+    marginTop: Spacing.four,
+    gap: Spacing.one,
+  },
 });
