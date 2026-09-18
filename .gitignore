@@ -62,3 +62,6 @@ example
 
 # archivos temporales del CLI de Supabase
 supabase/.temp/
+
+# Worktrees de sesiones de Claude Code — copias del propio repo, nunca se suben.
+.claude/worktrees/

@@ -5,7 +5,6 @@ import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -22,10 +21,10 @@ import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
-// Documento maestro v5 · §25 y §29. El aviso de privacidad vive en
-// docs/aviso-privacidad.md y se publica junto con el repositorio.
-const URL_AVISO_PRIVACIDAD =
-  'https://github.com/cuervo-pass/cuervo-pass/blob/main/docs/aviso-privacidad.md';
+// Documento maestro v5 · §25 y §29. El aviso se lee DENTRO de la app
+// (src/app/aviso-privacidad.tsx), no en un enlace externo: pedir que se acepte
+// un documento que vive detrás de la red —o de un repositorio privado— es pedir
+// un consentimiento que no se puede informar.
 
 const esquemaRegistro = z
   .object({
@@ -248,7 +247,7 @@ export default function RegistroScreen() {
             )}
           />
           <Pressable
-            onPress={() => Linking.openURL(URL_AVISO_PRIVACIDAD)}
+            onPress={() => router.push('/aviso-privacidad')}
             style={styles.enlaceAviso}
             accessibilityRole="link"
             accessibilityLabel="Leer el aviso de privacidad"

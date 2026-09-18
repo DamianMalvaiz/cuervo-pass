@@ -3,14 +3,17 @@
 Documento maestro v5 · §29. Cumple los requisitos de la Ley Federal de
 Protección de Datos Personales en Posesión de los Particulares (LFPDPPP).
 
-> **Pendiente antes de la entrega:** sustituir el responsable y el correo de
-> contacto de abajo por los reales. Un aviso de privacidad sin un responsable
-> identificable no cumple la ley.
-
 ## 1. Responsable
 
-Equipo del proyecto integrador Cuervo Pass.
-Contacto: `<correo-del-equipo>@<dominio>`
+**Angel Damian Malvaiz Gonzalez**, estudiante de Ingeniería en Redes
+Inteligentes y Ciberseguridad (IRIC) de la Universidad Tecnológica del Valle de
+Toluca (UTVT), es el responsable del tratamiento de los datos personales que
+Cuervo Pass recaba.
+
+**Contacto para el ejercicio de derechos ARCO:** al222211405@gmail.com
+
+Cuervo Pass es un proyecto académico desarrollado como parte del programa
+integrador de la UTVT. No es un servicio comercial y no se cobra por su uso.
 
 ## 2. Qué datos recabamos
 
