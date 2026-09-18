@@ -1,28 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { TarjetaPublicacion } from '@/components/TarjetaPublicacion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppColors, Spacing } from '@/constants/theme';
+import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
-import { calcularDistanciaKm } from '@/lib/distancia';
-import { calcularScore } from '@/lib/scoring';
-import { listarPublicacionesActivas, ordenarPorSimilitud } from '@/services/publicaciones.service';
+import { obtenerSugerencias } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
-import { usePerfilStore } from '@/store/usePerfilStore';
-import type { Publicacion } from '@/types/database.types';
+import type { PublicacionSugerida } from '@/types/database.types';
 
-// Nivel 2 solo reordena dentro de este tope de candidatos que ya pasaron
-// Nivel 1 (sección 15: "aplicada solo al subconjunto que ya pasó el Nivel 1").
-const TOPE_CANDIDATOS_NIVEL_2 = 30;
-
-interface PublicacionSugerida extends Publicacion {
-  distanciaKm?: number;
-  score: number;
-}
+// Documento maestro v5 · §17, §18, §25.
+//
+// Cambio de fondo frente a v3: esta pantalla ya NO calcula el score. Antes se
+// traía el catálogo completo y lo puntuaba en JavaScript; ahora
+// `obtenerSugerencias` llama a las funciones de Postgres, que aplican el filtro
+// DURO (presupuesto, distancia, mascotas) antes de ordenar. Lo que llega aquí
+// ya es viable: la lista solo se reordena si el usuario elige otro criterio.
 
 type Orden = 'recomendado' | 'cercano' | 'lejano' | 'precio_asc' | 'precio_desc';
 
@@ -100,30 +97,53 @@ function SelectorOrden({ valor, onCambiar }: { valor: Orden; onCambiar: (v: Orde
   );
 }
 
-// "Recomendado" combina Nivel 1 (sección 14: distancia + presupuesto +
-// compatibilidad + frescura, filtros ponderados en src/lib/scoring.ts) con
-// Nivel 2 (sección 15: similitud de coseno con pgvector) — Nivel 1 decide QUÉ
-// es viable, Nivel 2 reordena ESO por significado. Ninguno se muestra como
-// número, solo ordenan. Las demás opciones son ordenamientos directos.
+// §18: el indicador de nivel se muestra a propósito durante la demo. Poder
+// decir "esto corre en Nivel 2; si apago el contenedor la app sigue funcionando
+// en Nivel 1" — y demostrarlo en vivo — vale más que cualquier feature extra.
+function IndicadorNivel({ nivel }: { nivel: 1 | 2 }) {
+  const theme = useTheme();
+  const texto = nivel === 2 ? 'Nivel 2 · afinidad semántica' : 'Nivel 1 · filtros ponderados';
+  return (
+    <View style={styles.indicadorNivel}>
+      <Ionicons
+        name={nivel === 2 ? 'sparkles' : 'options'}
+        size={12}
+        color={nivel === 2 ? AppColors.primary : theme.textSecondary}
+      />
+      <ThemedText type="small" style={{ color: nivel === 2 ? AppColors.primary : theme.textSecondary }}>
+        {texto}
+      </ThemedText>
+    </View>
+  );
+}
+
 export default function InicioScreen() {
   const session = useAuthStore((s) => s.session);
-  const { perfil, cargarPerfil } = usePerfilStore();
-  const [publicaciones, setPublicaciones] = useState<Publicacion[]>([]);
+  const [sugerencias, setSugerencias] = useState<PublicacionSugerida[]>([]);
+  const [nivel, setNivel] = useState<1 | 2>(1);
   const [cargando, setCargando] = useState(true);
+  const [refrescando, setRefrescando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [orden, setOrden] = useState<Orden>('recomendado');
-  const [ordenNivel2, setOrdenNivel2] = useState<string[] | null>(null);
 
   const cargar = useCallback(async () => {
     if (!session?.user.id) return;
-    setCargando(true);
+    setError(null);
     try {
-      await cargarPerfil(session.user.id);
-      const activas = await listarPublicacionesActivas();
-      setPublicaciones(activas.filter((p) => p.usuario_id !== session.user.id));
+      const resultado = await obtenerSugerencias();
+      setSugerencias(resultado.datos);
+      setNivel(resultado.nivel);
+    } catch (e) {
+      // §27: nunca una pantalla en blanco. Se dice qué pasó y se ofrece
+      // reintentar; "algo salió mal" no es un mensaje de error, es una forma de
+      // no decir nada.
+      console.warn('obtenerSugerencias falló:', e);
+      setError('No pudimos cargar tus sugerencias. Revisa tu conexión y desliza para reintentar.');
     } finally {
       setCargando(false);
+      setRefrescando(false);
     }
-  }, [session?.user.id, cargarPerfil]);
+  }, [session?.user.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -131,73 +151,43 @@ export default function InicioScreen() {
     }, [cargar])
   );
 
-  const sugerencias = useMemo(() => {
-    const conDatos: PublicacionSugerida[] = publicaciones.map((p) => {
-      const distanciaKm =
-        perfil?.latitud_universidad != null && perfil?.longitud_universidad != null && p.latitud != null && p.longitud != null
-          ? calcularDistanciaKm(perfil.latitud_universidad, perfil.longitud_universidad, p.latitud, p.longitud)
-          : undefined;
-      return { ...p, distanciaKm, score: calcularScore(p, perfil, distanciaKm ?? null) };
-    });
+  const onRefrescar = useCallback(() => {
+    setRefrescando(true);
+    cargar();
+  }, [cargar]);
 
+  // AUD-08: una sola petición para todas las miniaturas visibles.
+  const urlsFirmadas = useFotosFirmadas(sugerencias.map((s) => s.fotos?.[0]));
+
+  // "Recomendado" ya viene ordenado por Postgres; las demás opciones son
+  // reordenamientos directos sobre el MISMO conjunto, que ya pasó el filtro duro.
+  const listaFinal = useMemo(() => {
     const sinDistanciaAlFinal = (a: PublicacionSugerida, b: PublicacionSugerida) => {
-      if (a.distanciaKm == null && b.distanciaKm == null) return 0;
-      if (a.distanciaKm == null) return 1;
-      if (b.distanciaKm == null) return -1;
+      if (a.distancia == null && b.distancia == null) return 0;
+      if (a.distancia == null) return 1;
+      if (b.distancia == null) return -1;
       return 0;
     };
 
     switch (orden) {
       case 'cercano':
-        return [...conDatos].sort((a, b) => sinDistanciaAlFinal(a, b) || (a.distanciaKm ?? 0) - (b.distanciaKm ?? 0));
+        return [...sugerencias].sort((a, b) => sinDistanciaAlFinal(a, b) || (a.distancia ?? 0) - (b.distancia ?? 0));
       case 'lejano':
-        return [...conDatos].sort((a, b) => sinDistanciaAlFinal(a, b) || (b.distanciaKm ?? 0) - (a.distanciaKm ?? 0));
+        return [...sugerencias].sort((a, b) => sinDistanciaAlFinal(a, b) || (b.distancia ?? 0) - (a.distancia ?? 0));
       case 'precio_asc':
-        return [...conDatos].sort((a, b) => a.precio_renta - b.precio_renta);
+        return [...sugerencias].sort((a, b) => a.precio_renta - b.precio_renta);
       case 'precio_desc':
-        return [...conDatos].sort((a, b) => b.precio_renta - a.precio_renta);
+        return [...sugerencias].sort((a, b) => b.precio_renta - a.precio_renta);
       case 'recomendado':
       default:
-        return [...conDatos].sort((a, b) => b.score - a.score);
+        return sugerencias;
     }
-  }, [publicaciones, perfil, orden]);
-
-  // Nivel 2: solo aplica sobre "Recomendado", solo si el perfil ya tiene
-  // embedding (perfil_vector se genera en el cuestionario inicial, Semana 9 —
-  // puede no existir si el microservicio falló en ese momento). Si la llamada
-  // falla o no hay vector, ordenNivel2 se queda null y se usa solo Nivel 1
-  // (nunca rompe las sugerencias, sección 17).
-  useEffect(() => {
-    // No hay nada que pedir — ordenNivel2 simplemente no se usa mientras estas
-    // condiciones no se cumplan (ver listaFinal), así que no hace falta
-    // resetearlo con un setState síncrono aquí (evita renders en cascada). Si
-    // vuelve a cumplirse la condición más tarde, esta misma rama de abajo pide
-    // un ordenNivel2 fresco.
-    if (orden !== 'recomendado' || typeof perfil?.perfil_vector !== 'string' || sugerencias.length === 0) return;
-    let activo = true;
-    const idsCandidatos = sugerencias.slice(0, TOPE_CANDIDATOS_NIVEL_2).map((s) => s.id);
-    ordenarPorSimilitud(perfil.perfil_vector as string, idsCandidatos).then((idsOrdenados) => {
-      if (activo) setOrdenNivel2(idsOrdenados);
-    });
-    return () => {
-      activo = false;
-    };
-  }, [orden, perfil?.perfil_vector, sugerencias]);
-
-  const listaFinal = useMemo(() => {
-    if (orden !== 'recomendado' || typeof perfil?.perfil_vector !== 'string' || !ordenNivel2 || ordenNivel2.length === 0) {
-      return sugerencias;
-    }
-    const porId = new Map(sugerencias.map((s) => [s.id, s]));
-    const reordenados = ordenNivel2.map((id) => porId.get(id)).filter((s): s is PublicacionSugerida => s != null);
-    const idsYaColocados = new Set(ordenNivel2);
-    const resto = sugerencias.filter((s) => !idsYaColocados.has(s.id));
-    return [...reordenados, ...resto];
-  }, [sugerencias, ordenNivel2, orden, perfil?.perfil_vector]);
+  }, [sugerencias, orden]);
 
   return (
     <ThemedView style={{ flex: 1, padding: Spacing.three }}>
       <View style={styles.encabezado}>
+        <IndicadorNivel nivel={nivel} />
         <SelectorOrden valor={orden} onCambiar={setOrden} />
       </View>
 
@@ -207,18 +197,23 @@ export default function InicioScreen() {
         <FlatList
           data={listaFinal}
           keyExtractor={(item) => item.id}
+          refreshControl={<RefreshControl refreshing={refrescando} onRefresh={onRefrescar} />}
           renderItem={({ item }) => (
             <TarjetaPublicacion
+              titulo={item.titulo}
               precio={item.precio_renta}
               direccion={item.direccion}
-              fotoUrl={item.fotos?.[0]}
-              distanciaKm={item.distanciaKm}
-              onPress={() => router.push(`/publicacion/${item.id}?score=${item.score}`)}
+              fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
+              distanciaKm={item.distancia}
+              onPress={() =>
+                router.push(`/publicacion/${item.id}?score=${item.score_final ?? item.score}`)
+              }
             />
           )}
           ListEmptyComponent={
-            <ThemedText type="small" style={{ marginTop: Spacing.four }}>
-              Aún no hay publicaciones de otros usuarios para sugerir.
+            <ThemedText type="small" style={styles.vacio} accessibilityLiveRegion="polite">
+              {error ??
+                'Ninguna publicación cumple tus filtros por ahora. Prueba ampliando el presupuesto o la distancia desde Mi perfil.'}
             </ThemedText>
           }
         />
@@ -228,7 +223,9 @@ export default function InicioScreen() {
 }
 
 const styles = StyleSheet.create({
-  encabezado: { flexDirection: 'row', justifyContent: 'flex-end' },
+  encabezado: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  indicadorNivel: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half, flexShrink: 1 },
+  vacio: { marginTop: Spacing.four, lineHeight: 20 },
   envolturaSelector: { position: 'relative', zIndex: 1 },
   envolturaSelectorAbierta: { zIndex: 30, elevation: 30 },
   botonSelector: {

@@ -8,31 +8,37 @@ import { Spacing } from '@/constants/theme';
 import { supabase, supabaseConfigurado } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
+// Documento maestro v5 · §26 — el guard de sesión tiene TRES estados, no dos:
+//
+//   sin sesión                      → login
+//   con sesión, sin cuestionario    → cuestionario
+//   con sesión y cuestionario       → pestañas
+//
+// El tercero es el que v3 olvidaba. Un usuario con sesión pero sin cuestionario
+// llega a una pantalla de sugerencias vacía y parece que la app está rota.
+//
+// v3 lo aproximaba con `universidad is not null`, que es una proxy frágil:
+// alguien que guardó universidad y abandonó antes del presupuesto pasaba el
+// filtro igual. Ahora hay una columna explícita, `cuestionario_completo`, que
+// se escribe una sola vez al terminar de verdad.
 export default function Index() {
   const { session, cargando, cargarSesionInicial } = useAuthStore();
-  // Con sesión no basta para mandar a (tabs) — si alguien salió a medias del
-  // cuestionario inicial (o la app se recargó a medio flujo), se queda con
-  // sesión activa pero sin universidad/presupuesto guardados, y antes este
-  // guard lo mandaba directo a Sugerencias para siempre, sin universidad
-  // configurada (rompe el cálculo de distancia y todo lo que dependa del perfil).
-  const [perfilCompleto, setPerfilCompleto] = useState<boolean | null>(null);
+  const [cuestionarioCompleto, setCuestionarioCompleto] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (supabaseConfigurado) cargarSesionInicial();
   }, [cargarSesionInicial]);
 
   useEffect(() => {
-    // Sin sesión no se usa perfilCompleto para nada (el render de abajo manda
-    // a login antes de consultarlo) — no hace falta resetearlo aquí.
     if (!session?.user.id) return;
     let activo = true;
     supabase
       .from('usuarios')
-      .select('universidad')
+      .select('cuestionario_completo')
       .eq('id', session.user.id)
-      .single()
+      .maybeSingle()
       .then(({ data }) => {
-        if (activo) setPerfilCompleto(Boolean(data?.universidad));
+        if (activo) setCuestionarioCompleto(Boolean(data?.cuestionario_completo));
       });
     return () => {
       activo = false;
@@ -54,7 +60,7 @@ export default function Index() {
     );
   }
 
-  if (cargando || (session && perfilCompleto === null)) {
+  if (cargando || (session && cuestionarioCompleto === null)) {
     return (
       <ThemedView style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator />
@@ -63,7 +69,7 @@ export default function Index() {
   }
 
   if (!session) return <Redirect href="/(auth)/login" />;
-  return <Redirect href={perfilCompleto ? '/(tabs)/inicio' : '/(auth)/cuestionario-inicial'} />;
+  return <Redirect href={cuestionarioCompleto ? '/(tabs)/inicio' : '/(auth)/cuestionario-inicial'} />;
 }
 
 const styles = StyleSheet.create({

@@ -6,7 +6,7 @@ import { FormularioPublicacion } from '@/components/FormularioPublicacion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { actualizarPublicacion, obtenerPublicacion } from '@/services/publicaciones.service';
+import { actualizarPublicacion, obtenerMiPublicacion } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
 
@@ -18,8 +18,12 @@ export default function EditarPublicacionScreen() {
 
   useEffect(() => {
     if (!id) return;
-    obtenerPublicacion(id)
+    // `obtenerMiPublicacion` lee la TABLA, no la vista pública: la vista no trae
+    // `whatsapp`, y aquí hace falta para poder editarlo. La policy
+    // publicaciones_select_propias garantiza que solo funcione con las propias.
+    obtenerMiPublicacion(id)
       .then(setPublicacion)
+      .catch((e) => console.warn('obtenerMiPublicacion falló:', e))
       .finally(() => setCargando(false));
   }, [id]);
 
@@ -47,9 +51,15 @@ export default function EditarPublicacionScreen() {
           <FormularioPublicacion
             textoBoton="Guardar cambios"
             valoresIniciales={{
+              titulo: publicacion.titulo,
+              tipo: publicacion.tipo,
               direccion: publicacion.direccion,
               precioRenta: String(publicacion.precio_renta),
               descripcion: publicacion.descripcion ?? '',
+              permiteMascotas: publicacion.permite_mascotas,
+              amueblado: publicacion.amueblado,
+              serviciosIncluidos: publicacion.servicios_incluidos,
+              recamaras: String(publicacion.recamaras),
               whatsapp: publicacion.whatsapp,
             }}
             fotosIniciales={publicacion.fotos ?? []}
@@ -57,9 +67,15 @@ export default function EditarPublicacionScreen() {
               if (!session?.user.id) return;
               await actualizarPublicacion(publicacion.id, {
                 usuarioId: session.user.id,
+                titulo: datos.titulo,
+                tipo: datos.tipo,
                 direccion: datos.direccion,
                 precioRenta: Number(datos.precioRenta),
                 descripcion: datos.descripcion,
+                permiteMascotas: datos.permiteMascotas,
+                amueblado: datos.amueblado,
+                serviciosIncluidos: datos.serviciosIncluidos,
+                recamaras: Number(datos.recamaras),
                 whatsapp: datos.whatsapp,
                 fotos: datos.fotos,
               });

@@ -38,8 +38,8 @@ export default function TabsLayout() {
         options={{ title: 'Publicaciones', tabBarIcon: crearIcono('business', 'business-outline') }}
       />
       <Tabs.Screen
-        name="roomings"
-        options={{ title: 'Roomings', tabBarIcon: crearIcono('people', 'people-outline') }}
+        name="roomies"
+        options={{ title: 'Roomies', tabBarIcon: crearIcono('people', 'people-outline') }}
       />
       <Tabs.Screen
         name="chats"

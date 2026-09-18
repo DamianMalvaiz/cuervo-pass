@@ -1,0 +1,137 @@
+-- Documento maestro v5 · §33.1 — las pruebas de acceso son código · AUD-13
+--
+-- v3 y v4 pedían guardar capturas de pantalla de la tabla de pruebas de acceso.
+-- Una captura no se vuelve a ejecutar: no rompe el build cuando alguien relaja
+-- una policy, no detecta que una columna nueva se coló en la vista pública, y se
+-- ve idéntica el día que ya es mentira.
+--
+-- Se ejecuta con `supabase test db` y corre en CI en cada push (.github/workflows/ci.yml).
+--
+-- La aserción 4 es la que habría atrapado AUD-01 en la semana 5, y por eso vale
+-- más que las otras once juntas.
+
+begin;
+create extension if not exists pgtap;
+select plan(12);
+
+-- ════════════════ utilidades ════════════════
+create or replace function actuar_como(p_uid uuid) returns void
+language sql as $$
+  select set_config('request.jwt.claims',
+                    json_build_object('sub', p_uid, 'role', 'authenticated')::text, true),
+         set_config('role', 'authenticated', true);
+$$;
+
+-- Volver a privilegios de servicio para preparar datos entre aserciones. Sin
+-- esto, un `update` de preparación corre bajo RLS y afecta CERO filas en
+-- silencio, y la aserción siguiente pasa por la razón equivocada.
+create or replace function actuar_como_servicio() returns void
+language sql as $$
+  select set_config('request.jwt.claims', '', true),
+         set_config('role', 'postgres', true);
+$$;
+
+-- ════════════════ datos ════════════════
+-- Las filas de `usuarios` las crea el trigger handle_new_user (migración 0008).
+-- Que esta prueba no las inserte a mano es, de paso, la verificación de §12.
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data)
+values
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a1',
+   'authenticated', 'authenticated', 'a@test.mx', '', now(), now(),
+   '{"nombre_usuario":"usuario_a","nombre_completo":"Ana Prueba"}'),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000b2',
+   'authenticated', 'authenticated', 'b@test.mx', '', now(), now(),
+   '{"nombre_usuario":"usuario_b","nombre_completo":"Beto Prueba"}');
+
+update usuarios set presupuesto_min = 2000, presupuesto_max = 3500,
+       distancia_max_km = 10, nivel_ruido = 'bajo', mascotas = false,
+       latitud_universidad = 19.28, longitud_universidad = -99.55,
+       cuestionario_completo = true
+ where id = '00000000-0000-0000-0000-0000000000a1';
+
+update usuarios set nivel_ruido = 'bajo'
+ where id = '00000000-0000-0000-0000-0000000000b2';
+
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta,
+                           whatsapp, latitud, longitud, permite_mascotas)
+values ('00000000-0000-0000-0000-00000000dea1',
+        '00000000-0000-0000-0000-0000000000b2', 'Depa B', 'depa',
+        'Calle Falsa 123', 2800, '5512345678', 19.29, -99.56, false);
+
+-- ════════════════ 1 · la tabla usuarios solo devuelve la fila propia ════════════════
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is( (select count(*)::int from usuarios), 1,
+           'usuarios: RLS limita a la fila propia' );
+
+-- ════════════════ 2 y 3 · las vistas públicas no exponen columnas sensibles ════════════════
+-- Esta es la prueba que hace segura la decisión de AUD-14: la lista blanca de
+-- columnas se escribe a mano, y aquí se verifica que siga siendo blanca.
+select actuar_como_servicio();
+select hasnt_column( 'public', 'perfiles_publicos', 'presupuesto_max',
+           'perfiles_publicos no expone el presupuesto' );
+select hasnt_column( 'public', 'publicaciones_publicas', 'whatsapp',
+           'publicaciones_publicas no expone el teléfono' );
+
+-- ════════════════ 4 · AUD-01: el motor devuelve filas AJENAS ════════════════
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select cmp_ok( (select count(*)::int from sugerencias_publicaciones(30)), '>', 0,
+           'sugerencias_publicaciones devuelve publicaciones de OTROS usuarios' );
+
+-- ════════════════ 5 · el filtro duro descarta lo que no cabe en presupuesto ════════════════
+select actuar_como_servicio();
+update publicaciones set precio_renta = 9000
+ where id = '00000000-0000-0000-0000-00000000dea1';
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is( (select count(*)::int from sugerencias_publicaciones(30)), 0,
+           'el filtro duro descarta lo que está fuera de presupuesto' );
+
+select actuar_como_servicio();
+update publicaciones set precio_renta = 2800
+ where id = '00000000-0000-0000-0000-00000000dea1';
+
+-- ════════════════ 6 · abrir_conversacion es idempotente · AUD-07 ════════════════
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is( (select abrir_conversacion('00000000-0000-0000-0000-0000000000b2')),
+           (select abrir_conversacion('00000000-0000-0000-0000-0000000000b2')),
+           'abrir_conversacion devuelve el mismo id en dos llamadas' );
+
+insert into mensajes (conversacion_id, remitente_id, contenido)
+values ((select abrir_conversacion('00000000-0000-0000-0000-0000000000b2')),
+        '00000000-0000-0000-0000-0000000000a1', 'hola');
+
+-- ════════════════ 7 y 8 · un mensaje enviado es inmutable, pero se marca leído ════════════════
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select throws_ok(
+  $$ update mensajes set contenido = 'otra cosa' $$, null,
+  'el contenido de un mensaje enviado no se puede modificar' );
+select lives_ok(
+  $$ update mensajes set leido = true $$,
+  'el destinatario sí puede marcar como leído' );
+
+-- ════════════════ 9 y 10 · la cuota corta · AUD-04 ════════════════
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select lives_ok( $$ select consumir_cuota('revelar_contacto', 1) $$,
+           'la primera llamada dentro de la cuota pasa' );
+select throws_ok( $$ select consumir_cuota('revelar_contacto', 1) $$, null,
+           'la llamada que supera la cuota diaria falla' );
+
+-- ════════════════ 11 · cuotas_uso es tabla de servicio: nadie la lee ════════════════
+select is( (select count(*)::int from cuotas_uso), 0,
+           'cuotas_uso no es legible desde el cliente, ni por su propio dueño' );
+
+-- ════════════════ 12 · AUD-26: el límite de publicaciones activas ════════════════
+select actuar_como_servicio();
+insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp)
+select '00000000-0000-0000-0000-0000000000b2', 'Depa ' || n, 'depa', 'Calle ' || n,
+       2500, '5512345678'
+  from generate_series(2, 15) n;
+
+select throws_ok(
+  $$ insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp)
+     values ('00000000-0000-0000-0000-0000000000b2', 'Depa 16', 'depa', 'Calle 16', 2500, '5512345678') $$,
+  null,
+  'la publicación número 16 de una cuenta se rechaza' );
+
+select * from finish();
+rollback;

@@ -6,26 +6,49 @@ import { TarjetaPublicacion } from '@/components/TarjetaPublicacion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppColors, Spacing } from '@/constants/theme';
+import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
-import { cambiarEstadoPublicacion, listarMisPublicaciones } from '@/services/publicaciones.service';
+import {
+  cambiarEstadoPublicacion,
+  contarContactosRecibidos,
+  listarMisPublicaciones,
+  reintentarGeocodingPendiente,
+} from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
 
+// Documento maestro v5 · §25 y §27.
 export default function PublicacionesScreen() {
   const theme = useTheme();
-  const session = useAuthStore((s) => s.session);
+  const miId = useAuthStore((s) => s.session?.user.id);
   const [publicaciones, setPublicaciones] = useState<Publicacion[]>([]);
+  const [contactos, setContactos] = useState<Map<string, number>>(new Map());
   const [cargando, setCargando] = useState(true);
 
   const cargar = useCallback(async () => {
-    if (!session?.user.id) return;
+    if (!miId) return;
     setCargando(true);
     try {
-      setPublicaciones(await listarMisPublicaciones(session.user.id));
+      const [mias, recibidos] = await Promise.all([
+        listarMisPublicaciones(miId),
+        contarContactosRecibidos(),
+      ]);
+      setPublicaciones(mias);
+      setContactos(recibidos);
+
+      // §27: v3 prometía un reintento del geocoding "en segundo plano" y no
+      // había nada que lo hiciera. Aquí sí: al abrir esta pantalla, las
+      // publicaciones que se guardaron sin coordenadas se reintentan una vez.
+      const resueltas = await reintentarGeocodingPendiente(mias);
+      if (resueltas > 0) {
+        setPublicaciones(await listarMisPublicaciones(miId));
+      }
+    } catch (e) {
+      console.warn('No se pudieron cargar tus publicaciones:', e);
     } finally {
       setCargando(false);
     }
-  }, [session?.user.id]);
+  }, [miId]);
 
   // Recarga cada vez que la pestaña vuelve a estar en foco (ej. tras publicar o editar).
   useFocusEffect(
@@ -33,6 +56,8 @@ export default function PublicacionesScreen() {
       cargar();
     }, [cargar])
   );
+
+  const urlsFirmadas = useFotosFirmadas(publicaciones.map((p) => p.fotos?.[0]));
 
   const onCambiarEstado = (publicacion: Publicacion) => {
     const activar = !publicacion.activa;
@@ -47,7 +72,18 @@ export default function PublicacionesScreen() {
           text: activar ? 'Reactivar' : 'Desactivar',
           style: activar ? 'default' : 'destructive',
           onPress: async () => {
-            await cambiarEstadoPublicacion(publicacion.id, activar);
+            try {
+              await cambiarEstadoPublicacion(publicacion.id, activar);
+            } catch (e) {
+              // AUD-26: el límite de 15 activas por cuenta se aplica al
+              // reactivar igual que al crear.
+              Alert.alert(
+                'No se pudo cambiar el estado',
+                e instanceof Error && e.message.includes('límite')
+                  ? 'Ya tienes 15 publicaciones activas. Desactiva alguna primero.'
+                  : 'Intenta de nuevo en un momento.'
+              );
+            }
             cargar();
           },
         },
@@ -73,45 +109,68 @@ export default function PublicacionesScreen() {
         <FlatList
           data={publicaciones}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.fila}>
-              <View style={{ flex: 1 }}>
-                <TarjetaPublicacion
-                  precio={item.precio_renta}
-                  direccion={item.direccion}
-                  fotoUrl={item.fotos?.[0]}
-                  onPress={() => router.push(`/publicacion/${item.id}`)}
-                />
-                {!item.activa && (
-                  <ThemedText style={[styles.inactivaEtiqueta, { color: theme.textSecondary }]}>Inactiva</ThemedText>
-                )}
+          renderItem={({ item }) => {
+            const recibidos = contactos.get(item.id) ?? 0;
+            return (
+              <View style={styles.fila}>
+                <View style={{ flex: 1 }}>
+                  <TarjetaPublicacion
+                    titulo={item.titulo}
+                    precio={item.precio_renta}
+                    direccion={item.direccion}
+                    fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
+                    onPress={() => router.push(`/publicacion/${item.id}`)}
+                  />
+                  <View style={styles.etiquetas}>
+                    {!item.activa && (
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                        Inactiva
+                      </ThemedText>
+                    )}
+                    {/* AUD-16: el dueño se entera de por qué desapareció su
+                        publicación, en vez de descubrirlo por su cuenta. */}
+                    {item.oculta_por_reportes && (
+                      <ThemedText type="small" style={{ color: AppColors.destructiveRed }}>
+                        Oculta por reportes
+                      </ThemedText>
+                    )}
+                    {item.pendiente_geocoding && (
+                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                        Sin ubicación en el mapa — se reintenta al abrir esta pantalla
+                      </ThemedText>
+                    )}
+                    {/* AUD-11: esta métrica ya no se infla sola con cada toque
+                        repetido; `contactos` tiene índice único por par. */}
+                    <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                      {recibidos === 1 ? '1 persona pidió tu contacto' : `${recibidos} personas pidieron tu contacto`}
+                    </ThemedText>
+                  </View>
+                </View>
+                <View style={styles.acciones}>
+                  <Pressable
+                    onPress={() => router.push(`/publicacion/editar/${item.id}`)}
+                    style={styles.accionBoton}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Editar ${item.titulo}`}
+                  >
+                    <ThemedText style={styles.editarTexto}>Editar</ThemedText>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => onCambiarEstado(item)}
+                    style={styles.accionBoton}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.activa ? `Desactivar ${item.titulo}` : `Reactivar ${item.titulo}`}
+                  >
+                    <ThemedText style={item.activa ? styles.desactivarTexto : styles.reactivarTexto}>
+                      {item.activa ? 'Desactivar' : 'Reactivar'}
+                    </ThemedText>
+                  </Pressable>
+                </View>
               </View>
-              <View style={styles.acciones}>
-                <Pressable
-                  onPress={() => router.push(`/publicacion/editar/${item.id}`)}
-                  style={styles.accionBoton}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Editar publicación en ${item.direccion}`}
-                >
-                  <ThemedText style={styles.editarTexto}>Editar</ThemedText>
-                </Pressable>
-                <Pressable
-                  onPress={() => onCambiarEstado(item)}
-                  style={styles.accionBoton}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    item.activa ? `Desactivar publicación en ${item.direccion}` : `Reactivar publicación en ${item.direccion}`
-                  }
-                >
-                  <ThemedText style={item.activa ? styles.desactivarTexto : styles.reactivarTexto}>
-                    {item.activa ? 'Desactivar' : 'Reactivar'}
-                  </ThemedText>
-                </Pressable>
-              </View>
-            </View>
-          )}
+            );
+          }}
           ListEmptyComponent={<ThemedText type="small">Aún no tienes publicaciones — crea la primera.</ThemedText>}
         />
       )}
@@ -123,7 +182,7 @@ const styles = StyleSheet.create({
   nuevaBoton: { marginVertical: Spacing.three, padding: Spacing.two, minHeight: 44, justifyContent: 'center' },
   nuevaBotonTexto: { color: AppColors.primary, fontWeight: '600' },
   fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  inactivaEtiqueta: { marginLeft: Spacing.two },
+  etiquetas: { marginLeft: Spacing.two, gap: Spacing.half },
   acciones: { alignItems: 'flex-end', gap: Spacing.half },
   accionBoton: { padding: Spacing.three, minHeight: 44, justifyContent: 'center' },
   editarTexto: { color: AppColors.primary },

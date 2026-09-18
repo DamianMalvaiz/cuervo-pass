@@ -5,6 +5,7 @@ import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -13,12 +14,18 @@ import {
 } from 'react-native';
 import { z } from 'zod';
 
+import { Casilla } from '@/components/Casilla';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppColors, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
+
+// Documento maestro v5 · §25 y §29. El aviso de privacidad vive en
+// docs/aviso-privacidad.md y se publica junto con el repositorio.
+const URL_AVISO_PRIVACIDAD =
+  'https://github.com/cuervo-pass/cuervo-pass/blob/main/docs/aviso-privacidad.md';
 
 const esquemaRegistro = z
   .object({
@@ -32,6 +39,10 @@ const esquemaRegistro = z
     email: z.string().email('Correo inválido'),
     password: z.string().min(6, 'Mínimo 6 caracteres'),
     confirmarPassword: z.string(),
+    // §29: la casilla NO viene premarcada y el registro no avanza sin ella. La
+    // marca de tiempo que se guarda en acepto_aviso_privacidad_en es la
+    // evidencia del consentimiento; sin columna no hay forma de demostrarlo.
+    aceptoAviso: z.literal(true, { message: 'Necesitamos tu consentimiento para crear la cuenta' }),
   })
   .refine((datos) => datos.password === datos.confirmarPassword, {
     message: 'Las contraseñas no coinciden',
@@ -50,26 +61,39 @@ export default function RegistroScreen() {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormRegistro>({ resolver: zodResolver(esquemaRegistro) });
+  } = useForm<FormRegistro>({
+    resolver: zodResolver(esquemaRegistro),
+    defaultValues: { aceptoAviso: false as unknown as true },
+  });
 
   const onSubmit = async (datos: FormRegistro) => {
     setErrorServidor(null);
     setEnviando(true);
     try {
-      await registrarse(datos.email, datos.password);
+      const nombreCompleto = [datos.nombre, datos.apellidoPaterno, datos.apellidoMaterno]
+        .filter(Boolean)
+        .join(' ');
+
+      // §12: la fila de `usuarios` ya NO la inserta el cliente. La crea el
+      // trigger handle_new_user con estos metadatos, así que no existe la
+      // ventana en la que hay cuenta de Auth sin perfil.
+      await registrarse({
+        email: datos.email,
+        password: datos.password,
+        nombreUsuario: datos.nombreUsuario,
+        nombreCompleto,
+      });
+
       const { data: sesion } = await supabase.auth.getUser();
       if (sesion.user) {
-        // Fila inicial en `usuarios` — la policy "solo el dueno inserta su fila inicial" (sección 8)
-        // exige que auth.uid() = id, por eso se hace justo después del signUp, con sesión ya activa.
-        const nombreCompleto = [datos.nombre, datos.apellidoPaterno, datos.apellidoMaterno]
-          .filter(Boolean)
-          .join(' ');
-        const { error: errorInsert } = await supabase.from('usuarios').insert({
-          id: sesion.user.id,
-          nombre_usuario: datos.nombreUsuario,
-          nombre_completo: nombreCompleto,
-        });
-        if (errorInsert) throw errorInsert;
+        // La evidencia del consentimiento. Si esto falla no se tumba el
+        // registro, pero sí se registra: una cuenta sin marca de aceptación es
+        // un problema de cumplimiento que hay que poder detectar.
+        const { error: errorConsentimiento } = await supabase
+          .from('usuarios')
+          .update({ acepto_aviso_privacidad_en: new Date().toISOString() })
+          .eq('id', sesion.user.id);
+        if (errorConsentimiento) console.warn('No se guardó la marca de consentimiento:', errorConsentimiento);
       }
       router.replace('/(auth)/cuestionario-inicial');
     } catch (e) {
@@ -211,6 +235,30 @@ export default function RegistroScreen() {
           />
           {errors.confirmarPassword && <ThemedText style={styles.error}>{errors.confirmarPassword.message}</ThemedText>}
 
+          <Controller
+            control={control}
+            name="aceptoAviso"
+            render={({ field: { onChange, value } }) => (
+              <Casilla
+                valor={Boolean(value)}
+                onCambiar={onChange}
+                etiqueta="Acepto el aviso de privacidad"
+                ayuda="Explica qué datos guardamos, para qué, y cómo pedir que los borremos."
+              />
+            )}
+          />
+          <Pressable
+            onPress={() => Linking.openURL(URL_AVISO_PRIVACIDAD)}
+            style={styles.enlaceAviso}
+            accessibilityRole="link"
+            accessibilityLabel="Leer el aviso de privacidad"
+          >
+            <ThemedText type="small" style={styles.textoEnlaceAviso}>
+              Leer el aviso de privacidad
+            </ThemedText>
+          </Pressable>
+          {errors.aceptoAviso && <ThemedText style={styles.error}>{errors.aceptoAviso.message}</ThemedText>}
+
           {errorServidor && (
             <ThemedText style={styles.error} accessibilityLiveRegion="assertive">
               {errorServidor}
@@ -252,4 +300,6 @@ const styles = StyleSheet.create({
   },
   botonTexto: { color: '#fff', fontWeight: '600' },
   link: { alignSelf: 'center', marginTop: Spacing.one, padding: Spacing.two },
+  enlaceAviso: { paddingVertical: Spacing.one, minHeight: 44, justifyContent: 'center' },
+  textoEnlaceAviso: { color: AppColors.primary, textDecorationLine: 'underline' },
 });

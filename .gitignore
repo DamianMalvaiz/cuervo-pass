@@ -30,9 +30,14 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (§34) — dos archivos separados: el del cliente en la raíz y
+# el del servidor en ai-service/. Nunca se versiona ninguno de los dos.
 .env
 .env*.local
+ai-service/.env
+
+# respaldos previos a cada `db push` a partir de la semana 5 (§33.4)
+respaldos/
 
 # ai-service (Python)
 ai-service/venv/
@@ -54,3 +59,6 @@ example
 # herramientas de Claude Code personales/pesadas (binarios compilados, no código del proyecto)
 .claude/settings.local.json
 .claude/skills/
+
+# archivos temporales del CLI de Supabase
+supabase/.temp/

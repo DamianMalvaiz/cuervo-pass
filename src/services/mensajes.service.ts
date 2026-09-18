@@ -1,93 +1,184 @@
-import { supabase } from '@/lib/supabase';
-import type { Mensaje } from '@/types/database.types';
+// Documento maestro v5 · §13 (abrir_conversacion), §15 (realtime y paginación).
+//
+// v3 guardaba mensajes sueltos con remitente/destinatario y armaba la lista de
+// chats en el cliente: se traía TODOS los mensajes del usuario y los agrupaba
+// en JavaScript. Con `conversaciones` (migración 0011) cada consulta es trivial
+// y usa un índice que sí existe para ella.
 
-export async function listarConversacion(usuarioActualId: string, otroUsuarioId: string) {
+import { supabase } from '@/lib/supabase';
+import type { Conversacion, Mensaje, PerfilPublico } from '@/types/database.types';
+
+// AUD-09: v3 no paginaba nada. Una conversación de quinientos mensajes se
+// cargaba completa en memoria cada vez que se abría.
+export const PAGINA_MENSAJES = 40;
+
+/**
+ * AUD-07 — obtener o crear, sin carreras.
+ *
+ * Nunca se inserta en `conversaciones` desde el cliente: si dos personas se
+ * escriben con segundos de diferencia, o alguien toca dos veces el botón, el
+ * segundo insert choca contra el índice único y el usuario ve un error crudo
+ * justo al iniciar el chat. La función de Postgres converge al mismo id para
+ * ambos lados sin lanzar.
+ */
+export async function abrirConversacion(otroUsuarioId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('abrir_conversacion', { p_otro: otroUsuarioId });
+  if (error) throw error;
+  return data as string;
+}
+
+/**
+ * Paginación por CURSOR sobre `creado_en`, no por offset: con offset los
+ * mensajes nuevos que llegan mientras lees desplazan la ventana y aparecen
+ * filas repetidas. El índice (conversacion_id, creado_en desc) existe
+ * exactamente para esta consulta.
+ *
+ * Devuelve del más nuevo al más viejo; la pantalla los invierte para pintar.
+ */
+export async function listarMensajes(conversacionId: string, cursor?: string): Promise<Mensaje[]> {
   const { data, error } = await supabase
     .from('mensajes')
     .select('*')
-    .or(
-      `and(remitente_id.eq.${usuarioActualId},destinatario_id.eq.${otroUsuarioId}),and(remitente_id.eq.${otroUsuarioId},destinatario_id.eq.${usuarioActualId})`
-    )
-    .order('creado_en', { ascending: true });
+    .eq('conversacion_id', conversacionId)
+    .lt('creado_en', cursor ?? new Date().toISOString())
+    .order('creado_en', { ascending: false })
+    .limit(PAGINA_MENSAJES);
   if (error) throw error;
-  return data as Mensaje[];
+  return (data as Mensaje[]).reverse();
 }
 
-export async function enviarMensaje(remitenteId: string, destinatarioId: string, contenido: string) {
+export async function enviarMensaje(conversacionId: string, remitenteId: string, contenido: string) {
   const { data, error } = await supabase
     .from('mensajes')
-    .insert({ remitente_id: remitenteId, destinatario_id: destinatarioId, contenido })
+    .insert({ conversacion_id: conversacionId, remitente_id: remitenteId, contenido })
     .select()
     .single();
   if (error) throw error;
   return data as Mensaje;
 }
 
-export async function marcarConversacionComoLeida(usuarioActualId: string, otroUsuarioId: string) {
+// Solo se tocan los mensajes ajenos y solo la columna `leido`: el trigger
+// trg_mensaje_inmutable (migración 0011) rechaza cualquier otro cambio, así que
+// esto es la única forma de update que la base acepta desde el cliente.
+export async function marcarConversacionComoLeida(conversacionId: string, miId: string) {
   const { error } = await supabase
     .from('mensajes')
     .update({ leido: true })
-    .eq('destinatario_id', usuarioActualId)
-    .eq('remitente_id', otroUsuarioId)
+    .eq('conversacion_id', conversacionId)
+    .neq('remitente_id', miId)
     .eq('leido', false);
   if (error) throw error;
 }
 
-// Última fila por contraparte + conteo de no leídos, para la lista de "Chats"
-// (sección 9: "lista de conversaciones con último mensaje y hora"). Se agrupa
-// en el cliente porque son pocos mensajes por usuario en la demo — si esto
-// crece, conviene una vista/función SQL en vez de traer todas las filas.
 export interface ResumenConversacion {
-  otroUsuarioId: string;
-  ultimoMensaje: Mensaje;
+  conversacionId: string;
+  otroUsuario: Pick<PerfilPublico, 'id' | 'nombre_completo' | 'foto_url'>;
+  ultimoMensaje: Mensaje | null;
   noLeidos: number;
 }
 
-export async function listarConversaciones(usuarioId: string): Promise<ResumenConversacion[]> {
-  const { data, error } = await supabase
-    .from('mensajes')
+/**
+ * Lista de chats. Tres consultas acotadas en vez de "trae todo y agrupa":
+ * las conversaciones (ya ordenadas por la base), el último mensaje de cada una
+ * y los perfiles públicos de las contrapartes.
+ */
+export async function listarConversaciones(miId: string, limite = 30): Promise<ResumenConversacion[]> {
+  const { data: conversaciones, error } = await supabase
+    .from('conversaciones')
     .select('*')
-    .or(`remitente_id.eq.${usuarioId},destinatario_id.eq.${usuarioId}`)
-    .order('creado_en', { ascending: false });
+    .order('ultimo_mensaje_en', { ascending: false })
+    .limit(limite);
   if (error) throw error;
 
-  const porUsuario = new Map<string, ResumenConversacion>();
-  for (const mensaje of data as Mensaje[]) {
-    const otroUsuarioId = mensaje.remitente_id === usuarioId ? mensaje.destinatario_id : mensaje.remitente_id;
-    if (!porUsuario.has(otroUsuarioId)) {
-      porUsuario.set(otroUsuarioId, { otroUsuarioId, ultimoMensaje: mensaje, noLeidos: 0 });
-    }
-    if (mensaje.destinatario_id === usuarioId && !mensaje.leido) {
-      porUsuario.get(otroUsuarioId)!.noLeidos += 1;
+  const filas = (conversaciones ?? []) as Conversacion[];
+  if (filas.length === 0) return [];
+
+  const ids = filas.map((c) => c.id);
+  const otrosIds = filas.map((c) => (c.usuario_a === miId ? c.usuario_b : c.usuario_a));
+
+  const [{ data: mensajes }, { data: perfiles }] = await Promise.all([
+    // Acotado a lo que cabe en pantalla: el último mensaje de cada hilo se
+    // resuelve en el cliente sobre esta ventana, no sobre el historial entero.
+    supabase
+      .from('mensajes')
+      .select('*')
+      .in('conversacion_id', ids)
+      .order('creado_en', { ascending: false })
+      .limit(limite * PAGINA_MENSAJES),
+    supabase.from('perfiles_publicos').select('id, nombre_completo, foto_url').in('id', otrosIds),
+  ]);
+
+  const perfilPorId = new Map((perfiles ?? []).map((p) => [p.id as string, p]));
+  const ultimoPorConversacion = new Map<string, Mensaje>();
+  const noLeidosPorConversacion = new Map<string, number>();
+
+  for (const m of (mensajes ?? []) as Mensaje[]) {
+    if (!ultimoPorConversacion.has(m.conversacion_id)) ultimoPorConversacion.set(m.conversacion_id, m);
+    if (m.remitente_id !== miId && !m.leido) {
+      noLeidosPorConversacion.set(m.conversacion_id, (noLeidosPorConversacion.get(m.conversacion_id) ?? 0) + 1);
     }
   }
-  return Array.from(porUsuario.values());
+
+  return filas.map((c) => {
+    const otroId = c.usuario_a === miId ? c.usuario_b : c.usuario_a;
+    const perfil = perfilPorId.get(otroId);
+    return {
+      conversacionId: c.id,
+      otroUsuario: {
+        id: otroId,
+        // §27: si la contraparte eliminó su cuenta, la conversación se queda sin
+        // el otro lado. Se dice, no se muestra una tarjeta en blanco.
+        nombre_completo: (perfil?.nombre_completo as string) ?? 'Usuario no disponible',
+        foto_url: (perfil?.foto_url as string | null) ?? null,
+      },
+      ultimoMensaje: ultimoPorConversacion.get(c.id) ?? null,
+      noLeidos: noLeidosPorConversacion.get(c.id) ?? 0,
+    };
+  });
 }
 
-// Realtime (sección 20, semana 6): RLS ("solo participantes ven sus mensajes",
-// migración 0001) ya filtra por suscriptor qué filas le llegan a cada quien —
-// no hace falta (ni se puede, de forma segura) filtrar por otro_usuario_id
-// aquí; el llamador descarta lo que no sea de la conversación que le importa.
-// Requiere la tabla en la publicación `supabase_realtime` (migración 0004).
-//
-// Nombre de canal único por llamada: la pantalla de Chats y la de Conversación
-// pueden estar suscritas al mismo tiempo, y si dos llamadas usan el mismo
-// nombre, Supabase reutiliza el canal ya "subscribe()"-ado y truena con
-// "Cannot add postgres_changes callback ... after subscribe()".
-let contadorCanales = 0;
-
-// UPDATE además de INSERT: sin esto, marcar un mensaje como leído (ej. al abrir
-// el chat del otro lado) nunca llega en vivo a una conversación ya abierta —
-// el indicador ✓/✓✓ se quedaba en ✓ hasta salir y volver a entrar.
-export function suscribirseAMensajes(onCambio: (mensaje: Mensaje, evento: 'INSERT' | 'UPDATE') => void): () => void {
+/**
+ * §15 — suscripción a UNA conversación, filtrada del lado del servidor.
+ *
+ * Dos cosas que en v3 quedaban ambiguas y producen los bugs típicos de chat:
+ *  1. Suscríbete DESPUÉS de tener sesión. Realtime respeta RLS, y un canal
+ *     abierto sin sesión no recibe nada — en silencio.
+ *  2. El orden lo pone `creado_en`, nunca el orden de llegada del websocket
+ *     (lo hace useChatStore).
+ *
+ * UPDATE además de INSERT: sin eso, marcar como leído del otro lado nunca llega
+ * en vivo y el indicador ✓/✓✓ se queda congelado hasta salir y volver a entrar.
+ */
+export function suscribirseAConversacion(
+  conversacionId: string,
+  onCambio: (mensaje: Mensaje, evento: 'INSERT' | 'UPDATE') => void
+): () => void {
+  const filtro = `conversacion_id=eq.${conversacionId}`;
   const canal = supabase
-    .channel(`mensajes-en-vivo-${++contadorCanales}`)
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes' }, (payload) => {
-      onCambio(payload.new as Mensaje, 'INSERT');
-    })
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mensajes' }, (payload) => {
-      onCambio(payload.new as Mensaje, 'UPDATE');
-    })
+    // Nombre único por conversación: dos canales con el mismo nombre hacen que
+    // Supabase reutilice el ya suscrito y truene con "Cannot add
+    // postgres_changes callback after subscribe()".
+    .channel(`conv:${conversacionId}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes', filter: filtro }, (payload) =>
+      onCambio(payload.new as Mensaje, 'INSERT')
+    )
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mensajes', filter: filtro }, (payload) =>
+      onCambio(payload.new as Mensaje, 'UPDATE')
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(canal);
+  };
+}
+
+/** Para la lista de chats: cualquier mensaje nuevo en cualquiera de mis hilos.
+ *  RLS ya filtra por suscriptor qué filas llegan a cada quien. */
+export function suscribirseAMisChats(onCambio: () => void): () => void {
+  const canal = supabase
+    .channel(`mis-chats:${Date.now()}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes' }, onCambio)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversaciones' }, onCambio)
     .subscribe();
 
   return () => {

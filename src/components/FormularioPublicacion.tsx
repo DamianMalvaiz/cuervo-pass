@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
 import { AppColors, Spacing } from '@/constants/theme';
@@ -12,14 +12,25 @@ import { useTheme } from '@/hooks/use-theme';
 import { buscarPorCodigoPostal } from '@/lib/direccionMx';
 import { buscarCalles } from '@/lib/mapboxAutocomplete';
 import type { FotoEntrada } from '@/services/publicaciones.service';
+import type { TipoPublicacion } from '@/types/database.types';
 import { ThemedText } from './themed-text';
 
-const MAX_FOTOS = 5;
+// AUD-27: el mismo tope que el CHECK de la tabla (migración 0009). Ambas capas,
+// siempre: el cliente para avisar, la base para garantizar.
+const MAX_FOTOS = 8;
+
+const TIPOS: { valor: TipoPublicacion; etiqueta: string }[] = [
+  { valor: 'depa', etiqueta: 'Departamento' },
+  { valor: 'cuarto', etiqueta: 'Cuarto' },
+  { valor: 'casa_compartida', etiqueta: 'Casa compartida' },
+];
 
 // Formulario de dirección estructurado (calle/número/colonia/...) en vez de un
 // solo campo de texto libre — más fácil de llenar para quien publica, y produce
 // una dirección mejor formada para el geocoding de Mapbox (menos ambigüedad).
 const esquema = z.object({
+  titulo: z.string().min(5, 'Escribe un título de al menos 5 caracteres').max(80, 'Máximo 80 caracteres'),
+  tipo: z.enum(['depa', 'cuarto', 'casa_compartida']),
   calle: z.string().min(3, 'Escribe la calle'),
   numeroExterior: z.string().min(1, 'Escribe el número exterior'),
   numeroInterior: z.string().optional(),
@@ -34,6 +45,18 @@ const esquema = z.object({
     .regex(/^\d+$/, 'Solo números')
     .refine((v) => Number(v) > 0, 'Debe ser mayor a 0'),
   descripcion: z.string().optional(),
+  // Atributos EXPLÍCITOS, no adivinados con `descripcion.includes('mascota')`.
+  // Esa heurística hacía que "NO acepto mascotas" contara como que sí, y un
+  // filtro duro no se puede construir sobre eso (§11).
+  permiteMascotas: z.boolean(),
+  amueblado: z.boolean(),
+  serviciosIncluidos: z.boolean(),
+  recamaras: z
+    .string()
+    .regex(/^\d+$/, 'Solo números')
+    .refine((v) => Number(v) > 0 && Number(v) <= 10, 'Entre 1 y 10'),
+  // AUD-17: el formato de diez dígitos fija México. Mismo regex que el CHECK de
+  // la tabla, para que las dos capas no puedan divergir.
   whatsapp: z.string().regex(/^\d{10}$/, 'Agrega un número a 10 dígitos'),
 });
 
@@ -43,9 +66,15 @@ type FormPublicacion = z.infer<typeof esquema>;
 // — se mantiene igual (un solo `direccion`) para no tener que tocar el servicio
 // ni el geocoding; el armado de las partes a texto pasa aquí adentro.
 export interface ValoresFormularioPublicacion {
+  titulo: string;
+  tipo: TipoPublicacion;
   direccion: string;
   precioRenta: string;
   descripcion?: string;
+  permiteMascotas: boolean;
+  amueblado: boolean;
+  serviciosIncluidos: boolean;
+  recamaras: string;
   whatsapp: string;
 }
 
@@ -257,8 +286,14 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
   } = useForm<FormPublicacion>({
     resolver: zodResolver(esquema),
     defaultValues: {
+      titulo: valoresIniciales?.titulo,
+      tipo: valoresIniciales?.tipo ?? 'depa',
       precioRenta: valoresIniciales?.precioRenta,
       descripcion: valoresIniciales?.descripcion,
+      permiteMascotas: valoresIniciales?.permiteMascotas ?? false,
+      amueblado: valoresIniciales?.amueblado ?? false,
+      serviciosIncluidos: valoresIniciales?.serviciosIncluidos ?? false,
+      recamaras: valoresIniciales?.recamaras ?? '1',
       whatsapp: valoresIniciales?.whatsapp,
     },
   });
@@ -334,9 +369,15 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
     setEnviando(true);
     try {
       await onGuardar({
+        titulo: valores.titulo,
+        tipo: valores.tipo,
         direccion: armarDireccion(valores),
         precioRenta: valores.precioRenta,
         descripcion: valores.descripcion,
+        permiteMascotas: valores.permiteMascotas,
+        amueblado: valores.amueblado,
+        serviciosIncluidos: valores.serviciosIncluidos,
+        recamaras: valores.recamaras,
         whatsapp: valores.whatsapp,
         fotos,
       });
@@ -356,6 +397,54 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
           Dirección actual: {valoresIniciales.direccion}
         </ThemedText>
       )}
+
+      <Controller
+        control={control}
+        name="titulo"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput
+            style={estiloInput}
+            placeholder="Título (ej. Depa de 1 recámara a 10 min del campus)"
+            placeholderTextColor={theme.textSecondary}
+            accessibilityLabel="Título de la publicación"
+            maxLength={80}
+            onBlur={onBlur}
+            onChangeText={onChange}
+            value={value}
+          />
+        )}
+      />
+      {errors.titulo && <ThemedText style={styles.error}>{errors.titulo.message}</ThemedText>}
+
+      <Controller
+        control={control}
+        name="tipo"
+        render={({ field: { onChange, value } }) => (
+          <View style={styles.filaTipos}>
+            {TIPOS.map((tipo) => {
+              const seleccionado = value === tipo.valor;
+              return (
+                <Pressable
+                  key={tipo.valor}
+                  onPress={() => onChange(tipo.valor)}
+                  style={[
+                    styles.pastillaTipo,
+                    { borderColor: seleccionado ? AppColors.primary : theme.border },
+                    seleccionado && { backgroundColor: AppColors.primary },
+                  ]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: seleccionado }}
+                  accessibilityLabel={tipo.etiqueta}
+                >
+                  <ThemedText type="small" style={seleccionado ? styles.textoPastillaActiva : undefined}>
+                    {tipo.etiqueta}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      />
 
       <ThemedText type="small" style={styles.etiqueta}>
         Dirección
@@ -545,7 +634,7 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
         render={({ field: { onChange, onBlur, value } }) => (
           <TextInput
             style={[estiloInput, styles.descripcionInput]}
-            placeholder="Descripción (amueblado, mascotas, servicios incluidos...)"
+            placeholder="Descripción libre (qué tiene cerca, cómo es el ambiente...)"
             placeholderTextColor={theme.textSecondary}
             multiline
             accessibilityLabel="Descripción de la publicación"
@@ -553,6 +642,55 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
             onChangeText={onChange}
             value={value}
           />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="recamaras"
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput
+            style={estiloInput}
+            placeholder="Número de recámaras"
+            placeholderTextColor={theme.textSecondary}
+            keyboardType="numeric"
+            accessibilityLabel="Número de recámaras"
+            onBlur={onBlur}
+            onChangeText={onChange}
+            value={value}
+          />
+        )}
+      />
+      {errors.recamaras && <ThemedText style={styles.error}>{errors.recamaras.message}</ThemedText>}
+
+      <Controller
+        control={control}
+        name="permiteMascotas"
+        render={({ field: { onChange, value } }) => (
+          <View style={styles.filaSwitch}>
+            <ThemedText>¿Permite mascotas?</ThemedText>
+            <Switch value={value} onValueChange={onChange} accessibilityLabel="¿Permite mascotas?" />
+          </View>
+        )}
+      />
+      <Controller
+        control={control}
+        name="amueblado"
+        render={({ field: { onChange, value } }) => (
+          <View style={styles.filaSwitch}>
+            <ThemedText>¿Está amueblado?</ThemedText>
+            <Switch value={value} onValueChange={onChange} accessibilityLabel="¿Está amueblado?" />
+          </View>
+        )}
+      />
+      <Controller
+        control={control}
+        name="serviciosIncluidos"
+        render={({ field: { onChange, value } }) => (
+          <View style={styles.filaSwitch}>
+            <ThemedText>¿Incluye servicios?</ThemedText>
+            <Switch value={value} onValueChange={onChange} accessibilityLabel="¿Incluye servicios?" />
+          </View>
         )}
       />
 
@@ -621,6 +759,23 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
 }
 
 const styles = StyleSheet.create({
+  filaTipos: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
+  pastillaTipo: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  textoPastillaActiva: { color: '#fff', fontWeight: '600' },
+  filaSwitch: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.one,
+    minHeight: 44,
+  },
   container: { gap: Spacing.two },
   direccionActual: { fontStyle: 'italic', marginBottom: Spacing.one },
   input: { borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.three },

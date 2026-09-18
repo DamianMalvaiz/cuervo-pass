@@ -1,9 +1,12 @@
-// Complemento de seed-demo.mjs: crea la fila en `roomings` para las cuentas
-// demo que ya quedaron con usuarios.busca_roomie = true — seed-demo.mjs marcó
-// ese campo pero nunca insertó en la tabla que la pantalla Roomings realmente
-// lee, así que la lista salía vacía aunque el switch se viera "activado".
+// Complemento de seed-demo.mjs: crea la fila en `roomies` (antes `roomings`,
+// renombrada en la migración 0010) para las cuentas demo que quedaron con
+// usuarios.busca_roomie = true — seed-demo.mjs marca ese campo pero no inserta
+// en la tabla que la pantalla Roomies realmente lee.
 //
-// Uso: node --env-file=.env scripts/seed-roomings.mjs
+// El vector de búsqueda lo rellena después scripts/backfill-embeddings.mjs: sin
+// él, `sugerencias_roomies` ordena por fecha en vez de por afinidad (§18).
+//
+// Uso: node --env-file=.env scripts/seed-roomies.mjs
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -41,10 +44,10 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Creando roomings para ${usuariosDemo.length} cuentas demo con busca_roomie = true...`);
+  console.log(`Creando roomies para ${usuariosDemo.length} cuentas demo con busca_roomie = true...`);
   let creados = 0;
   for (const usuario of usuariosDemo) {
-    const { error } = await admin.from('roomings').upsert(
+    const { error } = await admin.from('roomies').upsert(
       { usuario_id: usuario.id, descripcion_busqueda: aleatorio(DESCRIPCIONES_BUSQUEDA), estado: 'activo' },
       { onConflict: 'usuario_id' }
     );
@@ -55,7 +58,7 @@ async function main() {
     creados += 1;
   }
 
-  console.log(`Listo: ${creados}/${usuariosDemo.length} roomings creados.`);
+  console.log(`Listo: ${creados}/${usuariosDemo.length} roomies creados.`);
 }
 
 main();

@@ -1,6 +1,16 @@
-fastapi==0.115.0
-uvicorn==0.30.6
-sentence-transformers==3.1.1
+# Versiones exactas (§33.3): es lo que impide que una versión menor rompa el
+# build el día de la entrega. Se actualizan con Dependabot en un PR que CI
+# valida, no a mano y en pánico.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+sentence-transformers==3.3.1
+# Fijado explícitamente y con el índice de CPU (ver Dockerfile): sin eso pip
+# jala torch con CUDA, ~3 GB de imagen, para correr en una CPU que nunca va a
+# usar una GPU.
+torch==2.5.1
+# El documento maestro cita anthropic==0.42.0; se conserva la 1.x que el
+# proyecto ya usa, porque el SDK 1.x es el vigente y bajar de versión sería una
+# regresión. La API empleada aquí (messages.create con `system`) es la misma.
 anthropic==1.6.0
 slowapi==0.1.9
-python-dotenv==1.0.1
+pydantic==2.10.4
