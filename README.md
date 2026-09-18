@@ -42,7 +42,7 @@ Un alumno de nuevo ingreso no conoce la zona ni sabe dónde vivir, y buscar por 
 
 `usuarios`, `publicaciones`, `roomies`, `conversaciones`, `mensajes`, `contactos`, `cuotas_uso`, `notificaciones`, `reportes`, `geocodificaciones`.
 
-Las tablas están **cerradas**: cada usuario solo ve sus propias filas. Lo que otros pueden ver sale de dos vistas con lista blanca de columnas — `perfiles_publicos` y `publicaciones_publicas` — que deliberadamente no incluyen presupuesto, universidad, vector de perfil ni teléfono. Ver `supabase/migrations/0013_v5_rls_y_vistas.sql`.
+Las tablas están **cerradas**: cada usuario solo ve sus propias filas. Lo que otros pueden ver sale de dos vistas con lista blanca de columnas — `perfiles_publicos` y `publicaciones_publicas` — que deliberadamente no incluyen presupuesto, universidad, vector de perfil ni teléfono. Ver `supabase/migrations/0014_v5_rls_y_vistas.sql`.
 
 ## Stack
 
@@ -68,11 +68,15 @@ cp .env.example .env          # solo valores públicos: todo esto acaba en el AP
 npx expo start
 
 # ── Supabase ───────────────────────────────────────────
+# Si es la primera vez en esta máquina, lee antes docs/aplicar-migraciones.md:
+# este repositorio venía aplicando las migraciones a mano en el SQL Editor, así
+# que `db push` necesita un `migration repair` previo para no reaplicar 0001.
 npm install -D supabase
+npx supabase init
 npx supabase link --project-ref TU_PROJECT_REF
 npx supabase db dump --data-only -f respaldos/$(date +%F).sql   # antes de tocar nada
 npx supabase db push          # aplica supabase/migrations/
-npx supabase test db          # pruebas de RLS con pgTAP
+npx supabase test db          # pruebas de RLS con pgTAP (necesita Docker)
 
 npx supabase functions deploy ai-proxy
 npx supabase functions deploy geocodificar
@@ -95,7 +99,7 @@ Los dos `.env` son **dos archivos separados a propósito**: el de la raíz es de
 
 ## Decisiones de ingeniería
 
-- **El motor de sugerencias consulta vistas, no tablas.** Una función `security invoker` corre con los permisos de quien la llama, así que RLS se aplica dentro de ella: sobre las tablas cerradas devolvería cero filas, sin error y sin log. Las vistas evaden RLS a propósito y exponen solo columnas seguras (`0014_v5_motor_sugerencias.sql`).
+- **El motor de sugerencias consulta vistas, no tablas.** Una función `security invoker` corre con los permisos de quien la llama, así que RLS se aplica dentro de ella: sobre las tablas cerradas devolvería cero filas, sin error y sin log. Las vistas evaden RLS a propósito y exponen solo columnas seguras (`0015_v5_motor_sugerencias.sql`).
 - **Retrieval + ranking, en ese orden.** El filtro duro —presupuesto, distancia, mascotas— descarta primero lo inviable; el embedding solo reordena lo que ya se puede pagar y alcanzar. Un departamento carísimo puede tener un vector muy parecido a tu perfil sin que puedas pagarlo.
 - **El teléfono no se lee, se pide.** `publicaciones_publicas` no trae la columna. El número sale de `revelar_contacto()`, que aplica una cuota de 25 revelaciones diarias y deja registro sin duplicar.
 - **Control de acceso en vez de cifrado de campos.** Se cifra en tránsito (HTTPS) y en reposo (disco de Supabase). Cifrar columnas con `pgp_sym_encrypt` no protegía contra la amenaza real —un usuario legítimo leyendo datos de otro— y mandaba la clave dentro de la consulta, donde acaba en los logs.

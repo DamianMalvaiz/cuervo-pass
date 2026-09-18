@@ -14,7 +14,7 @@ export default function RootLayout() {
         <Stack.Screen name="perfil/[usuarioId]" options={{ headerShown: true, title: 'Perfil' }} />
         <Stack.Screen name="perfil/preferencias" options={{ headerShown: true, title: 'Mis preferencias' }} />
         {/* La ruta es la conversación, no el otro usuario: el hilo existe como
-            fila en `conversaciones` desde la migración 0011 (§26). */}
+            fila en `conversaciones` desde la migración 0012 (§26). */}
         <Stack.Screen name="chat/[conversacionId]" options={{ headerShown: true, title: 'Chat' }} />
       </Stack>
     </ThemeProvider>

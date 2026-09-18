@@ -2,7 +2,7 @@
 //
 // Prometerlo en el aviso de privacidad y no implementarlo es peor que no
 // prometerlo. Borrar la cuenta de Supabase Auth dispara el `on delete cascade`
-// de todo el esquema, y con él el trigger trg_limpiar_fotos (migración 0015),
+// de todo el esquema, y con él el trigger trg_limpiar_fotos (migración 0016),
 // que es lo que hace que las fotos desaparezcan de verdad y no solo la fila.
 //
 // Requiere service_role, así que vive aquí y no en la app.

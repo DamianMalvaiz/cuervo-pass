@@ -212,6 +212,22 @@ export interface Reporte {
   creado_en: string;
 }
 
+// Tabla aparte de `usuarios` a propósito (migración 0008, Semana 11): un token
+// push no debe ser legible por nadie más que su dueño, porque quien lo tenga
+// puede mandarle notificaciones falsas a esa persona vía el servicio de Expo.
+//
+// Esa decisión se tomó cuando `usuarios` era de lectura pública para cualquier
+// autenticado. v5 cerró esa tabla (§13), así que el argumento original ya no
+// aplica — pero la separación sigue siendo correcta: el token no tiene por qué
+// vivir junto al perfil, y mantenerlo aparte hace que nunca pueda colarse en
+// `perfiles_publicos` por descuido.
+export interface PushToken {
+  [key: string]: unknown;
+  usuario_id: string;
+  token: string;
+  actualizado_en: string;
+}
+
 type Tabla<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relationships: [] };
 // Las vistas de §13 son de solo lectura, pero supabase-js exige la misma forma
 // que una tabla para poder inferir el tipo de `select()`; sin Insert/Update el
@@ -229,6 +245,7 @@ export interface Database {
       contactos: Tabla<Contacto>;
       notificaciones: Tabla<Notificacion>;
       reportes: Tabla<Reporte>;
+      push_tokens: Tabla<PushToken>;
       geocodificaciones: Tabla<{
         [key: string]: unknown;
         consulta: string;
@@ -273,6 +290,10 @@ export interface Database {
       };
       consumir_cuota: {
         Args: { p_recurso: string; p_limite: number };
+        Returns: undefined;
+      };
+      enviar_notificacion_push: {
+        Args: { destinatario_id: string; titulo: string; cuerpo: string; datos?: unknown };
         Returns: undefined;
       };
     };

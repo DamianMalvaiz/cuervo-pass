@@ -32,7 +32,7 @@ language sql as $$
 $$;
 
 -- ════════════════ datos ════════════════
--- Las filas de `usuarios` las crea el trigger handle_new_user (migración 0008).
+-- Las filas de `usuarios` las crea el trigger handle_new_user (migración 0009).
 -- Que esta prueba no las inserte a mano es, de paso, la verificación de §12.
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
                         created_at, updated_at, raw_user_meta_data)

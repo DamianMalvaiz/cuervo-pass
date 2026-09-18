@@ -159,7 +159,7 @@ create policy mensajes_insert_remitente on mensajes
   );
 
 -- El destinatario necesita poder marcar como leído — y solo eso. Qué columnas
--- puede tocar lo impone el trigger trg_mensaje_inmutable (migración 0011),
+-- puede tocar lo impone el trigger trg_mensaje_inmutable (migración 0012),
 -- porque una policy de UPDATE solo puede limitar filas.
 drop policy if exists mensajes_update_leido on mensajes;
 create policy mensajes_update_leido on mensajes

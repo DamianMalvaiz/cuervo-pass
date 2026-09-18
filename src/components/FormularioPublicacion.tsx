@@ -15,7 +15,7 @@ import type { FotoEntrada } from '@/services/publicaciones.service';
 import type { TipoPublicacion } from '@/types/database.types';
 import { ThemedText } from './themed-text';
 
-// AUD-27: el mismo tope que el CHECK de la tabla (migración 0009). Ambas capas,
+// AUD-27: el mismo tope que el CHECK de la tabla (migración 0010). Ambas capas,
 // siempre: el cliente para avisar, la base para garantizar.
 const MAX_FOTOS = 8;
 

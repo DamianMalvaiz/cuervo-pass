@@ -3,7 +3,7 @@
 -- No registres usuarios en vivo frente a la maestra: carga esto con antelación.
 --
 -- CAMBIO IMPORTANTE frente a v3: las publicaciones ya NO se pueden insertar sin
--- dueño. `publicaciones.usuario_id` es NOT NULL desde la migración 0009, porque
+-- dueño. `publicaciones.usuario_id` es NOT NULL desde la migración 0010, porque
 -- una publicación huérfana no puede aparecer en sugerencias (la consulta une
 -- con `perfiles_publicos`) ni revelar contacto. Antes ese `null` permitía un
 -- seed de una sola línea y un catálogo que el motor nunca iba a devolver.
@@ -14,7 +14,7 @@
 --        perfil-a@demo.cuervopass.com
 --        perfil-b@demo.cuervopass.com
 --        perfil-c@demo.cuervopass.com
---      El trigger handle_new_user (§12, migración 0008) crea su fila en
+--      El trigger handle_new_user (§12, migración 0009) crea su fila en
 --      `usuarios` automáticamente.
 --   2) Corre este archivo completo en el SQL Editor.
 --

@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import type { Usuario } from '@/types/database.types';
 
 // Mi PROPIO perfil, con todas las columnas. La policy usuarios_select_propio
-// (migración 0013) hace que esta consulta solo pueda devolver mi fila: para ver
+// (migración 0014) hace que esta consulta solo pueda devolver mi fila: para ver
 // a otra persona está `perfiles_publicos` (usuarios.service.ts).
 interface PerfilState {
   perfil: Usuario | null;

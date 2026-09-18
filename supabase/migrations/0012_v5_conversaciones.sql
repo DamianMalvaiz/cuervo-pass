@@ -96,6 +96,14 @@ create index if not exists conversaciones_b_idx on conversaciones (usuario_b, ul
 -- ============================================================
 -- 4. Triggers de servicio · §13
 -- ============================================================
+-- ⚠ Esta función SUSTITUYE a `crear_notificacion_mensaje()` de la migración
+-- 0008 (notificaciones push, Semana 11), que leía `new.destinatario_id` — una
+-- columna que esta misma migración elimina. Si 0008 ya está aplicada, el push
+-- se seguiría enviando solo si se reimplementa aquí; por eso se reimplementa.
+--
+-- Sin esto, las notificaciones push dejarían de llegar sin un solo error en los
+-- logs: el trigger viejo desaparece con su función y nadie se entera hasta que
+-- alguien pregunta por qué ya no suena el teléfono.
 create or replace function al_insertar_mensaje()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare v_destinatario uuid;
@@ -105,8 +113,34 @@ begin
   returning case when usuario_a = new.remitente_id then usuario_b else usuario_a end
   into v_destinatario;
 
+  -- Notificación dentro de la app.
   insert into notificaciones (usuario_id, tipo, contenido)
   values (v_destinatario, 'nuevo_mensaje', left(new.contenido, 80));
+
+  -- Notificación push, solo si la migración 0008 está aplicada. El `if exists`
+  -- permite que esta migración corra igual en una base que todavía no tiene el
+  -- trabajo de push; sin él, fallaría con "function does not exist".
+  --
+  -- `conversacion_id` en los datos, no `remitente_id`: la ruta de la app ahora
+  -- es chat/[conversacionId] (§26). Con el id del remitente, tocar la
+  -- notificación abriría una ruta que ya no existe.
+  if exists (
+    select 1 from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'enviar_notificacion_push'
+  ) then
+    perform enviar_notificacion_push(
+      v_destinatario,
+      'Nuevo mensaje',
+      left(new.contenido, 100),
+      jsonb_build_object(
+        'tipo', 'nuevo_mensaje',
+        'conversacion_id', new.conversacion_id,
+        'remitente_id', new.remitente_id
+      )
+    );
+  end if;
+
   return new;
 end;
 $$;

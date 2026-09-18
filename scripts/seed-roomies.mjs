@@ -1,5 +1,5 @@
 // Complemento de seed-demo.mjs: crea la fila en `roomies` (antes `roomings`,
-// renombrada en la migración 0010) para las cuentas demo que quedaron con
+// renombrada en la migración 0011) para las cuentas demo que quedaron con
 // usuarios.busca_roomie = true — seed-demo.mjs marca ese campo pero no inserta
 // en la tabla que la pantalla Roomies realmente lee.
 //

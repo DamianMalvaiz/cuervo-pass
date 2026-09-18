@@ -59,7 +59,7 @@ export default function DetallePublicacionScreen() {
       try {
         await reportarPublicacion(usuarioId, publicacionId, motivo);
         // El ocultamiento a los 3 reportes lo hace el trigger `al_reportar`
-        // (migración 0012), y el dueño recibe una notificación. v3 prometía
+        // (migración 0013), y el dueño recibe una notificación. v3 prometía
         // esto y no había nada que lo hiciera.
         Alert.alert('Gracias', 'Reportamos esta publicación para revisión.');
       } catch (e) {

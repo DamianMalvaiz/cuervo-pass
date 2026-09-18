@@ -179,7 +179,7 @@ async function main() {
     const presupuestoMin = enteroEntre(1500, 3000);
     const presupuestoMax = presupuestoMin + enteroEntre(800, 3000);
 
-    // UPDATE, no INSERT: desde la migración 0008 la fila de `usuarios` ya la
+    // UPDATE, no INSERT: desde la migración 0009 la fila de `usuarios` ya la
     // creó el trigger handle_new_user al dar de alta la cuenta de Auth (§12).
     // Insertarla otra vez chocaría contra la llave primaria.
     const { error: errorUsuario } = await admin.from('usuarios').update({

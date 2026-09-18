@@ -53,7 +53,7 @@ export async function exportarMisDatos(): Promise<unknown> {
 
 /**
  * CANCELACIÓN: borra la cuenta de Auth, y con ella —por `on delete cascade`—
- * todo lo demás, incluidas las fotos del bucket (trigger de la migración 0015).
+ * todo lo demás, incluidas las fotos del bucket (trigger de la migración 0016).
  * Vive en una Edge Function porque requiere service_role.
  */
 export async function eliminarMiCuenta(): Promise<void> {

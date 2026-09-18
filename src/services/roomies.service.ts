@@ -2,7 +2,7 @@
 //
 // El orden por afinidad ya no se arma en dos pasos desde el cliente (traer la
 // lista, mandar los ids a una función de similitud, reordenar en JavaScript):
-// `sugerencias_roomies` (migración 0014) devuelve la lista ya ordenada, con los
+// `sugerencias_roomies` (migración 0015) devuelve la lista ya ordenada, con los
 // datos públicos del dueño unidos en la misma consulta.
 
 import { generarEmbedding } from '@/lib/aiService';

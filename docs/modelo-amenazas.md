@@ -16,7 +16,7 @@ contactar a alguien fuera de la app.
 
 | Actor | Qué quiere | Cómo lo intentaría | Mitigación | Dónde |
 |---|---|---|---|---|
-| Curioso con cuenta | Datos de otros usuarios | `select * from usuarios` con su token | RLS por fila propia + vista `perfiles_publicos` con lista blanca de columnas | `0013_v5_rls_y_vistas.sql` |
+| Curioso con cuenta | Datos de otros usuarios | `select * from usuarios` con su token | RLS por fila propia + vista `perfiles_publicos` con lista blanca de columnas | `0014_v5_rls_y_vistas.sql` |
 | Spammer | La base de teléfonos | Leer `whatsapp` de todas las publicaciones | La columna no existe en `publicaciones_publicas`; el número se entrega por `revelar_contacto()` con registro | `0012`, `0013` |
 | Spammer persistente | Lo mismo, en bucle | Recorrer `revelar_contacto` sobre todos los identificadores | Cuota de 25 revelaciones al día, materializada en `cuotas_uso` | `0012` |
 | Acosador | Ubicar a alguien | Cruzar perfil, fotos y ubicación | El perfil ajeno no muestra presupuesto ni universidad; la dirección exacta solo tras pedir el contacto | `0013`, `perfil/[usuarioId].tsx` |

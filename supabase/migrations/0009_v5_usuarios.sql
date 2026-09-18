@@ -1,6 +1,6 @@
 -- Documento maestro v5 · §11 (modelo de datos), §12 (alta de usuario), §30 (qué cifrar).
 --
--- Migración hacia adelante (§33.4, regla 1): no se edita ninguna de 0001-0007,
+-- Migración hacia adelante (§33.4, regla 1): no se edita ninguna de 0001-0008,
 -- se corrige con una nueva. Todo es idempotente para poder re-aplicarla sobre
 -- una base que ya quedó a medias.
 --

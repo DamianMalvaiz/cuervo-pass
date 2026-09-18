@@ -4,7 +4,7 @@
 // se traían todas las publicaciones activas y se puntuaban en JavaScript, lo
 // que significaba (a) bajar el catálogo completo al teléfono y (b) filtrar con
 // heurísticas de subcadenas sobre la descripción. Ahora el Nivel 1 y el Nivel 2
-// son funciones de Postgres (migración 0014) y esto solo las llama.
+// son funciones de Postgres (migración 0015) y esto solo las llama.
 
 import { generarEmbedding } from '@/lib/aiService';
 import { geocodificarDireccion } from '@/lib/geocoding';
@@ -277,7 +277,7 @@ export async function revelarContacto(publicacionId: string, score?: number | nu
 }
 
 /** El ocultamiento automático a los 3 reportes lo hace el trigger `al_reportar`
- *  (migración 0012). v3 lo prometía y no había nada que lo hiciera. */
+ *  (migración 0013). v3 lo prometía y no había nada que lo hiciera. */
 export async function reportarPublicacion(reportadoPor: string, publicacionId: string, motivo: string) {
   const { error } = await supabase
     .from('reportes')

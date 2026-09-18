@@ -2,7 +2,7 @@
 //
 // v3 guardaba mensajes sueltos con remitente/destinatario y armaba la lista de
 // chats en el cliente: se traía TODOS los mensajes del usuario y los agrupaba
-// en JavaScript. Con `conversaciones` (migración 0011) cada consulta es trivial
+// en JavaScript. Con `conversaciones` (migración 0012) cada consulta es trivial
 // y usa un índice que sí existe para ella.
 
 import { supabase } from '@/lib/supabase';
@@ -58,7 +58,7 @@ export async function enviarMensaje(conversacionId: string, remitenteId: string,
 }
 
 // Solo se tocan los mensajes ajenos y solo la columna `leido`: el trigger
-// trg_mensaje_inmutable (migración 0011) rechaza cualquier otro cambio, así que
+// trg_mensaje_inmutable (migración 0012) rechaza cualquier otro cambio, así que
 // esto es la única forma de update que la base acepta desde el cliente.
 export async function marcarConversacionComoLeida(conversacionId: string, miId: string) {
   const { error } = await supabase

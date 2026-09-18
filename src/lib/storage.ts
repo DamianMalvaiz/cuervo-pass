@@ -1,6 +1,6 @@
 // Documento maestro v5 · §14 — Supabase Storage.
 //
-// El bucket dejó de ser público (migración 0015). Antes, cualquiera en internet
+// El bucket dejó de ser público (migración 0016). Antes, cualquiera en internet
 // que adivinara el patrón `perfiles/<uuid>.jpg` leía fotos de perfil sin tener
 // sesión. Ahora las URLs se firman, con caducidad, y EN LOTE.
 //

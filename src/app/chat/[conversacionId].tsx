@@ -200,7 +200,7 @@ export default function ConversacionScreen() {
             accessibilityLabel="Mensaje"
             value={texto}
             onChangeText={setTexto}
-            // Mismo tope que el CHECK de la tabla (migración 0011). Ambas capas,
+            // Mismo tope que el CHECK de la tabla (migración 0012). Ambas capas,
             // siempre: el cliente para avisar, la base para garantizar.
             maxLength={2000}
             multiline
