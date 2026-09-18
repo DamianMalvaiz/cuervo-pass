@@ -8,6 +8,13 @@ ENV PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
+
+# El `wheel` que trae la imagen base (0.45.1) tiene CVE-2026-24049 —escalada de
+# privilegios / ejecución de código vía un .whl malicioso—, corregida en
+# 0.46.2. No viene de requirements.txt, así que se actualiza aquí junto con el
+# resto del utillaje de empaquetado.
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

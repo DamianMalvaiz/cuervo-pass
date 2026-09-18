@@ -74,6 +74,15 @@ jobs:
           # Que rompa el build, no que informe: §33.3, un reporte que nadie lee
           # no es un control.
           exit-code: '1'
+          # Solo falla ante lo que se puede accionar. La imagen base
+          # (python:3.11-slim, Debian 13) arrastra 54 HIGH y 3 CRITICAL del
+          # sistema operativo SIN parche publicado: la columna "Fixed Version"
+          # viene vacía. Sin esta línea el job queda en rojo permanentemente
+          # hagas lo que hagas, y una compuerta que siempre está roja se acaba
+          # ignorando o apagando — que es exactamente lo que §33.3 quiere
+          # evitar. Lo que sí tiene parche se corrige subiendo la versión en
+          # requirements.txt, no silenciándolo aquí.
+          ignore-unfixed: true
       - name: Inventario de componentes
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
