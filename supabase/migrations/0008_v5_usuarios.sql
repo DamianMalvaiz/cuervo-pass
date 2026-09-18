@@ -67,6 +67,27 @@ begin
   end if;
 end $$;
 
+-- ============================================================
+-- 2b. Relleno de `cuestionario_completo` para las cuentas que ya existen
+-- ============================================================
+-- Sin esto, TODAS las cuentas creadas antes de esta migración se quedan con el
+-- valor por omisión `false` y el guard de §26 las manda al cuestionario la
+-- próxima vez que abran la app — incluidas las cien cuentas de demo. Una
+-- migración que deja a todo el padrón fuera de su propia app no es una
+-- migración, es una caída.
+--
+-- El criterio es la misma proxy que usaba el código anterior (había universidad
+-- guardada), más el presupuesto, que es el otro dato sin el cual el filtro duro
+-- de §17 no puede correr. Quien no cumpla ambos SÍ tenía el perfil a medias y
+-- debe pasar por el cuestionario: para esa gente el redireccionamiento es la
+-- corrección, no el problema.
+update usuarios
+   set cuestionario_completo = true
+ where cuestionario_completo = false
+   and universidad is not null
+   and presupuesto_min is not null
+   and presupuesto_max is not null;
+
 -- AUD-15: `unique` sobre texto distingue mayúsculas, así que `Damian` y `damian`
 -- convivían como dos cuentas distintas. Se normaliza antes de crear el índice
 -- porque si ya existen duplicados que solo difieren en capitalización, la

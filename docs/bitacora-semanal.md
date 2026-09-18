@@ -45,10 +45,14 @@ evidencia más barata que existe.
 - [ ] `npx supabase test db` — las doce aserciones de `supabase/tests/rls.test.sql`.
 - [ ] Desplegar las tres Edge Functions y fijar sus secrets (ver
       `supabase/functions/README.md`).
+- [ ] Marcar el consentimiento de IA de las cuentas de **demo** (el SQL está
+      comentado al final de `0017_v5_vectores_obsoletos.sql`). Las cuentas
+      reales tienen que marcar la casilla ellas mismas: §29.
 - [ ] Regenerar los embeddings con el modelo multilingüe:
-      `node --env-file=.env scripts/backfill-embeddings.mjs --todos`. **Los vectores
-      viejos son de `all-MiniLM-L6-v2` y no son comparables con los nuevos** —
-      hasta que se regeneren, el Nivel 2 ordena con ruido.
+      `node --env-file=.env scripts/backfill-embeddings.mjs --todos`, con el
+      microservicio corriendo. La migración 0017 ya borró los vectores viejos,
+      que eran de `all-MiniLM-L6-v2` y producían ruido con apariencia de
+      resultado. Hasta regenerarlos, la app funciona en Nivel 1.
 - [ ] Completar el responsable y el correo de contacto en
       `docs/aviso-privacidad.md`.
 - [ ] Retirar la vista de compatibilidad `roomings` (migración 0010) en la
