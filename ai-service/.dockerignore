@@ -7,3 +7,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 tests/
+# Las dependencias de prueba no se instalan en la imagen (el Dockerfile solo
+# instala requirements.txt), así que este archivo tampoco tiene por qué viajar.
+requirements-dev.txt

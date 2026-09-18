@@ -55,7 +55,9 @@ jobs:
         with:
           path: ~/.cache/huggingface
           key: hf-${{ hashFiles('ai-service/requirements.txt') }}
-      - run: pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+      # requirements-dev.txt trae pytest y httpx, que el Dockerfile NO instala:
+      # las pruebas no tienen por qué viajar dentro de la imagen de producción.
+      - run: pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt -r requirements-dev.txt
       - run: pytest tests -v
 
   imagen:
