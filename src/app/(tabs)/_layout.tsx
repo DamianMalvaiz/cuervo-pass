@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
 import type { ColorValue } from 'react-native';
 
 import { AppColors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { registrarTokenPush, useAbrirChatDesdeNotificacion } from '@/lib/pushNotifications';
+import { useAuthStore } from '@/store/useAuthStore';
 
 type NombreIcono = keyof typeof Ionicons.glyphMap;
 
@@ -15,8 +18,17 @@ function crearIcono(activo: NombreIcono, inactivo: NombreIcono) {
   return Icono;
 }
 
+// Solo se llega aquí con sesión activa Y cuestionario completo (guard de §26 en
+// index.tsx) — momento correcto para pedir permiso y registrar el token push,
+// sin bloquear el flujo si falla (Expo Go, permiso negado, etc.).
 export default function TabsLayout() {
   const theme = useTheme();
+  const miId = useAuthStore((s) => s.session?.user.id);
+  useAbrirChatDesdeNotificacion();
+
+  useEffect(() => {
+    if (miId) registrarTokenPush(miId);
+  }, [miId]);
 
   return (
     <Tabs
