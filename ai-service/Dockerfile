@@ -7,6 +7,18 @@ ENV PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu \
     HF_HOME=/opt/hf \
     PYTHONUNBUFFERED=1
 
+# La imagen base trae paquetes de Debian con CVEs YA corregidas río arriba:
+# python:3.11-slim se reconstruye cada cierto tiempo, no cada vez que Debian
+# publica un parche. Sin esta línea el escaneo encuentra 13 con arreglo
+# disponible (10 HIGH, 3 CRITICAL) que nadie más va a aplicar por nosotros.
+#
+# Sí, `upgrade` hace el build menos reproducible que fijar versión por versión
+# (§33.3), pero fijar a mano ~13 paquetes del sistema y mantenerlos al día a
+# mano es peor: se queda desactualizado en cuanto nadie lo mira.
+RUN apt-get update \
+ && apt-get upgrade -y \
+ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # El `wheel` que trae la imagen base (0.45.1) tiene CVE-2026-24049 —escalada de
