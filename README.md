@@ -92,7 +92,14 @@ uvicorn main:app --reload     # desde ai-service/, no desde la raíz
 # o con Docker:  docker compose up
 
 # ── Túnel, para que Supabase alcance tu laptop ─────────
-cloudflared tunnel --url http://localhost:8000
+./scripts/tunel.sh           # NO uses `cloudflared tunnel --url` a pelo: no
+                             # actualiza el secret AI_SERVICE_URL, y la Edge
+                             # Function se queda apuntando al túnel anterior
+
+# ── Antes de exponer ───────────────────────────────────
+node scripts/verificar.mjs   # túnel, secrets, vectores, RPCs — ver docs/verificacion-pre-demo.md
+npx supabase test db         # 17 aserciones de RLS
+npx tsc --noEmit && npx expo lint && npx jest
 ```
 
 Los dos `.env` son **dos archivos separados a propósito**: el de la raíz es del cliente y todo lo que lleva `EXPO_PUBLIC_` se compila dentro del bundle; el de `ai-service/` nunca se lee desde la app. Ninguno de los dos se versiona.
