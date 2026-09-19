@@ -239,8 +239,8 @@ async function revisarFunciones() {
     if (!unaPub) {
       anotar('revelar_contacto', 'aviso', 'no hay publicación activa con whatsapp para probar');
     } else {
-      const r1 = await cli.rpc('revelar_contacto', { p_publicacion_id: unaPub.id, p_score: 0.9 });
-      const r2 = await cli.rpc('revelar_contacto', { p_publicacion_id: unaPub.id, p_score: 0.9 });
+      const r1 = await cli.rpc('revelar_contacto', { p_publicacion_id: unaPub.id });
+      const r2 = await cli.rpc('revelar_contacto', { p_publicacion_id: unaPub.id });
       const { count } = await admin.from('contactos')
         .select('id', { count: 'exact', head: true }).eq('usuario_id', creado);
       if (r1.error) anotar('revelar_contacto', 'fallo', r1.error.message);
@@ -290,7 +290,12 @@ const avisos = resultados.filter((r) => r.estado === 'aviso').length;
 console.log(`\n  ${resultados.length - fallos - avisos} correctos · ${avisos} avisos · ${fallos} fallos`);
 
 // Honestidad sobre el alcance: decir qué NO mira es tan útil como lo que mira.
-console.log('\n  No cubre: las policies de RLS (eso es `supabase test db`, 37 aserciones),');
+// El número se LEE del archivo de pruebas. Anotado a mano iba por 37 cuando
+// ya eran 59, y un verificador que miente sobre su propia cobertura es peor
+// que uno que calla.
+const plan = readFileSync('supabase/tests/rls.test.sql', 'utf8').match(/select plan\((\d+)\)/);
+const aserciones = plan ? plan[1] : '?';
+console.log(`\n  No cubre: las policies de RLS (eso es \`supabase test db\`, ${aserciones} aserciones),`);
 console.log('  ni que la app compile (`npx tsc --noEmit` y `npx expo lint`).\n');
 
 process.exit(fallos > 0 ? 1 : 0);
