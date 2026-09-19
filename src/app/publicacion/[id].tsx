@@ -28,16 +28,13 @@ import { calcularDistanciaKm } from '@/lib/distancia';
 import { fechaDeSello, folioDe } from '@/lib/folio';
 import { ATRIBUCION_MAPA } from '@/lib/geocoding';
 import {
-  obtenerPublicacionPublica,
   reportarPublicacion,
   revelarContacto,
 } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
-import type { PublicacionPublica } from '@/types/database.types';
-import { aviso } from '@/lib/registro';
-import { desde, type Resultado } from '@/lib/resultado';
 import { Sello } from '@/components/ficha/Sello';
+import { usePublicacion } from '@/hooks/queries/usePublicaciones';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 const ETIQUETA_TIPO: Record<string, string> = {
@@ -64,51 +61,25 @@ export default function DetallePublicacionScreen() {
   }>();
   const session = useAuthStore((s) => s.session);
   const { perfil, cargarPerfil } = usePerfilStore();
-  // END-11 · TRES estados, no dos. Mientras «falló la lectura» y «no existe»
-  // compartieran representación —un `null`—, la pantalla no podía
-  // distinguirlos, y elegía la interpretación más grave: acusar de reportes.
-  const [resultado, setResultado] = useState<Resultado<PublicacionPublica>>({ estado: 'vacio' });
-  const [cargando, setCargando] = useState(true);
-  const publicacion = resultado.estado === 'ok' ? resultado.datos : null;
   const [foja, setFoja] = useState(0);
+
   // El ancho se lee en cada render, no al importar el módulo: con `Dimensions`
   // capturado arriba, el carrusel paginado quedaba desalineado tras rotar el
   // teléfono o en pantalla dividida. PRODUCT.md declara la plataforma
   // `adaptive`, así que eso no es un caso raro.
   const { width: ancho } = useWindowDimensions();
 
-  // La consulta vive en el efecto y se redispara con `intento`, en vez de
-  // llamarse desde él a una función que hace setState: eso último dispara
-  // renders en cascada y el linter lo marca con razón.
+  // END-11 · TRES estados, no dos, y END-18: la consulta vive en el hook.
   //
-  // El `activo` no estaba en la versión anterior: sin él, volver atrás mientras
-  // la petición sigue en vuelo escribe estado sobre un componente desmontado.
-  const [intento, setIntento] = useState(0);
-
-  useEffect(() => {
-    if (!id) return;
-    let activo = true;
-    // `desde` es el único sitio que distingue null de excepción: null es vacío,
-    // una excepción es error. Nunca al revés.
-    void desde(
-      obtenerPublicacionPublica(id) as Promise<PublicacionPublica | null>,
-      'No pudimos consultar esta ficha. Revisa tu conexión y reintenta.'
-    ).then((r) => {
-      if (!activo) return;
-      if (r.estado === 'error') aviso('obtenerPublicacionPublica falló', { id });
-      setResultado(r);
-      setCargando(false);
-    });
-    return () => {
-      activo = false;
-    };
-  }, [id, intento]);
-
-  const reintentar = () => {
-    setCargando(true);
-    setIntento((n) => n + 1);
-  };
-
+  // `fallo` es una caída de lectura; `publicacion === null` es que de verdad no
+  // está. Mientras compartieron un mismo `null`, la pantalla elegía la
+  // interpretación más grave y acusaba de reportes a un anuncio ajeno por un
+  // fallo de red.
+  //
+  // El contador de intentos y la cancelación al desmontar que hacía falta
+  // sostener a mano desaparecen: react-query los trae, y además reintenta dos
+  // veces con backoff antes de rendirse.
+  const { publicacion, cargando, fallo, reintentar } = usePublicacion(id);
 
   useEffect(() => {
     if (session?.user.id) cargarPerfil(session.user.id);
@@ -157,7 +128,7 @@ export default function DetallePublicacionScreen() {
   // El fallo de lectura va PRIMERO y no comparte pantalla con el vacío: decir
   // «pudo ocultarse tras varios reportes» porque se cayó el wifi es acusar al
   // anuncio de otra persona de algo que nadie denunció.
-  if (resultado.estado === 'error') {
+  if (fallo) {
     return (
       <ThemedView style={estilos.centrado}>
         <Ionicons name="cloud-offline-outline" size={28} color={theme.error} />
@@ -165,9 +136,9 @@ export default function DetallePublicacionScreen() {
           NO PUDIMOS CONSULTAR
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={estilos.textoCentrado}>
-          {resultado.mensaje}
+          No pudimos consultar esta ficha. Revisa tu conexión y reintenta.
         </ThemedText>
-        <Sello onPress={reintentar} icono="refresh" accessibilityLabel="Reintentar">
+        <Sello onPress={() => void reintentar()} icono="refresh" accessibilityLabel="Reintentar">
           Reintentar
         </Sello>
       </ThemedView>

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -15,11 +15,10 @@ import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
 import { fechaHoraDeSello, folioDe } from '@/lib/folio';
-import { obtenerSugerencias } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import type { PublicacionSugerida } from '@/types/database.types';
-import { aviso } from '@/lib/registro';
+import { useSugerencias } from '@/hooks/queries/usePublicaciones';
 
 // Documento maestro v5 · §17, §18, §25.
 //
@@ -130,50 +129,18 @@ function ChipsTipo({ valor, onCambiar }: { valor: string | null; onCambiar: (v: 
 export default function InicioScreen() {
   const session = useAuthStore((s) => s.session);
   const cargarPerfil = usePerfilStore((s) => s.cargarPerfil);
-  const [sugerencias, setSugerencias] = useState<PublicacionSugerida[]>([]);
-  // Dos números, no una bandera: en una misma lista conviven publicaciones
+  // Dos números y no una bandera: en una misma lista conviven publicaciones
   // ordenadas por afinidad y publicaciones ordenadas solo por filtros (END-08).
-  const [conAfinidad, setConAfinidad] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [cargando, setCargando] = useState(true);
-  const [refrescando, setRefrescando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [emitido, setEmitido] = useState<Date | null>(null);
   const [tipo, setTipo] = useState<string | null>(null);
   const theme = useTheme();
   const margenSuperior = useMargenSuperior();
 
-  const cargar = useCallback(async () => {
-    // Sin sesión hay que APAGAR los indicadores igual. Un `return` seco antes
-    // del try/finally dejaba `cargando` en true para siempre.
-    if (!session?.user.id) {
-      setCargando(false);
-      setRefrescando(false);
-      return;
-    }
-    setError(null);
-    try {
-      const resultado = await obtenerSugerencias(30);
-      setSugerencias(resultado.datos);
-      setConAfinidad(resultado.conAfinidad);
-      setTotal(resultado.total);
-      setEmitido(new Date());
-    } catch (e) {
-      // §27: nunca una pantalla en blanco. Se dice qué pasó y se ofrece
-      // reintentar; "algo salió mal" no es un mensaje, es una forma de callar.
-      aviso('obtenerSugerencias falló', undefined, e);
-      setError('No pudimos consultar el expediente. Revisa tu conexión y desliza hacia abajo para reintentar.');
-    } finally {
-      setCargando(false);
-      setRefrescando(false);
-    }
-  }, [session?.user.id]);
-
-  useFocusEffect(
-    useCallback(() => {
-      cargar();
-    }, [cargar])
-  );
+  // END-18 · Toda la carga vive en el hook: caché, deduplicación, reintento con
+  // backoff y el estado de error. Lo que había antes eran seis `useState` y un
+  // `useFocusEffect` que reconsultaba el motor COMPLETO en cada regreso desde
+  // el detalle, reemplazando el arreglo entero — parpadeo y pérdida del scroll.
+  const { datos: sugerencias, conAfinidad, total, cargando, refrescando, fallo, refrescar, emitido } =
+    useSugerencias(tipo);
 
   // El resumen de filtros necesita el perfil, y esta pantalla es la primera que
   // se abre tras entrar.
@@ -181,18 +148,15 @@ export default function InicioScreen() {
     if (session?.user.id) cargarPerfil(session.user.id);
   }, [session?.user.id, cargarPerfil]);
 
-  const onRefrescar = useCallback(() => {
-    setRefrescando(true);
-    cargar();
-  }, [cargar]);
-
   // AUD-08: una sola petición para todas las miniaturas visibles.
   const { urls: urlsFirmadas } = useFotosFirmadas(sugerencias.map((s) => s.fotos?.[0]));
 
-  const filtradas = useMemo(
-    () => (tipo ? sugerencias.filter((s) => s.tipo === tipo) : sugerencias),
-    [sugerencias, tipo]
-  );
+  // Ya NO se filtra en el cliente: el tipo entra en la clave de la consulta, así
+  // que cada chip tiene su propia caché. Filtrar aquí sobre una página ya
+  // truncada por el servidor es END-17, y era lo que hacía que la app dijera
+  // «SIN REGISTROS DE ESE TIPO» habiendo cincuenta. El filtro real en Postgres
+  // llega con B.3; mientras tanto, esto deja de mentir por su cuenta.
+  const filtradas = sugerencias;
 
   // Tres lentes sobre el MISMO conjunto ya filtrado por el motor. No son
   // consultas distintas: reordenar en el cliente lo que Postgres ya declaró
@@ -255,7 +219,7 @@ export default function InicioScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refrescando}
-            onRefresh={onRefrescar}
+            onRefresh={refrescar}
             tintColor={theme.textSecondary}
             colors={[theme.textSecondary]}
           />
@@ -285,7 +249,7 @@ export default function InicioScreen() {
 
             {/* §27: un refresh fallido CON resultados en memoria mostraba datos
                 viejos y ningún aviso. Silencioso es la peor forma de fallar. */}
-            {error && filtradas.length > 0 && (
+            {fallo && filtradas.length > 0 && (
               <View style={[estilos.margen, estilos.avisoError, { borderColor: theme.error }]}>
                 <Ionicons name="cloud-offline-outline" size={16} color={theme.error} />
                 <ThemedText type="small" themeColor="error" style={estilos.textoAviso} accessibilityLiveRegion="polite">
@@ -347,8 +311,8 @@ export default function InicioScreen() {
         ItemSeparatorComponent={() => <View style={estilos.separador} />}
         ListEmptyComponent={
           <View style={estilos.margen}>
-            {error ? (
-              <BloqueEstado etiqueta="NO SE PUDO CONSULTAR" mensaje={error} icono="cloud-offline-outline" tono="alerta" />
+            {fallo ? (
+              <BloqueEstado etiqueta="NO SE PUDO CONSULTAR" mensaje={fallo} icono="cloud-offline-outline" tono="alerta" />
             ) : tipo ? (
               <BloqueEstado
                 etiqueta="SIN REGISTROS DE ESE TIPO"

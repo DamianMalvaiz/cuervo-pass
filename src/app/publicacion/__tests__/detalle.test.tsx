@@ -1,4 +1,8 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
+
+import { crearClienteConsultas } from '@/lib/consultas';
 
 // END-11 · El peor mensaje que tenía la app.
 //
@@ -48,6 +52,18 @@ const PUB = {
   usuario_id: 'otro', creada_en: new Date().toISOString(),
 };
 
+// La pantalla consulta por react-query (END-18), así que necesita su provider.
+// El backoff se acorta a 1 ms: lo que estas pruebas comprueban es QUÉ se pinta
+// en cada estado, no cuánto espera el reintento — eso lo fija y lo prueba
+// `crearClienteConsultas`.
+const pintar = async () => {
+  const cliente = crearClienteConsultas({ queries: { retryDelay: 1 } });
+  const Envoltura = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={cliente}>{children}</QueryClientProvider>
+  );
+  return render(<Detalle />, { wrapper: Envoltura });
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -56,21 +72,21 @@ afterEach(() => jest.restoreAllMocks());
 
 test('con datos, pinta la ficha', async () => {
   mockObtener.mockResolvedValue(PUB);
-  await render(<Detalle />);
+  await pintar();
   expect(await screen.findByText('Depa cerca del campus', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 // Vacío legítimo: la publicación de verdad ya no está.
 test('si no existe, dice que no está disponible', async () => {
   mockObtener.mockResolvedValue(null);
-  await render(<Detalle />);
+  await pintar();
   expect(await screen.findByText('FICHA NO DISPONIBLE', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 // LA prueba. Un fallo de red NO puede producir el mensaje de arriba.
 test('si falla la red, NO acusa de reportes: dice que no se pudo consultar', async () => {
   mockObtener.mockRejectedValue(new Error('network request failed'));
-  await render(<Detalle />);
+  await pintar();
   expect(await screen.findByText('NO PUDIMOS CONSULTAR', {}, { timeout: 5000 })).toBeTruthy();
   expect(screen.queryByText('FICHA NO DISPONIBLE')).toBeNull();
   expect(screen.queryByText(/reportes/i)).toBeNull();
@@ -80,7 +96,7 @@ test('si falla la red, NO acusa de reportes: dice que no se pudo consultar', asy
 // aula, reintentar es la diferencia entre seguir la demo y reiniciar la app.
 test('el estado de error ofrece reintentar, y reintentar vuelve a consultar', async () => {
   mockObtener.mockRejectedValue(new Error('network request failed'));
-  await render(<Detalle />);
+  await pintar();
   expect(await screen.findByText('NO PUDIMOS CONSULTAR', {}, { timeout: 5000 })).toBeTruthy();
 
   mockObtener.mockResolvedValue(PUB);
