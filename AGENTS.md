@@ -120,14 +120,28 @@ documentados e implementados**; el tercero está pendiente de crearse.
   scripts y dos Edge Functions) y `SUPABASE_DB_PASSWORD` (lo consume el CLI de
   Supabase, no código nuestro).
 
-> **Estado actual, verificado el 19/09/2026:**
-> - `ai-service/.env` **no existe en esta máquina**. Falta correr el paso que el
->   README ya documenta: `cd ai-service && cp .env.example .env`. No es una
->   discrepancia de arquitectura, es un paso de instalación pendiente.
+> **Estado actual, verificado el 19/09/2026. La separación está DISEÑADA, NO
+> CUMPLIDA.** Hay tres rutas de arranque del microservicio y cada una lee un
+> sitio distinto:
+>
+> | Ruta | Qué lee | Estado |
+> |---|---|---|
+> | `scripts/tunel.sh:42` | el `.env` de la **raíz**, vía `set -a && . ../.env` | es la que se usa |
+> | `docker compose up` | `ai-service/.env`, vía `env_file` | Compose no instalado aquí |
+> | `uvicorn main:app --reload` (README) | **nada**: no hay `python-dotenv` | arranca sin `AI_SHARED_TOKEN` |
+>
+> - La tercera fila es un fallo de seguridad activo, no teórico: combinada con
+>   el guard `if AI_SHARED_TOKEN and not valido` de `main.py`, la ruta que el
+>   README documenta arranca el servicio **sin autenticar a nadie**. Lo cierra
+>   la ORDEN A.2 del plan de endurecimiento.
+> - `ai-service/.env` ya existe, pero con los valores VACÍOS de la plantilla, y
+>   hoy no lo lee nadie: sin `python-dotenv`, solo lo consume `env_file` de
+>   Compose.
 > - `.env.server` no existe; `SUPABASE_SERVICE_ROLE_KEY` y
 >   `SUPABASE_DB_PASSWORD` siguen en el `.env` de la raíz, que es el del
->   cliente. Al tocar cualquier script que las lea, sepáralas en vez de
->   perpetuarlo.
+>   cliente.
+>
+> Unificar las tres rutas en una es parte del trabajo de separar los secretos.
 
 > **Dos variables del `.env` de la raíz están MUERTAS. Bórralas, no las muevas.**
 > Verificado con grep sobre `src/`, `scripts/`, `ai-service/` y

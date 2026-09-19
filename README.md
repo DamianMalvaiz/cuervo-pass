@@ -110,7 +110,20 @@ npx tsc --noEmit && npx expo lint && npx jest
 
 Los dos `.env` son **dos archivos separados a propósito**: el de la raíz es del cliente y todo lo que lleva `EXPO_PUBLIC_` se compila dentro del bundle; el de `ai-service/` nunca se lee desde la app. Ninguno de los dos se versiona.
 
-Falta un tercero. `SUPABASE_SERVICE_ROLE_KEY` —que leen ocho scripts y dos Edge Functions— y `SUPABASE_DB_PASSWORD` —que consume el CLI de Supabase— siguen hoy en el `.env` de la raíz, que es el del cliente. Su destino es un `.env.server` que todavía no existe. Está registrado como pendiente en `AGENTS.md`.
+Esa separación está **diseñada, no cumplida**. Hay tres rutas de arranque del
+microservicio y cada una lee un sitio distinto:
+
+| Ruta | Qué lee | Estado |
+|---|---|---|
+| `scripts/tunel.sh:42` | el `.env` de la **raíz**, vía `set -a && . ../.env` | es la que se usa; rompe la separación |
+| `docker compose up` | `ai-service/.env`, vía `env_file` | Compose no está instalado en la máquina actual |
+| `uvicorn main:app --reload` (línea de arriba) | **nada**: no hay `python-dotenv` | arranca sin `AI_SHARED_TOKEN` |
+
+Y falta un tercer archivo. `SUPABASE_SERVICE_ROLE_KEY` —que leen ocho scripts y
+dos Edge Functions— y `SUPABASE_DB_PASSWORD` —que consume el CLI de Supabase—
+siguen en el `.env` de la raíz, que es el del cliente. Su destino es un
+`.env.server` que todavía no existe. Todo esto está registrado como pendiente en
+`AGENTS.md`.
 
 ## Decisiones de ingeniería
 

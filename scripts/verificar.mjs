@@ -96,7 +96,7 @@ async function revisarTunel() {
       anotar('Análisis con LLM (Anthropic)', 'ok', `clave presente · modelo ${salud.modelo_llm ?? 'por omisión'}`);
     } else {
       anotar('Análisis con LLM (Anthropic)', 'aviso',
-        'sin ANTHROPIC_API_KEY en ai-service/.env: /parsear-perfil siempre degradado. El Nivel 2 (embeddings) NO depende de esto');
+        'sin ANTHROPIC_API_KEY: /parsear-perfil siempre degradado. Su sitio es ai-service/.env; hoy tunel.sh la carga desde el .env de la raiz. El Nivel 2 (embeddings) NO depende de esto');
     }
   } catch (e) {
     anotar('Túnel a Cloudflare', 'fallo', `${dominio} no responde (${e.message}) · corre scripts/tunel.sh`);
