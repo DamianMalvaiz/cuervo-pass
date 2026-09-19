@@ -129,6 +129,8 @@ function ChipsTipo({ valor, onCambiar }: { valor: string | null; onCambiar: (v: 
 export default function InicioScreen() {
   const session = useAuthStore((s) => s.session);
   const cargarPerfil = usePerfilStore((s) => s.cargarPerfil);
+  // El tope de presupuesto explica la holgura de cada ficha (END-30).
+  const miPerfil = usePerfilStore((s) => s.perfil);
   // Dos números y no una bandera: en una misma lista conviven publicaciones
   // ordenadas por afinidad y publicaciones ordenadas solo por filtros (END-08).
   const [tipo, setTipo] = useState<string | null>(null);
@@ -300,6 +302,8 @@ export default function InicioScreen() {
               fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
               distanciaKm={item.distancia}
               score={item.score_final ?? item.score}
+              similitud={item.similitud}
+              presupuestoMax={miPerfil?.presupuesto_max ?? null}
               tipo={item.tipo}
               permiteMascotas={item.permite_mascotas}
               amueblado={item.amueblado}

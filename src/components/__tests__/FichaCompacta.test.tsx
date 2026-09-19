@@ -12,8 +12,10 @@ import { FichaCompacta } from '../FichaCompacta';
 
 test('la calificacion lleva su etiqueta, no un numero suelto', async () => {
   await render(<FichaCompacta titulo="Depa" precio={2800} score={0.94} />);
-  expect(await screen.findByText('AFINIDAD', {}, { timeout: 5000 })).toBeTruthy();
-  expect(await screen.findByText('9.4', {}, { timeout: 5000 })).toBeTruthy();
+  // AJUSTE y medios puntos desde END-30: la misma regla que la ficha grande,
+  // que es el punto entero de haberlas unificado en un solo componente.
+  expect(await screen.findByText('AJUSTE', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('9.5', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 // La misma regla que la ficha grande: sin score no se inventa un número.

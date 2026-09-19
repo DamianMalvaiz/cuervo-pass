@@ -264,7 +264,21 @@ export default function DetallePublicacionScreen() {
             pintar la casilla vacía con "¿Por qué esta calificación?" debajo
             dejaba una afordancia muerta. */}
         {aNumero(score) != null && (
-          <DesgloseCalificacion score={aNumero(score)} base={aNumero(base)} similitud={aNumero(sim)} />
+          <>
+            <DesgloseCalificacion score={aNumero(score)} base={aNumero(base)} similitud={aNumero(sim)} />
+            {/* END-30 · El descargo, junto al número y no en un aviso legal que
+                nadie abre.
+                
+                Una casilla con forma de kardex presta autoridad: una
+                calificación de kardex es un número ganado y auditable, y éste
+                es una mezcla ponderada de cuatro heurísticas. Decir en voz alta
+                qué compara —y qué NO— es lo que evita que la metáfora prometa
+                por su cuenta, a alguien que está eligiendo dónde va a vivir sin
+                haber visto el lugar. */}
+            <ThemedText type="folio" themeColor="textSecondary" style={estilos.descargoAjuste}>
+              Este ajuste compara tus filtros con lo publicado. No verificamos el inmueble.
+            </ThemedText>
+          </>
         )}
 
         <Seccion titulo="DATOS DE LA PUBLICACIÓN">
@@ -389,6 +403,7 @@ export default function DetallePublicacionScreen() {
 }
 
 const estilos = StyleSheet.create({
+  descargoAjuste: { marginTop: Spacing.one, lineHeight: 16 },
   fotoFallida: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.one },
   hoja: { paddingBottom: Spacing.six },
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four, gap: Spacing.two },

@@ -24,17 +24,27 @@ test('el campo de distancia existe y dice que no hay dato cuando falta', async (
   expect(await screen.findByText('sin dato', {}, { timeout: 5000 })).toBeTruthy();
 });
 
+// `findAllByText` y no `findByText`: desde END-30 la distancia aparece DOS
+// veces a propósito —en su campo y en la línea que explica el ajuste—, y una
+// consulta que exige un único resultado fallaría por el cambio de diseño, no
+// por un defecto.
 test('muestra la distancia cuando existe', async () => {
   await render(<FichaPublicacion titulo="Depa" precio={2800} direccion="San Mateo Atenco" distanciaKm={1.24} />);
-  expect(await screen.findByText('1.2 km', {}, { timeout: 5000 })).toBeTruthy();
+  expect((await screen.findAllByText('1.2 km', {}, { timeout: 5000 })).length).toBeGreaterThan(0);
 });
 
 // El score del motor viene en [0,1] y se presenta como calificación sobre 10,
 // que es la escala que un estudiante mexicano lee sin explicación.
-test('presenta el score como calificación sobre 10', async () => {
+//
+// END-30 cambió dos cosas a propósito: la etiqueta pasa de AFINIDAD a AJUSTE
+// —afinidad suena a compatibilidad medida entre personas, y lo que se calcula
+// es encaje con tus filtros— y el valor se redondea a MEDIOS PUNTOS, porque el
+// cálculo no tiene una décima de resolución.
+test('presenta el score como calificación sobre 10, en medios puntos', async () => {
   await render(<FichaPublicacion titulo="Depa" precio={2800} direccion="Calle 1" score={0.94} />);
-  expect(await screen.findByText('AFINIDAD', {}, { timeout: 5000 })).toBeTruthy();
-  expect(await screen.findByText('9.4', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('AJUSTE', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('9.5', {}, { timeout: 5000 })).toBeTruthy();
+  expect(screen.queryByText('9.4')).toBeNull();
 });
 
 // Sin score no se inventa un número: la casilla se muestra vacía.

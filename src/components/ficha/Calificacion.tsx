@@ -25,7 +25,7 @@ import { useTheme } from '@/hooks/use-theme';
 export function Calificacion({
   score,
   tamano = 'lista',
-  etiqueta = 'AFINIDAD',
+  etiqueta = 'AJUSTE',
 }: {
   /** El score del motor, en [0,1]. Se presenta como calificación sobre 10. */
   score: number | null | undefined;
@@ -46,7 +46,19 @@ export function Calificacion({
   // Sin score no se inventa un número: la casilla se muestra vacía, como un
   // campo del formulario que nadie llenó. Es información, no un hueco.
   const hay = typeof score === 'number' && Number.isFinite(score);
-  const valor = hay ? Math.min(10, Math.max(0, score * 10)) : null;
+
+  // END-30 · MEDIOS PUNTOS, no décimas.
+  //
+  // El número es `0.6 × score + 0.4 × similitud`, una mezcla ponderada de
+  // cuatro heurísticas normalizadas a mano. No tiene un decimal de resolución:
+  // 8.7 y 8.6 son ruido entre sí. Presentarlo con una décima —en el elemento
+  // más grande de la pantalla, dentro de una casilla que imita un kardex—
+  // afirma una exactitud que el cálculo no soporta.
+  //
+  // Veintiún valores posibles en vez de ciento uno. La cifra sigue ordenando y
+  // sigue comparándose de un vistazo; lo que deja de hacer es prometer una
+  // precisión inventada.
+  const valor = hay ? Math.round(Math.min(10, Math.max(0, score * 10)) * 2) / 2 : null;
 
   return (
     <View
