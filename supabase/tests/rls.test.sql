@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(44);
+select plan(46);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -546,6 +546,62 @@ select is(
 select ok(
   pg_get_function_result('sugerencias_con_ranking(int)'::regprocedure) like '%nivel%',
   'sugerencias_con_ranking declara `nivel` por fila' );
+
+-- ════════════════ 45 y 46 · END-09: el score de mascotas al reves ════════════════
+-- El termino suave era:
+--
+--   case when p.permite_mascotas = yo.mascotas then 0.5 else 0 end
+--
+-- Sin mascota + departamento que SI las acepta -> true <> false -> 0 puntos.
+-- Penalizaba los alojamientos pet friendly a quien no tiene mascota, con un
+-- peso de 0.25 * 0.5 = 0.125 sobre un score que va de 0 a 1.
+--
+-- Y el comentario del propio archivo afirmaba lo contrario treinta lineas mas
+-- abajo: «si no tienes, uno que las permite no te estorba. Asimetria
+-- deliberada.» Ese comentario describe el FILTRO DURO, que si era correcto. El
+-- score suave hacia lo opuesto. Dos piezas correctas por separado que se
+-- contradicen al correr juntas.
+select actuar_como_servicio();
+
+-- Se apagan las cinco de la asercion 41 para que el conteo no dependa de ellas.
+update publicaciones set activa = false;
+
+-- Dos publicaciones GEMELAS: mismo dueno, mismo precio, mismas coordenadas y
+-- el mismo creado_en —la frescura pesa 0.15 y una diferencia de milisegundos
+-- ensuciaria la comparacion—. Solo se diferencian en si aceptan mascotas.
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta,
+                           whatsapp, latitud, longitud, permite_mascotas, creado_en)
+values
+  ('00000000-0000-0000-0000-00000000e901', '00000000-0000-0000-0000-0000000000a7',
+   'Gemela sin mascotas', 'depa', 'Calle E9 1', 2800, '5512345678', 19.29, -99.56,
+   false, '2026-09-01 12:00:00+00'),
+  ('00000000-0000-0000-0000-00000000e902', '00000000-0000-0000-0000-0000000000a7',
+   'Gemela con mascotas', 'depa', 'Calle E9 2', 2800, '5512345678', 19.29, -99.56,
+   true,  '2026-09-01 12:00:00+00');
+
+-- a1 NO tiene mascota.
+update usuarios set mascotas = false where id = '00000000-0000-0000-0000-0000000000a1';
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+-- LA asercion. Antes de la correccion difieren en 0.125.
+select is(
+  (select count(distinct score)::int from sugerencias_publicaciones(30)
+    where id in ('00000000-0000-0000-0000-00000000e901',
+                 '00000000-0000-0000-0000-00000000e902')),
+  1,
+  'sin mascota, aceptarlas o no NO cambia el score' );
+
+-- Y el filtro duro sigue siendo eliminatorio en el otro sentido: con mascota,
+-- el que no las permite desaparece. Corregir el score no debe ablandarlo.
+select actuar_como_servicio();
+update usuarios set mascotas = true where id = '00000000-0000-0000-0000-0000000000a1';
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is(
+  (select count(*)::int from sugerencias_publicaciones(30)
+    where id in ('00000000-0000-0000-0000-00000000e901',
+                 '00000000-0000-0000-0000-00000000e902')),
+  1,
+  'con mascota, el que no las permite queda fuera del filtro duro' );
 
 select * from finish();
 rollback;
