@@ -258,27 +258,230 @@ Nivel 2, retirar el consentimiento, ver la app seguir funcionando en Nivel 1,
 volver a darlo y ver regresar el Nivel 2. Y si lo piden, enseñar la fila de la
 base antes y después.
 
+### Tres fallos silenciosos en un día (19/09/2026)
+
+Aparecieron el mismo día, sin relación de causa entre ellos, y con una cosa en
+común que vale más que los tres arreglos juntos: **ninguno se anunció**. Los tres
+se encontraron ejecutando el camino real, y los tres habrían aparecido en vivo.
+
+**1 · "Ver contacto" no funcionó nunca.** `revelar_contacto` moría con `42P10`:
+su `on conflict` apuntaba a `contactos_unico_publicacion`, que es un índice único
+**parcial** (`where publicacion_id is not null`), y PostgreSQL no puede inferir un
+índice parcial desde una lista de columnas pelada. La función abortaba antes de
+escribir nada, así que no quedaba rastro ni en `contactos` ni en `cuotas_uso`. El
+índice es parcial a propósito —`contactos` sirve a publicaciones y a roomies—, de
+modo que la corrección fue repetir el predicado, no tocar el índice
+(migración 0020).
+
+Lo que hay que explicar no es el bug, es el verde: las aserciones 9 y 10 probaban
+`consumir_cuota` por separado y pasaban. Nadie llamaba a `revelar_contacto` de
+punta a punta. **Probar las piezas no prueba que la función que las usa corra.**
+
+**2 · Un hipo de red borraba el `perfil_vector`.** Las dos pantallas que guardan
+el cuestionario no distinguían "retiré el consentimiento" de "el servicio falló":
+ambos escribían `null`. Lo primero es intencional y correcto —§29—; aplicarle el
+mismo castigo a veinte segundos sin conexión no lo es, y encima en silencio,
+porque el fallo solo iba a un `console.warn`. Se encontró una cuenta en
+producción con `consiente_analisis_ia = true` y vector nulo: Nivel 2 muerto para
+siempre sin un solo aviso.
+
+La regla vive ahora en `src/lib/perfilVector.ts` y tiene **tres** estados. El
+tercero devuelve un objeto vacío: PostgREST solo actualiza las claves presentes,
+así que omitir la columna deja intacto el vector anterior. El compromiso se
+asumió a sabiendas —conservar un vector viejo deja el ORDEN desfasado hasta el
+siguiente guardado— y por eso el fallo se avisa en pantalla: cambiar un silencio
+por otro no habría sido un arreglo.
+
+**3 · El túnel muerto con el proceso vivo.** `cloudflared` no se cae cuando su
+dominio caduca: se queda reintentando para siempre. El `AI_SERVICE_URL` seguía
+apuntando ahí y el Nivel 2 caía sin que nada avisara.
+
+### El derecho de cancelación estaba roto (19/09/2026)
+
+El hallazgo más serio de las doce semanas, y el que mejor resume por qué las
+pruebas en verde no bastan.
+
+La migración 0016 creó `trg_limpiar_fotos`, que al borrar una publicación hacía
+`delete from storage.objects`. Supabase añadió después una barrera que lo
+prohíbe: *"Direct deletion from storage tables is not allowed."* El trigger
+reventaba, la transacción entera se caía, y con ella todo lo que dependiera de
+borrar esa publicación — incluido el borrado en cascada desde `auth.users`.
+
+**Consecuencia:** "Eliminar mi cuenta" devolvía error para cualquiera que hubiera
+subido una foto. El aviso de privacidad promete esa pantalla en la tabla de
+derechos ARCO, y promete que *"al eliminar tu cuenta todo lo anterior se borra en
+cascada, incluidas tus fotos"*. La pantalla existía, el botón estaba ahí, y no
+cumplía. Eso no es una molestia de interfaz: es un incumplimiento de la LFPDPPP.
+
+La ironía está escrita en el comentario de la propia migración que lo rompió:
+*"la eliminación de cuenta de §29 también limpia el almacenamiento. Eso no es
+higiene: es el derecho de cancelación cumpliéndose."*
+
+Se comprobó montando una cuenta con una publicación y una foto y llamando a la
+función igual que lo hace la app:
+
+```
+antes:   eliminar-cuenta -> FALLO (non-2xx) · la cuenta SIGUE EXISTIENDO
+después: eliminar-cuenta -> {"eliminada":true,"fotosBorradas":2} · eliminada
+```
+
+**El arreglo (migración 0021)** invierte la responsabilidad. El trigger ya no
+borra: **encola** las rutas en `fotos_huerfanas`, una tabla de servicio con RLS y
+cero policies, como `cuotas_uso` —son rutas de almacenamiento de otras personas—.
+Un trigger que no borra no puede tumbar un borrado. Quitarlas de verdad es
+trabajo de quien puede hablar con la Storage API: la función `eliminar-cuenta`,
+que ya lo hacía con la foto de perfil.
+
+El coste se nombra en voz alta porque es real: **encolar no borra**. Si nadie
+vacía la tabla, los archivos siguen ahí. Se cambia un fallo ruidoso por una deuda
+visible. Por eso `verificar.mjs` la mira y existe `limpiar-fotos-huerfanas.mjs`.
+
+Ninguna prueba lo cubría porque ninguna borraba una publicación **con** fotos.
+Las aserciones 18 a 21 lo fijan, y la 21 comprueba además que la cola no sea
+legible desde el cliente.
+
+### Verificación reproducible en vez de suerte (19/09/2026)
+
+Los tres fallos se encontraron por casualidad. Convertir esa casualidad en una
+pregunta que se hace a propósito produjo dos herramientas:
+
+**`node scripts/verificar.mjs`** — diez segundos antes de exponer. Revisa
+secrets, el túnel *preguntando por fuera* y no en `localhost`, cuentas con
+consentimiento y vector nulo, publicaciones activas sin vector o mal
+geocodificadas, la cola de fotos huérfanas, la cadena completa app → `ai-proxy` →
+túnel → microservicio, y que `revelar_contacto` y `abrir_conversacion` corran de
+verdad y sean idempotentes. Sale con código 1 si algo está roto, y **dice
+explícitamente qué no cubre**: un verificador que insinúa más cobertura de la que
+tiene es peor que no tenerlo.
+
+**`node --env-file=.env scripts/prueba-rls.mjs`** — la prueba de aislamiento
+entre cuentas, aplazada desde la semana 8. Crea dos cuentas temporales con
+sesiones reales, comprueba que la primera no puede tocar nada de la segunda, y
+las borra. **15 de 15 barreras aguantaron.**
+
+No reemplaza a las 21 aserciones de pgTAP; responde dos preguntas que aquéllas no
+pueden. Corre contra **producción**, que no es idéntica al esquema local —tiene un
+event trigger `ensure_rls` que instala Supabase y el local no, así que CI valida
+un esquema *más laxo* que el real—, y pregunta **por HTTP a través de PostgREST**,
+que es el camino de la app; pgTAP habla con Postgres directamente, así que una
+vista o un `grant` que expusieran de más se le escaparían.
+
+El detalle que hace que esa prueba valga algo: **RLS casi nunca da error**. En un
+`select` devuelve cero filas y en un `update` afecta cero filas, en silencio. Cada
+comprobación afirma sobre el *número de filas*, no sobre la presencia de una
+excepción. Una prueba que solo mirara `error !== null` pasaría en verde con la
+tabla completamente abierta.
+
+### De cero a treinta y una pruebas de pantalla (19/09/2026)
+
+La app tenía diecisiete pantallas y **cero** pruebas de pantalla. Las sesenta y
+una existentes cubrían funciones puras y un solo componente. Los tres fallos del
+día los encontró el dedo, no la suite.
+
+| Qué cubre | Pruebas |
+|---|---|
+| Preferencias: el vector no se borra por un fallo, y se avisa | 5 |
+| El desplegable de dirección (pasó de `FlatList` a `ScrollView`) | 7 |
+| Editar: los ocho campos nacen llenos; la dirección sobrevive intacta | 6 |
+| "Eliminar mi cuenta": la pantalla, no solo la función | 5 |
+| Humo de seis pantallas: montan y pintan su encabezado | 6 |
+
+De **61 a 92** pruebas, de 6 a 12 suites.
+
+La más importante es la que comprueba que, **si el borrado de cuenta falla, la
+app NO navega al login**. Arreglar el backend no sirve de nada si el botón que lo
+llama deja a la persona creyendo que ejerció un derecho que no ejerció.
+
+Dos cosas salieron mal y quedan escritas en el código, no escondidas:
+
+- Un renombrado de variables dejó la clave exportada de un doble mal escrita, así
+  que el módulo real importaba `undefined`. **Dos pruebas pasaban por la razón
+  equivocada**: daban por bueno el camino de fallo porque el doble estaba roto,
+  no porque se simulara la caída. El mismo verde engañoso contra el que trata
+  toda esta entrada.
+- Las pruebas de envío viven en archivo aparte porque, junto a las demás,
+  cualquier prueba posterior a un `enviar()` se quedaba sin pintar. Se probaron
+  `cleanup()` explícito y drenar microtareas; ninguna lo arregla. Eso **contiene
+  el síntoma y no explica la causa**, y así está dicho en el archivo.
+
+Lo que estas pruebas **no** cubren, para no confundirlo: que las pantallas se
+vean bien. Eso solo se juzga en un dispositivo.
+
+### Limpieza de datos antes de exponer (19/09/2026)
+
+Doce cuentas de prueba acumuladas entre el 16 y el 19 de septiembre, con una
+publicación activa geocodificada en Tabasco a ~600 km de la UTVT. Se borraron con
+respaldo previo completo, fuera del repositorio porque contiene correos reales y
+el repositorio es público.
+
+Dos cosas que la cascada de Postgres no hace y el script sí: borrar los objetos
+de Storage —las rutas salen del arreglo `fotos[]` de cada publicación, que es la
+lista autoritativa— y verificar que cada id siga correspondiendo al correo
+esperado antes de borrar, abortando sin tocar nada si no.
+
+**Tres de las doce resistieron**, y resultaron ser exactamente las que tenían
+publicaciones: fue así como se destapó el fallo del derecho de cancelación. La
+limpieza no encontró el bug por listeza, sino por chocar con él.
+
+Estado: 102 usuarios, 104 publicaciones activas, 104/104 con vector,
+geocodificación dentro del rango esperado, cola de huérfanas vacía.
+
 ### Pendientes abiertos
 
-- [ ] Probar el flujo completo en el teléfono: registro → cuestionario →
-      sugerencias → ver contacto → chat.
-- [ ] Verificar el consentimiento en vivo: desmarcar la casilla de IA y
-      comprobar que las sugerencias caen a **Nivel 1**; volver a marcarla y
-      comprobar que regresan a **Nivel 2**. Es la demostración de §18 y §29 en
-      una sola interacción.
-- [ ] `ANTHROPIC_API_KEY` está vacía, así que `/parsear-perfil` devuelve valores
-      por defecto en vez de atributos extraídos del texto libre. Degrada sin
-      romperse; decidir si se configura antes de la entrega.
-- [ ] Separar el `.env` de cliente y el de servidor (ver Hallazgos).
+Actualizado el 19/09/2026. El trabajo **sigue**: esta lista es el estado de un
+proyecto en marcha, no un cierre.
+
+**Hechos desde la última revisión**
+
+- [x] Flujo completo en el teléfono: registro → cuestionario → sugerencias →
+      ver contacto → chat. Cerrado el 19/09 tras arreglar `revelar_contacto`.
+- [x] Consentimiento de IA verificado en vivo, con la fila de la base antes y
+      después de cada paso.
+- [x] Prueba de aislamiento entre cuentas, aplazada desde la semana 8:
+      15/15 barreras (`scripts/prueba-rls.mjs`).
+- [x] Separar el `.env` de cliente y el de servidor.
+- [x] Limpieza de las cuentas de prueba y de la publicación mal geocodificada.
+
+**Abiertos, del proyecto**
+
 - [ ] Activar **"Prevent use of leaked passwords"** en el panel
       (Authentication → Attack Protection). Es la comprobación contra
       HaveIBeenPwned, corre en el servidor y vale más que cualquier regla de
-      composición. No es configurable desde `config.toml`.
-- [ ] Las 109 cuentas existentes conservan su contraseña anterior: las reglas
-      nuevas aplican a registros nuevos y a cambios de contraseña.
+      composición. No es configurable desde `config.toml`, así que no puede
+      entrar en una migración ni en `config push`.
+- [ ] `ANTHROPIC_API_KEY` sigue vacía. **Corrección respecto a lo que se
+      escribió antes:** la clave va en `ai-service/.env`, no en los secrets de
+      las Edge Functions — quien llama al modelo es el microservicio. Se
+      rastreó qué se pierde sin ella: solo `horario_predominante`, un campo del
+      perfil público que ya degrada a "Variable". **No toca el ranking ni el
+      embedding**, porque no aparece ni en el motor de la 0015 ni en
+      `perfilTexto.ts`. El Nivel 2 corre en un modelo local y no depende de
+      ninguna API de pago. Se puede añadir después: poner la variable y
+      reiniciar el microservicio, que la lee con `os.getenv` al importar.
 - [ ] Retirar la vista de compatibilidad `roomings` (migración 0011) cuando ya
-      no quede ningún APK viejo instalado.
+      no quede ningún APK viejo instalado. Sigue viva con 30 filas.
+- [ ] Las cuentas existentes conservan su contraseña anterior: las reglas nuevas
+      aplican a registros nuevos y a cambios de contraseña.
+- [ ] `README.md` tiene la sección de capturas de pantalla vacía, con la
+      interfaz ya rediseñada.
+
+**Abiertos, de calidad**
+
+- [ ] Las pruebas de pantalla cubren lo que se tocó estos dos días, no las
+      diecisiete pantallas. Quedan sin cubrir, entre otras, el chat y el detalle
+      de publicación.
+- [ ] Ninguna prueba dice si algo se **ve** bien: ni un botón fuera de pantalla,
+      ni un texto cortado, ni un contraste insuficiente. Eso solo se juzga en un
+      dispositivo, y conviene no confundir 92 pruebas en verde con eso.
+- [ ] El reparto de las pruebas de envío en su propio archivo contiene un
+      síntoma cuya causa no se encontró.
+
+**Riesgo operativo permanente**
+
 - [ ] El túnel de cloudflared es efímero: `*.trycloudflare.com` cambia de
-      dominio en cada arranque, y `AI_SERVICE_URL` hay que volver a fijarlo. Si
-      el túnel se cae durante la exposición, la app degrada a Nivel 1 — que es
-      demostrable, pero conviene saberlo antes de que pase.
+      dominio en cada arranque y `AI_SERVICE_URL` hay que volver a fijarlo. Peor
+      aún, el proceso **no se muere** cuando su dominio caduca: se queda
+      reintentando, así que nada avisa. Mitigado —no resuelto— por
+      `scripts/tunel.sh`, que fija el secret antes de esperar al DNS, y por
+      `scripts/verificar.mjs`, que pregunta por el dominio público y no por
+      `localhost`. Correr el verificador **antes de cada exposición**.
