@@ -63,16 +63,13 @@ function revisarSecrets() {
   if (faltan.length) anotar('Secrets de Edge Functions', 'fallo', `faltan: ${faltan.join(', ')}`);
   else anotar('Secrets de Edge Functions', 'ok', `${obligatorios.length} obligatorios presentes`);
 
-  // No es un fallo: es una DECISIÓN pendiente. Sin esta clave, /parsear-perfil
-  // devuelve siempre valores neutros y horario_predominante nunca se infiere.
-  // El código lo maneja bien (campo `degradado`), pero conviene no presentar
-  // como funcionando algo que devuelve constantes.
-  if (!nombres.has('ANTHROPIC_API_KEY')) {
-    anotar('Análisis de texto libre (Anthropic)', 'aviso',
-      'sin ANTHROPIC_API_KEY: /parsear-perfil siempre degradado, horario_predominante nunca se infiere');
-  } else {
-    anotar('Análisis de texto libre (Anthropic)', 'ok', 'clave presente');
-  }
+  // ANTHROPIC_API_KEY NO se comprueba aquí. Una versión anterior la buscaba en
+  // esta lista y avisaba de que faltaba — pero esa clave vive en
+  // ai-service/.env, no en los secrets de las Edge Functions, porque quien
+  // llama al modelo es el microservicio. La comprobación era una falsa alarma
+  // por construcción: habría avisado igual con la clave perfectamente puesta.
+  // Se pregunta en revisarTunel(), leyendo `api_llm_configurada` de /listo, que
+  // es el propio servicio diciendo si la tiene.
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -88,7 +85,19 @@ async function revisarTunel() {
     const t0 = Date.now();
     const r = await fetch(`${dominio}/listo`, { signal: AbortSignal.timeout(10_000) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const salud = await r.json().catch(() => ({}));
     anotar('Túnel a Cloudflare', 'ok', `${dominio} · /listo en ${Date.now() - t0} ms`);
+
+    // El propio microservicio dice si tiene la clave. No es un fallo: es una
+    // DECISIÓN pendiente. Sin ella /parsear-perfil devuelve valores neutros y
+    // horario_predominante nunca se infiere — un campo del perfil público, que
+    // ya degrada a "Variable". No toca el ranking ni el embedding.
+    if (salud.api_llm_configurada === true) {
+      anotar('Análisis con LLM (Anthropic)', 'ok', `clave presente · modelo ${salud.modelo_llm ?? 'por omisión'}`);
+    } else {
+      anotar('Análisis con LLM (Anthropic)', 'aviso',
+        'sin ANTHROPIC_API_KEY en ai-service/.env: /parsear-perfil siempre degradado. El Nivel 2 (embeddings) NO depende de esto');
+    }
   } catch (e) {
     anotar('Túnel a Cloudflare', 'fallo', `${dominio} no responde (${e.message}) · corre scripts/tunel.sh`);
   }

@@ -27,7 +27,7 @@ convierte esa casualidad en una pregunta que se hace a propósito.
 | Comprobación | Qué detecta |
 |---|---|
 | Secrets de Edge Functions | `AI_SERVICE_URL` o `AI_SHARED_TOKEN` ausentes |
-| Anthropic | sin `ANTHROPIC_API_KEY`, `/parsear-perfil` devuelve constantes |
+| Análisis con LLM | sin `ANTHROPIC_API_KEY` en `ai-service/.env`, `/parsear-perfil` devuelve constantes |
 | Túnel | el dominio público no responde — se pregunta **por fuera**, no en localhost |
 | Vectores de perfil | cuentas con consentimiento puesto y vector nulo |
 | Vectores de publicaciones | activas sin vector: invisibles para el Nivel 2 |
@@ -42,6 +42,20 @@ cuenta temporal y la borra en un `finally`. Las claves foráneas de
 `conversaciones`, `mensajes` y `contactos` son `on delete cascade`, así que no
 queda rastro. Si alguna vez ves cuentas `verif-…@ejemplo.mx` en la base, el
 `finally` no corrió y hay que borrarlas a mano.
+
+## Añadir la clave de Anthropic después
+
+Se puede en cualquier momento, sin tocar código ni redesplegar nada:
+
+1. Poner `ANTHROPIC_API_KEY=` en **`ai-service/.env`** (no en los secrets de
+   Supabase: quien llama al modelo es el microservicio).
+2. Reiniciar el microservicio. `config.py` lee la variable con `os.getenv` en
+   tiempo de import, así que un proceso ya arrancado no la ve.
+3. `node scripts/verificar.mjs` debe pasar de aviso a OK.
+
+Sin ella, lo único que se pierde es `horario_predominante`, un campo del perfil
+público que ya degrada a "Variable". **No toca el ranking ni el embedding:** el
+Nivel 2 corre en un modelo local y no depende de ninguna API de pago.
 
 ## Qué hacer con cada fallo
 
