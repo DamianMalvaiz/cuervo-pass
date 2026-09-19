@@ -198,6 +198,44 @@ era innecesario: `sugerencias_con_ranking` solo lee el `perfil_vector` de
 `auth.uid()`, y las sugerencias de roomies comparan contra
 `roomies.vector_busqueda`, que no depende del consentimiento de nadie.
 
+### El diagnóstico del Nivel 2 (19/09/2026)
+
+Tardó cuatro intentos y el error era mío en dos de ellos. Vale la pena escribirlo
+porque el patrón se repite.
+
+**Lo que parecía:** el túnel de Cloudflare caído tres veces seguidas.
+**Lo que era:** el DNS de un túnel rápido tarda hasta media hora en publicarse, y
+el script lo daba por muerto a los dos minutos — saliendo con error ANTES de
+fijar el secret, así que la Edge Function se quedaba apuntando al túnel anterior,
+ese sí muerto.
+
+**Segundo error, peor:** al fijar el secret a mano usé `tail -1` sobre un glob de
+registros en /tmp. El orden alfabético NO es el cronológico, así que apunté al
+túnel muerto teniendo el vivo disponible. Redesplegar la función no arregló nada
+porque la instancia nueva leía el mismo valor equivocado.
+
+**Cómo se cerró:** instrumentando en vez de adivinando. Se creó una cuenta
+temporal para llamar a `ai-proxy` con una sesión real y ver el código exacto
+—503 `{degradado:true}`— en vez del "non-2xx" que reporta la app. Eso descartó la
+cuota (límite 200, consumo 4) y probó que la función llegaba hasta el `fetch`.
+
+**Lo que quedó del arreglo:**
+- `ai-proxy` clasifica el fallo: `sin-conexion` contra `tiempo-agotado`. Un 503
+  mudo no orienta a nadie, y la diferencia entre "no conecta" y "tarda" lleva a
+  diagnósticos opuestos. El detalle completo va al registro del servidor porque
+  el mensaje de Deno incluye la URL.
+- `scripts/tunel.sh` fija el secret ANTES de esperar al DNS, espera diez minutos
+  y guarda el dominio vivo en `.tunel-actual`. Rastrearlo por el nombre aleatorio
+  del registro fue justo lo que falló.
+
+**Verificado en las tres capas**, no en la pantalla: el microservicio registró la
+petición con el id de usuario real y 168 caracteres de texto; la base guardó un
+vector de 384 dimensiones con norma L2 = 1.0; la app pasó a Nivel 2.
+
+Los 168 caracteres confirman de paso una decisión del diseño: quien consiente el
+análisis pero no escribe texto libre igual obtiene vector, porque
+`construirTextoPerfil` arma la descripción con los datos estructurados.
+
 ### Pendientes abiertos
 
 - [ ] Probar el flujo completo en el teléfono: registro → cuestionario →

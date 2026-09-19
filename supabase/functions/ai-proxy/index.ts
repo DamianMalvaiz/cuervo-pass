@@ -91,9 +91,26 @@ Deno.serve(async (req) => {
       status: r.status,
       headers: { 'Content-Type': 'application/json', 'x-peticion-id': peticionId },
     });
-  } catch {
+  } catch (e) {
     // El microservicio no respondió. La app degrada a Nivel 1: esto NO es un 500,
     // es un estado previsto del sistema (§27).
-    return json({ degradado: true }, 503, { 'x-peticion-id': peticionId });
+    //
+    // `motivo` clasifica el fallo sin filtrar nada: el mensaje de Deno incluye
+    // la URL completa, así que solo se devuelve el TIPO. Distingue los dos casos
+    // que se diagnostican distinto —"tardó más de 12 s" contra "no se pudo
+    // conectar"— y sin él la app solo puede decir "non-2xx", que no orienta a
+    // nadie. El detalle completo va al registro del servidor, no al cliente.
+    const esTiempo = e instanceof Error && e.name === 'TimeoutError';
+    console.error('ai-proxy no alcanzó el microservicio', {
+      peticionId,
+      ruta,
+      nombre: e instanceof Error ? e.name : typeof e,
+      mensaje: e instanceof Error ? e.message : String(e),
+    });
+    return json(
+      { degradado: true, motivo: esTiempo ? 'tiempo-agotado' : 'sin-conexion' },
+      503,
+      { 'x-peticion-id': peticionId }
+    );
   }
 });
