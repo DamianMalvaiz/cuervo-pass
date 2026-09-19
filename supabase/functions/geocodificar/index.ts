@@ -10,7 +10,14 @@
 // de tres obligaciones que se cumplen aquí:
 //   1. Atribución visible → «© OpenStreetMap contributors» en el detalle y el README.
 //   2. Máximo una petición por segundo, con User-Agent identificable → se
-//      geocodifica desde el SERVIDOR, en cola, nunca desde el cliente.
+//      geocodifica desde el SERVIDOR, con LÍMITE DE RITMO, nunca desde el
+//      cliente. La palabra importa: esto decía «en cola» y no había ninguna
+//      —END-15—, solo caché, y la única serialización vivía en un `for` del
+//      cliente que ni siquiera esperaba entre vueltas. Y aunque hubiera
+//      esperado: todas las peticiones salen de la IP de Supabase, así que dos
+//      teléfonos a la vez duplicaban el ritmo que Nominatim mide. El turno lo
+//      reparte ahora `reservar_turno_geocodificacion()` (migración 0035), que
+//      es el único sitio desde donde se puede garantizar.
 //   3. No redistribuir la base → solo se guardan coordenadas puntuales por
 //      publicación, que es uso permitido.
 //
@@ -100,6 +107,62 @@ Deno.serve(async (req) => {
     }, 200);
   }
 
+  // ── Cuota · END-15 ────────────────────────────────────────────────────────
+  // Era la única Edge Function sin `consumir_cuota`. Va DESPUÉS del caché a
+  // propósito: lo que se raciona es la petición a Nominatim, no la respuesta.
+  // Un acierto de caché no cuesta nada afuera, y cobrarlo castigaría a quien
+  // corrige una errata en su dirección tres veces.
+  //
+  // Y NO se devuelve si Nominatim no encuentra nada, al revés que en `ai-proxy`
+  // (END-13). Allí un 500 significa que no pasó nada; aquí la petición se hizo,
+  // se consumió el recurso escaso y la licencia ya la contó. Lo que se raciona
+  // son los intentos, no los aciertos.
+  const { error: eCuota } = await anon.rpc('consumir_cuota', {
+    p_recurso: 'geocodificacion',
+    p_limite: 40,
+  });
+  if (eCuota) {
+    // CP001 · cuota agotada (migración 0032). Cualquier otro error de la RPC es
+    // un fallo de verdad y también detiene la petición: geocodificar sin haber
+    // podido contabilizarlo es exactamente lo que la cuota viene a impedir.
+    const agotada = (eCuota as { code?: string }).code === 'CP001';
+    return json(
+      { latitud: null, longitud: null, proveedor: null, pendiente: true,
+        motivo: agotada ? 'cuota-agotada' : 'cuota-indisponible' },
+      agotada ? 429 : 503,
+    );
+  }
+
+  // El cliente de servicio se crea aquí y no más abajo porque ahora lo necesitan
+  // dos cosas: el turno y el upsert del caché.
+  const servicio = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  );
+
+  // ── Turno · obligación 2 de la ODbL ───────────────────────────────────────
+  // La base reparte el turno y dice cuántos ms faltan; quien espera es esta
+  // función, que es efímera y no cuesta nada dormida. Dormir DENTRO de Postgres
+  // habría retenido una conexión del pool que también sirve a la app.
+  const { data: esperaMs, error: eTurno } = await servicio.rpc('reservar_turno_geocodificacion');
+  if (eTurno) {
+    return json({ latitud: null, longitud: null, proveedor: null, pendiente: true,
+                  motivo: 'ritmo-indisponible' }, 503);
+  }
+
+  // Si el turno está demasiado lejos no se espera: la publicación se guarda con
+  // `pendiente_geocoding = true` y se reintenta desde «Mis publicaciones», que
+  // es el camino que §27 ya tenía previsto. Hacer esperar ocho segundos a quien
+  // acaba de tocar «Publicar» es peor que resolverlo después.
+  const ESPERA_MAXIMA_MS = 5_000;
+  if (typeof esperaMs === 'number' && esperaMs > ESPERA_MAXIMA_MS) {
+    return json({ latitud: null, longitud: null, proveedor: null, pendiente: true,
+                  motivo: 'ritmo-saturado' }, 200);
+  }
+  if (typeof esperaMs === 'number' && esperaMs > 0) {
+    await new Promise((listo) => setTimeout(listo, esperaMs));
+  }
+
   let latitud: number | null = null;
   let longitud: number | null = null;
 
@@ -135,12 +198,8 @@ Deno.serve(async (req) => {
     return json({ latitud: null, longitud: null, proveedor: null, pendiente: true }, 200);
   }
 
-  // El insert va con service_role porque `geocodificaciones` no tiene policy de
+  // El upsert va con service_role porque `geocodificaciones` no tiene policy de
   // escritura para el cliente: el caché lo llena el servidor o no se llena.
-  const servicio = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
   await servicio
     .from('geocodificaciones')
     .upsert({ consulta, latitud, longitud, proveedor: PROVEEDOR }, { onConflict: 'consulta' });

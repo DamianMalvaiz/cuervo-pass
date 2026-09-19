@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(69);
+select plan(74);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -979,6 +979,51 @@ select is(
     where conrelid = 'publicaciones'::regclass and conname = 'publicaciones_tipo_valido'),
   'CHECK ((tipo = ANY (ARRAY[''depa''::text, ''cuarto''::text, ''casa_compartida''::text])))',
   'los tipos validos siguen siendo tres, los mismos que conoce el cliente' );
+
+-- ══════════ 70 a 74 · END-15: la cola de geocodificacion no existia ══════════
+-- El encabezado de la Edge Function afirmaba que se geocodifica «desde el
+-- SERVIDOR, en cola», como una de las tres obligaciones de la ODbL. No habia
+-- cola ni limite de ritmo: solo cache. La serializacion vivia en un `for` del
+-- cliente (publicaciones.service.ts) SIN espera alguna, y dos telefonos a la vez
+-- duplicaban el ritmo de todas formas. Una obligacion de licencia que depende de
+-- que el cliente se porte bien no es una obligacion cumplida.
+select actuar_como_servicio();
+
+-- La geocodificacion era la unica Edge Function sin cuota.
+select lives_ok(
+  $$ insert into cuotas_uso (usuario_id, recurso, dia, consumo)
+     values ('00000000-0000-0000-0000-0000000000a1', 'geocodificacion', current_date, 1) $$,
+  'cuotas_uso acepta el recurso geocodificacion' );
+
+-- Y el CHECK no se convirtio en tierra de nadie al ampliarlo.
+select throws_ok(
+  $$ insert into cuotas_uso (usuario_id, recurso, dia, consumo)
+     values ('00000000-0000-0000-0000-0000000000a1', 'lo_que_sea', current_date, 1) $$,
+  '23514',
+  null,
+  'cuotas_uso sigue rechazando un recurso inventado' );
+
+-- El turno lo pide el SERVIDOR, no el telefono. Si `authenticated` pudiera
+-- llamarla, cualquiera quemaria los turnos de todos en un bucle y dejaria la
+-- geocodificacion inservible para los demas sin tocar una sola publicacion.
+select ok(
+  not has_function_privilege('authenticated', 'reservar_turno_geocodificacion()', 'execute'),
+  'reservar_turno_geocodificacion no es ejecutable por authenticated' );
+
+-- El nucleo: turnos separados un segundo, contados por la BASE y no por el
+-- cliente. Se parte de un turno ya vencido para que la primera no espere.
+update geocodificaciones_ritmo set proximo_turno = now() - interval '1 second';
+
+select is(
+  reservar_turno_geocodificacion(), 0,
+  'con el turno vencido, la primera reserva no espera' );
+
+-- La segunda reserva del MISMO instante recibe el turno siguiente, no el mismo.
+-- Es lo que convierte «una peticion por segundo» en algo que se cumple aunque
+-- lleguen diez a la vez.
+select cmp_ok(
+  reservar_turno_geocodificacion(), '>=', 900,
+  'la segunda reserva inmediata espera un segundo' );
 
 select * from finish();
 rollback;

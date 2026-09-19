@@ -271,8 +271,16 @@ export async function cambiarEstadoPublicacion(id: string, activa: boolean) {
 export async function reintentarGeocodingPendiente(publicaciones: Publicacion[]): Promise<number> {
   const pendientes = publicaciones.filter((p) => p.pendiente_geocoding);
   let resueltas = 0;
-  // En serie, no en paralelo: Nominatim admite una petición por segundo y
-  // dispararlas todas juntas es la forma más rápida de que te bloqueen (§9).
+  // En serie y no en paralelo, pero por una razón MENOR de la que decía este
+  // comentario. Afirmaba honrar el límite de una petición por segundo de
+  // Nominatim, y no podía: el bucle no esperaba nada entre vueltas —iba tan
+  // rápido como respondiera cada ida y vuelta— y, aunque hubiera esperado, dos
+  // teléfonos reintentando a la vez habrían duplicado el ritmo igual, porque
+  // Nominatim ve una sola IP: la de Supabase.
+  //
+  // El límite lo aplica ahora el servidor (END-15, migración 0035). Esto sigue
+  // en serie para no disparar diez invocaciones de la Edge Function que acaben
+  // haciendo cola en la base y expirando por el tope de espera.
   for (const p of pendientes) {
     const coords = await geocodificarDireccion(p.direccion);
     if (!coords) continue;

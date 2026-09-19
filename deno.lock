@@ -17,6 +17,7 @@
         "npm:@hookform/resolvers@^5.9.1",
         "npm:@react-native-async-storage/async-storage@2.2.0",
         "npm:@supabase/supabase-js@^2.116.0",
+        "npm:@tanstack/react-query@^5.103.1",
         "npm:@testing-library/react-native@^14.0.1",
         "npm:@types/jest@30",
         "npm:@types/node@^26.6.1",
