@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { z } from 'zod';
@@ -15,6 +15,7 @@ import type { FotoEntrada } from '@/services/publicaciones.service';
 import type { TipoPublicacion } from '@/types/database.types';
 import { FileteHoja } from './ficha/CampoFicha';
 import { Sello } from './ficha/Sello';
+import { armarDireccion, partirDireccion } from '@/lib/direccion';
 import { ThemedText } from './themed-text';
 
 // AUD-27: el mismo tope que el CHECK de la tabla (migración 0010). Ambas capas,
@@ -97,11 +98,6 @@ interface Props {
   botonEnPie?: boolean;
   onEstadoEnvio?: (enviando: boolean) => void;
   onGuardar: (datos: DatosGuardarPublicacion) => Promise<void>;
-}
-
-function armarDireccion(v: FormPublicacion): string {
-  const numero = v.numeroInterior ? `${v.numeroExterior} Int. ${v.numeroInterior}` : v.numeroExterior;
-  return `${v.calle} ${numero}, ${v.colonia}, ${v.localidad}, ${v.municipio}, ${v.estado}, CP ${v.codigoPostal}`;
 }
 
 interface CampoDesplegableProps {
@@ -279,6 +275,10 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
     fotosIniciales.map((url) => ({ url, esNueva: false }))
   );
   const [enviando, setEnviando] = useState(false);
+  // Se parte una sola vez: `partirDireccion` es el inverso exacto de
+  // `armarDireccion`, y devuelve null si el texto no encaja en vez de adivinar.
+  const partes = useMemo(() => partirDireccion(valoresIniciales?.direccion), [valoresIniciales?.direccion]);
+  const direccionIlegible = Boolean(valoresIniciales?.direccion) && partes === null;
 
   const [error, setError] = useState<string | null>(null);
 
@@ -300,6 +300,18 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
   } = useForm<FormPublicacion>({
     resolver: zodResolver(esquema),
     defaultValues: {
+      // Al EDITAR, la dirección llega como una sola cadena y el formulario la
+      // pide en ocho campos. Sin esto nacían vacíos, y como siete son
+      // obligatorios la validación fallaba: no se podía guardar NINGÚN cambio
+      // —ni una foto, ni el precio— sin volver a teclear la dirección entera.
+      calle: partes?.calle,
+      numeroExterior: partes?.numeroExterior,
+      numeroInterior: partes?.numeroInterior,
+      codigoPostal: partes?.codigoPostal,
+      colonia: partes?.colonia,
+      localidad: partes?.localidad,
+      municipio: partes?.municipio,
+      estado: partes?.estado,
       titulo: valoresIniciales?.titulo,
       tipo: valoresIniciales?.tipo ?? 'depa',
       precioRenta: valoresIniciales?.precioRenta,
@@ -481,6 +493,22 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
         </ThemedText>
         <FileteHoja />
       </View>
+
+      {/* Partes adivinadas se guardarían como si fueran ciertas. Mejor decir que
+          no se pudo leer y enseñar el texto original para copiarlo a mano. */}
+      {direccionIlegible && (
+        <View style={[styles.avisoDireccion, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}>
+          <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />
+          <View style={styles.flexible}>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.textoAviso}>
+              No pudimos separar la dirección guardada en campos. Vuelve a escribirla; esta era:
+            </ThemedText>
+            <ThemedText type="small" style={styles.textoAviso}>
+              {valoresIniciales?.direccion}
+            </ThemedText>
+          </View>
+        </View>
+      )}
       <Controller
         control={control}
         name="calle"
@@ -827,6 +855,16 @@ const styles = StyleSheet.create({
   descripcionInput: { minHeight: 100, textAlignVertical: 'top', paddingTop: Spacing.three },
   error: {},
   grupo: { gap: Spacing.two, marginTop: Spacing.three },
+  flexible: { flex: 1 },
+  avisoDireccion: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.control,
+    padding: Spacing.three,
+  },
+  textoAviso: { lineHeight: 20 },
   cargandoSugerencias: { marginTop: Spacing.one, alignSelf: 'flex-start' },
   avisoCpNoEncontrado: {},
   envolturaDesplegable: { position: 'relative', zIndex: 1 },
