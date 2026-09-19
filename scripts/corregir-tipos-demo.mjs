@@ -56,6 +56,19 @@ const CATALOGO = new Map([
   ['Cuarto amplio, baño compartido, muy cerca del transporte público.', 'cuarto'],
   ['Habitación en depa compartido con estudiantes, wifi incluido.', 'cuarto'],
   ['Casa con jardín, ideal para 2 personas, se permite fumar en el patio.', 'casa_compartida'],
+  // Las diez de sembrar-casas-demo.mjs. Van aquí para que este archivo siga
+  // siendo un mapa COMPLETO del catálogo de demo: si faltaran, correr el
+  // corrector las reportaría como «sin tocar» y parecería que algo va mal.
+  ['Casa completa para compartir entre tres, sala y cocina en común.', 'casa_compartida'],
+  ['Casa de dos plantas, se comparte con dos estudiantes tranquilos.', 'casa_compartida'],
+  ['Casa con patio y lavadero, buscamos una tercera persona.', 'casa_compartida'],
+  ['Casa amueblada para compartir, cada quien su recámara.', 'casa_compartida'],
+  ['Casa cerca del campus, se comparte entre estudiantes, no se fuma.', 'casa_compartida'],
+  ['Casa con jardín y estacionamiento, ideal para compartir entre dos.', 'casa_compartida'],
+  ['Casa tranquila para compartir, servicios incluidos en la renta.', 'casa_compartida'],
+  ['Casa amplia con tres recámaras, se comparte entre estudiantes.', 'casa_compartida'],
+  ['Casa con cocina equipada, se busca compañero de casa responsable.', 'casa_compartida'],
+  ['Casa remodelada para compartir, mascotas pequeñas bienvenidas.', 'casa_compartida'],
 ]);
 
 const { data, error } = await admin

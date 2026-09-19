@@ -128,7 +128,7 @@ async function revisarDatos() {
   }
 
   const { data: pub, error: e2 } = await admin
-    .from('publicaciones').select('titulo, tipo, activa, vector_embedding, latitud, longitud').eq('activa', true);
+    .from('publicaciones').select('titulo, tipo, activa, fotos, vector_embedding, latitud, longitud').eq('activa', true);
   if (e2) { anotar('Publicaciones activas', 'fallo', e2.message); return; }
 
   // B.3 · Los chips de tipo filtran en Postgres desde la migracion 0034. Si el
@@ -155,6 +155,18 @@ async function revisarDatos() {
       `${sinVector.length} de ${pub.length} activas sin vector → invisibles para el Nivel 2`);
   } else {
     anotar('Vectores de publicaciones', 'ok', `${pub.length}/${pub.length} activas con vector`);
+  }
+
+  // Una publicacion sin foto sale con un rectangulo vacio, y este diseno pone la
+  // fotografia al frente. Con `sembrar-fotos.mjs` es un comando; descubrirlo
+  // durante la exposicion no tiene arreglo. Paso de verdad: al sembrar diez
+  // casas el 19/09/2026, Unsplash respondio 429 y las diez quedaron sin foto.
+  const sinFoto = pub.filter((p) => !p.fotos?.length);
+  if (sinFoto.length) {
+    anotar('Fotos de publicaciones', 'aviso',
+      `${sinFoto.length} de ${pub.length} activas sin foto → rectangulo vacio en la lista. Se arregla con scripts/sembrar-fotos.mjs`);
+  } else {
+    anotar('Fotos de publicaciones', 'ok', `${pub.length}/${pub.length} activas con foto`);
   }
 
   // La cola de la 0021. Mientras tenga filas hay archivos que alguien creyo
