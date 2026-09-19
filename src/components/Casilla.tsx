@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppColors, Spacing } from '@/constants/theme';
+import { AppColors, Radios, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
 
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   caja: {
     width: 22,
     height: 22,
-    borderRadius: 6,
+    borderRadius: Radios.casilla,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',

@@ -13,9 +13,10 @@ import {
 } from 'react-native';
 
 import { BurbujaMensaje } from '@/components/BurbujaMensaje';
+import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Spacing } from '@/constants/theme';
+import { AppColors, Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import {
@@ -151,7 +152,12 @@ export default function ConversacionScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {cargando ? (
-          <ActivityIndicator style={{ marginTop: Spacing.four }} />
+          <View style={styles.cargando}>
+            <ActivityIndicator color={theme.textSecondary} />
+            <ThemedText type="etiqueta" themeColor="textSecondary">
+              CONSULTANDO EL HILO
+            </ThemedText>
+          </View>
         ) : (
           <FlatList
             ref={listaRef}
@@ -169,33 +175,46 @@ export default function ConversacionScreen() {
                   accessibilityLabel="Cargar mensajes anteriores"
                 >
                   {cargandoAnteriores ? (
-                    <ActivityIndicator size="small" />
+                    <ActivityIndicator size="small" color={theme.textSecondary} />
                   ) : (
-                    <ThemedText type="small" style={{ color: theme.acento }}>
-                      Ver mensajes anteriores
-                    </ThemedText>
+                    <>
+                      <Ionicons name="chevron-up" size={14} color={theme.acento} />
+                      <ThemedText type="small" themeColor="acento">
+                        Ver mensajes anteriores
+                      </ThemedText>
+                    </>
                   )}
                 </Pressable>
               ) : null
             }
             ListEmptyComponent={
-              <ThemedText type="small" style={styles.vacio}>
-                Aún no hay mensajes — escribe el primero.
-              </ThemedText>
+              <BloqueEstado
+                etiqueta="HILO SIN MENSAJES"
+                mensaje="Escribe el primero. Los mensajes son inmutables una vez enviados: no se pueden editar ni borrar."
+                icono="chatbubble-ellipses-outline"
+              />
             }
           />
         )}
 
         {error && (
-          <ThemedText type="small" themeColor="error" style={styles.error} accessibilityLiveRegion="assertive">
-            {error}
-          </ThemedText>
+          <View style={[styles.errorBloque, { borderColor: theme.error }]}>
+            <Ionicons name="alert-circle-outline" size={16} color={theme.error} />
+            <ThemedText
+              type="small"
+              themeColor="error"
+              style={styles.textoError}
+              accessibilityLiveRegion="assertive"
+            >
+              {error}
+            </ThemedText>
+          </View>
         )}
 
         <View style={[styles.filaInput, { borderTopColor: theme.border }]}>
           <TextInput
             style={[styles.input, { borderColor: theme.border, color: theme.text }]}
-            placeholder="Escribe un mensaje..."
+            placeholder="Escribe un mensaje…"
             placeholderTextColor={theme.textSecondary}
             accessibilityLabel="Mensaje"
             value={texto}
@@ -212,7 +231,10 @@ export default function ConversacionScreen() {
             accessibilityRole="button"
             accessibilityLabel="Enviar mensaje"
           >
-            <Ionicons name="send" size={20} color={AppColors.selloTexto} />
+            {/* Enviar un mensaje SÍ compromete: escribe una fila inmutable que
+                no se puede editar ni borrar (trigger de la 0012). Por eso lleva
+                sello, y es el único ámbar de esta pantalla. */}
+            <Ionicons name="send" size={18} color={AppColors.selloTexto} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -221,29 +243,51 @@ export default function ConversacionScreen() {
 }
 
 const styles = StyleSheet.create({
-  lista: { padding: Spacing.three, flexGrow: 1, justifyContent: 'flex-end' },
-  vacio: { textAlign: 'center', marginTop: Spacing.four },
-  error: { paddingHorizontal: Spacing.three },
-  botonAnteriores: { alignItems: 'center', paddingVertical: Spacing.two, minHeight: 44, justifyContent: 'center' },
+  lista: { padding: Spacing.three, flexGrow: 1, justifyContent: 'flex-end', gap: Spacing.half },
+  cargando: { marginTop: Spacing.five, alignItems: 'center', gap: Spacing.two },
+  errorBloque: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    marginHorizontal: Spacing.three,
+    marginBottom: Spacing.two,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.control,
+    padding: Spacing.two,
+  },
+  textoError: { flex: 1, lineHeight: 18 },
+  botonAnteriores: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.half,
+    paddingVertical: Spacing.two,
+    minHeight: 44,
+  },
+  // El compositor se separa del hilo con filete, no con sombra: es la misma
+  // regla que la barra de pestañas y que el encabezado.
   filaInput: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: Spacing.two,
     padding: Spacing.two,
-    borderTopWidth: 1,
+    borderTopWidth: Filete.fino,
   },
   input: {
     flex: 1,
-    borderWidth: 1,
-    borderRadius: Spacing.three,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.control,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    maxHeight: 100,
+    minHeight: 48,
+    maxHeight: 120,
+    fontFamily: Tipografia.regular,
+    fontSize: 16,
   },
   botonEnviar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: Radios.full,
     backgroundColor: AppColors.sello,
     alignItems: 'center',
     justifyContent: 'center',

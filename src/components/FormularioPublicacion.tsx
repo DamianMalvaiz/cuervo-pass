@@ -7,12 +7,14 @@ import { Controller, useForm } from 'react-hook-form';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
-import { AppColors, Spacing, Tipografia } from '@/constants/theme';
+import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { buscarPorCodigoPostal } from '@/lib/direccionMx';
 import { buscarCalles } from '@/lib/mapboxAutocomplete';
 import type { FotoEntrada } from '@/services/publicaciones.service';
 import type { TipoPublicacion } from '@/types/database.types';
+import { FileteHoja } from './ficha/CampoFicha';
+import { Sello } from './ficha/Sello';
 import { ThemedText } from './themed-text';
 
 // AUD-27: el mismo tope que el CHECK de la tabla (migración 0010). Ambas capas,
@@ -453,9 +455,12 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
         )}
       />
 
-      <ThemedText type="small" style={styles.etiqueta}>
-        Dirección
-      </ThemedText>
+      <View style={styles.grupo}>
+        <ThemedText type="etiqueta" themeColor="textSecondary">
+          DIRECCIÓN
+        </ThemedText>
+        <FileteHoja />
+      </View>
       <Controller
         control={control}
         name="calle"
@@ -614,9 +619,12 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
       {errors.municipio && <ThemedText style={styles.error}>{errors.municipio.message}</ThemedText>}
       {errors.estado && <ThemedText style={styles.error}>{errors.estado.message}</ThemedText>}
 
-      <ThemedText type="small" style={styles.etiqueta}>
-        Detalles
-      </ThemedText>
+      <View style={styles.grupo}>
+        <ThemedText type="etiqueta" themeColor="textSecondary">
+          DETALLES
+        </ThemedText>
+        <FileteHoja />
+      </View>
       <Controller
         control={control}
         name="precioRenta"
@@ -719,9 +727,12 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
       />
       {errors.whatsapp && <ThemedText style={styles.error}>{errors.whatsapp.message}</ThemedText>}
 
-      <ThemedText type="small" style={styles.etiqueta}>
-        Fotos ({fotos.length}/{MAX_FOTOS})
-      </ThemedText>
+      <View style={styles.grupo}>
+        <ThemedText type="etiqueta" themeColor="textSecondary">
+          FOTOGRAFÍAS · {fotos.length}/{MAX_FOTOS}
+        </ThemedText>
+        <FileteHoja />
+      </View>
       <View style={styles.fotosFila}>
         {fotos.map((foto, indice) => (
           <View key={uriDeFoto(foto)} style={styles.fotoMiniContenedor}>
@@ -751,16 +762,11 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
 
       {error && <ThemedText style={styles.error}>{error}</ThemedText>}
 
-      <Pressable
-        style={styles.boton}
-        onPress={handleSubmit(onSubmit)}
-        disabled={enviando}
-        accessibilityRole="button"
-        accessibilityLabel={textoBoton}
-        accessibilityState={{ disabled: enviando, busy: enviando }}
-      >
-        {enviando ? <ActivityIndicator color={AppColors.selloTexto} /> : <ThemedText style={styles.botonTexto}>{textoBoton}</ThemedText>}
-      </Pressable>
+      {/* Publicar SÍ compromete: escribe la fila, sube las fotos y geocodifica.
+          Es el único ámbar del formulario. */}
+      <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel={textoBoton}>
+        {textoBoton}
+      </Sello>
     </View>
   );
 }
@@ -768,8 +774,8 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
 const styles = StyleSheet.create({
   filaTipos: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
   pastillaTipo: {
-    borderWidth: 1,
-    borderRadius: 999,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.full,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
     minHeight: 36,
@@ -783,14 +789,22 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
     minHeight: 44,
   },
-  container: { gap: Spacing.two },
+  container: { gap: Spacing.three },
   direccionActual: { fontStyle: 'italic', marginBottom: Spacing.one },
-  input: { borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.three },
+  input: {
+    borderWidth: Filete.fino,
+    borderRadius: Radios.control,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    minHeight: 52,
+    fontFamily: Tipografia.regular,
+    fontSize: 16,
+  },
   inputMitad: { flex: 1 },
-  filaDos: { flexDirection: 'row', gap: Spacing.two },
-  descripcionInput: { minHeight: 80, textAlignVertical: 'top' },
+  filaDos: { flexDirection: 'row', gap: Spacing.three },
+  descripcionInput: { minHeight: 100, textAlignVertical: 'top', paddingTop: Spacing.three },
   error: {},
-  etiqueta: { marginTop: Spacing.two },
+  grupo: { gap: Spacing.two, marginTop: Spacing.three },
   cargandoSugerencias: { marginTop: Spacing.one, alignSelf: 'flex-start' },
   avisoCpNoEncontrado: {},
   envolturaDesplegable: { position: 'relative', zIndex: 1 },
@@ -808,8 +822,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     marginTop: Spacing.one,
-    borderWidth: 1,
-    borderRadius: Spacing.two,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.hoja,
     padding: Spacing.one,
     maxHeight: 260,
     overflow: 'hidden',
@@ -820,7 +834,7 @@ const styles = StyleSheet.create({
     zIndex: 30,
   },
   buscadorDesplegable: {
-    borderWidth: 1,
+    borderWidth: Filete.fino,
     borderRadius: Spacing.two,
     padding: Spacing.two,
     marginBottom: Spacing.one,
@@ -838,7 +852,7 @@ const styles = StyleSheet.create({
   },
   fotosFila: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   fotoMiniContenedor: { position: 'relative' },
-  fotoMini: { width: 80, height: 80, borderRadius: Spacing.two },
+  fotoMini: { width: 80, height: 80, borderRadius: Radios.casilla },
   fotoMiniQuitar: {
     position: 'absolute',
     top: -Spacing.half,
@@ -850,14 +864,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fotoAgregar: { alignItems: 'center', justifyContent: 'center' },
-  boton: {
-    backgroundColor: AppColors.sello,
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
-    alignItems: 'center',
-    marginTop: Spacing.three,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  botonTexto: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
 });

@@ -5,10 +5,14 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
+import { CampoFicha } from '@/components/ficha/CampoFicha';
+import { Seccion } from '@/components/ficha/Seccion';
+import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Spacing, Tipografia } from '@/constants/theme';
+import { Filete, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { folioDe } from '@/lib/folio';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { abrirConversacion } from '@/services/mensajes.service';
 import { obtenerPerfilPublico, reportarUsuario } from '@/services/usuarios.service';
@@ -99,7 +103,7 @@ export default function PerfilRoomieScreen() {
 
   if (cargando) {
     return (
-      <ThemedView style={styles.centrado}>
+      <ThemedView style={estilos.centrado}>
         <ActivityIndicator />
       </ThemedView>
     );
@@ -107,7 +111,7 @@ export default function PerfilRoomieScreen() {
 
   if (!usuario) {
     return (
-      <ThemedView style={styles.centrado}>
+      <ThemedView style={estilos.centrado}>
         <Ionicons name="person-remove-outline" size={40} color={theme.textSecondary} />
         <ThemedText style={{ marginTop: Spacing.two }}>No se encontró este perfil.</ThemedText>
       </ThemedView>
@@ -115,99 +119,110 @@ export default function PerfilRoomieScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={estilos.hoja} showsVerticalScrollIndicator={false}>
       <Stack.Screen options={{ title: usuario.nombre_completo }} />
 
-      <Animated.View entering={FadeIn.duration(250)}>
-        <View style={styles.encabezado}>
+      {/* Un solo FadeIn plano, la única gramática de movimiento del proyecto.
+          Aquí se intentó una vez un resorte escalonado con sombras de color y se
+          revirtió: Android ignora `shadowColor` y el rebote era el único de la
+          app. */}
+      <Animated.View entering={FadeIn.duration(250)} style={estilos.contenido}>
+        <View style={estilos.identidad}>
           {usuario.foto_url && urlsFirmadas.get(usuario.foto_url) ? (
-            <Image source={{ uri: urlsFirmadas.get(usuario.foto_url)! }} style={styles.foto} contentFit="cover" />
+            <Image
+              source={{ uri: urlsFirmadas.get(usuario.foto_url)! }}
+              style={[estilos.foto, { borderColor: theme.filete }]}
+              contentFit="cover"
+            />
           ) : (
-            <View style={[styles.foto, styles.fotoVacia, { backgroundColor: theme.backgroundSelected }]}>
-              <Ionicons name="person" size={44} color={theme.textSecondary} />
+            <View
+              style={[
+                estilos.foto,
+                estilos.fotoVacia,
+                { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+              ]}
+            >
+              <Ionicons name="person-outline" size={34} color={theme.textSecondary} />
             </View>
           )}
-          <ThemedText type="title" style={styles.nombre} numberOfLines={1}>
-            {usuario.nombre_completo}
-          </ThemedText>
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            @{usuario.nombre_usuario}
-          </ThemedText>
-        </View>
-
-        <View style={[styles.tarjeta, { backgroundColor: theme.tintedSurface, borderColor: theme.tintedBorder }]}>
-          <View style={styles.tituloTarjeta}>
-            <Ionicons name="shield-checkmark-outline" size={18} color={theme.acento} />
-            <ThemedText type="smallBold" style={{ color: theme.acento }}>
-              Compatibilidad
+          <View style={estilos.datosIdentidad}>
+            <ThemedText type="folio" themeColor="textSecondary">
+              EXPEDIENTE {folioDe(usuario.id)}
+            </ThemedText>
+            <ThemedText type="subtitle" numberOfLines={2}>
+              {usuario.nombre_completo}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              @{usuario.nombre_usuario}
             </ThemedText>
           </View>
-
-          <FilaCompatibilidad
-            icono="volume-low-outline"
-            etiqueta="Ruido"
-            valor={ETIQUETA_RUIDO[usuario.nivel_ruido ?? 'medio'] ?? 'Sin especificar'}
-            colorBorde={theme.tintedBorder}
-          />
-          <FilaCompatibilidad
-            icono="moon-outline"
-            etiqueta="Horario"
-            valor={ETIQUETA_HORARIO[usuario.horario_predominante ?? 'mixto'] ?? 'Variable'}
-            colorBorde={theme.tintedBorder}
-          />
-          <FilaCompatibilidad
-            icono="paw-outline"
-            etiqueta="Mascotas"
-            valor={usuario.mascotas ? 'Sí tiene' : 'No tiene'}
-            positivo={usuario.mascotas}
-            colorBorde={theme.tintedBorder}
-          />
-          <FilaCompatibilidad
-            icono="ban-outline"
-            etiqueta="Fuma"
-            valor={usuario.fuma ? 'Sí fuma' : 'No fuma'}
-            positivo={!usuario.fuma}
-            esUltima
-            colorBorde={theme.tintedBorder}
-          />
         </View>
 
-        {usuario.biografia && (
-          <View style={styles.bloqueBio}>
-            <ThemedText type="smallBold" style={styles.tituloSeccion}>
-              Sobre mí
-            </ThemedText>
-            <ThemedText style={styles.biografia}>{usuario.biografia}</ThemedText>
-          </View>
-        )}
+        <View style={[estilos.filetePrincipal, { backgroundColor: theme.text }]} />
 
-        <Pressable
+        {/* Antes esto era una tarjeta con lavado ámbar e iconos ámbar. Saber si
+            alguien fuma no compromete nada, así que no gasta sello: son campos
+            del documento, como los de cualquier otra ficha. */}
+        <Seccion titulo="CONVIVENCIA">
+          <View style={estilos.rejilla}>
+            <CampoFicha
+              etiqueta="NIVEL DE RUIDO"
+              valor={ETIQUETA_RUIDO[usuario.nivel_ruido ?? 'medio'] ?? 'Sin especificar'}
+              ancho={1}
+              icono="volume-low-outline"
+              tono={usuario.nivel_ruido ? 'normal' : 'atenuado'}
+            />
+            <CampoFicha
+              etiqueta="HORARIO"
+              valor={ETIQUETA_HORARIO[usuario.horario_predominante ?? 'mixto'] ?? 'Variable'}
+              ancho={1}
+              icono="moon-outline"
+              tono={usuario.horario_predominante ? 'normal' : 'atenuado'}
+            />
+          </View>
+          <View style={estilos.rejilla}>
+            <CampoFicha
+              etiqueta="MASCOTAS"
+              valor={usuario.mascotas ? 'Sí tiene' : 'No tiene'}
+              ancho={1}
+              icono="paw-outline"
+              tono={usuario.mascotas ? 'normal' : 'atenuado'}
+            />
+            <CampoFicha
+              etiqueta="TABACO"
+              valor={usuario.fuma ? 'Sí fuma' : 'No fuma'}
+              ancho={1}
+              tono={usuario.fuma ? 'normal' : 'atenuado'}
+            />
+          </View>
+        </Seccion>
+
+        {usuario.biografia ? (
+          <Seccion titulo="SOBRE MÍ">
+            <ThemedText style={estilos.biografia}>{usuario.biografia}</ThemedText>
+          </Seccion>
+        ) : null}
+
+        {/* Iniciar el chat SÍ compromete: crea la fila en `conversaciones`
+            (abrir_conversacion, AUD-07). Es el único ámbar de esta pantalla. */}
+        <Sello
           onPress={onIniciarChat}
-          disabled={abriendoChat}
-          style={({ pressed }) => [styles.botonChat, pressed && styles.botonChatPresionado]}
-          accessibilityRole="button"
-          accessibilityLabel={`Chatear con ${usuario.nombre_completo}`}
-          accessibilityState={{ disabled: abriendoChat, busy: abriendoChat }}
+          cargando={abriendoChat}
+          icono="chatbubble-ellipses-outline"
+          accessibilityLabel={`Iniciar chat con ${usuario.nombre_completo}`}
         >
-          {abriendoChat ? (
-            <ActivityIndicator color={AppColors.selloTexto} />
-          ) : (
-            <>
-              <Ionicons name="chatbubble-ellipses-outline" size={20} color={AppColors.selloTexto} />
-              <ThemedText style={styles.botonChatTexto}>Iniciar chat</ThemedText>
-            </>
-          )}
-        </Pressable>
+          Iniciar chat
+        </Sello>
 
         <Pressable
           onPress={onReportar}
-          style={({ pressed }) => [styles.reportarBoton, pressed && styles.reportarBotonPresionado]}
+          style={({ pressed }) => [estilos.reportar, pressed && estilos.presionado]}
           accessibilityRole="button"
           accessibilityLabel="Reportar usuario"
           hitSlop={8}
         >
           <Ionicons name="flag-outline" size={14} color={theme.error} />
-          <ThemedText themeColor="error" style={styles.reportarTexto}>
+          <ThemedText type="small" themeColor="error">
             Reportar usuario
           </ThemedText>
         </Pressable>
@@ -216,82 +231,23 @@ export default function PerfilRoomieScreen() {
   );
 }
 
-interface FilaCompatibilidadProps {
-  icono: keyof typeof Ionicons.glyphMap;
-  etiqueta: string;
-  valor: string;
-  positivo?: boolean;
-  esUltima?: boolean;
-  colorBorde: string;
-}
-
-function FilaCompatibilidad({ icono, etiqueta, valor, positivo, esUltima, colorBorde }: FilaCompatibilidadProps) {
-  const theme = useTheme();
-  const colorPunto = positivo === undefined ? undefined : positivo ? theme.exito : theme.textSecondary;
-
-  return (
-    <View style={[styles.filaCompatibilidad, !esUltima && { borderBottomWidth: 1, borderBottomColor: colorBorde }]}>
-      <View style={styles.filaCompatibilidadIzq}>
-        <Ionicons name={icono} size={18} color={theme.acento} />
-        <ThemedText type="small">{etiqueta}</ThemedText>
-      </View>
-      <View style={styles.filaCompatibilidadDer}>
-        {colorPunto && <View style={[styles.punto, { backgroundColor: colorPunto }]} />}
-        <ThemedText type="smallBold">{valor}</ThemedText>
-      </View>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four },
-  container: { padding: Spacing.four, paddingBottom: Spacing.six },
-  encabezado: { alignItems: 'center', gap: Spacing.one },
-  foto: { width: 100, height: 100, borderRadius: 50 },
+const estilos = StyleSheet.create({
+  hoja: { paddingBottom: Spacing.six },
+  contenido: { padding: Spacing.three, gap: Spacing.four },
+  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four, gap: Spacing.two },
+  identidad: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingTop: Spacing.two },
+  foto: { width: 88, height: 88, borderRadius: 44, borderWidth: Filete.fino },
   fotoVacia: { alignItems: 'center', justifyContent: 'center' },
-  nombre: { fontSize: 24, lineHeight: 28, marginTop: Spacing.two, textAlign: 'center' },
-  tarjeta: {
-    borderWidth: 1,
-    borderRadius: Spacing.three,
-    padding: Spacing.four,
-    marginTop: Spacing.five,
-    gap: Spacing.one,
-  },
-  tituloTarjeta: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, marginBottom: Spacing.two },
-  filaCompatibilidad: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.two,
-  },
-  filaCompatibilidadIzq: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  filaCompatibilidadDer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
-  punto: { width: 8, height: 8, borderRadius: 4 },
-  bloqueBio: { marginTop: Spacing.four },
-  tituloSeccion: { marginBottom: Spacing.one },
-  biografia: { lineHeight: 22 },
-  botonChat: {
+  datosIdentidad: { flex: 1, gap: Spacing.half },
+  filetePrincipal: { height: Filete.grueso },
+  rejilla: { flexDirection: 'row', gap: Spacing.three },
+  biografia: { lineHeight: 24 },
+  reportar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.one,
-    backgroundColor: AppColors.sello,
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
-    marginTop: Spacing.five,
-    minHeight: 44,
+    minHeight: 48,
   },
-  botonChatPresionado: { opacity: 0.85 },
-  botonChatTexto: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold, fontSize: 16 },
-  reportarBoton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.half,
-    marginTop: Spacing.three,
-    padding: Spacing.three,
-    minHeight: 44,
-  },
-  reportarBotonPresionado: { opacity: 0.6 },
-  reportarTexto: {},
+  presionado: { opacity: 0.6 },
 });
