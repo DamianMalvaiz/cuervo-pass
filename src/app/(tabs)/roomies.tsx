@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, FlatList, StyleSheet, Switch, TextInput, View
 import { TarjetaRoomie } from '@/components/TarjetaRoomie';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
 import { guardarMiRoomie, listarRoomiesSugeridos, obtenerMiRoomie } from '@/services/roomies.service';
@@ -163,16 +163,16 @@ export default function RoomiesScreen() {
 
 const styles = StyleSheet.create({
   tarjetaMiRoomie: {
-    borderWidth: 1,
-    borderRadius: Spacing.two,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.hoja,
     padding: Spacing.three,
     marginVertical: Spacing.three,
     gap: Spacing.two,
   },
   filaSwitch: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   inputDescripcion: {
-    borderWidth: 1,
-    borderRadius: Spacing.two,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.control,
     padding: Spacing.two,
     minHeight: 60,
     textAlignVertical: 'top',

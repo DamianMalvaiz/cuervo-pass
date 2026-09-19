@@ -43,6 +43,8 @@ export const Colors = {
     error: '#A81E12',
     /** Texto sobre un relleno de `error`. Blanco da 7.3:1 sobre este rojo. */
     errorTexto: '#FFFFFF',
+    /** Confirmación. Medido: 4.8:1 sobre papel. El #1a9d5c anterior daba 3.10. */
+    exito: '#146B3E',
   },
   /** La lámpara. */
   dark: {
@@ -61,6 +63,8 @@ export const Colors = {
     // La tinta sobre él da 7.3:1. Mismo patrón que el sello: el relleno trae
     // su propio color de texto en vez de asumir que siempre es blanco.
     errorTexto: '#12100E',
+    /** En oscuro el verde tiene que aclararse para separarse de la tinta. */
+    exito: '#4FBF85',
   },
 } as const;
 
@@ -80,11 +84,17 @@ export const AppColors = {
   /** Tinta de sello. Va de RELLENO, con `selloTexto` encima. Nunca como texto. */
   sello: '#E8A33D',
   selloTexto: '#12100E',
-  /** Prestado de WhatsApp porque el destino literalmente es WhatsApp. */
+  /** Prestado de WhatsApp porque el destino literalmente es WhatsApp. Es un
+   *  RELLENO con `selloTexto` encima: como texto no se usa nunca. */
   whatsappGreen: '#25D366',
-  successGreen: '#1a9d5c',
-  destructiveRed: '#d92d20',
 } as const;
+
+// `successGreen` y `destructiveRed` se retiraron por la misma razón que
+// `primary`: eran literales que nunca se midieron y se usaban como TEXTO.
+// #d92d20 da 4.29:1 sobre papel y 3.93:1 sobre tinta — reprueba AA en los dos
+// modos. #1a9d5c da 3.10:1 sobre papel. El tema ya trae `error`/`errorTexto`
+// medidos por modo (6.5:1 y 7.3:1) y le faltaba su verde; al borrar estos dos,
+// TypeScript señala cada sitio que hay que repuntar en vez de dejarlo pasar.
 
 /**
  * Archivo — grotesca de impresos de Omnibus-Type, fundidora latinoamericana.

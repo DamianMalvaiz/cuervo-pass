@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 
 import { FichaPublicacion } from '@/components/FichaPublicacion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Spacing, Tipografia } from '@/constants/theme';
+import {Spacing, Tipografia } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -130,7 +130,7 @@ export default function PublicacionesScreen() {
                     {/* AUD-16: el dueño se entera de por qué desapareció su
                         publicación, en vez de descubrirlo por su cuenta. */}
                     {item.oculta_por_reportes && (
-                      <ThemedText type="small" style={{ color: AppColors.destructiveRed }}>
+                      <ThemedText type="small" themeColor="error">
                         Oculta por reportes
                       </ThemedText>
                     )}
@@ -163,7 +163,10 @@ export default function PublicacionesScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={item.activa ? `Desactivar ${item.titulo}` : `Reactivar ${item.titulo}`}
                   >
-                    <ThemedText style={item.activa ? styles.desactivarTexto : styles.reactivarTexto}>
+                    <ThemedText
+                      themeColor={item.activa ? 'error' : 'exito'}
+                      style={item.activa ? styles.desactivarTexto : styles.reactivarTexto}
+                    >
                       {item.activa ? 'Desactivar' : 'Reactivar'}
                     </ThemedText>
                   </Pressable>
@@ -186,6 +189,6 @@ const styles = StyleSheet.create({
   acciones: { alignItems: 'flex-end', gap: Spacing.half },
   accionBoton: { padding: Spacing.three, minHeight: 44, justifyContent: 'center' },
   editarTexto: {},
-  desactivarTexto: { color: AppColors.destructiveRed },
-  reactivarTexto: { color: AppColors.successGreen },
+  desactivarTexto: {},
+  reactivarTexto: {},
 });

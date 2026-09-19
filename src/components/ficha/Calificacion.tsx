@@ -13,6 +13,10 @@ import { useTheme } from '@/hooks/use-theme';
  * sugerencias produce un score en [0,1]; aquí se presenta en la escala que este
  * público ya sabe interpretar.
  *
+ * La casilla NO lleva lavado ámbar. Una calificación informa, no compromete, y
+ * con veinte fichas en pantalla ese lavado ponía veinte manchas de sello donde
+ * no se podía actuar. El recuadro y el cuerpo de la cifra bastan.
+ *
  * Vive DENTRO de un recuadro con su etiqueta, alineada con las demás fichas de
  * la lista. Esa es la diferencia entre un documento y el widget de tablero de
  * "número grande, etiqueta chica" que cualquier app entrega: la cifra no flota,
@@ -40,7 +44,7 @@ export function Calificacion({
     <View
       style={[
         estilos.casilla,
-        { borderColor: theme.border, backgroundColor: theme.tintedSurface },
+        { borderColor: theme.border, backgroundColor: theme.backgroundElement },
         esFicha && estilos.casillaFicha,
       ]}
       accessibilityLabel={hay ? `${etiqueta.toLowerCase()} ${valor!.toFixed(1)} de 10` : `sin ${etiqueta.toLowerCase()}`}
@@ -50,6 +54,8 @@ export function Calificacion({
       </ThemedText>
       <ThemedText
         type={esFicha ? 'calificacion' : 'cifra'}
+        numberOfLines={1}
+        adjustsFontSizeToFit
         themeColor={hay ? 'text' : 'textSecondary'}
         style={esFicha ? undefined : estilos.cifraLista}
       >
@@ -68,12 +74,12 @@ const estilos = StyleSheet.create({
     alignItems: 'flex-start',
     // Ancho fijo para que la casilla caiga en la misma columna en cada ficha de
     // la lista. Un documento impreso nunca tambalea sus columnas.
-    minWidth: 76,
+    minWidth: 96,
   },
   casillaFicha: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     minWidth: 128,
   },
-  cifraLista: { fontSize: 28, lineHeight: 32, letterSpacing: -0.8 },
+  cifraLista: { fontSize: 40, lineHeight: 44, letterSpacing: -1.2 },
 });

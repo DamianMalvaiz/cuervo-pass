@@ -94,7 +94,7 @@ export default function RecuperarContrasenaScreen() {
 const styles = StyleSheet.create({
   container: { flexGrow: 1, justifyContent: 'center', padding: Spacing.four, gap: Spacing.two },
   input: { borderWidth: 1, borderRadius: Radios.control, padding: Spacing.three },
-  error: { color: AppColors.destructiveRed },
+  error: {},
   boton: {
     backgroundColor: AppColors.sello,
     borderRadius: Radios.control,

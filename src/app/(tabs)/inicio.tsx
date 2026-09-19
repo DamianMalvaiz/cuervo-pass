@@ -9,6 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
+import { fechaHoraDeSello, folioDe } from '@/lib/folio';
 import { obtenerSugerencias } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { PublicacionSugerida } from '@/types/database.types';
@@ -29,12 +30,6 @@ const OPCIONES_ORDEN: { valor: Orden; etiqueta: string }[] = [
   { valor: 'precio_asc', etiqueta: 'Menor precio' },
   { valor: 'precio_desc', etiqueta: 'Mayor precio' },
 ];
-
-/** El folio sale del id, que es lo único estable. Cuatro caracteres bastan para
- *  que se lea como número de expediente sin volverse ruido. */
-function folioDe(id: string): string {
-  return id.replace(/-/g, '').slice(0, 4).toUpperCase();
-}
 
 // Botón y filas cumplen el mínimo de 44pt (WCAG 2.2 SC 2.5.8) y usan
 // combobox/menu/menuitem con accessibilityValue, no "button" genérico.
@@ -79,7 +74,7 @@ function SelectorOrden({ valor, onCambiar }: { valor: Orden; onCambiar: (v: Orde
                 }}
                 style={[
                   estilos.filaSelector,
-                  seleccionado && { backgroundColor: theme.tintedSurface },
+                  seleccionado && { backgroundColor: theme.backgroundSelected },
                   indice < OPCIONES_ORDEN.length - 1 && {
                     borderBottomWidth: Filete.fino,
                     borderBottomColor: theme.filete,
@@ -89,10 +84,10 @@ function SelectorOrden({ valor, onCambiar }: { valor: Orden; onCambiar: (v: Orde
                 accessibilityLabel={opcion.etiqueta}
                 accessibilityState={{ selected: seleccionado }}
               >
-                <ThemedText type="small" themeColor={seleccionado ? 'acento' : 'textSecondary'}>
+                <ThemedText type="small" themeColor={seleccionado ? 'text' : 'textSecondary'}>
                   {opcion.etiqueta}
                 </ThemedText>
-                {seleccionado && <Ionicons name="checkmark" size={16} color={theme.acento} />}
+                {seleccionado && <Ionicons name="checkmark" size={16} color={theme.text} />}
               </Pressable>
             );
           })}
@@ -110,16 +105,23 @@ function SelectorOrden({ valor, onCambiar }: { valor: Orden; onCambiar: (v: Orde
  * 2; si apago el contenedor sigue funcionando en Nivel 1" — y demostrarlo en
  * vivo — vale más que cualquier feature extra, y aquí se lee sin buscarlo.
  *
- * El nivel no se codifica solo con color: cambian el icono, el texto y el tono.
+ * El nivel no se codifica con ÁMBAR: en esta pantalla no hay ninguna acción que
+ * comprometa, así que no hay sello que gastar. El Nivel 2 se distingue por el
+ * icono, por el texto y por el contraste pleno frente al tono secundario del
+ * Nivel 1 — tres señales, ninguna dependiente solo del color.
  */
 function EncabezadoExpediente({
   nivel,
   registros,
+  emitido,
   orden,
   onCambiarOrden,
 }: {
   nivel: 1 | 2;
   registros: number;
+  /** Cuándo se consultó. Un expediente lleva su fecha de emisión, y aquí además
+   *  dice qué tan fresca es la lista que se está viendo. */
+  emitido: Date | null;
   orden: Orden;
   onCambiarOrden: (v: Orden) => void;
 }) {
@@ -133,9 +135,9 @@ function EncabezadoExpediente({
           <Ionicons
             name={esNivel2 ? 'sparkles' : 'options-outline'}
             size={14}
-            color={esNivel2 ? theme.acento : theme.textSecondary}
+            color={esNivel2 ? theme.text : theme.textSecondary}
           />
-          <ThemedText type="etiqueta" themeColor={esNivel2 ? 'acento' : 'textSecondary'}>
+          <ThemedText type="etiqueta" themeColor={esNivel2 ? 'text' : 'textSecondary'}>
             {esNivel2 ? 'NIVEL 2 · AFINIDAD SEMÁNTICA' : 'NIVEL 1 · FILTROS PONDERADOS'}
           </ThemedText>
         </View>
@@ -144,6 +146,7 @@ function EncabezadoExpediente({
 
       <ThemedText type="folio" themeColor="textSecondary">
         {registros === 1 ? '1 REGISTRO' : `${registros} REGISTROS`}
+        {emitido ? ` · EMITIDO ${fechaHoraDeSello(emitido)}` : ''}
       </ThemedText>
 
       {/* El filete grueso cierra el encabezado, como la regla que separa el
@@ -188,15 +191,24 @@ export default function InicioScreen() {
   const [refrescando, setRefrescando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orden, setOrden] = useState<Orden>('recomendado');
+  const [emitido, setEmitido] = useState<Date | null>(null);
   const theme = useTheme();
 
   const cargar = useCallback(async () => {
-    if (!session?.user.id) return;
+    // Sin sesión hay que APAGAR los indicadores igual. Antes esto salía con un
+    // `return` seco antes del try/finally, así que `cargando` se quedaba en true
+    // y la pantalla mostraba "CONSULTANDO EXPEDIENTE" para siempre.
+    if (!session?.user.id) {
+      setCargando(false);
+      setRefrescando(false);
+      return;
+    }
     setError(null);
     try {
       const resultado = await obtenerSugerencias();
       setSugerencias(resultado.datos);
       setNivel(resultado.nivel);
+      setEmitido(new Date());
     } catch (e) {
       // §27: nunca una pantalla en blanco. Se dice qué pasó y se ofrece
       // reintentar; "algo salió mal" no es un mensaje de error, es una forma de
@@ -253,13 +265,31 @@ export default function InicioScreen() {
       <EncabezadoExpediente
         nivel={nivel}
         registros={listaFinal.length}
+        emitido={emitido}
         orden={orden}
         onCambiarOrden={setOrden}
       />
 
+      {/* §27: un refresh que falla CON resultados ya en memoria mostraba datos
+          viejos y ningún aviso. Silencioso es la peor forma de fallar, y más a
+          media exposición. El aviso va aquí, sobre la lista, además del bloque
+          que se pinta cuando la lista está vacía. */}
+      {error && listaFinal.length > 0 && (
+        <View style={[estilos.avisoError, { borderColor: theme.error, backgroundColor: theme.backgroundElement }]}>
+          <Ionicons name="cloud-offline-outline" size={16} color={theme.error} />
+          <ThemedText
+            type="small"
+            style={[{ color: theme.error }, estilos.textoAviso]}
+            accessibilityLiveRegion="polite"
+          >
+            No pudimos actualizar. Estás viendo los últimos resultados cargados.
+          </ThemedText>
+        </View>
+      )}
+
       {cargando ? (
         <View style={estilos.cargando}>
-          <ActivityIndicator color={theme.acento} />
+          <ActivityIndicator color={theme.textSecondary} />
           <ThemedText type="etiqueta" themeColor="textSecondary">
             CONSULTANDO EXPEDIENTE
           </ThemedText>
@@ -274,8 +304,8 @@ export default function InicioScreen() {
             <RefreshControl
               refreshing={refrescando}
               onRefresh={onRefrescar}
-              tintColor={theme.acento}
-              colors={[theme.acento]}
+              tintColor={theme.textSecondary}
+              colors={[theme.textSecondary]}
             />
           }
           renderItem={({ item }) => (
@@ -344,6 +374,17 @@ const estilos = StyleSheet.create({
   filetePrincipal: { height: Filete.grueso, marginTop: Spacing.two },
   lista: { padding: Spacing.three, gap: Spacing.three, paddingBottom: Spacing.six },
   cargando: { marginTop: Spacing.five, alignItems: 'center', gap: Spacing.two },
+  avisoError: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    marginHorizontal: Spacing.three,
+    marginTop: Spacing.three,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.control,
+    padding: Spacing.three,
+  },
+  textoAviso: { flex: 1, lineHeight: 20 },
   bloqueEstado: {
     borderWidth: Filete.fino,
     borderRadius: Radios.hoja,

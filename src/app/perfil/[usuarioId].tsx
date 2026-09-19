@@ -206,8 +206,10 @@ export default function PerfilRoomieScreen() {
           accessibilityLabel="Reportar usuario"
           hitSlop={8}
         >
-          <Ionicons name="flag-outline" size={14} color={AppColors.destructiveRed} />
-          <ThemedText style={styles.reportarTexto}>Reportar usuario</ThemedText>
+          <Ionicons name="flag-outline" size={14} color={theme.error} />
+          <ThemedText themeColor="error" style={styles.reportarTexto}>
+            Reportar usuario
+          </ThemedText>
         </Pressable>
       </Animated.View>
     </ScrollView>
@@ -225,7 +227,7 @@ interface FilaCompatibilidadProps {
 
 function FilaCompatibilidad({ icono, etiqueta, valor, positivo, esUltima, colorBorde }: FilaCompatibilidadProps) {
   const theme = useTheme();
-  const colorPunto = positivo === undefined ? undefined : positivo ? AppColors.successGreen : theme.textSecondary;
+  const colorPunto = positivo === undefined ? undefined : positivo ? theme.exito : theme.textSecondary;
 
   return (
     <View style={[styles.filaCompatibilidad, !esUltima && { borderBottomWidth: 1, borderBottomColor: colorBorde }]}>
@@ -291,5 +293,5 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   reportarBotonPresionado: { opacity: 0.6 },
-  reportarTexto: { color: AppColors.destructiveRed },
+  reportarTexto: {},
 });

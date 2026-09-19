@@ -28,12 +28,12 @@ function temaNavegacion(esOscuro: boolean): Theme {
   return {
     dark: esOscuro,
     colors: {
-      primary: c.acento,
+      primary: c.text,
       background: c.background,
       card: c.background,
       text: c.text,
       border: c.filete,
-      notification: c.acento,
+      notification: c.text,
     },
     fonts: {
       regular: { fontFamily: Tipografia.regular, fontWeight: '400' },
@@ -68,7 +68,7 @@ export default function RootLayout() {
   const encabezado = {
     headerShown: true,
     headerStyle: { backgroundColor: c.background },
-    headerTintColor: c.acento,
+    headerTintColor: c.text,
     headerTitleStyle: { fontFamily: Tipografia.semibold, fontSize: 16, color: c.text },
     headerShadowVisible: false,
     // Un impreso separa sus bloques con filete, no con sombra. Android ignora

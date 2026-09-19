@@ -5,7 +5,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { z } from 'zod';
 
-import { AppColors, Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { OPCION_OTRA_UNIVERSIDAD, UNIVERSIDADES } from '@/lib/universidades';
 import { Campo } from './Campo';
@@ -443,8 +443,12 @@ function OpcionRadio({
   );
 }
 
-/** Pregunta de sí/no. El interruptor se tiñe con el acento, no con el verde de
- *  sistema que no pertenece a esta paleta. */
+/** Pregunta de sí/no.
+ *
+ *  El interruptor se tiñe con TINTA, no con ámbar: mover una preferencia no
+ *  compromete nada —el cambio se guarda con el botón de abajo— y con tres filas
+ *  de sí/no eran tres sellos donde no se puede actuar. Tampoco con el verde del
+ *  sistema, que no pertenece a esta paleta. */
 function FilaInterruptor({
   etiqueta,
   ayuda,
@@ -471,8 +475,8 @@ function FilaInterruptor({
         value={valor}
         onValueChange={onCambiar}
         accessibilityLabel={etiqueta}
-        trackColor={{ true: AppColors.sello, false: theme.border }}
-        thumbColor={valor ? AppColors.selloTexto : theme.background}
+        trackColor={{ true: theme.text, false: theme.border }}
+        thumbColor={valor ? theme.background : theme.background}
         ios_backgroundColor={theme.border}
       />
     </View>

@@ -3,7 +3,7 @@ import { Tabs } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet, View, type ColorValue } from 'react-native';
 
-import { AppColors, Filete, Spacing, Tipografia } from '@/constants/theme';
+import {Filete, Spacing, Tipografia } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { registrarTokenPush, useAbrirChatDesdeNotificacion } from '@/lib/pushNotifications';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -13,16 +13,16 @@ type NombreIcono = keyof typeof Ionicons.glyphMap;
 /**
  * La pestaña activa se marca con TRES señales, no con una.
  *
- * Solo teñir de ámbar sería codificar el estado únicamente con color, y quien no
- * distingue ese tono no ve nada. Aquí el estado activo trae: barra de sello
- * encima (una marca, como la pestaña levantada de un folder), icono relleno en
- * vez de contorno, y la etiqueta en semibold. Cualquiera de las tres basta.
+ * Navegar no compromete nada, así que la pestaña activa no gasta sello: se marca
+ * con barra encima —como la pestaña levantada de un folder—, icono relleno en vez
+ * de contorno, y contraste pleno frente al tono secundario. Tres señales, ninguna
+ * dependiente solo del color.
  */
 function crearIcono(activo: NombreIcono, inactivo: NombreIcono) {
   function Icono({ focused, color, size }: { focused: boolean; color: ColorValue; size: number }) {
     return (
       <View style={estilos.envolturaIcono}>
-        <View style={[estilos.marca, focused && estilos.marcaActiva]} />
+        <View style={[estilos.marca, focused && { backgroundColor: color as string }]} />
         <Ionicons name={focused ? activo : inactivo} size={size - 2} color={color as string} />
       </View>
     );
@@ -47,7 +47,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: true,
-        tabBarActiveTintColor: theme.acento,
+        tabBarActiveTintColor: theme.text,
         tabBarInactiveTintColor: theme.textSecondary,
         tabBarStyle: {
           backgroundColor: theme.background,
@@ -104,5 +104,5 @@ const estilos = StyleSheet.create({
   // Siempre ocupa su espacio, activa o no: si apareciera solo al activarse,
   // el icono brincaría dos píxeles en cada cambio de pestaña.
   marca: { width: 18, height: Filete.grueso, backgroundColor: 'transparent' },
-  marcaActiva: { backgroundColor: AppColors.sello },
+  marcaActiva: {},
 });

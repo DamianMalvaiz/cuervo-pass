@@ -429,14 +429,21 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
                   onPress={() => onChange(tipo.valor)}
                   style={[
                     styles.pastillaTipo,
-                    { borderColor: seleccionado ? AppColors.sello : theme.border },
-                    seleccionado && { backgroundColor: AppColors.sello },
+                    // Elegir el tipo es reversible, así que no gasta sello: se
+                    // marca como en un formulario —lavado y filete del acento—,
+                    // igual que las opciones del cuestionario.
+                    { borderColor: seleccionado ? theme.acento : theme.border },
+                    seleccionado && { backgroundColor: theme.tintedSurface },
                   ]}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: seleccionado }}
                   accessibilityLabel={tipo.etiqueta}
                 >
-                  <ThemedText type="small" style={seleccionado ? styles.textoPastillaActiva : undefined}>
+                  <ThemedText
+                    type="small"
+                    themeColor={seleccionado ? 'acento' : 'text'}
+                    style={seleccionado ? styles.textoPastillaActiva : undefined}
+                  >
                     {tipo.etiqueta}
                   </ThemedText>
                 </Pressable>
@@ -528,7 +535,7 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
       />
       {buscandoCP && <ActivityIndicator style={styles.cargandoSugerencias} size="small" />}
       {cpNoEncontrado && (
-        <ThemedText type="small" style={styles.avisoCpNoEncontrado}>
+        <ThemedText type="small" themeColor="error" style={styles.avisoCpNoEncontrado}>
           No encontramos ese código postal — puedes llenar colonia/municipio/estado a mano.
         </ThemedText>
       )}
@@ -721,12 +728,12 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
             <Image source={{ uri: uriDeFoto(foto) }} style={styles.fotoMini} contentFit="cover" />
             <Pressable
               onPress={() => onQuitarFoto(foto)}
-              style={styles.fotoMiniQuitar}
+              style={[styles.fotoMiniQuitar, { backgroundColor: theme.error }]}
               hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel={`Quitar foto ${indice + 1}`}
             >
-              <Ionicons name="close" size={14} color={AppColors.selloTexto} />
+              <Ionicons name="close" size={14} color={theme.errorTexto} />
             </Pressable>
           </View>
         ))}
@@ -768,7 +775,7 @@ const styles = StyleSheet.create({
     minHeight: 36,
     justifyContent: 'center',
   },
-  textoPastillaActiva: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
+  textoPastillaActiva: { fontFamily: Tipografia.semibold },
   filaSwitch: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -782,12 +789,14 @@ const styles = StyleSheet.create({
   inputMitad: { flex: 1 },
   filaDos: { flexDirection: 'row', gap: Spacing.two },
   descripcionInput: { minHeight: 80, textAlignVertical: 'top' },
-  error: { color: AppColors.destructiveRed },
+  error: {},
   etiqueta: { marginTop: Spacing.two },
   cargandoSugerencias: { marginTop: Spacing.one, alignSelf: 'flex-start' },
-  avisoCpNoEncontrado: { color: AppColors.destructiveRed },
+  avisoCpNoEncontrado: {},
   envolturaDesplegable: { position: 'relative', zIndex: 1 },
-  envolturaDesplegableAbierta: { zIndex: 30, elevation: 30 },
+  // `zIndex` solo: en React Native ordena hermanos también en Android, y
+  // `elevation` además DIBUJA sombra, que es justo lo que este mundo no usa.
+  envolturaDesplegableAbierta: { zIndex: 30 },
   campoDesplegable: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -804,11 +813,10 @@ const styles = StyleSheet.create({
     padding: Spacing.one,
     maxHeight: 260,
     overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    // Sin sombra: este mundo separa con filete, y Android ignora `shadowColor`
+    // —solo aplica `elevation`, siempre gris— así que la sombra "de marca" se
+    // veía como una mancha en la mitad de los teléfonos. El borde y el fondo
+    // opaco bastan para que el desplegable se lea por encima de la lista.
     zIndex: 30,
   },
   buscadorDesplegable: {
@@ -835,7 +843,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -Spacing.half,
     right: -Spacing.half,
-    backgroundColor: AppColors.destructiveRed,
     borderRadius: 10,
     width: 20,
     height: 20,

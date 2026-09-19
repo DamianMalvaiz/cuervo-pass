@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet } from 'react-native';
 
-import { AppColors, Spacing, Tipografia } from '@/constants/theme';
+import { AppColors, Radios, Spacing, Tipografia } from '@/constants/theme';
 import { ThemedText } from './themed-text';
 
 interface Props {
@@ -65,6 +65,12 @@ export function BotonVerContacto({ publicacionId, titulo, score, onRevelar, onEr
         <ActivityIndicator color={AppColors.selloTexto} />
       ) : (
         <>
+          {/* El glifo va en TINTA, no en verde de WhatsApp. Se intentó dejarlo
+              verde para conservar la pista del destino, y la medición lo
+              descartó: verde #25D366 sobre ámbar #E8A33D da 1.09:1, invisible.
+              La pista del destino la sigue dando la FORMA del logotipo, que se
+              reconoce en cualquier color; lo que no se recupera es un glifo que
+              no se ve. */}
           <Ionicons name="logo-whatsapp" size={20} color={AppColors.selloTexto} />
           <ThemedText style={styles.texto}>Ver contacto</ThemedText>
         </>
@@ -79,10 +85,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.two,
-    backgroundColor: AppColors.whatsappGreen,
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
-    minHeight: 44,
+    // EL SELLO. Es la única acción de toda la app que compromete algo —revela
+    // un teléfono ajeno y consume cuota— así que es la única que lleva ámbar.
+    // Antes iba en verde de WhatsApp: prestaba el color del destino, pero dejaba
+    // la acción que de verdad compromete sin la tinta que la marca, y ponía un
+    // segundo color de marca en el lugar exacto que el sello reserva.
+    backgroundColor: AppColors.sello,
+    borderRadius: Radios.control,
+    paddingHorizontal: Spacing.four,
+    minHeight: 48,
   },
   texto: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
 });

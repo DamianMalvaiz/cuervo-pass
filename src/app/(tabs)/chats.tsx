@@ -4,7 +4,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Spacing } from '@/constants/theme';
+import { Radios, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formateadorHora } from '@/lib/formatoHora';
 import {
@@ -84,9 +84,11 @@ export default function ChatsScreen() {
                     {formateadorHora.format(new Date(item.ultimoMensaje.creado_en))}
                   </ThemedText>
                 )}
+                {/* Cuño de tinta, no de ámbar: un contador de no leídos informa,
+                    no compromete. Alto contraste y monocromo. */}
                 {item.noLeidos > 0 && (
-                  <View style={styles.insigniaNoLeidos}>
-                    <ThemedText type="small" style={styles.textoInsignia}>
+                  <View style={[styles.insigniaNoLeidos, { backgroundColor: theme.text }]}>
+                    <ThemedText type="small" themeColor="background" style={styles.textoInsignia}>
                       {item.noLeidos}
                     </ThemedText>
                   </View>
@@ -105,13 +107,12 @@ const styles = StyleSheet.create({
   fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.three, minHeight: 44 },
   derecha: { alignItems: 'flex-end', gap: Spacing.half },
   insigniaNoLeidos: {
-    backgroundColor: AppColors.sello,
-    borderRadius: 10,
+    borderRadius: Radios.full,
     minWidth: 20,
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.half,
   },
-  textoInsignia: { color: AppColors.selloTexto, fontSize: 11, lineHeight: 14 },
+  textoInsignia: { fontSize: 11, lineHeight: 14 },
 });

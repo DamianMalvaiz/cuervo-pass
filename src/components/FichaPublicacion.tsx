@@ -74,6 +74,11 @@ export function FichaPublicacion({
 
   const descripcionAccesible = [
     titulo,
+    // La calificación iba PRIMERO en la pantalla y no aparecía en la etiqueta
+    // accesible: un lector de pantalla oía todo menos la tesis.
+    typeof score === 'number' && Number.isFinite(score)
+      ? `afinidad ${(Math.min(10, Math.max(0, score * 10))).toFixed(1)} de 10`
+      : 'sin calificación de afinidad',
     `${precioTexto} al mes`,
     direccion,
     hayDistancia ? `a ${distanciaKm!.toFixed(1)} kilómetros de tu universidad` : 'sin distancia calculada',
@@ -131,15 +136,22 @@ export function FichaPublicacion({
           {direccion}
         </ThemedText>
 
+        {/* La calificación va PRIMERO y a cuerpo grande.
+            Estaba a la derecha, a 28px, en tercer lugar y debajo de una foto a
+            todo el ancho: acabó siendo el dato MENOS prominente de la ficha,
+            justo el que es la tesis entera del producto. Airbnb ordena por deseo
+            y por eso la foto manda; esto ordena por AJUSTE, y quien lo lee tiene
+            que ver primero cuánto le ajusta. */}
         <View style={estilos.fichaCampos}>
-          <CampoFicha etiqueta="RENTA MENSUAL" valor={precioTexto} ancho={3} />
-          <CampoFicha
-            etiqueta="DISTANCIA"
-            valor={hayDistancia ? `${distanciaKm!.toFixed(1)} km` : 'sin dato'}
-            ancho={3}
-            tono={hayDistancia ? 'normal' : 'atenuado'}
-          />
           <Calificacion score={score} />
+          <View style={estilos.camposDerecha}>
+            <CampoFicha etiqueta="RENTA MENSUAL" valor={precioTexto} />
+            <CampoFicha
+              etiqueta="DISTANCIA"
+              valor={hayDistancia ? `${distanciaKm!.toFixed(1)} km` : 'sin dato'}
+              tono={hayDistancia ? 'normal' : 'atenuado'}
+            />
+          </View>
         </View>
 
         {atributos.length > 0 && (
@@ -189,10 +201,11 @@ const estilos = StyleSheet.create({
   cuerpo: { padding: Spacing.three, gap: Spacing.two },
   fichaCampos: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: Spacing.two,
+    alignItems: 'stretch',
+    gap: Spacing.three,
     marginTop: Spacing.one,
   },
+  camposDerecha: { flex: 1, justifyContent: 'space-between', gap: Spacing.two },
   atributos: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three, paddingTop: Spacing.two },
   atributo: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
 });

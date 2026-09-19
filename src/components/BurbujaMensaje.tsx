@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
-import { AppColors, Spacing } from '@/constants/theme';
+import { Radios, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formateadorHora } from '@/lib/formatoHora';
 import type { Mensaje } from '@/types/database.types';
@@ -27,14 +27,15 @@ export function BurbujaMensaje({ mensaje, esPropio }: Props) {
       <View
         style={[
           styles.burbuja,
-          esPropio ? { backgroundColor: AppColors.sello } : { backgroundColor: theme.backgroundElement },
+          esPropio ? { backgroundColor: theme.text } : { backgroundColor: theme.backgroundElement },
         ]}
       >
-        <ThemedText style={esPropio ? styles.textoPropio : undefined}>{mensaje.contenido}</ThemedText>
+        <ThemedText themeColor={esPropio ? 'background' : 'text'}>{mensaje.contenido}</ThemedText>
         <View style={styles.pie}>
           <ThemedText
             type="small"
-            style={[styles.hora, esPropio ? styles.textoPropioSecundario : { color: theme.textSecondary }]}
+            themeColor={esPropio ? 'background' : 'textSecondary'}
+            style={[styles.hora, esPropio && styles.horaPropia]}
           >
             {hora}
           </ThemedText>
@@ -42,7 +43,7 @@ export function BurbujaMensaje({ mensaje, esPropio }: Props) {
             <Ionicons
               name={mensaje.leido ? 'checkmark-done' : 'checkmark'}
               size={14}
-              color={mensaje.leido ? '#fff' : 'rgba(18,16,14,0.55)'}
+              color={mensaje.leido ? theme.background : theme.textSecondary}
             />
           )}
         </View>
@@ -55,8 +56,8 @@ const styles = StyleSheet.create({
   fila: { flexDirection: 'row', marginVertical: Spacing.half },
   filaPropia: { justifyContent: 'flex-end' },
   filaAjena: { justifyContent: 'flex-start' },
-  burbuja: { maxWidth: '80%', borderRadius: Spacing.two, padding: Spacing.two },
-  textoPropio: { color: AppColors.selloTexto },
+  burbuja: { maxWidth: '80%', borderRadius: Radios.control, padding: Spacing.two },
+  horaPropia: { opacity: 0.75 },
   pie: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half, marginTop: Spacing.half, alignSelf: 'flex-end' },
   hora: { fontSize: 11, lineHeight: 14 },
   textoPropioSecundario: { color: 'rgba(18,16,14,0.55)' },

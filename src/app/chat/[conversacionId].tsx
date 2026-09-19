@@ -187,7 +187,7 @@ export default function ConversacionScreen() {
         )}
 
         {error && (
-          <ThemedText type="small" style={styles.error} accessibilityLiveRegion="assertive">
+          <ThemedText type="small" themeColor="error" style={styles.error} accessibilityLiveRegion="assertive">
             {error}
           </ThemedText>
         )}
@@ -223,7 +223,7 @@ export default function ConversacionScreen() {
 const styles = StyleSheet.create({
   lista: { padding: Spacing.three, flexGrow: 1, justifyContent: 'flex-end' },
   vacio: { textAlign: 'center', marginTop: Spacing.four },
-  error: { color: AppColors.destructiveRed, paddingHorizontal: Spacing.three },
+  error: { paddingHorizontal: Spacing.three },
   botonAnteriores: { alignItems: 'center', paddingVertical: Spacing.two, minHeight: 44, justifyContent: 'center' },
   filaInput: {
     flexDirection: 'row',

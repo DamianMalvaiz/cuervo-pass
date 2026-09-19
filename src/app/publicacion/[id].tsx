@@ -5,11 +5,11 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
+  useWindowDimensions,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
@@ -21,10 +21,11 @@ import { DesgloseCalificacion } from '@/components/ficha/DesgloseCalificacion';
 import { Seccion } from '@/components/ficha/Seccion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Filete, Radios, Spacing } from '@/constants/theme';
+import {Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
 import { calcularDistanciaKm } from '@/lib/distancia';
+import { fechaDeSello, folioDe } from '@/lib/folio';
 import { ATRIBUCION_MAPA } from '@/lib/geocoding';
 import {
   obtenerPublicacionPublica,
@@ -36,8 +37,6 @@ import { usePerfilStore } from '@/store/usePerfilStore';
 import type { PublicacionPublica } from '@/types/database.types';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
-const ANCHO = Dimensions.get('window').width;
-
 const ETIQUETA_TIPO: Record<string, string> = {
   depa: 'DEPARTAMENTO',
   cuarto: 'CUARTO',
@@ -65,6 +64,11 @@ export default function DetallePublicacionScreen() {
   const [publicacion, setPublicacion] = useState<PublicacionPublica | null>(null);
   const [cargando, setCargando] = useState(true);
   const [foja, setFoja] = useState(0);
+  // El ancho se lee en cada render, no al importar el módulo: con `Dimensions`
+  // capturado arriba, el carrusel paginado quedaba desalineado tras rotar el
+  // teléfono o en pantalla dividida. PRODUCT.md declara la plataforma
+  // `adaptive`, así que eso no es un caso raro.
+  const { width: ancho } = useWindowDimensions();
 
   useEffect(() => {
     if (!id) return;
@@ -144,22 +148,24 @@ export default function DetallePublicacionScreen() {
       : null;
 
   const fotos = publicacion.fotos ?? [];
-  const folio = publicacion.id.replace(/-/g, '').slice(0, 4).toUpperCase();
+  const folio = folioDe(publicacion.id);
+  const alta = fechaDeSello(publicacion.creado_en);
   const etiquetaTipo = ETIQUETA_TIPO[publicacion.tipo] ?? String(publicacion.tipo).toUpperCase();
 
   const alDesplazar = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setFoja(Math.round(e.nativeEvent.contentOffset.x / ANCHO));
+    setFoja(Math.round(e.nativeEvent.contentOffset.x / ancho));
   };
 
   return (
     <ScrollView contentContainerStyle={estilos.hoja} showsVerticalScrollIndicator={false}>
       {/* Membrete: qué documento es y cuál. */}
-      <View style={estilos.membrete}>
+      <View style={[estilos.membrete, { borderBottomColor: theme.filete }]}>
         <ThemedText type="etiqueta" themeColor="textSecondary">
           {etiquetaTipo}
         </ThemedText>
         <ThemedText type="folio" themeColor="textSecondary">
           FOLIO {folio}
+          {alta ? ` · ALTA ${alta}` : ''}
         </ThemedText>
       </View>
 
@@ -175,9 +181,15 @@ export default function DetallePublicacionScreen() {
             {fotos.map((ruta) => {
               const url = urlsFirmadas.get(ruta);
               return url ? (
-                <Image key={ruta} source={{ uri: url }} style={estilos.foto} contentFit="cover" transition={160} />
+                <Image
+                  key={ruta}
+                  source={{ uri: url }}
+                  style={[estilos.foto, { width: ancho }]}
+                  contentFit="cover"
+                  transition={160}
+                />
               ) : (
-                <View key={ruta} style={[estilos.foto, { backgroundColor: theme.backgroundElement }]} />
+                <View key={ruta} style={[estilos.foto, { width: ancho, backgroundColor: theme.backgroundElement }]} />
               );
             })}
           </ScrollView>
@@ -193,7 +205,7 @@ export default function DetallePublicacionScreen() {
           )}
         </View>
       ) : (
-        <View style={[estilos.foto, estilos.sinFoto, { backgroundColor: theme.backgroundElement, width: ANCHO }]}>
+        <View style={[estilos.foto, estilos.sinFoto, { width: ancho, backgroundColor: theme.backgroundElement }]}>
           <Ionicons name="image-outline" size={24} color={theme.textSecondary} />
           <ThemedText type="etiqueta" themeColor="textSecondary">
             SIN FOTOGRAFÍA
@@ -207,8 +219,14 @@ export default function DetallePublicacionScreen() {
           {publicacion.direccion}
         </ThemedText>
 
-        {/* La interacción firma del producto: la caja negra se abre. */}
-        <DesgloseCalificacion score={aNumero(score)} base={aNumero(base)} similitud={aNumero(sim)} />
+        {/* La interacción firma del producto: la caja negra se abre.
+            Solo cuando HAY calificación. Al abrir esta ficha desde "Mis
+            publicaciones" no hay score —no existe afinidad contigo mismo— y
+            pintar la casilla vacía con "¿Por qué esta calificación?" debajo
+            dejaba una afordancia muerta. */}
+        {aNumero(score) != null && (
+          <DesgloseCalificacion score={aNumero(score)} base={aNumero(base)} similitud={aNumero(sim)} />
+        )}
 
         <Seccion titulo="DATOS DE LA PUBLICACIÓN">
           <View style={estilos.rejilla}>
@@ -321,8 +339,8 @@ export default function DetallePublicacionScreen() {
           accessibilityRole="button"
           accessibilityLabel="Reportar publicación"
         >
-          <Ionicons name="flag-outline" size={16} color={AppColors.destructiveRed} />
-          <ThemedText type="small" style={estilos.textoReportar}>
+          <Ionicons name="flag-outline" size={16} color={theme.error} />
+          <ThemedText type="small" themeColor="error" style={estilos.textoReportar}>
             Reportar publicación
           </ThemedText>
         </Pressable>
@@ -339,10 +357,14 @@ const estilos = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,
+    // El filete que el contrato pide bajo el membrete. Un formulario separa su
+    // encabezado del cuerpo con una regla, no con aire.
+    borderBottomWidth: Filete.fino,
   },
-  foto: { width: ANCHO, aspectRatio: 3 / 2 },
+  foto: { aspectRatio: 3 / 2 },
   sinFoto: { alignItems: 'center', justifyContent: 'center', gap: Spacing.one },
   foja: {
     position: 'absolute',
@@ -374,5 +396,5 @@ const estilos = StyleSheet.create({
     gap: Spacing.one,
     minHeight: 44,
   },
-  textoReportar: { color: AppColors.destructiveRed },
+  textoReportar: {},
 });
