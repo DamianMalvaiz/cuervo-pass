@@ -469,55 +469,194 @@ razonamiento sino de no validar las condiciones del experimento. El peor: un
 `grep` terminado en `| grep -v ".venv"` se comió la única línea que refutaba una
 afirmación, y sobre esa premisa falsa se revirtió un commit correcto.
 
+### Fase 0 aplicada, y cinco órdenes del plan (19/09/2026 · tarde)
+
+- **Logrado:** las cinco migraciones del bloque crítico aplicadas a producción
+  con respaldo previo, `pg_cron` activo, los dos secretos de Vault puestos y el
+  barredor desplegado y probado de punta a punta. **19 de 19 barreras** contra
+  producción, que es la compuerta que cierra la Fase 0. Después, cinco órdenes
+  del §5: B.1, B.2, B.4, C.1, C.2 y E.2.
+- **Atorado:** dos barreras de seguridad reportaban `[ EXPUESTO ]` con la
+  remediación aplicada y funcionando. Costó media hora descartar policies,
+  vistas y permisos antes de encontrar que el problema era la prueba.
+- **Decisión:** ninguna orden se cerró sin su prueba en rojo primero. Las seis
+  lo tuvieron, y dos de esos rojos —`have: 2 want: 5` y `have: 3 want: 1`— son
+  la evidencia más barata de que el defecto era real y no una interpretación.
+- **Horas:** — / —
+
+**Compuertas antes y después de esta tanda:**
+
+| | Antes | Después |
+|---|---|---|
+| pgTAP | 40 | **51** |
+| Aislamiento contra producción | 15 (4 fallando) | **19 de 19** |
+| Frontend | 98 | **144** |
+| Migraciones en producción | 0021 | **0029** |
+
+#### Las dos barreras que medían la caché, no la policy
+
+El hallazgo más instructivo del día, y va contra una prueba nuestra.
+
+Tras aplicar la `0022`, `prueba-rls.mjs` insistía en que una cuenta cualquiera
+seguía descargando la foto de una publicación desactivada. Se descartó una por
+una: las policies de `storage.objects` son correctas e **idénticas** en local y
+producción, la permisiva de la `0016` ya no existe, `publicaciones_publicas`
+filtra por `activa`, `perfiles_publicos` por `activo`, y el bucket es privado en
+ambos entornos.
+
+El experimento que lo cerró: con la publicación ya desactivada, la ruta hermana
+`1.jpg` —**nunca pedida**— quedó bloqueada, mientras `0.jpg` —pedida cuando era
+visible— seguía descargando. Storage servía la segunda petición desde caché y
+**la policy no llegaba a evaluarse**.
+
+La prueba pedía la misma ruta antes y después de ocultar el objeto. Ahora cada
+barrera negativa usa una ruta fría; para la foto de perfil, cuya ruta es fija
+por persona, la ruta fría es la de una cuarta cuenta.
+
+Es el §8 del documento de endurecimiento aplicado al script que ese documento
+produjo: **verifica las condiciones del experimento antes de creerle al
+resultado**. Y una prueba de seguridad que grita sin motivo acaba ignorada, que
+es peor que no tenerla.
+
+#### Lo que cambió para quien usa la app
+
+- **END-08** · El motor devolvía solo las publicaciones vectorizadas y el
+  servicio daba eso por «Nivel 2» con que hubiera una sola fila. Medido en
+  producción: una cuenta sin vector propio recibía **cero** sugerencias del
+  motor y ahora recibe **diez**, las mismas que siempre pasaron el filtro duro.
+  El error era de granularidad: lo que degrada cuando falta un embedding es el
+  ORDEN de una fila, no la EXISTENCIA de la lista. El kicker deja de ser una
+  bandera y dice «12 DE 20 CON AFINIDAD SEMÁNTICA», que además demuestra en vez
+  de afirmar.
+- **END-09** · El score de mascotas restaba 0.125 a los alojamientos *pet
+  friendly* de quien **no** tiene mascota, al revés de lo que su propio
+  comentario afirmaba treinta líneas más abajo. Afectaba a **62 de 102** cuentas
+  y a las 29 publicaciones que aceptan mascotas.
+- **END-11** · El peor mensaje que tenía la app: un fallo de red hacía que la
+  ficha dijera «pudo desactivarse u ocultarse tras varios reportes». Se caía el
+  wifi y la app **acusaba de abuso** al anuncio de otra persona. Y en el perfil
+  propio, «Sin presupuesto · Sin distancia · Sin universidad» a quien acababa de
+  llenar el cuestionario.
+- **END-12** · Un error de render en release era **pantalla blanca**. Ahora hay
+  `ErrorBoundary` con reintento, y los 21 `console.warn` —invisibles en un build
+  de release— pasan por `src/lib/registro.ts`, que limpia en profundidad lo que
+  §29 no deja salir del teléfono.
+- **END-13** · Reabrir cinco publicaciones cinco veces agotaba las 25 cuotas
+  diarias **usando la app con normalidad**. Verificado en producción: tres
+  revelaciones del mismo contacto consumen **una**.
+
+#### Dos errores propios de esta tanda
+
+Se registran por la misma razón que los cuatro del §8 del documento: un registro
+que solo guarda los aciertos no sirve para aprender de él.
+
+1. **La transformación de E.2 rompió una suite entera y casi pasa
+   desapercibido.** Metió un `await` dentro del callback no-async de un
+   `waitFor` multilínea. `tsc` lo marcó, pero lo que de verdad lo delató fue que
+   el TOTAL DE PRUEBAS bajó de 144 a **137**: esa suite dejó de compilar y la
+   salida seguía diciendo *passed*. **Mirar el color y no el número deja
+   desaparecer siete pruebas sin que nadie lo note.**
+2. **Se contó mal un `plan()` de pgTAP** —cinco aserciones declaradas como
+   cuatro—, que es exactamente el tipo de error que `plan()` existe para
+   atrapar. Lo atrapó.
+
+#### Lo que se decidió no hacer, y por qué
+
+- **Sentry no se instaló.** Es un módulo nativo y obliga a reconstruir el dev
+  client a días de exponer. El gancho queda puesto (`registrarSumidero`): son
+  diez líneas el día que se decida, y cero en los 21 sitios que registran. El
+  `ErrorBoundary` ya elimina el fallo catastrófico; Sentry solo añade telemetría
+  que nadie va a mirar esa tarde.
+- **`expo-clipboard` tampoco**, por lo mismo. El botón «Compartir detalle» usa
+  `Share`, que ya viene en React Native y además permite mandarse el error por
+  WhatsApp.
+- **`barrer-fotos` se quedó sin CORS**, al contrario que las otras tres
+  funciones. La llama `pg_cron` vía `pg_net`, nunca un navegador: abrirla no
+  habilita ningún caso de uso y sí amplía su superficie. Queda escrito en el
+  propio archivo para que nadie «arregle» la inconsistencia.
+- **No se editó el comentario de la `0015`** que la orden B.2 pedía corregir.
+  Editar una migración ya aplicada está prohibido por el invariante 6, y además
+  ese comentario nunca fue falso: describía el filtro duro, que siempre estuvo
+  bien. Lo que estaba mal era el score, que ahora por fin lo obedece.
+
 ### Pendientes abiertos
 
-Actualizado el 19/09/2026. El trabajo **sigue**: esta lista es el estado de un
-proyecto en marcha, no un cierre.
+Actualizado el 19/09/2026 por la tarde. El trabajo **sigue**: esta lista es el
+estado de un proyecto en marcha, no un cierre. El plan completo, con sus órdenes
+ejecutables y su secuencia, está en
+[`docs/endurecimiento-v6.md`](endurecimiento-v6.md) §5 y §6.
 
-**Hechos desde la última revisión**
+**Cerrados**
 
 - [x] Flujo completo en el teléfono: registro → cuestionario → sugerencias →
-      ver contacto → chat. Cerrado el 19/09 tras arreglar `revelar_contacto`.
+      ver contacto → chat.
 - [x] Consentimiento de IA verificado en vivo, con la fila de la base antes y
       después de cada paso.
-- [x] Prueba de aislamiento entre cuentas, aplazada desde la semana 8:
-      15/15 barreras (`scripts/prueba-rls.mjs`).
-- [x] Separar el `.env` de cliente y el de servidor.
+- [x] Prueba de aislamiento entre cuentas, aplazada desde la semana 8. Hoy
+      **19 de 19** contra producción.
+- [x] Separar el `.env` de cliente y el de servidor. Hecho de verdad: tres
+      archivos y `npm run verificar:env` como compuerta en CI.
 - [x] Limpieza de las cuentas de prueba y de la publicación mal geocodificada.
+- [x] **Fase 0 del endurecimiento**: migraciones 0022–0026 en producción,
+      `pg_cron` activo, secretos de Vault, barredor desplegado y verificado.
+- [x] Órdenes B.1, B.2, B.4, C.1, C.2 y E.2.
 
-**Abiertos, del proyecto**
+**Tuyos — nadie más puede hacerlos**
 
-- [ ] Activar **"Prevent use of leaked passwords"** en el panel
-      (Authentication → Attack Protection). Es la comprobación contra
-      HaveIBeenPwned, corre en el servidor y vale más que cualquier regla de
-      composición. No es configurable desde `config.toml`, así que no puede
-      entrar en una migración ni en `config push`.
-- [ ] `ANTHROPIC_API_KEY` sigue vacía. **Corrección respecto a lo que se
-      escribió antes:** la clave va en `ai-service/.env`, no en los secrets de
-      las Edge Functions — quien llama al modelo es el microservicio. Se
-      rastreó qué se pierde sin ella: solo `horario_predominante`, un campo del
-      perfil público que ya degrada a "Variable". **No toca el ranking ni el
-      embedding**, porque no aparece ni en el motor de la 0015 ni en
-      `perfilTexto.ts`. El Nivel 2 corre en un modelo local y no depende de
-      ninguna API de pago. Se puede añadir después: poner la variable y
-      reiniciar el microservicio, que la lee con `os.getenv` al importar.
-- [ ] Retirar la vista de compatibilidad `roomings` (migración 0011) cuando ya
-      no quede ningún APK viejo instalado. Sigue viva con 30 filas.
+- [ ] Activar **"Prevent use of leaked passwords"** (Authentication → Attack
+      Protection). Es la comprobación contra HaveIBeenPwned, corre en el
+      servidor y vale más que cualquier regla de composición. No es configurable
+      desde `config.toml`.
+- [ ] Activar **Confirm email** (Authentication → Providers → Email), que es lo
+      que la `0026` da por supuesto. Ojo: a partir de ahí registrarse exige
+      correo `.edu.mx` y confirmar un buzón, así que **no registres una cuenta
+      en vivo delante del evaluador**.
+- [ ] Conseguir una clave de **Google Maps** y ponerla en `app.json`. Sin ella
+      el mapa de la ficha sale **gris en Android** (END-10, orden E.1), y eso sí
+      se ve en la demo.
+- [ ] Decidir sobre `ANTHROPIC_API_KEY`. Sigue vacía. **Corregido dos veces, y
+      las dos vale la pena dejarlas escritas:** primero se buscó en los secrets
+      de las Edge Functions, donde nunca va; después se dijo que iba en
+      `ai-service/.env`, archivo que no existía. Su destino real, según
+      AGENTS.md, es `.env.server`. Sin ella solo se pierde
+      `horario_predominante`, un campo del perfil público que ya degrada a
+      "Variable": **no toca el ranking ni el embedding**, porque no aparece ni
+      en el motor de la 0015 ni en `perfilTexto.ts`. El Nivel 2 corre en un
+      modelo local y no depende de ninguna API de pago. Se puede añadir después.
+- [ ] Decidir si se instala **Sentry**. Es módulo nativo y obliga a reconstruir
+      el dev client; el gancho ya está puesto.
 - [ ] Las cuentas existentes conservan su contraseña anterior: las reglas nuevas
       aplican a registros nuevos y a cambios de contraseña.
+
+**Abiertos, del plan de endurecimiento**
+
+- [ ] **C.3** (TanStack Query) y **C.4** (el chat: 1200 mensajes para resolver
+      30 hilos, cursor compuesto, envío optimista). Son órdenes de una sesión
+      completa cada una.
+- [ ] **B.3, B.5, B.6, C.5, C.6, C.7** — filtro de tipo en el servidor, ritmo
+      real en la geocodificación, dejar de mandar 384 flotantes al teléfono, la
+      calificación fuera de la URL, códigos de error en vez de subcadenas, y
+      refirmar las URLs antes de que caduquen.
+- [ ] **Bloque D completo (D.1 a D.12)** — diseño. El más caro y el más visible:
+      el «lavado del sello» tiene contraste **1.00** contra el papel, la
+      calificación afirma más precisión de la que el motor calcula, y
+      `MaxContentWidth` es un token muerto.
+- [ ] **E.3** (umbrales de cobertura), **E.4** (pinear el resto de CI), **E.5**
+      (API deprecada), **E.6** (higiene de operación del túnel).
+- [ ] Retirar la vista de compatibilidad `roomings` (migración 0011) cuando ya
+      no quede ningún APK viejo instalado. Sigue viva con 30 filas.
 - [ ] `README.md` tiene la sección de capturas de pantalla vacía, con la
       interfaz ya rediseñada.
 
 **Abiertos, de calidad**
 
-- [ ] Las pruebas de pantalla cubren lo que se tocó estos dos días, no las
-      diecisiete pantallas. Quedan sin cubrir, entre otras, el chat y el detalle
-      de publicación.
+- [ ] La cobertura sigue concentrada donde es fácil. `src/services` dejó el 0 %
+      pero está lejos del 70 % que pide la compuerta de la Fase 2.
 - [ ] Ninguna prueba dice si algo se **ve** bien: ni un botón fuera de pantalla,
       ni un texto cortado, ni un contraste insuficiente. Eso solo se juzga en un
-      dispositivo, y conviene no confundir 92 pruebas en verde con eso.
-- [ ] El reparto de las pruebas de envío en su propio archivo contiene un
-      síntoma cuya causa no se encontró.
+      dispositivo, y conviene no confundir 144 pruebas en verde con eso.
+- [ ] El reparto de las pruebas de envío de `FormularioPublicacion` en su propio
+      archivo contiene un síntoma cuya causa no se encontró.
 
 **Riesgo operativo permanente**
 
@@ -525,6 +664,6 @@ proyecto en marcha, no un cierre.
       dominio en cada arranque y `AI_SERVICE_URL` hay que volver a fijarlo. Peor
       aún, el proceso **no se muere** cuando su dominio caduca: se queda
       reintentando, así que nada avisa. Mitigado —no resuelto— por
-      `scripts/tunel.sh`, que fija el secret antes de esperar al DNS, y por
-      `scripts/verificar.mjs`, que pregunta por el dominio público y no por
-      `localhost`. Correr el verificador **antes de cada exposición**.
+      `scripts/tunel.sh` y por `scripts/verificar.mjs`, que pregunta por el
+      dominio público y no por `localhost`. Correr el verificador **antes de
+      cada exposición**. El §5 E.6 recoge tres defectos más observados en vivo.
