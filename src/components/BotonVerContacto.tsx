@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet } from 'react-native';
 
-import { AppColors, Spacing } from '@/constants/theme';
+import { AppColors, Spacing, Tipografia } from '@/constants/theme';
 import { ThemedText } from './themed-text';
 
 interface Props {
@@ -62,10 +62,10 @@ export function BotonVerContacto({ publicacionId, titulo, score, onRevelar, onEr
       accessibilityState={{ disabled: cargando, busy: cargando }}
     >
       {cargando ? (
-        <ActivityIndicator color="#fff" />
+        <ActivityIndicator color={AppColors.selloTexto} />
       ) : (
         <>
-          <Ionicons name="logo-whatsapp" size={20} color="#fff" />
+          <Ionicons name="logo-whatsapp" size={20} color={AppColors.selloTexto} />
           <ThemedText style={styles.texto}>Ver contacto</ThemedText>
         </>
       )}
@@ -84,5 +84,5 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     minHeight: 44,
   },
-  texto: { color: '#fff', fontWeight: '600' },
+  texto: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
 });

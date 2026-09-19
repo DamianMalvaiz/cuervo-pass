@@ -1,13 +1,26 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
 import { BotonVerContacto } from '@/components/BotonVerContacto';
+import { CampoFicha, FileteHoja } from '@/components/ficha/CampoFicha';
+import { DesgloseCalificacion } from '@/components/ficha/DesgloseCalificacion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Spacing } from '@/constants/theme';
+import { AppColors, Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
 import { calcularDistanciaKm } from '@/lib/distancia';
@@ -22,20 +35,47 @@ import { usePerfilStore } from '@/store/usePerfilStore';
 import type { PublicacionPublica } from '@/types/database.types';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
+const ANCHO = Dimensions.get('window').width;
 
 const ETIQUETA_TIPO: Record<string, string> = {
-  depa: 'Departamento',
-  cuarto: 'Cuarto',
-  casa_compartida: 'Casa compartida',
+  depa: 'DEPARTAMENTO',
+  cuarto: 'CUARTO',
+  casa: 'CASA',
+  casa_compartida: 'CASA COMPARTIDA',
 };
+
+function aNumero(v: string | undefined): number | null {
+  if (v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Una sección del documento: versalita, filete, contenido. */
+function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <View style={estilos.seccion}>
+      <ThemedText type="etiqueta" themeColor="textSecondary">
+        {titulo}
+      </ThemedText>
+      <FileteHoja />
+      <View style={estilos.contenidoSeccion}>{children}</View>
+    </View>
+  );
+}
 
 export default function DetallePublicacionScreen() {
   const theme = useTheme();
-  const { id, score } = useLocalSearchParams<{ id: string; score?: string }>();
+  const { id, score, base, sim } = useLocalSearchParams<{
+    id: string;
+    score?: string;
+    base?: string;
+    sim?: string;
+  }>();
   const session = useAuthStore((s) => s.session);
   const { perfil, cargarPerfil } = usePerfilStore();
   const [publicacion, setPublicacion] = useState<PublicacionPublica | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [foja, setFoja] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -59,8 +99,7 @@ export default function DetallePublicacionScreen() {
       try {
         await reportarPublicacion(usuarioId, publicacionId, motivo);
         // El ocultamiento a los 3 reportes lo hace el trigger `al_reportar`
-        // (migración 0013), y el dueño recibe una notificación. v3 prometía
-        // esto y no había nada que lo hiciera.
+        // (migración 0013), y el dueño recibe una notificación.
         Alert.alert('Gracias', 'Reportamos esta publicación para revisión.');
       } catch (e) {
         const mensaje = e instanceof Error ? e.message : '';
@@ -81,16 +120,23 @@ export default function DetallePublicacionScreen() {
 
   if (cargando) {
     return (
-      <ThemedView style={styles.centrado}>
-        <ActivityIndicator />
+      <ThemedView style={estilos.centrado}>
+        <ActivityIndicator color={theme.acento} />
+        <ThemedText type="etiqueta" themeColor="textSecondary">
+          CONSULTANDO FICHA
+        </ThemedText>
       </ThemedView>
     );
   }
 
   if (!publicacion) {
     return (
-      <ThemedView style={styles.centrado}>
-        <ThemedText style={styles.textoCentrado}>
+      <ThemedView style={estilos.centrado}>
+        <Ionicons name="document-outline" size={28} color={theme.textSecondary} />
+        <ThemedText type="etiqueta" themeColor="textSecondary">
+          FICHA NO DISPONIBLE
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" style={estilos.textoCentrado}>
           Esta publicación ya no está disponible. Pudo desactivarse o ocultarse tras varios reportes.
         </ThemedText>
       </ThemedView>
@@ -108,134 +154,238 @@ export default function DetallePublicacionScreen() {
         )
       : null;
 
-  const atributos = [
-    ETIQUETA_TIPO[publicacion.tipo] ?? publicacion.tipo,
-    `${publicacion.recamaras} ${publicacion.recamaras === 1 ? 'recámara' : 'recámaras'}`,
-    publicacion.amueblado ? 'Amueblado' : 'Sin amueblar',
-    publicacion.permite_mascotas ? 'Acepta mascotas' : 'No acepta mascotas',
-    ...(publicacion.servicios_incluidos ? ['Servicios incluidos'] : []),
-  ];
+  const fotos = publicacion.fotos ?? [];
+  const folio = publicacion.id.replace(/-/g, '').slice(0, 4).toUpperCase();
+  const etiquetaTipo = ETIQUETA_TIPO[publicacion.tipo] ?? String(publicacion.tipo).toUpperCase();
 
-  const scoreNumerico = score ? Number(score) : null;
+  const alDesplazar = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setFoja(Math.round(e.nativeEvent.contentOffset.x / ANCHO));
+  };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {publicacion.fotos && publicacion.fotos.length > 0 ? (
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          style={styles.carrusel}
-          accessibilityLabel={`${publicacion.fotos.length} fotos de la publicación`}
-        >
-          {publicacion.fotos.map((ruta) => {
-            const url = urlsFirmadas.get(ruta);
-            return url ? (
-              <Image key={ruta} source={{ uri: url }} style={styles.foto} />
-            ) : (
-              <View key={ruta} style={[styles.foto, { backgroundColor: theme.backgroundSelected }]} />
-            );
-          })}
-        </ScrollView>
-      ) : (
-        <View style={[styles.foto, styles.fotoAncha, { backgroundColor: theme.backgroundSelected }]} />
-      )}
-
-      <ThemedText type="title" style={styles.titulo}>
-        {publicacion.titulo}
-      </ThemedText>
-      <ThemedText type="title" style={styles.precio}>
-        {`$${formateadorPrecio.format(publicacion.precio_renta)}/mes`}
-      </ThemedText>
-      <ThemedText type="smallBold">{publicacion.direccion}</ThemedText>
-      {distanciaKm !== null && (
-        <ThemedText type="small" style={styles.distancia}>
-          {distanciaKm.toFixed(1)} km de tu universidad
+    <ScrollView contentContainerStyle={estilos.hoja} showsVerticalScrollIndicator={false}>
+      {/* Membrete: qué documento es y cuál. */}
+      <View style={estilos.membrete}>
+        <ThemedText type="etiqueta" themeColor="textSecondary">
+          {etiquetaTipo}
         </ThemedText>
-      )}
-
-      <View style={styles.atributos}>
-        {atributos.map((a) => (
-          <View key={a} style={[styles.pastilla, { borderColor: theme.border }]}>
-            <ThemedText type="small">{a}</ThemedText>
-          </View>
-        ))}
+        <ThemedText type="folio" themeColor="textSecondary">
+          FOLIO {folio}
+        </ThemedText>
       </View>
 
-      {publicacion.descripcion && <ThemedText style={styles.descripcion}>{publicacion.descripcion}</ThemedText>}
-
-      {tieneUbicacion && (
-        <>
-          <MapView
-            style={styles.mapa}
-            initialRegion={{
-              latitude: publicacion.latitud as number,
-              longitude: publicacion.longitud as number,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-            zoomEnabled
-            scrollEnabled
-            rotateEnabled
-            zoomControlEnabled
+      {fotos.length > 0 ? (
+        <View>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={alDesplazar}
+            accessibilityLabel={`${fotos.length} fotografías de la publicación`}
           >
-            <Marker
-              coordinate={{ latitude: publicacion.latitud as number, longitude: publicacion.longitud as number }}
-              title={publicacion.titulo}
-            />
-          </MapView>
-          {/* Obligación de atribución de la licencia ODbL (§9, AUD-02). No es
-              decorativa: es la condición bajo la que podemos guardar estas
-              coordenadas en la base. */}
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            {ATRIBUCION_MAPA}
+            {fotos.map((ruta) => {
+              const url = urlsFirmadas.get(ruta);
+              return url ? (
+                <Image key={ruta} source={{ uri: url }} style={estilos.foto} contentFit="cover" transition={160} />
+              ) : (
+                <View key={ruta} style={[estilos.foto, { backgroundColor: theme.backgroundElement }]} />
+              );
+            })}
+          </ScrollView>
+          {fotos.length > 1 && (
+            // "Foja n de m" es como un expediente numera sus hojas. Cumple la
+            // misma función que los puntitos de un carrusel y además dice
+            // CUÁNTAS faltan, que los puntitos no dicen cuando pasan de cinco.
+            <View style={[estilos.foja, { backgroundColor: theme.background, borderColor: theme.filete }]}>
+              <ThemedText type="folio" themeColor="textSecondary">
+                FOJA {foja + 1} DE {fotos.length}
+              </ThemedText>
+            </View>
+          )}
+        </View>
+      ) : (
+        <View style={[estilos.foto, estilos.sinFoto, { backgroundColor: theme.backgroundElement, width: ANCHO }]}>
+          <Ionicons name="image-outline" size={24} color={theme.textSecondary} />
+          <ThemedText type="etiqueta" themeColor="textSecondary">
+            SIN FOTOGRAFÍA
           </ThemedText>
-        </>
+        </View>
       )}
 
-      <View style={{ marginTop: Spacing.three }}>
-        <BotonVerContacto
-          publicacionId={publicacion.id}
-          titulo={publicacion.titulo}
-          score={scoreNumerico != null && Number.isFinite(scoreNumerico) ? scoreNumerico : null}
-          onRevelar={revelarContacto}
-          onError={(mensaje) => Alert.alert('No se pudo abrir el contacto', mensaje)}
-        />
+      <View style={estilos.cuerpo}>
+        <ThemedText type="title">{publicacion.titulo}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {publicacion.direccion}
+        </ThemedText>
+
+        {/* La interacción firma del producto: la caja negra se abre. */}
+        <DesgloseCalificacion score={aNumero(score)} base={aNumero(base)} similitud={aNumero(sim)} />
+
+        <Seccion titulo="DATOS DE LA PUBLICACIÓN">
+          <View style={estilos.rejilla}>
+            <CampoFicha
+              etiqueta="RENTA MENSUAL"
+              valor={`$${formateadorPrecio.format(publicacion.precio_renta)}`}
+              ancho={1}
+            />
+            <CampoFicha
+              etiqueta="DISTANCIA A TU UNIVERSIDAD"
+              valor={distanciaKm != null ? `${distanciaKm.toFixed(1)} km` : 'sin dato'}
+              ancho={1}
+              tono={distanciaKm != null ? 'normal' : 'atenuado'}
+            />
+          </View>
+          <View style={estilos.rejilla}>
+            <CampoFicha
+              etiqueta="RECÁMARAS"
+              valor={String(publicacion.recamaras)}
+              ancho={1}
+              icono="bed-outline"
+            />
+            <CampoFicha
+              etiqueta="AMUEBLADO"
+              valor={publicacion.amueblado ? 'Sí' : 'No'}
+              ancho={1}
+              tono={publicacion.amueblado ? 'normal' : 'atenuado'}
+            />
+          </View>
+          <View style={estilos.rejilla}>
+            <CampoFicha
+              etiqueta="MASCOTAS"
+              valor={publicacion.permite_mascotas ? 'Sí acepta' : 'No acepta'}
+              ancho={1}
+              icono="paw-outline"
+              tono={publicacion.permite_mascotas ? 'normal' : 'atenuado'}
+            />
+            <CampoFicha
+              etiqueta="SERVICIOS INCLUIDOS"
+              valor={publicacion.servicios_incluidos ? 'Sí' : 'No'}
+              ancho={1}
+              tono={publicacion.servicios_incluidos ? 'normal' : 'atenuado'}
+            />
+          </View>
+        </Seccion>
+
+        {publicacion.descripcion ? (
+          <Seccion titulo="DESCRIPCIÓN">
+            <ThemedText style={estilos.descripcion}>{publicacion.descripcion}</ThemedText>
+          </Seccion>
+        ) : null}
+
+        {tieneUbicacion && (
+          <Seccion titulo="UBICACIÓN">
+            <View style={[estilos.marcoMapa, { borderColor: theme.border }]}>
+              <MapView
+                style={estilos.mapa}
+                initialRegion={{
+                  latitude: publicacion.latitud as number,
+                  longitude: publicacion.longitud as number,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }}
+                zoomEnabled
+                scrollEnabled
+                rotateEnabled
+                zoomControlEnabled
+              >
+                <Marker
+                  coordinate={{
+                    latitude: publicacion.latitud as number,
+                    longitude: publicacion.longitud as number,
+                  }}
+                  title={publicacion.titulo}
+                />
+              </MapView>
+            </View>
+            {/* Obligación de atribución de la licencia ODbL (§9, AUD-02). No es
+                decorativa: es la condición bajo la que podemos guardar estas
+                coordenadas en la base. */}
+            <ThemedText type="folio" themeColor="textSecondary">
+              {ATRIBUCION_MAPA}
+            </ThemedText>
+          </Seccion>
+        )}
+
+        <View style={estilos.sello}>
+          <BotonVerContacto
+            publicacionId={publicacion.id}
+            titulo={publicacion.titulo}
+            score={aNumero(score)}
+            onRevelar={revelarContacto}
+            onError={(mensaje) => Alert.alert('No se pudo abrir el contacto', mensaje)}
+          />
+        </View>
+
+        {/* §28: esta app no verifica identidades. Decirlo es mejor ingeniería
+            que fingir que el riesgo no existe. */}
+        <View style={[estilos.advertencia, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}>
+          <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />
+          <ThemedText type="small" themeColor="textSecondary" style={estilos.textoAdvertencia}>
+            No adelantes dinero antes de visitar el lugar. Cuervo Pass no verifica la identidad de
+            quien publica.
+          </ThemedText>
+        </View>
+
+        <Pressable
+          onPress={onReportar}
+          style={estilos.reportar}
+          accessibilityRole="button"
+          accessibilityLabel="Reportar publicación"
+        >
+          <Ionicons name="flag-outline" size={16} color={AppColors.destructiveRed} />
+          <ThemedText type="small" style={estilos.textoReportar}>
+            Reportar publicación
+          </ThemedText>
+        </Pressable>
       </View>
-
-      {/* §28: esta app no verifica identidades. Decirlo es mejor ingeniería que
-          fingir que el riesgo no existe. */}
-      <ThemedText type="small" style={[styles.advertencia, { color: theme.textSecondary }]}>
-        No adelantes dinero antes de visitar el lugar. Cuervo Pass no verifica la identidad de quien publica.
-      </ThemedText>
-
-      <Pressable
-        onPress={onReportar}
-        style={styles.reportarBoton}
-        accessibilityRole="button"
-        accessibilityLabel="Reportar publicación"
-      >
-        <ThemedText style={styles.reportarTexto}>Reportar publicación</ThemedText>
-      </Pressable>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four },
+const estilos = StyleSheet.create({
+  hoja: { paddingBottom: Spacing.six },
+  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four, gap: Spacing.two },
   textoCentrado: { textAlign: 'center', lineHeight: 22 },
-  container: { padding: Spacing.three, paddingBottom: Spacing.six },
-  carrusel: { borderRadius: Spacing.two },
-  foto: { width: 340, height: 220, borderRadius: Spacing.two, marginRight: Spacing.two },
-  fotoAncha: { width: '100%' },
-  titulo: { fontSize: 22, lineHeight: 28, marginTop: Spacing.three },
-  precio: { fontSize: 28, lineHeight: 34, marginTop: Spacing.one },
-  distancia: { marginTop: Spacing.half },
-  atributos: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one, marginTop: Spacing.two },
-  pastilla: { borderWidth: 1, borderRadius: 999, paddingHorizontal: Spacing.two, paddingVertical: Spacing.half },
-  descripcion: { marginTop: Spacing.two },
-  mapa: { height: 240, borderRadius: Spacing.two, marginTop: Spacing.three, overflow: 'hidden' },
-  advertencia: { marginTop: Spacing.two, lineHeight: 18 },
-  reportarBoton: { marginTop: Spacing.three, padding: Spacing.three, minHeight: 44, justifyContent: 'center' },
-  reportarTexto: { color: AppColors.destructiveRed, textAlign: 'center' },
+  membrete: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
+  },
+  foto: { width: ANCHO, aspectRatio: 3 / 2 },
+  sinFoto: { alignItems: 'center', justifyContent: 'center', gap: Spacing.one },
+  foja: {
+    position: 'absolute',
+    right: Spacing.three,
+    bottom: Spacing.two,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.casilla,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
+  },
+  cuerpo: { padding: Spacing.three, gap: Spacing.three },
+  seccion: { gap: Spacing.two },
+  contenidoSeccion: { gap: Spacing.three },
+  rejilla: { flexDirection: 'row', gap: Spacing.three },
+  descripcion: { lineHeight: 24 },
+  marcoMapa: { borderWidth: Filete.fino, borderRadius: Radios.hoja, overflow: 'hidden' },
+  mapa: { height: 220 },
+  sello: { marginTop: Spacing.two },
+  advertencia: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.hoja,
+    padding: Spacing.three,
+  },
+  textoAdvertencia: { flex: 1, lineHeight: 20 },
+  reportar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
+    minHeight: 44,
+  },
+  textoReportar: { color: AppColors.destructiveRed },
 });

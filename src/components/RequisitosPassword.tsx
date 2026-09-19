@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { AppColors, Spacing } from '@/constants/theme';
+import { AppColors, Spacing, Tipografia } from '@/constants/theme';
 import { evaluarPassword, type ContextoPassword } from '@/lib/password';
 
 // Los requisitos se MUESTRAN, no se adivinan.
@@ -50,8 +50,8 @@ const styles = StyleSheet.create({
   contenedor: { marginTop: Spacing.two, marginBottom: Spacing.two, gap: Spacing.half },
   linea: { flexDirection: 'row', alignItems: 'flex-start' },
   marca: { width: Spacing.three, lineHeight: 20 },
-  marcaCumplida: { color: AppColors.successGreen, fontWeight: '700' },
+  marcaCumplida: { color: AppColors.successGreen, fontFamily: Tipografia.bold },
   texto: { flex: 1 },
-  textoCumplido: { fontWeight: '600' },
+  textoCumplido: { fontFamily: Tipografia.semibold },
   textoVacio: { opacity: 0.7 },
 });

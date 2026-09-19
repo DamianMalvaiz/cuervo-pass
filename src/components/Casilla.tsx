@@ -35,11 +35,11 @@ export function Casilla({ valor, onCambiar, etiqueta, ayuda, accessibilityLabel 
       <View
         style={[
           styles.caja,
-          { borderColor: valor ? AppColors.primary : theme.border },
-          valor && { backgroundColor: AppColors.primary },
+          { borderColor: valor ? AppColors.sello : theme.border },
+          valor && { backgroundColor: AppColors.sello },
         ]}
       >
-        {valor && <Ionicons name="checkmark" size={16} color="#fff" />}
+        {valor && <Ionicons name="checkmark" size={16} color={AppColors.selloTexto} />}
       </View>
       <View style={styles.textos}>
         <ThemedText type="small">{etiqueta}</ThemedText>

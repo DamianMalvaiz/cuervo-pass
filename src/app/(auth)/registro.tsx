@@ -1,23 +1,20 @@
+import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
+import { Campo } from '@/components/Campo';
 import { Casilla } from '@/components/Casilla';
+import { FileteHoja } from '@/components/ficha/CampoFicha';
+import { Sello } from '@/components/ficha/Sello';
 import { RequisitosPassword } from '@/components/RequisitosPassword';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Spacing } from '@/constants/theme';
+import { Filete, Radios, Spacing } from '@/constants/theme';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { evaluarPassword } from '@/lib/password';
 import { supabase } from '@/lib/supabase';
@@ -70,6 +67,7 @@ type FormRegistro = z.infer<typeof esquemaRegistro>;
 
 export default function RegistroScreen() {
   const theme = useTheme();
+  const { anchoContenido, clase, escalaTitulo } = useTamanoPantalla();
   const registrarse = useAuthStore((s) => s.registrarse);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -129,203 +127,246 @@ export default function RegistroScreen() {
     }
   };
 
-  const estiloInput = [styles.input, { borderColor: theme.border, color: theme.text }];
-
   return (
-    <ThemedView style={{ flex: 1 }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <ThemedText type="title">Crear cuenta</ThemedText>
+    <ThemedView style={estilos.pantalla}>
+      <KeyboardAvoidingView style={estilos.pantalla} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
+            <View style={estilos.membrete}>
+              <ThemedText type="etiqueta" themeColor="textSecondary">
+                ALTA DE USUARIO
+              </ThemedText>
+              <ThemedText type="title" style={{ fontSize: 30 * escalaTitulo, lineHeight: 34 * escalaTitulo }}>
+                Crear cuenta
+              </ThemedText>
+              <View style={[estilos.filete, { backgroundColor: theme.text }]} />
+            </View>
 
-          <Controller
-            control={control}
-            name="nombre"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={estiloInput}
-                placeholder="Nombre(s)"
-                placeholderTextColor={theme.textSecondary}
-                accessibilityLabel="Nombre"
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
+            {/* Seis campos seguidos no se leen: se agrupan. Es lo mismo que hace
+                cualquier formulario oficial y, de paso, lo que hace Airbnb con
+                sus formularios largos. */}
+            <Seccion titulo="DATOS PERSONALES">
+              <Controller
+                control={control}
+                name="nombre"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Campo
+                    etiqueta="NOMBRE"
+                    placeholder="Angel Damian"
+                    autoComplete="given-name"
+                    error={errors.nombre?.message}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                  />
+                )}
               />
-            )}
-          />
-          {errors.nombre && <ThemedText style={styles.error}>{errors.nombre.message}</ThemedText>}
-
-          <Controller
-            control={control}
-            name="apellidoPaterno"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={estiloInput}
-                placeholder="Apellido paterno"
-                placeholderTextColor={theme.textSecondary}
-                accessibilityLabel="Apellido paterno"
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
+              <Controller
+                control={control}
+                name="apellidoPaterno"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Campo
+                    etiqueta="APELLIDO PATERNO"
+                    placeholder="Malvaiz"
+                    autoComplete="family-name"
+                    error={errors.apellidoPaterno?.message}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                  />
+                )}
               />
-            )}
-          />
-          {errors.apellidoPaterno && <ThemedText style={styles.error}>{errors.apellidoPaterno.message}</ThemedText>}
-
-          <Controller
-            control={control}
-            name="apellidoMaterno"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={estiloInput}
-                placeholder="Apellido materno (opcional)"
-                placeholderTextColor={theme.textSecondary}
-                accessibilityLabel="Apellido materno, opcional"
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
+              <Controller
+                control={control}
+                name="apellidoMaterno"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Campo
+                    etiqueta="APELLIDO MATERNO (OPCIONAL)"
+                    placeholder="Gonzalez"
+                    error={errors.apellidoMaterno?.message}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                  />
+                )}
               />
-            )}
-          />
-          {errors.apellidoMaterno && <ThemedText style={styles.error}>{errors.apellidoMaterno.message}</ThemedText>}
+            </Seccion>
 
-          <Controller
-            control={control}
-            name="nombreUsuario"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={estiloInput}
-                placeholder="Nombre de usuario"
-                placeholderTextColor={theme.textSecondary}
-                autoCapitalize="none"
-                accessibilityLabel="Nombre de usuario"
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
+            <Seccion titulo="DATOS DE ACCESO">
+              <Controller
+                control={control}
+                name="nombreUsuario"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Campo
+                    etiqueta="NOMBRE DE USUARIO"
+                    placeholder="damianml"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="username"
+                    error={errors.nombreUsuario?.message}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                  />
+                )}
               />
-            )}
-          />
-          {errors.nombreUsuario && <ThemedText style={styles.error}>{errors.nombreUsuario.message}</ThemedText>}
-
-          <Controller
-            control={control}
-            name="email"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={estiloInput}
-                placeholder="Correo"
-                placeholderTextColor={theme.textSecondary}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                accessibilityLabel="Correo electrónico"
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
+              <Controller
+                control={control}
+                name="email"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Campo
+                    etiqueta="CORREO ELECTRÓNICO"
+                    placeholder="tucorreo@ejemplo.mx"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="email"
+                    keyboardType="email-address"
+                    error={errors.email?.message}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                  />
+                )}
               />
-            )}
-          />
-          {errors.email && <ThemedText style={styles.error}>{errors.email.message}</ThemedText>}
-
-          <Controller
-            control={control}
-            name="password"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={estiloInput}
-                placeholder="Contraseña"
-                placeholderTextColor={theme.textSecondary}
-                secureTextEntry
-                accessibilityLabel="Contraseña"
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Campo
+                    contrasena
+                    etiqueta="CONTRASEÑA"
+                    placeholder="Al menos 10 caracteres"
+                    autoComplete="new-password"
+                    error={errors.password?.message}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                  />
+                )}
               />
-            )}
-          />
-          <RequisitosPassword password={passwordActual} contexto={contextoPassword} />
-
-          <Controller
-            control={control}
-            name="confirmarPassword"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={estiloInput}
-                placeholder="Confirmar contraseña"
-                placeholderTextColor={theme.textSecondary}
-                secureTextEntry
-                accessibilityLabel="Confirmar contraseña"
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
+              <RequisitosPassword password={passwordActual} contexto={contextoPassword} />
+              <Controller
+                control={control}
+                name="confirmarPassword"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Campo
+                    contrasena
+                    etiqueta="CONFIRMAR CONTRASEÑA"
+                    placeholder="Escríbela otra vez"
+                    autoComplete="new-password"
+                    error={errors.confirmarPassword?.message}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    value={value}
+                  />
+                )}
               />
-            )}
-          />
-          {errors.confirmarPassword && <ThemedText style={styles.error}>{errors.confirmarPassword.message}</ThemedText>}
+            </Seccion>
 
-          <Controller
-            control={control}
-            name="aceptoAviso"
-            render={({ field: { onChange, value } }) => (
-              <Casilla
-                valor={Boolean(value)}
-                onCambiar={onChange}
-                etiqueta="Acepto el aviso de privacidad"
-                ayuda="Explica qué datos guardamos, para qué, y cómo pedir que los borremos."
+            <Seccion titulo="CONSENTIMIENTO">
+              <Controller
+                control={control}
+                name="aceptoAviso"
+                render={({ field: { onChange, value } }) => (
+                  <Casilla
+                    valor={Boolean(value)}
+                    onCambiar={onChange}
+                    etiqueta="Acepto el aviso de privacidad"
+                    ayuda="Explica qué datos guardamos, para qué, y cómo pedir que los borremos."
+                  />
+                )}
               />
+              <Pressable
+                onPress={() => router.push('/aviso-privacidad')}
+                style={estilos.enlaceAviso}
+                accessibilityRole="link"
+                accessibilityLabel="Leer el aviso de privacidad"
+              >
+                <Ionicons name="document-text-outline" size={16} color={theme.acento} />
+                <ThemedText type="small" themeColor="acento" style={estilos.textoEnlaceAviso}>
+                  Leer el aviso de privacidad
+                </ThemedText>
+              </Pressable>
+              {errors.aceptoAviso && (
+                <ThemedText type="small" style={{ color: theme.error }} accessibilityLiveRegion="polite">
+                  {errors.aceptoAviso.message}
+                </ThemedText>
+              )}
+            </Seccion>
+
+            {errorServidor && (
+              <View style={[estilos.errorServidor, { borderColor: theme.error }]}>
+                <Ionicons name="alert-circle-outline" size={18} color={theme.error} />
+                <ThemedText
+                  type="small"
+                  style={[{ color: theme.error }, estilos.textoError]}
+                  accessibilityLiveRegion="assertive"
+                >
+                  {errorServidor}
+                </ThemedText>
+              </View>
             )}
-          />
-          <Pressable
-            onPress={() => router.push('/aviso-privacidad')}
-            style={styles.enlaceAviso}
-            accessibilityRole="link"
-            accessibilityLabel="Leer el aviso de privacidad"
-          >
-            <ThemedText type="small" style={styles.textoEnlaceAviso}>
-              Leer el aviso de privacidad
-            </ThemedText>
-          </Pressable>
-          {errors.aceptoAviso && <ThemedText style={styles.error}>{errors.aceptoAviso.message}</ThemedText>}
 
-          {errorServidor && (
-            <ThemedText style={styles.error} accessibilityLiveRegion="assertive">
-              {errorServidor}
-            </ThemedText>
-          )}
+            <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel="Crear cuenta">
+              Crear cuenta
+            </Sello>
 
-          <Pressable
-            style={styles.boton}
-            onPress={handleSubmit(onSubmit)}
-            disabled={enviando}
-            accessibilityRole="button"
-            accessibilityLabel="Crear cuenta"
-            accessibilityState={{ disabled: enviando, busy: enviando }}
-          >
-            {enviando ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.botonTexto}>Crear cuenta</ThemedText>}
-          </Pressable>
-
-          <Link href="/(auth)/login" style={styles.link} accessibilityRole="link">
-            <ThemedText type="small">Ya tengo cuenta, entrar</ThemedText>
-          </Link>
+            <Link href="/(auth)/login" accessibilityRole="link" style={estilos.enlace}>
+              <ThemedText type="small" themeColor="acento">
+                Ya tengo cuenta · Entrar
+              </ThemedText>
+            </Link>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flexGrow: 1, justifyContent: 'center', padding: Spacing.four, gap: Spacing.two },
-  input: { borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.three },
-  error: { color: AppColors.destructiveRed },
-  boton: {
-    backgroundColor: AppColors.primary,
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
+/** Un bloque del formulario: versalita, filete y campos. */
+function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <View style={estilos.seccion}>
+      <ThemedText type="etiqueta" themeColor="textSecondary">
+        {titulo}
+      </ThemedText>
+      <FileteHoja />
+      <View style={estilos.camposSeccion}>{children}</View>
+    </View>
+  );
+}
+
+const estilos = StyleSheet.create({
+  pantalla: { flex: 1 },
+  desplazable: { flexGrow: 1, justifyContent: 'center', padding: Spacing.four, paddingBottom: Spacing.five },
+  centradoAmplio: { alignItems: 'center' },
+  columna: { width: '100%', gap: Spacing.four },
+  membrete: { gap: Spacing.one },
+  filete: { height: Filete.grueso, marginTop: Spacing.two },
+  seccion: { gap: Spacing.two },
+  camposSeccion: { gap: Spacing.three, paddingTop: Spacing.one },
+  enlaceAviso: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.two,
+    gap: Spacing.one,
+    paddingVertical: Spacing.two,
     minHeight: 44,
-    justifyContent: 'center',
   },
-  botonTexto: { color: '#fff', fontWeight: '600' },
-  link: { alignSelf: 'center', marginTop: Spacing.one, padding: Spacing.two },
-  enlaceAviso: { paddingVertical: Spacing.one, minHeight: 44, justifyContent: 'center' },
-  textoEnlaceAviso: { color: AppColors.primary, textDecorationLine: 'underline' },
+  textoEnlaceAviso: { textDecorationLine: 'underline' },
+  // Borde completo y un icono, no un filete de color a la izquierda: ese
+  // recurso es decoración disfrazada de semántica.
+  errorServidor: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.control,
+    padding: Spacing.three,
+  },
+  textoError: { flex: 1, lineHeight: 20 },
+  enlace: { alignSelf: 'center', paddingVertical: Spacing.two },
 });

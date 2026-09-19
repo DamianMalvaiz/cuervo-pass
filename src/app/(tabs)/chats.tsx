@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.three, minHeight: 44 },
   derecha: { alignItems: 'flex-end', gap: Spacing.half },
   insigniaNoLeidos: {
-    backgroundColor: AppColors.primary,
+    backgroundColor: AppColors.sello,
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -113,5 +113,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.half,
   },
-  textoInsignia: { color: '#fff', fontSize: 11, lineHeight: 14 },
+  textoInsignia: { color: AppColors.selloTexto, fontSize: 11, lineHeight: 14 },
 });

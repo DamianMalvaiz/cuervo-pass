@@ -171,7 +171,7 @@ export default function ConversacionScreen() {
                   {cargandoAnteriores ? (
                     <ActivityIndicator size="small" />
                   ) : (
-                    <ThemedText type="small" style={{ color: AppColors.primary }}>
+                    <ThemedText type="small" style={{ color: theme.acento }}>
                       Ver mensajes anteriores
                     </ThemedText>
                   )}
@@ -212,7 +212,7 @@ export default function ConversacionScreen() {
             accessibilityRole="button"
             accessibilityLabel="Enviar mensaje"
           >
-            <Ionicons name="send" size={20} color="#fff" />
+            <Ionicons name="send" size={20} color={AppColors.selloTexto} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: AppColors.primary,
+    backgroundColor: AppColors.sello,
     alignItems: 'center',
     justifyContent: 'center',
   },

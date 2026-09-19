@@ -17,7 +17,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Spacing } from '@/constants/theme';
+import { AppColors, Spacing, Tipografia } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
 import { subirFotoPerfil } from '@/lib/storage';
@@ -175,7 +175,7 @@ export default function PerfilScreen() {
               {subiendoFoto ? (
                 <ActivityIndicator color={theme.text} />
               ) : (
-                <ThemedText style={styles.fotoOverlayTexto}>Cambiar foto</ThemedText>
+                <ThemedText themeColor="acento" style={styles.fotoOverlayTexto}>Cambiar foto</ThemedText>
               )}
             </View>
           </Pressable>
@@ -207,7 +207,7 @@ export default function PerfilScreen() {
             accessibilityLabel="Guardar biografía"
             accessibilityState={{ disabled: guardando, busy: guardando }}
           >
-            {guardando ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.botonTexto}>Guardar</ThemedText>}
+            {guardando ? <ActivityIndicator color={AppColors.selloTexto} /> : <ThemedText style={styles.botonTexto}>Guardar</ThemedText>}
           </Pressable>
 
           {/* §25: el cuestionario es editable desde aquí. Antes solo se podía
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   fotoContenedor: { alignSelf: 'center', marginVertical: Spacing.three },
   foto: { width: 120, height: 120, borderRadius: 60 },
   fotoOverlay: { alignItems: 'center', marginTop: Spacing.one },
-  fotoOverlayTexto: { color: AppColors.primary, fontWeight: '600' },
+  fotoOverlayTexto: { fontFamily: Tipografia.semibold },
   etiqueta: { marginBottom: Spacing.one },
   biografiaInput: {
     borderWidth: 1,
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   },
   error: { color: AppColors.destructiveRed, marginTop: Spacing.two },
   boton: {
-    backgroundColor: AppColors.primary,
+    backgroundColor: AppColors.sello,
     borderRadius: Spacing.two,
     padding: Spacing.three,
     alignItems: 'center',
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   botonSecundario: { backgroundColor: 'transparent', borderWidth: 1 },
   botonPeligro: { backgroundColor: 'transparent', borderWidth: 1, borderColor: AppColors.destructiveRed },
   botonCerrarSesion: { backgroundColor: AppColors.destructiveRed },
-  botonTexto: { color: '#fff', fontWeight: '600' },
+  botonTexto: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
   bloqueDatos: {
     borderWidth: 1,
     borderRadius: Spacing.two,

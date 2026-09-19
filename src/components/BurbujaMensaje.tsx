@@ -27,7 +27,7 @@ export function BurbujaMensaje({ mensaje, esPropio }: Props) {
       <View
         style={[
           styles.burbuja,
-          esPropio ? { backgroundColor: AppColors.primary } : { backgroundColor: theme.backgroundElement },
+          esPropio ? { backgroundColor: AppColors.sello } : { backgroundColor: theme.backgroundElement },
         ]}
       >
         <ThemedText style={esPropio ? styles.textoPropio : undefined}>{mensaje.contenido}</ThemedText>
@@ -42,7 +42,7 @@ export function BurbujaMensaje({ mensaje, esPropio }: Props) {
             <Ionicons
               name={mensaje.leido ? 'checkmark-done' : 'checkmark'}
               size={14}
-              color={mensaje.leido ? '#fff' : 'rgba(255,255,255,0.7)'}
+              color={mensaje.leido ? '#fff' : 'rgba(18,16,14,0.55)'}
             />
           )}
         </View>
@@ -56,8 +56,8 @@ const styles = StyleSheet.create({
   filaPropia: { justifyContent: 'flex-end' },
   filaAjena: { justifyContent: 'flex-start' },
   burbuja: { maxWidth: '80%', borderRadius: Spacing.two, padding: Spacing.two },
-  textoPropio: { color: '#fff' },
+  textoPropio: { color: AppColors.selloTexto },
   pie: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half, marginTop: Spacing.half, alignSelf: 'flex-end' },
   hora: { fontSize: 11, lineHeight: 14 },
-  textoPropioSecundario: { color: 'rgba(255,255,255,0.7)' },
+  textoPropioSecundario: { color: 'rgba(18,16,14,0.55)' },
 });

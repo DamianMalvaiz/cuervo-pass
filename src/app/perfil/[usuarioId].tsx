@@ -7,7 +7,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Spacing } from '@/constants/theme';
+import { AppColors, Spacing, Tipografia } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { abrirConversacion } from '@/services/mensajes.service';
@@ -137,8 +137,8 @@ export default function PerfilRoomieScreen() {
 
         <View style={[styles.tarjeta, { backgroundColor: theme.tintedSurface, borderColor: theme.tintedBorder }]}>
           <View style={styles.tituloTarjeta}>
-            <Ionicons name="shield-checkmark-outline" size={18} color={AppColors.primary} />
-            <ThemedText type="smallBold" style={{ color: AppColors.primary }}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={theme.acento} />
+            <ThemedText type="smallBold" style={{ color: theme.acento }}>
               Compatibilidad
             </ThemedText>
           </View>
@@ -190,10 +190,10 @@ export default function PerfilRoomieScreen() {
           accessibilityState={{ disabled: abriendoChat, busy: abriendoChat }}
         >
           {abriendoChat ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={AppColors.selloTexto} />
           ) : (
             <>
-              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" />
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color={AppColors.selloTexto} />
               <ThemedText style={styles.botonChatTexto}>Iniciar chat</ThemedText>
             </>
           )}
@@ -230,7 +230,7 @@ function FilaCompatibilidad({ icono, etiqueta, valor, positivo, esUltima, colorB
   return (
     <View style={[styles.filaCompatibilidad, !esUltima && { borderBottomWidth: 1, borderBottomColor: colorBorde }]}>
       <View style={styles.filaCompatibilidadIzq}>
-        <Ionicons name={icono} size={18} color={AppColors.primary} />
+        <Ionicons name={icono} size={18} color={theme.acento} />
         <ThemedText type="small">{etiqueta}</ThemedText>
       </View>
       <View style={styles.filaCompatibilidadDer}>
@@ -273,14 +273,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.one,
-    backgroundColor: AppColors.primary,
+    backgroundColor: AppColors.sello,
     borderRadius: Spacing.two,
     padding: Spacing.three,
     marginTop: Spacing.five,
     minHeight: 44,
   },
   botonChatPresionado: { opacity: 0.85 },
-  botonChatTexto: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  botonChatTexto: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold, fontSize: 16 },
   reportarBoton: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -2,10 +2,10 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
-import { TarjetaPublicacion } from '@/components/TarjetaPublicacion';
+import { FichaPublicacion } from '@/components/FichaPublicacion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Spacing } from '@/constants/theme';
+import { AppColors, Spacing, Tipografia } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -100,7 +100,7 @@ export default function PublicacionesScreen() {
         accessibilityRole="button"
         accessibilityLabel="Nueva publicación"
       >
-        <ThemedText style={styles.nuevaBotonTexto}>+ Nueva publicación</ThemedText>
+        <ThemedText themeColor="acento" style={styles.nuevaBotonTexto}>+ Nueva publicación</ThemedText>
       </Pressable>
 
       {cargando ? (
@@ -114,7 +114,7 @@ export default function PublicacionesScreen() {
             return (
               <View style={styles.fila}>
                 <View style={{ flex: 1 }}>
-                  <TarjetaPublicacion
+                  <FichaPublicacion
                     titulo={item.titulo}
                     precio={item.precio_renta}
                     direccion={item.direccion}
@@ -154,7 +154,7 @@ export default function PublicacionesScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`Editar ${item.titulo}`}
                   >
-                    <ThemedText style={styles.editarTexto}>Editar</ThemedText>
+                    <ThemedText themeColor="acento" style={styles.editarTexto}>Editar</ThemedText>
                   </Pressable>
                   <Pressable
                     onPress={() => onCambiarEstado(item)}
@@ -180,12 +180,12 @@ export default function PublicacionesScreen() {
 
 const styles = StyleSheet.create({
   nuevaBoton: { marginVertical: Spacing.three, padding: Spacing.two, minHeight: 44, justifyContent: 'center' },
-  nuevaBotonTexto: { color: AppColors.primary, fontWeight: '600' },
+  nuevaBotonTexto: { fontFamily: Tipografia.semibold },
   fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   etiquetas: { marginLeft: Spacing.two, gap: Spacing.half },
   acciones: { alignItems: 'flex-end', gap: Spacing.half },
   accionBoton: { padding: Spacing.three, minHeight: 44, justifyContent: 'center' },
-  editarTexto: { color: AppColors.primary },
+  editarTexto: {},
   desactivarTexto: { color: AppColors.destructiveRed },
   reactivarTexto: { color: AppColors.successGreen },
 });

@@ -7,7 +7,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
-import { AppColors, Spacing } from '@/constants/theme';
+import { AppColors, Spacing, Tipografia } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { buscarPorCodigoPostal } from '@/lib/direccionMx';
 import { buscarCalles } from '@/lib/mapboxAutocomplete';
@@ -429,8 +429,8 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
                   onPress={() => onChange(tipo.valor)}
                   style={[
                     styles.pastillaTipo,
-                    { borderColor: seleccionado ? AppColors.primary : theme.border },
-                    seleccionado && { backgroundColor: AppColors.primary },
+                    { borderColor: seleccionado ? AppColors.sello : theme.border },
+                    seleccionado && { backgroundColor: AppColors.sello },
                   ]}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: seleccionado }}
@@ -726,7 +726,7 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
               accessibilityRole="button"
               accessibilityLabel={`Quitar foto ${indice + 1}`}
             >
-              <Ionicons name="close" size={14} color="#fff" />
+              <Ionicons name="close" size={14} color={AppColors.selloTexto} />
             </Pressable>
           </View>
         ))}
@@ -752,7 +752,7 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
         accessibilityLabel={textoBoton}
         accessibilityState={{ disabled: enviando, busy: enviando }}
       >
-        {enviando ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.botonTexto}>{textoBoton}</ThemedText>}
+        {enviando ? <ActivityIndicator color={AppColors.selloTexto} /> : <ThemedText style={styles.botonTexto}>{textoBoton}</ThemedText>}
       </Pressable>
     </View>
   );
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
     minHeight: 36,
     justifyContent: 'center',
   },
-  textoPastillaActiva: { color: '#fff', fontWeight: '600' },
+  textoPastillaActiva: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
   filaSwitch: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
   },
   fotoAgregar: { alignItems: 'center', justifyContent: 'center' },
   boton: {
-    backgroundColor: AppColors.primary,
+    backgroundColor: AppColors.sello,
     borderRadius: Spacing.two,
     padding: Spacing.three,
     alignItems: 'center',
@@ -852,5 +852,5 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
-  botonTexto: { color: '#fff', fontWeight: '600' },
+  botonTexto: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
 });

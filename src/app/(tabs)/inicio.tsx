@@ -3,10 +3,10 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
-import { TarjetaPublicacion } from '@/components/TarjetaPublicacion';
+import { FichaPublicacion } from '@/components/FichaPublicacion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Spacing } from '@/constants/theme';
+import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
 import { obtenerSugerencias } from '@/services/publicaciones.service';
@@ -15,11 +15,10 @@ import type { PublicacionSugerida } from '@/types/database.types';
 
 // Documento maestro v5 · §17, §18, §25.
 //
-// Cambio de fondo frente a v3: esta pantalla ya NO calcula el score. Antes se
-// traía el catálogo completo y lo puntuaba en JavaScript; ahora
-// `obtenerSugerencias` llama a las funciones de Postgres, que aplican el filtro
-// DURO (presupuesto, distancia, mascotas) antes de ordenar. Lo que llega aquí
-// ya es viable: la lista solo se reordena si el usuario elige otro criterio.
+// Esta pantalla ya NO calcula el score: `obtenerSugerencias` llama a las
+// funciones de Postgres, que aplican el filtro DURO (presupuesto, distancia,
+// mascotas) antes de ordenar. Lo que llega aquí ya es viable; la lista solo se
+// reordena si el usuario elige otro criterio.
 
 type Orden = 'recomendado' | 'cercano' | 'lejano' | 'precio_asc' | 'precio_desc';
 
@@ -31,37 +30,42 @@ const OPCIONES_ORDEN: { valor: Orden; etiqueta: string }[] = [
   { valor: 'precio_desc', etiqueta: 'Mayor precio' },
 ];
 
-// Filtro de orden en dropdown (esquina superior derecha) en vez de pastillas
-// horizontales — mismo patrón "tocar y despliega en el mismo lugar" que el
-// formulario de publicación, sin modal. Botón y filas cumplen el target mínimo
-// de 44pt en móvil (WCAG 2.2 SC 2.5.8) y usan combobox/menu/menuitem con
-// accessibilityValue en vez de "button" genérico (Name-Role-Value correcto).
+/** El folio sale del id, que es lo único estable. Cuatro caracteres bastan para
+ *  que se lea como número de expediente sin volverse ruido. */
+function folioDe(id: string): string {
+  return id.replace(/-/g, '').slice(0, 4).toUpperCase();
+}
+
+// Botón y filas cumplen el mínimo de 44pt (WCAG 2.2 SC 2.5.8) y usan
+// combobox/menu/menuitem con accessibilityValue, no "button" genérico.
 function SelectorOrden({ valor, onCambiar }: { valor: Orden; onCambiar: (v: Orden) => void }) {
   const theme = useTheme();
   const [abierto, setAbierto] = useState(false);
   const etiquetaActual = OPCIONES_ORDEN.find((o) => o.valor === valor)?.etiqueta ?? '';
 
   return (
-    <View style={[styles.envolturaSelector, abierto && styles.envolturaSelectorAbierta]}>
+    <View style={[estilos.envolturaSelector, abierto && estilos.envolturaSelectorAbierta]}>
       <Pressable
         onPress={() => setAbierto((v) => !v)}
-        style={[styles.botonSelector, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}
+        style={[estilos.botonSelector, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}
         accessibilityRole="combobox"
         accessibilityLabel="Ordenar sugerencias"
         accessibilityValue={{ text: etiquetaActual }}
         accessibilityState={{ expanded: abierto }}
         hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
       >
-        <Ionicons name="filter" size={14} color={theme.text} />
-        <ThemedText type="small" numberOfLines={1} style={styles.textoSelector}>
+        <Ionicons name="swap-vertical" size={14} color={theme.text} />
+        <ThemedText type="small" numberOfLines={1} style={estilos.textoSelector}>
           {etiquetaActual}
         </ThemedText>
         <Ionicons name={abierto ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textSecondary} />
       </Pressable>
 
       {abierto && (
+        // Sin sombra ni elevation: este mundo separa con filete, y Android pinta
+        // `elevation` como una sombra gris que no pertenece a la hoja.
         <View
-          style={[styles.desplegableSelector, { borderColor: theme.border, backgroundColor: theme.background }]}
+          style={[estilos.desplegable, { borderColor: theme.border, backgroundColor: theme.background }]}
           accessibilityRole="menu"
         >
           {OPCIONES_ORDEN.map((opcion, indice) => {
@@ -74,20 +78,21 @@ function SelectorOrden({ valor, onCambiar }: { valor: Orden; onCambiar: (v: Orde
                   setAbierto(false);
                 }}
                 style={[
-                  styles.filaSelector,
-                  seleccionado && { backgroundColor: theme.backgroundSelected },
-                  indice < OPCIONES_ORDEN.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
+                  estilos.filaSelector,
+                  seleccionado && { backgroundColor: theme.tintedSurface },
+                  indice < OPCIONES_ORDEN.length - 1 && {
+                    borderBottomWidth: Filete.fino,
+                    borderBottomColor: theme.filete,
+                  },
                 ]}
                 accessibilityRole="menuitem"
                 accessibilityLabel={opcion.etiqueta}
                 accessibilityState={{ selected: seleccionado }}
               >
-                <ThemedText
-                  style={[styles.textoFila, { color: seleccionado ? AppColors.primary : theme.textSecondary }]}
-                >
+                <ThemedText type="small" themeColor={seleccionado ? 'acento' : 'textSecondary'}>
                   {opcion.etiqueta}
                 </ThemedText>
-                {seleccionado && <Ionicons name="checkmark" size={16} color={AppColors.primary} />}
+                {seleccionado && <Ionicons name="checkmark" size={16} color={theme.acento} />}
               </Pressable>
             );
           })}
@@ -97,21 +102,79 @@ function SelectorOrden({ valor, onCambiar }: { valor: Orden; onCambiar: (v: Orde
   );
 }
 
-// §18: el indicador de nivel se muestra a propósito durante la demo. Poder
-// decir "esto corre en Nivel 2; si apago el contenedor la app sigue funcionando
-// en Nivel 1" — y demostrarlo en vivo — vale más que cualquier feature extra.
-function IndicadorNivel({ nivel }: { nivel: 1 | 2 }) {
+/**
+ * §18 — el encabezado del expediente.
+ *
+ * El nivel deja de ser una pastilla flotante y pasa a ser lo que un documento
+ * pone arriba: qué es y cuántos registros trae. Poder decir "esto corre en Nivel
+ * 2; si apago el contenedor sigue funcionando en Nivel 1" — y demostrarlo en
+ * vivo — vale más que cualquier feature extra, y aquí se lee sin buscarlo.
+ *
+ * El nivel no se codifica solo con color: cambian el icono, el texto y el tono.
+ */
+function EncabezadoExpediente({
+  nivel,
+  registros,
+  orden,
+  onCambiarOrden,
+}: {
+  nivel: 1 | 2;
+  registros: number;
+  orden: Orden;
+  onCambiarOrden: (v: Orden) => void;
+}) {
   const theme = useTheme();
-  const texto = nivel === 2 ? 'Nivel 2 · afinidad semántica' : 'Nivel 1 · filtros ponderados';
+  const esNivel2 = nivel === 2;
+
   return (
-    <View style={styles.indicadorNivel}>
-      <Ionicons
-        name={nivel === 2 ? 'sparkles' : 'options'}
-        size={12}
-        color={nivel === 2 ? AppColors.primary : theme.textSecondary}
-      />
-      <ThemedText type="small" style={{ color: nivel === 2 ? AppColors.primary : theme.textSecondary }}>
-        {texto}
+    <View style={estilos.encabezado}>
+      <View style={estilos.filaEncabezado}>
+        <View style={estilos.nivel}>
+          <Ionicons
+            name={esNivel2 ? 'sparkles' : 'options-outline'}
+            size={14}
+            color={esNivel2 ? theme.acento : theme.textSecondary}
+          />
+          <ThemedText type="etiqueta" themeColor={esNivel2 ? 'acento' : 'textSecondary'}>
+            {esNivel2 ? 'NIVEL 2 · AFINIDAD SEMÁNTICA' : 'NIVEL 1 · FILTROS PONDERADOS'}
+          </ThemedText>
+        </View>
+        <SelectorOrden valor={orden} onCambiar={onCambiarOrden} />
+      </View>
+
+      <ThemedText type="folio" themeColor="textSecondary">
+        {registros === 1 ? '1 REGISTRO' : `${registros} REGISTROS`}
+      </ThemedText>
+
+      {/* El filete grueso cierra el encabezado, como la regla que separa el
+          membrete del cuerpo en un formulario impreso. */}
+      <View style={[estilos.filetePrincipal, { backgroundColor: theme.text }]} />
+    </View>
+  );
+}
+
+/** Un estado con forma de campo vacío del documento, no un párrafo suelto. */
+function BloqueEstado({
+  etiqueta,
+  mensaje,
+  icono,
+}: {
+  etiqueta: string;
+  mensaje: string;
+  icono: keyof typeof Ionicons.glyphMap;
+}) {
+  const theme = useTheme();
+  return (
+    <View
+      style={[estilos.bloqueEstado, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}
+      accessibilityLiveRegion="polite"
+    >
+      <Ionicons name={icono} size={22} color={theme.textSecondary} />
+      <ThemedText type="etiqueta" themeColor="textSecondary">
+        {etiqueta}
+      </ThemedText>
+      <ThemedText type="small" themeColor="textSecondary" style={estilos.mensajeEstado}>
+        {mensaje}
       </ThemedText>
     </View>
   );
@@ -125,6 +188,7 @@ export default function InicioScreen() {
   const [refrescando, setRefrescando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orden, setOrden] = useState<Orden>('recomendado');
+  const theme = useTheme();
 
   const cargar = useCallback(async () => {
     if (!session?.user.id) return;
@@ -138,7 +202,7 @@ export default function InicioScreen() {
       // reintentar; "algo salió mal" no es un mensaje de error, es una forma de
       // no decir nada.
       console.warn('obtenerSugerencias falló:', e);
-      setError('No pudimos cargar tus sugerencias. Revisa tu conexión y desliza para reintentar.');
+      setError('No pudimos consultar el expediente. Revisa tu conexión y desliza hacia abajo para reintentar.');
     } finally {
       setCargando(false);
       setRefrescando(false);
@@ -185,36 +249,76 @@ export default function InicioScreen() {
   }, [sugerencias, orden]);
 
   return (
-    <ThemedView style={{ flex: 1, padding: Spacing.three }}>
-      <View style={styles.encabezado}>
-        <IndicadorNivel nivel={nivel} />
-        <SelectorOrden valor={orden} onCambiar={setOrden} />
-      </View>
+    <ThemedView style={estilos.pantalla}>
+      <EncabezadoExpediente
+        nivel={nivel}
+        registros={listaFinal.length}
+        orden={orden}
+        onCambiarOrden={setOrden}
+      />
 
       {cargando ? (
-        <ActivityIndicator style={{ marginTop: Spacing.four }} />
+        <View style={estilos.cargando}>
+          <ActivityIndicator color={theme.acento} />
+          <ThemedText type="etiqueta" themeColor="textSecondary">
+            CONSULTANDO EXPEDIENTE
+          </ThemedText>
+        </View>
       ) : (
         <FlatList
           data={listaFinal}
           keyExtractor={(item) => item.id}
-          refreshControl={<RefreshControl refreshing={refrescando} onRefresh={onRefrescar} />}
+          contentContainerStyle={estilos.lista}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refrescando}
+              onRefresh={onRefrescar}
+              tintColor={theme.acento}
+              colors={[theme.acento]}
+            />
+          }
           renderItem={({ item }) => (
-            <TarjetaPublicacion
+            <FichaPublicacion
               titulo={item.titulo}
               precio={item.precio_renta}
               direccion={item.direccion}
               fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
               distanciaKm={item.distancia}
+              score={item.score_final ?? item.score}
+              tipo={item.tipo}
+              permiteMascotas={item.permite_mascotas}
+              amueblado={item.amueblado}
+              folio={folioDe(item.id)}
               onPress={() =>
-                router.push(`/publicacion/${item.id}?score=${item.score_final ?? item.score}`)
+                // Se pasan los TRES valores, no solo el final: la ficha muestra
+                // el desglose de cómo se compuso, y sin las partes no hay nada
+                // que desglosar. La 0015 lo calcula como 0.6·filtros + 0.4·afinidad.
+                //
+                // En forma de objeto, no de cadena: las rutas tipadas de Expo
+                // Router no pueden verificar una URL concatenada a mano.
+                router.push({
+                  pathname: '/publicacion/[id]',
+                  params: {
+                    id: item.id,
+                    score: String(item.score_final ?? item.score),
+                    base: String(item.score),
+                    ...(item.similitud != null ? { sim: String(item.similitud) } : {}),
+                  },
+                })
               }
             />
           )}
           ListEmptyComponent={
-            <ThemedText type="small" style={styles.vacio} accessibilityLiveRegion="polite">
-              {error ??
-                'Ninguna publicación cumple tus filtros por ahora. Prueba ampliando el presupuesto o la distancia desde Mi perfil.'}
-            </ThemedText>
+            error ? (
+              <BloqueEstado etiqueta="NO SE PUDO CONSULTAR" mensaje={error} icono="cloud-offline-outline" />
+            ) : (
+              <BloqueEstado
+                etiqueta="SIN REGISTROS"
+                mensaje="Ninguna publicación cumple tus filtros por ahora. Prueba ampliando el presupuesto o la distancia desde Mis preferencias."
+                icono="document-outline"
+              />
+            )
           }
         />
       )}
@@ -222,45 +326,61 @@ export default function InicioScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  encabezado: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  indicadorNivel: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half, flexShrink: 1 },
-  vacio: { marginTop: Spacing.four, lineHeight: 20 },
+const estilos = StyleSheet.create({
+  pantalla: { flex: 1 },
+  encabezado: {
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
+    gap: Spacing.one,
+    zIndex: 10,
+  },
+  filaEncabezado: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  nivel: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, flexShrink: 1 },
+  filetePrincipal: { height: Filete.grueso, marginTop: Spacing.two },
+  lista: { padding: Spacing.three, gap: Spacing.three, paddingBottom: Spacing.six },
+  cargando: { marginTop: Spacing.five, alignItems: 'center', gap: Spacing.two },
+  bloqueEstado: {
+    borderWidth: Filete.fino,
+    borderRadius: Radios.hoja,
+    padding: Spacing.four,
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  mensajeEstado: { textAlign: 'center', lineHeight: 20 },
   envolturaSelector: { position: 'relative', zIndex: 1 },
-  envolturaSelectorAbierta: { zIndex: 30, elevation: 30 },
+  envolturaSelectorAbierta: { zIndex: 30 },
   botonSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.half,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: Spacing.two,
-    minHeight: 36,
-    maxWidth: 160,
+    gap: Spacing.one,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.full,
+    paddingHorizontal: Spacing.three,
+    minHeight: 38,
+    maxWidth: 170,
   },
-  textoSelector: { flexShrink: 1, fontWeight: '600' },
-  desplegableSelector: {
+  textoSelector: { flexShrink: 1, fontFamily: Tipografia.semibold },
+  desplegable: {
     position: 'absolute',
     top: '100%',
     right: 0,
     marginTop: Spacing.one,
-    borderWidth: 1,
-    borderRadius: Spacing.two,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.hoja,
     overflow: 'hidden',
-    minWidth: 148,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    minWidth: 168,
   },
   filaSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.one,
-    paddingHorizontal: Spacing.one,
-    minHeight: 36,
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    minHeight: 44,
   },
-  textoFila: { fontSize: 15, lineHeight: 20, fontWeight: '600', letterSpacing: 0.1 },
 });

@@ -4,7 +4,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { ActivityIndicator, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
-import { AppColors, Spacing } from '@/constants/theme';
+import { AppColors, Spacing, Tipografia } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { OPCION_OTRA_UNIVERSIDAD, UNIVERSIDADES } from '@/lib/universidades';
 import { Casilla } from './Casilla';
@@ -368,7 +368,7 @@ export function FormularioCuestionario({ valoresIniciales, textoBoton = 'Guardar
         accessibilityLabel={textoBoton}
         accessibilityState={{ disabled: enviando, busy: enviando }}
       >
-        {enviando ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.botonTexto}>{textoBoton}</ThemedText>}
+        {enviando ? <ActivityIndicator color={AppColors.selloTexto} /> : <ThemedText style={styles.botonTexto}>{textoBoton}</ThemedText>}
       </Pressable>
     </View>
   );
@@ -385,10 +385,10 @@ const styles = StyleSheet.create({
   filaSwitch: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.one },
   listaUniversidades: { gap: Spacing.two },
   opcionUniversidad: { borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.three, gap: Spacing.half },
-  opcionSeleccionada: { backgroundColor: AppColors.primary, borderColor: AppColors.primary },
-  textoSeleccionado: { color: '#fff', fontWeight: '600' },
+  opcionSeleccionada: { backgroundColor: AppColors.sello, borderColor: AppColors.sello },
+  textoSeleccionado: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
   boton: {
-    backgroundColor: AppColors.primary,
+    backgroundColor: AppColors.sello,
     borderRadius: Spacing.two,
     padding: Spacing.three,
     alignItems: 'center',
@@ -396,5 +396,5 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
-  botonTexto: { color: '#fff', fontWeight: '600' },
+  botonTexto: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
 });

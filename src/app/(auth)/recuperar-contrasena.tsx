@@ -15,7 +15,7 @@ import { z } from 'zod';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Spacing } from '@/constants/theme';
+import { AppColors, Radios, Spacing, Tipografia } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
@@ -79,7 +79,7 @@ export default function RecuperarContrasenaScreen() {
             accessibilityLabel="Enviar enlace"
             accessibilityState={{ disabled: enviando, busy: enviando }}
           >
-            {enviando ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.botonTexto}>Enviar enlace</ThemedText>}
+            {enviando ? <ActivityIndicator color={AppColors.selloTexto} /> : <ThemedText style={styles.botonTexto}>Enviar enlace</ThemedText>}
           </Pressable>
 
           <Pressable onPress={() => router.back()} style={styles.link} accessibilityRole="button" accessibilityLabel="Volver">
@@ -93,17 +93,17 @@ export default function RecuperarContrasenaScreen() {
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, justifyContent: 'center', padding: Spacing.four, gap: Spacing.two },
-  input: { borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.three },
+  input: { borderWidth: 1, borderRadius: Radios.control, padding: Spacing.three },
   error: { color: AppColors.destructiveRed },
   boton: {
-    backgroundColor: AppColors.primary,
-    borderRadius: Spacing.two,
+    backgroundColor: AppColors.sello,
+    borderRadius: Radios.control,
     padding: Spacing.three,
     alignItems: 'center',
     marginTop: Spacing.two,
     minHeight: 44,
     justifyContent: 'center',
   },
-  botonTexto: { color: '#fff', fontWeight: '600' },
+  botonTexto: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
   link: { alignSelf: 'center', marginTop: Spacing.one, padding: Spacing.two },
 });
