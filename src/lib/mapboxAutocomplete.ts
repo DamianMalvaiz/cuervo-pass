@@ -11,6 +11,8 @@
 //
 // El token debe tener restricción de URL en el panel de Mapbox: va dentro del
 // APK, y un token público sin restricción es una factura abierta al mundo.
+import { aviso } from '@/lib/registro';
+
 const TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
 
 export interface SugerenciaCalle {
@@ -42,7 +44,7 @@ export async function buscarCalles(query: string, opts?: { proximity?: { lat: nu
     }
     return Array.from(nombres).map((texto) => ({ texto }));
   } catch (e) {
-    console.warn('Autocompletado de calle falló:', e);
+    aviso('Autocompletado de calle falló', undefined, e);
     return [];
   }
 }

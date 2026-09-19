@@ -18,6 +18,7 @@ import { abrirConversacion } from '@/services/mensajes.service';
 import { obtenerPerfilPublico, reportarUsuario } from '@/services/usuarios.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { PerfilPublico } from '@/types/database.types';
+import { aviso } from '@/lib/registro';
 
 const ETIQUETA_RUIDO: Record<string, string> = {
   bajo: 'Prefiere silencio',
@@ -76,7 +77,7 @@ export default function PerfilRoomieScreen() {
       const conversacionId = await abrirConversacion(usuarioId);
       router.push(`/chat/${conversacionId}`);
     } catch (e) {
-      console.warn('abrirConversacion falló:', e);
+      aviso('abrirConversacion falló', undefined, e);
       Alert.alert('No se pudo abrir el chat', 'Esta persona ya no está disponible.');
     } finally {
       setAbriendoChat(false);

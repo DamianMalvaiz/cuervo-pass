@@ -11,6 +11,7 @@ import { geocodificarDireccion } from '@/lib/geocoding';
 import { subirFotoPublicacion } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import type { Publicacion, PublicacionSugerida, TipoPublicacion } from '@/types/database.types';
+import { aviso } from '@/lib/registro';
 
 // El título y la descripción son lo semánticamente rico ("pet friendly",
 // "silencioso"); si no hay ninguno, cae a algo genérico en vez de fallar (el
@@ -31,7 +32,7 @@ async function generarEmbeddingSeguro(datos: {
   try {
     return await generarEmbedding(textoParaEmbedding(datos));
   } catch (e) {
-    console.warn('generarEmbedding (publicación) falló:', e);
+    aviso('generarEmbedding (publicación) falló', undefined, e);
     return null;
   }
 }
@@ -116,7 +117,7 @@ export async function obtenerMiPublicacion(id: string) {
 export async function contarContactosRecibidos(): Promise<Map<string, number>> {
   const { data, error } = await supabase.rpc('contactos_de_mis_publicaciones');
   if (error) {
-    console.warn('contactos_de_mis_publicaciones falló:', error.message);
+    aviso('contactos_de_mis_publicaciones falló', { detalle: error.message });
     return new Map();
   }
   return new Map((data ?? []).map((f) => [f.publicacion_id, Number(f.total)]));

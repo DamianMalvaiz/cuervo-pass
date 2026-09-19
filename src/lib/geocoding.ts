@@ -22,6 +22,7 @@
 // el uso que la capa gratuita cubre.
 
 import { supabase } from '@/lib/supabase';
+import { aviso } from '@/lib/registro';
 
 export interface Coordenadas {
   lat: number;
@@ -41,7 +42,7 @@ export async function geocodificarDireccion(direccion: string): Promise<Coordena
       body: { direccion },
     });
     if (error) {
-      console.warn('geocodificar falló:', error.message);
+      aviso('geocodificar falló', { detalle: error.message });
       return null;
     }
     const { latitud, longitud, proveedor } = data as {
@@ -52,7 +53,7 @@ export async function geocodificarDireccion(direccion: string): Promise<Coordena
     if (latitud == null || longitud == null) return null;
     return { lat: latitud, lng: longitud, proveedor: proveedor ?? 'desconocido' };
   } catch (e) {
-    console.warn('geocodificar no respondió:', e);
+    aviso('geocodificar no respondió', undefined, e);
     return null;
   }
 }

@@ -19,6 +19,7 @@ import {
   type ResumenConversacion,
 } from '@/services/mensajes.service';
 import { useAuthStore } from '@/store/useAuthStore';
+import { aviso } from '@/lib/registro';
 
 // Documento maestro v5 · §25. El nombre de la contraparte y el último mensaje
 // ya vienen resueltos desde el servicio: antes esta pantalla pedía los perfiles
@@ -45,7 +46,7 @@ export default function ChatsScreen() {
         if (idCarga !== idCargaActual.current) return;
         setConversaciones(resumenes);
       } catch (e) {
-        console.warn('listarConversaciones falló:', e);
+        aviso('listarConversaciones falló', undefined, e);
       } finally {
         if (idCarga === idCargaActual.current) setCargando(false);
       }

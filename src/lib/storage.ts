@@ -10,6 +10,7 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 
 import { supabase } from '@/lib/supabase';
+import { aviso } from '@/lib/registro';
 
 const BUCKET = 'fotos';
 const CADUCIDAD_SEGUNDOS = 60 * 60;   // una hora: sobra para una sesión de uso
@@ -71,7 +72,7 @@ export async function firmarRutas(rutas: (string | null | undefined)[]): Promise
     .createSignedUrls(limpias, CADUCIDAD_SEGUNDOS);
 
   if (error) {
-    console.warn('createSignedUrls falló:', error.message);
+    aviso('createSignedUrls falló', { detalle: error.message });
     return new Map();
   }
 

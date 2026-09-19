@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 import { supabase } from './supabase';
+import { aviso } from '@/lib/registro';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -40,7 +41,7 @@ export async function registrarTokenPush(usuarioId: string): Promise<void> {
 
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     if (!projectId) {
-      console.warn('Falta el projectId de EAS en app.json — no se puede pedir el token push.');
+      aviso('Falta el projectId de EAS en app.json — no se puede pedir el token push.');
       return;
     }
 
@@ -48,9 +49,9 @@ export async function registrarTokenPush(usuarioId: string): Promise<void> {
     const { error } = await supabase
       .from('push_tokens')
       .upsert({ usuario_id: usuarioId, token, actualizado_en: new Date().toISOString() }, { onConflict: 'usuario_id' });
-    if (error) console.warn('No se pudo guardar el token push:', error);
+    if (error) aviso('No se pudo guardar el token push', undefined, error);
   } catch (e) {
-    console.warn('registrarTokenPush falló (normal en Expo Go, sección 17 — nunca bloquea):', e);
+    aviso('registrarTokenPush falló (normal en Expo Go, sección 17 — nunca bloquea)', undefined, e);
   }
 }
 

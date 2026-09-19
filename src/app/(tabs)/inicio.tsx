@@ -19,6 +19,7 @@ import { obtenerSugerencias } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import type { PublicacionSugerida } from '@/types/database.types';
+import { aviso } from '@/lib/registro';
 
 // Documento maestro v5 · §17, §18, §25.
 //
@@ -160,7 +161,7 @@ export default function InicioScreen() {
     } catch (e) {
       // §27: nunca una pantalla en blanco. Se dice qué pasó y se ofrece
       // reintentar; "algo salió mal" no es un mensaje, es una forma de callar.
-      console.warn('obtenerSugerencias falló:', e);
+      aviso('obtenerSugerencias falló', undefined, e);
       setError('No pudimos consultar el expediente. Revisa tu conexión y desliza hacia abajo para reintentar.');
     } finally {
       setCargando(false);

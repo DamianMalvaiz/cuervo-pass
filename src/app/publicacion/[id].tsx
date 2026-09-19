@@ -35,6 +35,7 @@ import {
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import type { PublicacionPublica } from '@/types/database.types';
+import { aviso } from '@/lib/registro';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 const ETIQUETA_TIPO: Record<string, string> = {
@@ -74,7 +75,7 @@ export default function DetallePublicacionScreen() {
     if (!id) return;
     obtenerPublicacionPublica(id)
       .then((p) => setPublicacion(p as PublicacionPublica | null))
-      .catch((e) => console.warn('obtenerPublicacionPublica falló:', e))
+      .catch((e) => aviso('obtenerPublicacionPublica falló', undefined, e))
       .finally(() => setCargando(false));
   }, [id]);
 

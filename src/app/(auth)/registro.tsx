@@ -20,6 +20,7 @@ import { MENSAJE_CORREO_NO_UNIVERSITARIO, esCorreoUniversitario } from '@/lib/co
 import { evaluarPassword } from '@/lib/password';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
+import { aviso } from '@/lib/registro';
 
 // Documento maestro v5 · §25 y §29. El aviso se lee DENTRO de la app
 // (src/app/aviso-privacidad.tsx), no en un enlace externo: pedir que se acepte
@@ -124,7 +125,7 @@ export default function RegistroScreen() {
           .from('usuarios')
           .update({ acepto_aviso_privacidad_en: new Date().toISOString() })
           .eq('id', sesion.user.id);
-        if (errorConsentimiento) console.warn('No se guardó la marca de consentimiento:', errorConsentimiento);
+        if (errorConsentimiento) aviso('No se guardó la marca de consentimiento', undefined, errorConsentimiento);
       }
       router.replace('/(auth)/cuestionario-inicial');
     } catch (e) {

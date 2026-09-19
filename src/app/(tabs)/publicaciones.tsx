@@ -23,6 +23,7 @@ import {
 } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
+import { aviso } from '@/lib/registro';
 
 // Documento maestro v5 · §25 y §27.
 export default function PublicacionesScreen() {
@@ -52,7 +53,7 @@ export default function PublicacionesScreen() {
         setPublicaciones(await listarMisPublicaciones(miId));
       }
     } catch (e) {
-      console.warn('No se pudieron cargar tus publicaciones:', e);
+      aviso('No se pudieron cargar tus publicaciones', undefined, e);
     } finally {
       setCargando(false);
     }

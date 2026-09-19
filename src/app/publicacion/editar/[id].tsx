@@ -16,6 +16,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { actualizarPublicacion, obtenerMiPublicacion } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
+import { aviso } from '@/lib/registro';
 
 export default function EditarPublicacionScreen() {
   const formulario = useRef<ControlPublicacion>(null);
@@ -34,7 +35,7 @@ export default function EditarPublicacionScreen() {
     // publicaciones_select_propias garantiza que solo funcione con las propias.
     obtenerMiPublicacion(id)
       .then(setPublicacion)
-      .catch((e) => console.warn('obtenerMiPublicacion falló:', e))
+      .catch((e) => aviso('obtenerMiPublicacion falló', undefined, e))
       .finally(() => setCargando(false));
   }, [id]);
 

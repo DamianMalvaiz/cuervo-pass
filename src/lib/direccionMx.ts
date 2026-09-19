@@ -1,4 +1,5 @@
 import { buscaCP } from '@webrek/mx-cp';
+import { aviso } from '@/lib/registro';
 
 export interface DatosCP {
   estado: string;
@@ -21,7 +22,7 @@ export async function buscarPorCodigoPostal(cp: string): Promise<DatosCP | null>
       colonias: resultado.asentamientos.map((a) => a.nombre),
     };
   } catch (e) {
-    console.warn('Búsqueda de código postal falló:', e);
+    aviso('Búsqueda de código postal falló', undefined, e);
     return null;
   }
 }

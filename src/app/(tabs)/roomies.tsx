@@ -16,6 +16,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { guardarMiRoomie, listarRoomiesSugeridos, obtenerMiRoomie } from '@/services/roomies.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Roomie, RoomieSugerido } from '@/types/database.types';
+import { aviso } from '@/lib/registro';
 
 // Documento maestro v5 · §11 (la tabla se llama `roomies`), §18, §25.
 //
@@ -47,7 +48,7 @@ export default function RoomiesScreen() {
     } catch (e) {
       // Nunca dejar la pantalla rota por un error de red o una migración
       // pendiente — se muestra la lista vacía y se sigue.
-      console.warn('No se pudieron cargar los roomies:', e);
+      aviso('No se pudieron cargar los roomies', undefined, e);
       setRoomies([]);
     } finally {
       setCargando(false);
@@ -86,7 +87,7 @@ export default function RoomiesScreen() {
         'No se pudo guardar',
         'Revisa tu conexión e intenta de nuevo. Si el problema sigue, puede faltar aplicar una migración de la base de datos.'
       );
-      console.warn('No se pudo guardar el roomie:', e);
+      aviso('No se pudo guardar el roomie', undefined, e);
     } finally {
       setGuardando(false);
     }
