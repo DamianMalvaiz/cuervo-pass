@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(25);
+select plan(31);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -309,6 +309,99 @@ select is(
     where name = 'publicaciones/00000000-0000-0000-0000-0000000000a1/00000000-0000-0000-0000-00000000aa01/0.jpg'),
   1,
   'storage: el dueno lee la foto de su propia publicacion aunque no sea visible' );
+
+-- ════════════════ 26 a 29 · Reportar a una PERSONA hace algo ════════════════
+--
+-- El defecto: `reportarUsuario()` existe en src/services/usuarios.service.ts,
+-- la pantalla de perfil ajeno lo llama, inserta la fila y muestra un
+-- agradecimiento. Y `al_reportar` empezaba con:
+--
+--   if new.publicacion_id is null then return new; end if;
+--
+-- Reportar a una persona no hacía absolutamente nada. Nunca. Para nadie.
+--
+-- Es el mismo hallazgo AUD-16 que la propia 0013 documenta —«un valor muerto,
+-- que es la clase de detalle que delata que el esquema y la lógica se
+-- escribieron por separado»— reproducido en la ruta de seguridad personal, en
+-- un producto donde alguien de dieciocho años queda con un desconocido para ver
+-- un departamento. Un botón de seguridad que miente es peor que no tenerlo:
+-- produce la sensación de protección sin la protección.
+select actuar_como_servicio();
+
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data)
+values
+  ('00000000-0000-0000-0000-000000000000','00000000-0000-0000-0000-0000000000d4',
+   'authenticated','authenticated','d@test.mx','',now(),now(),
+   '{"nombre_usuario":"usuario_d","nombre_completo":"Dani Prueba"}'),
+  ('00000000-0000-0000-0000-000000000000','00000000-0000-0000-0000-0000000000e5',
+   'authenticated','authenticated','e@test.mx','',now(),now(),
+   '{"nombre_usuario":"usuario_e","nombre_completo":"Eli Prueba"}'),
+  ('00000000-0000-0000-0000-000000000000','00000000-0000-0000-0000-0000000000f6',
+   'authenticated','authenticated','f@test.mx','',now(),now(),
+   '{"nombre_usuario":"usuario_f","nombre_completo":"Fer Prueba"}');
+
+-- B tiene un roomie activo: al suspenderse su cuenta tiene que dejar de
+-- ofrecerse, o seguiría apareciendo en sugerencias_roomies.
+insert into roomies (usuario_id, descripcion_busqueda, estado)
+values ('00000000-0000-0000-0000-0000000000b2', 'Busco roomie tranquilo', 'activo')
+on conflict (usuario_id) do update set estado = 'activo';
+
+-- Tres cuentas distintas reportan a B, cada una con SU sesión: el índice
+-- reportes_unico_usuario impide que una sola lo haga tres veces.
+select actuar_como('00000000-0000-0000-0000-0000000000d4');
+insert into reportes (reportado_por, usuario_reportado_id, motivo)
+values ('00000000-0000-0000-0000-0000000000d4','00000000-0000-0000-0000-0000000000b2','acoso');
+select actuar_como('00000000-0000-0000-0000-0000000000e5');
+insert into reportes (reportado_por, usuario_reportado_id, motivo)
+values ('00000000-0000-0000-0000-0000000000e5','00000000-0000-0000-0000-0000000000b2','acoso');
+select actuar_como('00000000-0000-0000-0000-0000000000f6');
+insert into reportes (reportado_por, usuario_reportado_id, motivo)
+values ('00000000-0000-0000-0000-0000000000f6','00000000-0000-0000-0000-0000000000b2','acoso');
+
+select actuar_como_servicio();
+
+select is(
+  (select suspendido from usuarios where id = '00000000-0000-0000-0000-0000000000b2'),
+  true,
+  'tres reportes suspenden la cuenta' );
+
+select is(
+  (select count(*)::int from notificaciones
+    where usuario_id = '00000000-0000-0000-0000-0000000000b2' and tipo = 'cuenta_suspendida'),
+  1,
+  'al suspender se avisa a la persona, una sola vez' );
+
+select is(
+  (select estado from roomies where usuario_id = '00000000-0000-0000-0000-0000000000b2'),
+  'pausado',
+  'el roomie de una cuenta suspendida deja de ofrecerse' );
+
+-- La consecuencia que de verdad protege: desaparece de la vista pública, y con
+-- ella de perfiles ajenos, de sugerencias_roomies y —por la 0022— de sus fotos.
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is(
+  (select count(*)::int from perfiles_publicos where id = '00000000-0000-0000-0000-0000000000b2'),
+  0,
+  'una cuenta suspendida desaparece de perfiles_publicos' );
+
+-- ════════════════ 30 y 31 · la suspensión no se la quita el suspendido ═══════
+-- `usuarios_update_propio` (0014) deja a cualquiera actualizar su propia fila.
+-- Una policy de UPDATE limita FILAS, no COLUMNAS —mismo motivo por el que la
+-- 0012 usa un trigger para la inmutabilidad de los mensajes— así que sin
+-- `trg_suspension_inmutable` un suspendido escribe `suspendido = false` y
+-- vuelve. El control de moderación no puede vivir en manos del moderado.
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+
+select throws_ok(
+  $$ update usuarios set suspendido = false where id = '00000000-0000-0000-0000-0000000000b2' $$,
+  null,
+  'un suspendido no puede quitarse la suspension' );
+
+select throws_ok(
+  $$ update usuarios set activo = true where id = '00000000-0000-0000-0000-0000000000b2' $$,
+  null,
+  'un suspendido no puede reactivarse cambiando solo activo' );
 
 select * from finish();
 rollback;
