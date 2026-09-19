@@ -16,7 +16,8 @@ import {
 } from 'react-native';
 
 import { Campo } from '@/components/Campo';
-import { CampoFicha } from '@/components/ficha/CampoFicha';
+import { CampoFicha, FileteHoja } from '@/components/ficha/CampoFicha';
+import { FilaAjuste } from '@/components/ficha/FilaAjuste';
 import { Seccion } from '@/components/ficha/Seccion';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
@@ -378,26 +379,47 @@ export default function PerfilScreen() {
             </Seccion>
 
             {/* ── Derechos ARCO ────────────────────────────────────────── */}
-            <Seccion titulo="TUS DATOS">
-              <ThemedText type="small" themeColor="textSecondary" style={estilos.textoSeccion}>
-                Puedes llevarte una copia de todo lo que guardamos sobre ti, en un archivo JSON.
-              </ThemedText>
-              <Sello
-                variante="contorno"
-                onPress={onDescargarMisDatos}
-                cargando={exportando}
-                icono="download-outline"
-                accessibilityLabel="Descargar mis datos"
-              >
-                Descargar mis datos
-              </Sello>
+            {/* ── Cuenta ───────────────────────────────────────────────── */}
+            {/* Lista de navegación con chevron: cada renglón dice "esto lleva a
+                otro lado" sin que nadie lo explique. Antes esto eran botones
+                apilados del mismo peso, sin agrupar y sin jerarquía. */}
+            <Seccion titulo="CUENTA">
+              <View style={estilos.lista}>
+                {/* El aviso solo era alcanzable desde el REGISTRO: quien ya
+                    tenía cuenta no podía volver a leerlo. Para una app que
+                    promete derechos ARCO, no poder consultar el aviso después
+                    de aceptarlo es un hueco de cumplimiento, no de diseño. */}
+                <FilaAjuste
+                  icono="document-text-outline"
+                  etiqueta="Aviso de privacidad"
+                  descripcion="Qué datos guardamos, para qué, y cómo pedir que los borremos."
+                  onPress={() => router.push('/aviso-privacidad')}
+                />
+                <FileteHoja />
+                <FilaAjuste
+                  icono="download-outline"
+                  etiqueta="Descargar mis datos"
+                  descripcion={
+                    exportando
+                      ? 'Preparando el archivo…'
+                      : 'Una copia en JSON de todo lo que guardamos sobre ti.'
+                  }
+                  onPress={exportando ? undefined : onDescargarMisDatos}
+                />
+                <FileteHoja />
+                <FilaAjuste
+                  icono="log-out-outline"
+                  etiqueta="Cerrar sesión"
+                  onPress={onCerrarSesion}
+                />
+              </View>
             </Seccion>
 
             {/* ── Eliminar la cuenta ───────────────────────────────────── */}
             {/* El peso visual estaba INVERTIDO: "Cerrar sesión" era un botón
                 rojo relleno —lo más ruidoso de la pantalla— y "Eliminar mi
                 cuenta" un contorno discreto. Lo irreversible ahora se ve
-                irreversible, y lo rutinario se ve rutinario. */}
+                irreversible, y lo rutinario es un renglón más de la lista. */}
             <View style={[estilos.zonaRiesgo, { borderColor: theme.error }]}>
               <View style={estilos.filaIa}>
                 <Ionicons name="warning-outline" size={18} color={theme.error} />
@@ -424,19 +446,6 @@ export default function PerfilScreen() {
                 </ThemedText>
               </Pressable>
             </View>
-
-            {/* Rutinaria y reversible: acción de texto, no un botón que grita. */}
-            <Pressable
-              onPress={onCerrarSesion}
-              style={estilos.cerrarSesion}
-              accessibilityRole="button"
-              accessibilityLabel="Cerrar sesión"
-            >
-              <Ionicons name="log-out-outline" size={16} color={theme.textSecondary} />
-              <ThemedText type="small" themeColor="textSecondary">
-                Cerrar sesión
-              </ThemedText>
-            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -512,11 +521,5 @@ const estilos = StyleSheet.create({
   },
   textoPeligro: { fontFamily: Tipografia.bold, fontSize: 15, letterSpacing: 0.4 },
 
-  cerrarSesion: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.one,
-    minHeight: 48,
-  },
+  lista: { gap: 0 },
 });

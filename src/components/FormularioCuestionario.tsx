@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
@@ -10,6 +10,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { OPCION_OTRA_UNIVERSIDAD, UNIVERSIDADES } from '@/lib/universidades';
 import { Campo } from './Campo';
 import { Casilla } from './Casilla';
+import { FileteHoja } from './ficha/CampoFicha';
+import { FilaAjuste } from './ficha/FilaAjuste';
 import { Seccion } from './ficha/Seccion';
 import { Sello } from './ficha/Sello';
 import { ThemedText } from './themed-text';
@@ -308,23 +310,38 @@ export function FormularioCuestionario({ valoresIniciales, textoBoton = 'Guardar
           control={control}
           name="mascotas"
           render={({ field: { onChange, value } }) => (
-            <FilaInterruptor etiqueta="¿Tienes mascotas?" valor={value} onCambiar={onChange} />
+            <FilaAjuste
+              icono="paw-outline"
+              etiqueta="Tengo mascotas"
+              descripcion="Es un filtro DURO: si lo activas, solo verás publicaciones que las aceptan."
+              valor={value}
+              onCambiar={onChange}
+            />
           )}
         />
+        <FileteHoja />
         <Controller
           control={control}
           name="fuma"
           render={({ field: { onChange, value } }) => (
-            <FilaInterruptor etiqueta="¿Fumas?" valor={value} onCambiar={onChange} />
+            <FilaAjuste
+              icono="flame-outline"
+              etiqueta="Fumo"
+              descripcion="Se usa para calcular afinidad con otros roomies, no para descartar publicaciones."
+              valor={value}
+              onCambiar={onChange}
+            />
           )}
         />
+        <FileteHoja />
         <Controller
           control={control}
           name="buscaRoomie"
           render={({ field: { onChange, value } }) => (
-            <FilaInterruptor
-              etiqueta="¿Ya tienes depa y buscas roomie?"
-              ayuda="Si lo activas, apareces en la pestaña de Roomies."
+            <FilaAjuste
+              icono="people-outline"
+              etiqueta="Ya tengo depa y busco roomie"
+              descripcion="Si lo activas, apareces en la pestaña de Roomies para que te encuentren."
               valor={value}
               onCambiar={onChange}
             />
@@ -443,46 +460,6 @@ function OpcionRadio({
   );
 }
 
-/** Pregunta de sí/no.
- *
- *  El interruptor se tiñe con TINTA, no con ámbar: mover una preferencia no
- *  compromete nada —el cambio se guarda con el botón de abajo— y con tres filas
- *  de sí/no eran tres sellos donde no se puede actuar. Tampoco con el verde del
- *  sistema, que no pertenece a esta paleta. */
-function FilaInterruptor({
-  etiqueta,
-  ayuda,
-  valor,
-  onCambiar,
-}: {
-  etiqueta: string;
-  ayuda?: string;
-  valor: boolean;
-  onCambiar: (v: boolean) => void;
-}) {
-  const theme = useTheme();
-  return (
-    <View style={estilos.filaInterruptor}>
-      <View style={estilos.flexible}>
-        <ThemedText>{etiqueta}</ThemedText>
-        {ayuda ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            {ayuda}
-          </ThemedText>
-        ) : null}
-      </View>
-      <Switch
-        value={valor}
-        onValueChange={onCambiar}
-        accessibilityLabel={etiqueta}
-        trackColor={{ true: theme.text, false: theme.border }}
-        thumbColor={valor ? theme.background : theme.background}
-        ios_backgroundColor={theme.border}
-      />
-    </View>
-  );
-}
-
 const estilos = StyleSheet.create({
   contenedor: { gap: Spacing.four },
   flexible: { flex: 1 },
@@ -512,13 +489,6 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
   },
   ayuda: { lineHeight: 20 },
-  filaInterruptor: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.three,
-    minHeight: 48,
-  },
   textoLibre: { minHeight: 100, textAlignVertical: 'top', paddingTop: Spacing.three },
   bloqueIa: {
     borderWidth: Filete.fino,
