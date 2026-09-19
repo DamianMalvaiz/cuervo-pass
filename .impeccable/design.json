@@ -1,113 +1,149 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-17T00:00:00Z",
+  "generatedAt": "2026-09-18T00:00:00Z",
   "title": "Design System: Cuervo Pass",
   "extensions": {
     "colorMeta": {
-      "primary": {
-        "role": "primary",
-        "displayName": "Utility Blue",
-        "canonical": "#208AEF",
-        "tonalRamp": ["#06213d", "#0d3c6e", "#14579f", "#1a70c9", "#208AEF", "#5aa8f3", "#94c7f8", "#dbeefd"]
-      },
-      "whatsapp-green": {
-        "role": "secondary",
-        "displayName": "WhatsApp Green",
-        "canonical": "#25D366",
-        "tonalRamp": ["#062e1f", "#0c5c3e", "#12895c", "#1caf7c", "#25D366", "#5fdf8d", "#96ecb2", "#d4f9e1"]
-      },
-      "success-green": {
-        "role": "tertiary",
-        "displayName": "Confirm Green",
-        "canonical": "#1a9d5c",
-        "tonalRamp": ["#062e1c", "#0c5c37", "#127f4b", "#188f54", "#1a9d5c", "#4fb885", "#8ad3ae", "#c7ecd9"]
-      },
-      "destructive-red": {
-        "role": "tertiary",
-        "displayName": "Alert Red",
-        "canonical": "#d92d20",
-        "tonalRamp": ["#3d0906", "#5f0f0b", "#911811", "#b82219", "#d92d20", "#e56a5f", "#f0a49b", "#f9d7d2"]
-      },
-      "neutral-surface": { "role": "neutral", "displayName": "Placeholder Gray", "canonical": "#E0E1E6" },
-      "text-secondary": { "role": "neutral", "displayName": "Secondary Text (light)", "canonical": "#60646C" },
-      "text-secondary-dark": { "role": "neutral", "displayName": "Secondary Text (dark)", "canonical": "#B0B4BA" }
+      "tinta": { "role": "neutral", "displayName": "Tinta", "canonical": "#12100E", "tonalRamp": ["#0A0908", "#12100E", "#1C1916", "#262119", "#3A332B", "#5C554B", "#8A8177", "#C9C0B0"] },
+      "papel": { "role": "neutral", "displayName": "Papel", "canonical": "#F5F1EA", "tonalRamp": ["#2B261E", "#453E33", "#5C554B", "#8A8177", "#C9C0B0", "#DED6C8", "#EAE4D9", "#F5F1EA"] },
+      "sello": { "role": "primary", "displayName": "Tinta de Sello (ámbar)", "canonical": "#E8A33D", "tonalRamp": ["#2B1C06", "#4A3616", "#6B4A08", "#8A5606", "#B8781C", "#E8A33D", "#F0C382", "#FBF0DC"] },
+      "acento-claro": { "role": "primary", "displayName": "Ámbar legible como texto sobre papel", "canonical": "#8A5606", "tonalRamp": ["#241B0F", "#3A2A0B", "#553B05", "#8A5606", "#B8781C", "#E8A33D", "#F0C382", "#FBF0DC"] },
+      "error-claro": { "role": "tertiary", "displayName": "Rojo de error (papel)", "canonical": "#A81E12", "tonalRamp": ["#2E0906", "#4A0F09", "#6B150D", "#A81E12", "#CC4438", "#F08074", "#F6B0A8", "#FBDCD8"] },
+      "exito-claro": { "role": "tertiary", "displayName": "Verde de confirmación (papel)", "canonical": "#146B3E", "tonalRamp": ["#05200F", "#0A3A21", "#0F522F", "#146B3E", "#27925A", "#4FBF85", "#8FD9B2", "#D3F0E0"] },
+      "whatsapp-verde": { "role": "secondary", "displayName": "Verde de WhatsApp (declarado, no visible)", "canonical": "#25D366", "tonalRamp": ["#062B15", "#0A4A24", "#0F6B34", "#148F46", "#1CB257", "#25D366", "#7FE7A9", "#D4F7E2"] }
     },
     "typographyMeta": {
-      "title": { "displayName": "Title", "purpose": "One per screen, top of the screen only." },
-      "body": { "displayName": "Body / Default", "purpose": "Standard UI text, field values." },
-      "small": { "displayName": "Small", "purpose": "Secondary lines, hints, metadata." },
-      "smallBold": { "displayName": "Small Bold", "purpose": "The single emphasis style — currently only listing prices and usernames." }
+      "calificacion": { "displayName": "Calificación", "purpose": "La afinidad dentro de su casilla. Una por pantalla. Archivo Black, cifras tabulares. Más grande que el título: en un kardex el dato manda." },
+      "title": { "displayName": "Título", "purpose": "Encabezado de pantalla. Modesto a propósito." },
+      "subtitle": { "displayName": "Subtítulo", "purpose": "El título de una publicación dentro de su ficha." },
+      "cifra": { "displayName": "Cifra", "purpose": "Renta, distancia, valores del desglose. Tabular para formar columna." },
+      "etiqueta": { "displayName": "Etiqueta", "purpose": "Versalita que nombra cada casilla. Siempre en MAYÚSCULAS en el llamador." },
+      "folio": { "displayName": "Folio", "purpose": "Folio, fecha de emisión y foja del documento." }
     },
     "shadows": [],
-    "motion": [],
-    "breakpoints": []
+    "motion": [
+      { "name": "fade-entrada", "value": "FadeIn 200-250ms", "purpose": "Única animación de entrada de la app. Sin resorte, sin escalonado." },
+      { "name": "despliegue-altura", "value": "LayoutAnimation 160ms easeInEaseOut, tipo opacity", "purpose": "El desglose de la calificación se abre por altura, no por rebote." },
+      { "name": "transicion-foto", "value": "expo-image transition: 160", "purpose": "Aparición de una fotografía cargada." },
+      { "name": "presion", "value": "opacity 0.75 (sello) / 0.7 (ficha)", "purpose": "Respuesta al toque. Se ve igual en iOS y Android, a diferencia de una sombra." }
+    ],
+    "breakpoints": [
+      { "name": "compacta", "value": "<360px de ancho o <700px de alto" },
+      { "name": "normal", "value": "360-699px de ancho" },
+      { "name": "amplia", "value": ">=700px de ancho; columna acotada a 480px y centrada" }
+    ]
   },
   "components": [
     {
-      "name": "Primary Button",
+      "name": "Sello (relleno)",
       "kind": "button",
-      "refersTo": "button-primary",
-      "description": "Main call-to-action — Entrar, Crear cuenta, Publicar, Guardar.",
-      "html": "<button class=\"ds-btn-primary\">Entrar</button>",
-      "css": ".ds-btn-primary { background: #208AEF; color: #fff; padding: 16px; border-radius: 8px; border: none; font-weight: 600; font-size: 16px; width: 100%; transition: opacity 0.15s; } .ds-btn-primary:hover { opacity: 0.9; } .ds-btn-primary:focus-visible { outline: 2px solid #14579f; outline-offset: 2px; } .ds-btn-primary:active { opacity: 0.8; }"
+      "refersTo": "sello-relleno",
+      "description": "La única acción con color de la hoja: la que compromete o valida.",
+      "html": "<button class=\"ds-sello\"><svg class=\"ds-sello-ico\" viewBox=\"0 0 24 24\" fill=\"currentColor\" width=\"18\" height=\"18\"><path d=\"M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-2.9.8.8-2.8-.2-.3A8 8 0 1 1 12 20Z\"/></svg>Ver contacto</button>",
+      "css": ".ds-sello { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 24px; background: #E8A33D; color: #12100E; border: none; border-radius: 12px; font-family: 'Archivo', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 0.4px; transition: opacity 0.12s linear; } .ds-sello:hover { opacity: 0.85; } .ds-sello:focus-visible { outline: 2px solid #12100E; outline-offset: 2px; } .ds-sello:active { opacity: 0.75; } .ds-sello:disabled { opacity: 0.45; }"
     },
     {
-      "name": "WhatsApp Contact Button",
+      "name": "Sello (contorno)",
       "kind": "button",
-      "refersTo": "button-whatsapp",
-      "description": "The single, exclusive contact action — opens a WhatsApp deep link.",
-      "html": "<button class=\"ds-btn-whatsapp\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"#fff\"><path d=\"M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.38 5.07L2 22l5.07-1.32A9.94 9.94 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18a7.9 7.9 0 01-4.03-1.1l-.29-.17-3 .78.8-2.93-.19-.3A7.93 7.93 0 014 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z\"/></svg>Contactar por WhatsApp</button>",
-      "css": ".ds-btn-whatsapp { display: flex; align-items: center; justify-content: center; gap: 8px; background: #25D366; color: #fff; padding: 16px; border-radius: 8px; border: none; font-weight: 600; font-size: 16px; width: 100%; } .ds-btn-whatsapp:hover { opacity: 0.9; } .ds-btn-whatsapp:focus-visible { outline: 2px solid #12895c; outline-offset: 2px; }"
+      "refersTo": "sello-contorno",
+      "description": "Acción secundaria: mismo peso, sin gastar la tinta del sello.",
+      "html": "<button class=\"ds-sello-contorno\">Descargar mis datos</button>",
+      "css": ".ds-sello-contorno { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 24px; background: transparent; color: #8A5606; border: 2px solid #8A5606; border-radius: 12px; font-family: 'Archivo', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 0.4px; transition: opacity 0.12s linear; } .ds-sello-contorno:hover { opacity: 0.85; } .ds-sello-contorno:focus-visible { outline: 2px solid #8A5606; outline-offset: 2px; } .ds-sello-contorno:active { opacity: 0.75; }"
     },
     {
-      "name": "Destructive Button",
-      "kind": "button",
-      "refersTo": "button-destructive",
-      "description": "Filled destructive action — currently only Cerrar sesión (Desactivar/Reportar use the text-only variant instead; see Do's and Don'ts).",
-      "html": "<button class=\"ds-btn-destructive\">Cerrar sesión</button>",
-      "css": ".ds-btn-destructive { background: #d92d20; color: #fff; padding: 16px; border-radius: 8px; border: none; font-weight: 600; font-size: 16px; width: 100%; } .ds-btn-destructive:hover { opacity: 0.9; } .ds-btn-destructive:focus-visible { outline: 2px solid #911811; outline-offset: 2px; }"
-    },
-    {
-      "name": "Text Input",
+      "name": "Campo con etiqueta persistente",
       "kind": "input",
-      "refersTo": "input-text",
-      "description": "Every form field in the app — same border, radius and padding regardless of context.",
-      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Correo\" />",
-      "css": ".ds-input { border: 1px solid #ccc; border-radius: 8px; padding: 16px; font-size: 16px; width: 100%; background: transparent; } .ds-input:focus { border-color: #208AEF; outline: none; }"
+      "refersTo": "campo-entrada",
+      "description": "Etiqueta en versalita arriba, entrada abajo, error como renglón debajo. El borde nunca se recolorea.",
+      "html": "<div class=\"ds-campo\"><span class=\"ds-campo-etiqueta\">CORREO ELECTRÓNICO</span><input class=\"ds-campo-entrada\" placeholder=\"tucorreo@ejemplo.mx\" /><span class=\"ds-campo-error\">Escribe un correo válido.</span></div>",
+      "css": ".ds-campo { display: flex; flex-direction: column; gap: 4px; font-family: 'Archivo', sans-serif; } .ds-campo-etiqueta { font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.9px; color: #5C554B; } .ds-campo-entrada { min-height: 52px; padding: 8px 16px; border: 1px solid #8A8177; border-radius: 12px; background: #F5F1EA; color: #12100E; font-family: 'Archivo', sans-serif; font-size: 16px; } .ds-campo-entrada::placeholder { color: #5C554B; } .ds-campo-entrada:focus-visible { outline: 2px solid #12100E; outline-offset: 1px; } .ds-campo-error { font-size: 14px; line-height: 20px; color: #A81E12; }"
     },
     {
-      "name": "Listing Card",
+      "name": "Casilla de calificación",
+      "kind": "custom",
+      "refersTo": "casilla-calificacion-ficha",
+      "description": "La pieza que define el mundo: la afinidad en la casilla donde un kardex pone la calificación. Sin lavado ámbar: informa, no compromete.",
+      "html": "<div class=\"ds-calificacion\"><span class=\"ds-calificacion-etiqueta\">AFINIDAD</span><span class=\"ds-calificacion-cifra\">9.4</span></div>",
+      "css": ".ds-calificacion { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 128px; padding: 8px 16px; border: 1px solid #8A8177; border-radius: 8px; background: #EAE4D9; font-family: 'Archivo', sans-serif; } .ds-calificacion-etiqueta { font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.9px; color: #5C554B; } .ds-calificacion-cifra { font-size: 56px; line-height: 56px; font-weight: 900; letter-spacing: -1.8px; color: #12100E; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Ficha de publicación",
       "kind": "card",
-      "refersTo": "card-listing",
-      "description": "TarjetaPublicacion — photo thumbnail, price in Small Bold, address and distance in Small/secondary.",
-      "html": "<div class=\"ds-card-listing\"><div class=\"ds-card-listing-photo\"></div><div class=\"ds-card-listing-info\"><span class=\"ds-card-listing-price\">$2,800/mes</span><span class=\"ds-card-listing-address\">San Mateo Atenco</span></div></div>",
-      "css": ".ds-card-listing { display: flex; flex-direction: row; gap: 16px; padding: 8px; border-radius: 8px; } .ds-card-listing-photo { width: 88px; height: 88px; border-radius: 8px; background: #E0E1E6; flex-shrink: 0; } .ds-card-listing-info { display: flex; flex-direction: column; justify-content: center; gap: 2px; } .ds-card-listing-price { font-weight: 700; font-size: 14px; } .ds-card-listing-address { font-weight: 500; font-size: 14px; color: #60646C; }"
+      "refersTo": "hoja-ficha",
+      "description": "La hoja: tira de folio, fotografía 3:2 al ras con filete, y cuerpo con pares etiqueta/valor.",
+      "html": "<article class=\"ds-hoja\"><div class=\"ds-hoja-folio\"><span>DEPARTAMENTO</span><span>FOLIO 7C4A19</span></div><div class=\"ds-hoja-foto\"></div><div class=\"ds-hoja-cuerpo\"><h3 class=\"ds-hoja-titulo\">Departamento amueblado cerca de la UTVT</h3><p class=\"ds-hoja-dir\">Av. Universidad 212, Tejupilco</p><div class=\"ds-hoja-campos\"><div class=\"ds-calificacion-min\"><span class=\"ds-l\">AFINIDAD</span><span class=\"ds-n\">9.4</span></div><div class=\"ds-hoja-der\"><div><span class=\"ds-l\">RENTA MENSUAL</span><span class=\"ds-v\">$2,800</span></div><div><span class=\"ds-l\">DISTANCIA</span><span class=\"ds-v\">1.2 km</span></div></div></div></div></article>",
+      "css": ".ds-hoja { border: 1px solid #C9C0B0; border-radius: 16px; overflow: hidden; background: #F5F1EA; font-family: 'Archivo', sans-serif; max-width: 360px; transition: opacity 0.12s linear; } .ds-hoja:hover { opacity: 0.92; } .ds-hoja:active { opacity: 0.7; } .ds-hoja-folio { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px 4px; font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.9px; color: #5C554B; } .ds-hoja-foto { width: 100%; aspect-ratio: 3 / 2; background: #EAE4D9; border-top: 1px solid #C9C0B0; border-bottom: 1px solid #C9C0B0; } .ds-hoja-cuerpo { padding: 16px; display: flex; flex-direction: column; gap: 8px; } .ds-hoja-titulo { margin: 0; font-size: 20px; line-height: 26px; font-weight: 600; letter-spacing: -0.2px; color: #12100E; } .ds-hoja-dir { margin: 0; font-size: 14px; line-height: 20px; color: #5C554B; } .ds-hoja-campos { display: flex; gap: 16px; margin-top: 4px; } .ds-calificacion-min { display: flex; flex-direction: column; min-width: 96px; padding: 4px 8px; border: 1px solid #8A8177; border-radius: 8px; background: #EAE4D9; } .ds-hoja-der { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; } .ds-l { font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.9px; color: #5C554B; display: block; } .ds-n { font-size: 40px; line-height: 44px; font-weight: 900; letter-spacing: -1.2px; color: #12100E; font-variant-numeric: tabular-nums; } .ds-v { font-size: 17px; line-height: 22px; font-weight: 700; color: #12100E; font-variant-numeric: tabular-nums; display: block; }"
+    },
+    {
+      "name": "Pastilla de orden",
+      "kind": "chip",
+      "refersTo": "pastilla-orden",
+      "description": "Selector de criterio de ordenamiento. Pastilla de una línea, sin ámbar: ordenar no compromete nada.",
+      "html": "<button class=\"ds-pastilla\"><svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"currentColor\"><path d=\"M7 4v13l-3-3-1.4 1.4L8 21l5.4-5.6L12 14l-3 3V4H7Zm10 16V7l3 3 1.4-1.4L16 3l-5.4 5.6L12 10l3-3v13h2Z\"/></svg><span>Recomendado</span><svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"currentColor\"><path d=\"M7 10l5 5 5-5H7Z\"/></svg></button>",
+      "css": ".ds-pastilla { display: inline-flex; align-items: center; gap: 4px; min-height: 38px; padding: 0 16px; border: 1px solid #8A8177; border-radius: 9999px; background: #EAE4D9; color: #12100E; font-family: 'Archivo', sans-serif; font-size: 14px; font-weight: 600; } .ds-pastilla:hover { background: #DED6C8; } .ds-pastilla:focus-visible { outline: 2px solid #12100E; outline-offset: 2px; } .ds-pastilla:active { opacity: 0.8; }"
+    },
+    {
+      "name": "Barra de pestañas",
+      "kind": "nav",
+      "refersTo": "barra-pestanas",
+      "description": "Pie de imprenta. La pestaña activa lleva tres señales: barra superior, icono relleno y contraste pleno.",
+      "html": "<nav class=\"ds-tabs\"><a class=\"ds-tab ds-tab-activa\" href=\"#\"><span class=\"ds-tab-marca\"></span><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"currentColor\"><path d=\"M12 3 2 12h3v8h6v-5h2v5h6v-8h3L12 3Z\"/></svg><span>Sugerencias</span></a><a class=\"ds-tab\" href=\"#\"><span class=\"ds-tab-marca\"></span><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"2\"/></svg><span>Publicaciones</span></a></nav>",
+      "css": ".ds-tabs { display: flex; height: 64px; padding-top: 4px; background: #F5F1EA; border-top: 1px solid #8A8177; font-family: 'Archivo', sans-serif; } .ds-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0; text-decoration: none; color: #5C554B; font-size: 10px; font-weight: 600; letter-spacing: 0.6px; } .ds-tab-marca { width: 18px; height: 2px; background: transparent; } .ds-tab-activa { color: #12100E; } .ds-tab-activa .ds-tab-marca { background: #12100E; } .ds-tab:hover { color: #12100E; } .ds-tab:focus-visible { outline: 2px solid #12100E; outline-offset: -2px; }"
+    },
+    {
+      "name": "Bloque de lavado",
+      "kind": "card",
+      "refersTo": "bloque-lavado",
+      "description": "El bloque que la hoja quiere destacar sin gastar sello: lavado del ámbar con su borde lavado.",
+      "html": "<div class=\"ds-lavado\"><span class=\"ds-l\">ANÁLISIS CON IA</span><p>Con tu consentimiento, comparamos tu descripción con la de cada publicación para calcular la afinidad semántica.</p></div>",
+      "css": ".ds-lavado { border: 1px solid #E3CFA4; border-radius: 16px; background: #FBF0DC; padding: 16px; display: flex; flex-direction: column; gap: 16px; font-family: 'Archivo', sans-serif; color: #12100E; } .ds-lavado p { margin: 0; font-size: 14px; line-height: 20px; } .ds-lavado .ds-l { font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.9px; color: #5C554B; }"
     }
   ],
   "narrative": {
-    "northStar": "The Reliable Move-In Companion",
-    "overview": "Cuervo Pass exists for the exact moment a student decides on housing they cannot see in person. The interface earns trust the way a good moving company does: nothing flashy, nothing that calls attention to itself, everything legible, predictable, and clearly working. This is an Operate-mode product — task completion (find, publish, contact, confirm) always outranks expression. Right now the system is deliberately plain: one accent color, system typography, no shadows, no illustration, no custom iconography. That plainness is currently more accident than decision — it is the byproduct of building screen-by-screen against a 12-week deadline rather than a chosen aesthetic. This file documents what exists today so future screens stay consistent with it; treat the flatness as a floor to build on, not a philosophy to defend.",
+    "northStar": "La Ficha",
+    "overview": "El mundo es un documento oficial: ruleado, con sus campos etiquetados, su folio, su fecha de emisión y un sello que lo valida. La afinidad que calcula el motor de dos etapas ocupa la casilla donde un kardex pone la calificación, porque un \"9.4\" en una casilla enmarcada se lee sin que nadie lo explique. La categoría entrega siempre una rejilla de fotos con corazón; eso ordena por deseo, y este producto ordena por ajuste y tiene que poder justificarlo, así que la fotografía va integrada dentro del documento y no coronando una tarjeta. Claro y oscuro son AMBOS canónicos: el claro es el papel y el oscuro es el mismo papel bajo la lámpara del escritorio a las once de la noche.",
     "keyCharacteristics": [
-      "One primary accent (#208AEF), used for calls-to-action and links only — never decoratively.",
-      "Flat everywhere: no shadows, no gradients, no elevation system yet.",
-      "System typography only (no custom or brand typeface has been chosen).",
-      "Every screen uses the same 8px spacing/radius grid; nothing is hand-tuned per screen."
+      "El ámbar es tinta de sello: aparece en ocho sitios del código, todos ellos acciones que comprometen o validan. Todo lo demás va en tinta.",
+      "Cero sombras y cero elevation en toda la app: la separación es filete, color plano y lavado.",
+      "Tipografía propia (Archivo, Omnibus-Type) con cinco cortes cargados y cifras tabulares en todo lo que forma columna.",
+      "La jerarquía está invertida a propósito: la calificación (56px) es más grande que el título de pantalla (26px).",
+      "Pares etiqueta/valor como unidad de composición; no existe texto suelto ni placeholder haciendo de etiqueta.",
+      "Tres radios (8/12/16) que crecen con la superficie."
     ],
     "rules": [
-      { "name": "The One Accent Rule", "body": "#208AEF is the only color allowed to mean \"primary action.\" If a second blue-ish accent shows up anywhere, it is a mistake, not a variant.", "section": "colors" },
-      { "name": "The Two-Weight Rule", "body": "The entire app uses exactly two font weights that matter — 500 (default) and 600/700 (title and the one bold emphasis style). A third weight anywhere is unintentional drift.", "section": "typography" },
-      { "name": "The Flat-By-Default Rule", "body": "No shadow* or elevation prop has been used anywhere in the codebase. Any future shadow use is a deliberate new decision, not a continuation of an existing pattern.", "section": "elevation" }
+      { "name": "La Regla del Sello", "body": "El ámbar aparece SOLO sobre lo que compromete o valida y en ningún otro lugar. Un segundo ámbar en la misma pantalla es un error, no una variante. Consecuencia: Inicio no tiene ni un pixel de ámbar, porque ahí no hay ninguna acción que comprometa.", "section": "colors" },
+      { "name": "La Regla del Relleno con su Propio Texto", "body": "Todo relleno de color trae su color de texto declarado junto a él (selloTexto, errorTexto), nunca blanco por defecto. Blanco sobre ámbar da 1.98:1 y blanco sobre el rojo claro del modo oscuro da 2.61:1.", "section": "colors" },
+      { "name": "La Regla de las Dos Líneas", "body": "Filete decorativo y borde de campo son tokens DISTINTOS y nunca se sustituyen uno por otro. WCAG 1.4.11 exige 3:1 al segundo y no al primero.", "section": "colors" },
+      { "name": "La Regla de la Segunda Señal", "body": "Ningún estado se codifica solo con color: pestaña activa, nivel del motor, opción elegida y requisito cumplido llevan siempre una segunda y tercera señal — forma, icono, peso o paloma.", "section": "colors" },
+      { "name": "La Regla del Dato que Manda", "body": "En un kardex el encabezado es modesto y el dato manda. Por eso calificacion (56px) es más grande que title (26px).", "section": "typography" },
+      { "name": "La Regla del Par", "body": "Un documento oficial no tiene texto suelto: tiene pares de etiqueta y valor. Toda cifra lleva su versalita encima.", "section": "typography" },
+      { "name": "La Regla de la Familia Apuntada", "body": "Con tipografía propia, fontWeight NO sintetiza el corte: hay que apuntar a la familia.", "section": "typography" },
+      { "name": "La Regla de la Columna", "body": "Todo lo que se compara entre una ficha y la siguiente lleva cifras tabulares y ancho mínimo fijo. Un documento impreso nunca tambalea sus columnas.", "section": "typography" },
+      { "name": "La Regla de la Clase, no del Modelo", "body": "La adaptación es por clase de tamaño, nunca por modelo de dispositivo. Se pregunta cuánto espacio hay AHORA.", "section": "layout" },
+      { "name": "La Regla de la Hoja Plana", "body": "Si un bloque necesita despegarse, se le pone filete o lavado, jamás sombra. Cualquier shadow* o elevation distinto de 0 es una regresión.", "section": "elevation" },
+      { "name": "La Regla de la Transición Única", "body": "Toda aparición es un FadeIn corto y plano. El despliegue del desglose es altura, no rebote. Sin resorte, sin escalonado, sin cascada.", "section": "components" },
+      { "name": "La Regla de la Escala por Superficie", "body": "Una casilla de 24px con radio 16 se ve deforme y una hoja de 360px con radio 8 se ve tacaña. El radio se elige por el tamaño de la superficie.", "section": "shapes" }
     ],
     "dos": [
-      "Do keep Utility Blue (#208AEF) as the only color that means \"you can act here\" — never introduce a second accent hue.",
-      "Do use WhatsApp Green (#25D366) exclusively for the WhatsApp contact action.",
-      "Do keep every corner radius at 8px (rounded.md) unless a component is fully circular (avatars).",
-      "Do put validation errors as red small-text below the field, never by recoloring the input border."
+      "Do reservar el ámbar #E8A33D para la acción que compromete o valida, y darle siempre selloTexto encima. Si una pantalla nueva no tiene una acción de ese tipo, esa pantalla no lleva ámbar.",
+      "Do escribir toda cifra y todo dato como par etiqueta/valor, con la versalita etiqueta en MAYÚSCULAS encima.",
+      "Do usar Filete.fino con theme.filete para separar y theme.border para delimitar un control.",
+      "Do apuntar a la familia (Tipografia.bold) en vez de a fontWeight cuando necesites un corte más pesado.",
+      "Do poner fontVariant tabular-nums y un ancho mínimo a cualquier cifra que se compare entre elementos de una lista.",
+      "Do elegir el radio por el tamaño de la superficie: 8 casilla, 12 control, 16 hoja, full pastilla.",
+      "Do adaptar por clase de tamaño (useTamanoPantalla) y acotar la columna a 480px en pantallas amplias.",
+      "Do dar a todo estado una segunda y tercera señal además del color: forma, icono, peso o paloma.",
+      "Do mostrar el error como renglón debajo del campo, con accessibilityLiveRegion, sin recolorear el borde."
     ],
     "donts": [
-      "Don't add a shadow or elevation to any component without a deliberate Elevation & Depth decision first.",
-      "Don't treat \"Desactivar\"/\"Reportar\" (text-only red) and \"Cerrar sesión\" (filled red button) as the same component — reconcile which destructive actions are filled vs. text-only before adding a third one.",
-      "Don't style the bottom tab bar or any new screen against a generic Material/iOS default without checking this file first."
+      "Don't usar el ámbar #E8A33D como TEXTO: da 1.9:1 sobre papel. Para texto existe theme.acento, con un valor por modo.",
+      "Don't asumir que el texto sobre un relleno de color es blanco. En modo oscuro el rojo es claro y el blanco da 2.61:1.",
+      "Don't añadir shadowColor, elevation distinto de 0, gradiente ni glow.",
+      "Don't añadir resorte, rebote, escalonado ni entradas en cascada.",
+      "Don't usar un placeholder como etiqueta de un campo: desaparece en cuanto se escribe.",
+      "Don't escribir borderWidth: 1 ni borderRadius: Spacing.two a mano; usa Filete.fino y Radios.*.",
+      "Don't dejar que un título de pantalla compita en tamaño con el dato que la pantalla existe para mostrar.",
+      "Don't pintar un rectángulo gris para un dato ausente: pinta el campo y di que está vacío."
     ]
   }
 }
