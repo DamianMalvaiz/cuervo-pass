@@ -277,13 +277,34 @@ export async function reintentarGeocodingPendiente(publicaciones: Publicacion[])
  * el contacto sin duplicar. v4 tenía la función pero sin cuota, lo que
  * registraba el scraping en vez de impedirlo.
  */
-export async function revelarContacto(publicacionId: string, score?: number | null): Promise<string> {
+/**
+ * END-21 · Ya no se manda el score.
+ *
+ * Antes iba como argumento, y la app lo había sacado de un parámetro de ruta:
+ * la métrica que el producto presenta la dictaba quien iba a ser medido. Ahora
+ * `revelar_contacto` la calcula dentro, con `afinidad_de`.
+ */
+export async function revelarContacto(publicacionId: string): Promise<string> {
   const { data, error } = await supabase.rpc('revelar_contacto', {
     p_publicacion_id: publicacionId,
-    p_score: score ?? null,
   });
   if (error) throw error;
   return data as string;
+}
+
+/** La afinidad de una publicación, calculada en el servidor (END-21). */
+export async function obtenerAfinidad(publicacionId: string) {
+  const { data, error } = await supabase.rpc('afinidad_de', { p_publicacion_id: publicacionId });
+  if (error) throw error;
+  const fila = (data ?? [])[0];
+  return fila
+    ? {
+        score: fila.score as number | null,
+        similitud: fila.similitud as number | null,
+        scoreFinal: fila.score_final as number | null,
+        nivel: fila.nivel as 1 | 2,
+      }
+    : null;
 }
 
 /** El ocultamiento automático a los 3 reportes lo hace el trigger `al_reportar`

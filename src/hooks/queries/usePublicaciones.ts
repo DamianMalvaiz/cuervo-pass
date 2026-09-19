@@ -15,6 +15,7 @@ import { claves } from '@/lib/consultas';
 import { textoDeError } from '@/lib/registro';
 import {
   cambiarEstadoPublicacion,
+  obtenerAfinidad,
   contarContactosRecibidos,
   listarMisPublicaciones,
   obtenerPublicacionPublica,
@@ -66,6 +67,23 @@ export function usePublicacion(id: string | undefined) {
     fallo: q.isError ? textoDeError(q.error) : null,
     reintentar: q.refetch,
   };
+}
+
+/**
+ * La afinidad de una publicación, del servidor · END-21
+ *
+ * Consulta aparte y no parte de `usePublicacion` porque su clave es distinta:
+ * la ficha es la misma para todos, la afinidad depende de QUIÉN pregunta. Con
+ * una sola clave, dos cuentas en el mismo dispositivo compartirían caché y una
+ * vería el ajuste de la otra.
+ */
+export function useAfinidad(id: string | undefined) {
+  const q = useQuery({
+    queryKey: ['afinidad', id ?? ''],
+    queryFn: () => obtenerAfinidad(id as string),
+    enabled: Boolean(id),
+  });
+  return q.data ?? null;
 }
 
 export function useMisPublicaciones(usuarioId: string | undefined) {

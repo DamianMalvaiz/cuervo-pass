@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(55);
+select plan(59);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -769,6 +769,77 @@ select is(
     where otro_usuario_id = '00000000-0000-0000-0000-0000000000c2'),
   0,
   'resumen_conversaciones solo devuelve las conversaciones propias' );
+
+-- ════════════════ 56 a 59 · END-21: la calificacion viajaba por la URL ════════════════
+-- `inicio.tsx` pasaba `score`, `base` y `sim` como PARAMETROS DE RUTA al abrir
+-- una ficha. Dos consecuencias:
+--
+--   · Un deep link a una publicacion no trae esos parametros, asi que el
+--     desglose —la tesis del producto— desaparecia segun por donde entraras.
+--   · Peor: ese valor se escribia en `contactos.score_mostrado`. La metrica
+--     que el producto presenta era un dato SUMINISTRADO POR EL CLIENTE, o sea
+--     que cualquiera con la anon key podia escribir el numero que quisiera.
+select actuar_como_servicio();
+update publicaciones set activa = false;
+
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta,
+                           whatsapp, latitud, longitud, permite_mascotas, creado_en)
+values ('00000000-0000-0000-0000-00000000c501',
+        '00000000-0000-0000-0000-0000000000a7', 'Para afinidad', 'depa',
+        'Calle C5 1', 2800, '5512345678', 19.29, -99.56, false,
+        '2026-09-01 12:00:00+00');
+
+update usuarios set mascotas = false, presupuesto_min = 2000, presupuesto_max = 3500,
+                    distancia_max_km = 10, nivel_ruido = 'bajo'
+ where id = '00000000-0000-0000-0000-0000000000a1';
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+-- LA asercion contra la duplicacion: el numero del detalle y el de la lista
+-- tienen que ser EL MISMO. Si la formula se copiara en dos sitios, algun dia se
+-- cambiaria en uno solo y la misma publicacion mostraria dos calificaciones
+-- distintas segun donde se mire.
+select is(
+  (select score_final from afinidad_de('00000000-0000-0000-0000-00000000c501'::uuid)),
+  (select score_final from sugerencias_con_ranking(30)
+    where id = '00000000-0000-0000-0000-00000000c501'),
+  'afinidad_de devuelve el MISMO score que la lista' );
+
+-- Un deep link a algo fuera de tus filtros tambien tiene que decir cuanto
+-- encaja: el numero es lo que explica por que NO encaja.
+select actuar_como_servicio();
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta,
+                           whatsapp, latitud, longitud, creado_en)
+values ('00000000-0000-0000-0000-00000000c502',
+        '00000000-0000-0000-0000-0000000000a7', 'Carisima', 'depa',
+        'Calle C5 2', 99000, '5512345678', 19.29, -99.56, '2026-09-01 12:00:00+00');
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+select isnt(
+  (select score_final from afinidad_de('00000000-0000-0000-0000-00000000c502'::uuid)),
+  null,
+  'afinidad_de responde aunque la publicacion quede fuera del filtro duro' );
+
+-- Y el cliente deja de poder dictar la metrica.
+select actuar_como_servicio();
+select is(
+  (select count(*)::int from pg_proc
+    where proname = 'revelar_contacto'
+      and pg_get_function_identity_arguments(oid) like '%numeric%'),
+  0,
+  'revelar_contacto ya no acepta un score del cliente' );
+
+-- El valor que queda registrado lo calcula el servidor, no quien llama.
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select revelar_contacto('00000000-0000-0000-0000-00000000c501'::uuid);
+select actuar_como_servicio();
+select is(
+  (select score_mostrado from contactos
+    where usuario_id = '00000000-0000-0000-0000-0000000000a1'
+      and publicacion_id = '00000000-0000-0000-0000-00000000c501'),
+  (select score_final from afinidad_de_para('00000000-0000-0000-0000-0000000000a1',
+                                            '00000000-0000-0000-0000-00000000c501'::uuid)),
+  'score_mostrado lo calcula el servidor' );
 
 select * from finish();
 rollback;

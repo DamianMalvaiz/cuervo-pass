@@ -172,16 +172,12 @@ export default function InicioScreen() {
     };
   }, [filtradas]);
 
+  // END-21 · Solo el id. La calificación viajaba por la URL, así que un enlace
+  // directo a una ficha no la traía y el desglose desaparecía según por dónde
+  // entraras; y ese valor acababa escrito en `contactos.score_mostrado`, o sea
+  // que la métrica la suministraba el cliente. Ahora la ficha la pregunta.
   const irADetalle = useCallback((item: PublicacionSugerida) => {
-    router.push({
-      pathname: '/publicacion/[id]',
-      params: {
-        id: item.id,
-        score: String(item.score_final ?? item.score),
-        base: String(item.score),
-        ...(item.similitud != null ? { sim: String(item.similitud) } : {}),
-      },
-    });
+    router.push({ pathname: '/publicacion/[id]', params: { id: item.id } });
   }, []);
 
   const compacta = useCallback(

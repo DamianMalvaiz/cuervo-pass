@@ -34,7 +34,7 @@ import {
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import { Sello } from '@/components/ficha/Sello';
-import { usePublicacion } from '@/hooks/queries/usePublicaciones';
+import { usePublicacion , useAfinidad } from '@/hooks/queries/usePublicaciones';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 const ETIQUETA_TIPO: Record<string, string> = {
@@ -44,21 +44,15 @@ const ETIQUETA_TIPO: Record<string, string> = {
   casa_compartida: 'CASA COMPARTIDA',
 };
 
-function aNumero(v: string | undefined): number | null {
-  if (v == null) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
 
 export default function DetallePublicacionScreen() {
   const theme = useTheme();
-  const { id, score, base, sim } = useLocalSearchParams<{
-    id: string;
-    score?: string;
-    base?: string;
-    sim?: string;
-  }>();
+  // END-21 · Solo el id. El score, la base y la similitud llegaban como
+  // PARÁMETROS DE RUTA, así que un enlace directo a una ficha no los traía y el
+  // desglose —la tesis del producto— desaparecía según por dónde entraras. Y
+  // peor: ese valor acababa en `contactos.score_mostrado`, o sea que la métrica
+  // la suministraba el cliente. Ahora se consulta al servidor.
+  const { id } = useLocalSearchParams<{ id: string }>();
   const session = useAuthStore((s) => s.session);
   const { perfil, cargarPerfil } = usePerfilStore();
   const [foja, setFoja] = useState(0);
@@ -80,6 +74,7 @@ export default function DetallePublicacionScreen() {
   // sostener a mano desaparecen: react-query los trae, y además reintenta dos
   // veces con backoff antes de rendirse.
   const { publicacion, cargando, fallo, reintentar } = usePublicacion(id);
+  const afinidad = useAfinidad(id);
 
   useEffect(() => {
     if (session?.user.id) cargarPerfil(session.user.id);
@@ -263,9 +258,13 @@ export default function DetallePublicacionScreen() {
             publicaciones" no hay score —no existe afinidad contigo mismo— y
             pintar la casilla vacía con "¿Por qué esta calificación?" debajo
             dejaba una afordancia muerta. */}
-        {aNumero(score) != null && (
+        {afinidad?.scoreFinal != null && (
           <>
-            <DesgloseCalificacion score={aNumero(score)} base={aNumero(base)} similitud={aNumero(sim)} />
+            <DesgloseCalificacion
+              score={afinidad.scoreFinal}
+              base={afinidad.score}
+              similitud={afinidad.similitud}
+            />
             {/* END-30 · El descargo, junto al número y no en un aviso legal que
                 nadie abre.
                 
@@ -370,7 +369,7 @@ export default function DetallePublicacionScreen() {
           <BotonVerContacto
             publicacionId={publicacion.id}
             titulo={publicacion.titulo}
-            score={aNumero(score)}
+            score={afinidad?.scoreFinal ?? null}
             onRevelar={revelarContacto}
             onError={(mensaje) => Alert.alert('No se pudo abrir el contacto', mensaje)}
           />

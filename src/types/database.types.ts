@@ -303,8 +303,17 @@ export interface Database {
           no_leidos: number;
         }[];
       };
+      afinidad_de: {
+        Args: { p_publicacion_id: string };
+        Returns: {
+          score: number | null;
+          similitud: number | null;
+          score_final: number | null;
+          nivel: 1 | 2;
+        }[];
+      };
       revelar_contacto: {
-        Args: { p_publicacion_id: string; p_score?: number | null };
+        Args: { p_publicacion_id: string};
         Returns: string;
       };
       contactos_de_mis_publicaciones: {
