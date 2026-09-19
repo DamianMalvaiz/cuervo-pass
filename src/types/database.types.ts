@@ -273,12 +273,15 @@ export interface Database {
       publicaciones_publicas: Vista<PublicacionPublica>;
     };
     Functions: {
+      // END-17 · `p_tipo` se aplica dentro de la función que trunca a 30, no
+      // después. Filtrar una página ya truncada es lo que hacía que la app
+      // negara la existencia de publicaciones que sí estaban.
       sugerencias_publicaciones: {
-        Args: { p_limite?: number };
+        Args: { p_limite?: number; p_tipo?: TipoPublicacion | null };
         Returns: PublicacionSugerida[];
       };
       sugerencias_con_ranking: {
-        Args: { p_limite?: number };
+        Args: { p_limite?: number; p_tipo?: TipoPublicacion | null };
         Returns: PublicacionSugerida[];
       };
       sugerencias_roomies: {

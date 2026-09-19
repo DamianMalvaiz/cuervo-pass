@@ -65,8 +65,19 @@ export interface ResultadoSugerencias {
  * —«12 de 20 con afinidad semántica»—, que prueba que el motor corre y hasta
  * dónde alcanza en vez de afirmarlo.
  */
-export async function obtenerSugerencias(limite = 20): Promise<ResultadoSugerencias> {
-  const { data, error } = await supabase.rpc('sugerencias_con_ranking', { p_limite: limite });
+export async function obtenerSugerencias(
+  limite = 20,
+  tipo: TipoPublicacion | null = null
+): Promise<ResultadoSugerencias> {
+  // END-17 · El tipo va al SERVIDOR. Filtrarlo aquí, sobre un top-30 que
+  // Postgres ya truncó, es lo que hacía que la app dijera «SIN REGISTROS DE ESE
+  // TIPO» habiendo cincuenta: si en esos treinta no caía ningún cuarto, no los
+  // había para el cliente. El filtro vive en la función interna, así que ahora
+  // se filtra primero y se trunca después.
+  const { data, error } = await supabase.rpc('sugerencias_con_ranking', {
+    p_limite: limite,
+    p_tipo: tipo,
+  });
   if (error) throw error;
 
   const datos = (data ?? []) as PublicacionSugerida[];

@@ -17,7 +17,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { fechaHoraDeSello } from '@/lib/folio';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
-import type { PublicacionSugerida } from '@/types/database.types';
+import type { PublicacionSugerida, TipoPublicacion } from '@/types/database.types';
 import { useSugerencias } from '@/hooks/queries/usePublicaciones';
 
 // Documento maestro v5 · §17, §18, §25.
@@ -32,10 +32,17 @@ import { useSugerencias } from '@/hooks/queries/usePublicaciones';
 // completa. El desplegable de orden que había antes desapareció: obligaba a
 // elegir UNA lente y perder el sitio; ahora se ven las tres a la vez.
 
-const TIPOS: { valor: string | null; etiqueta: string }[] = [
+// El tipo del arreglo NO es `string | null`, y ese es el arreglo de fondo.
+// Escrito como `string`, este chip decía `'casa'` —un valor que no existe en
+// ninguna otra parte del proyecto: el formulario, el enum de zod, la ficha y el
+// CHECK de la migración 0010 dicen todos `'casa_compartida'`— y nada se quejó
+// nunca. Mientras el filtro corría en el cliente, el chip simplemente no
+// coincidía con nada; al mandarlo al servidor habría devuelto vacío para
+// siempre. Con `TipoPublicacion` el compilador lo atrapa.
+const TIPOS: { valor: TipoPublicacion | null; etiqueta: string }[] = [
   { valor: null, etiqueta: 'Todo' },
   { valor: 'depa', etiqueta: 'Departamento' },
-  { valor: 'casa', etiqueta: 'Casa' },
+  { valor: 'casa_compartida', etiqueta: 'Casa compartida' },
   { valor: 'cuarto', etiqueta: 'Cuarto' },
 ];
 
@@ -89,7 +96,13 @@ function ResumenFiltros() {
 
 /** Chips de tipo. El estado activo no depende solo del color: cambia el filete,
  *  el fondo y el peso de la letra. */
-function ChipsTipo({ valor, onCambiar }: { valor: string | null; onCambiar: (v: string | null) => void }) {
+function ChipsTipo({
+  valor,
+  onCambiar,
+}: {
+  valor: TipoPublicacion | null;
+  onCambiar: (v: TipoPublicacion | null) => void;
+}) {
   const theme = useTheme();
   return (
     <ScrollView
@@ -131,7 +144,7 @@ export default function InicioScreen() {
   const cargarPerfil = usePerfilStore((s) => s.cargarPerfil);
   // Dos números y no una bandera: en una misma lista conviven publicaciones
   // ordenadas por afinidad y publicaciones ordenadas solo por filtros (END-08).
-  const [tipo, setTipo] = useState<string | null>(null);
+  const [tipo, setTipo] = useState<TipoPublicacion | null>(null);
   const theme = useTheme();
   const margenSuperior = useMargenSuperior();
 
@@ -151,11 +164,10 @@ export default function InicioScreen() {
   // AUD-08: una sola petición para todas las miniaturas visibles.
   const { urls: urlsFirmadas } = useFotosFirmadas(sugerencias.map((s) => s.fotos?.[0]));
 
-  // Ya NO se filtra en el cliente: el tipo entra en la clave de la consulta, así
-  // que cada chip tiene su propia caché. Filtrar aquí sobre una página ya
-  // truncada por el servidor es END-17, y era lo que hacía que la app dijera
-  // «SIN REGISTROS DE ESE TIPO» habiendo cincuenta. El filtro real en Postgres
-  // llega con B.3; mientras tanto, esto deja de mentir por su cuenta.
+  // B.3 · El filtro ya corre en Postgres, dentro de la función que trunca a
+  // treinta, así que lo que llega aquí es el top-30 DE ESE TIPO y no lo que
+  // quedó de filtrar el top-30 general. No hay nada que filtrar en el cliente:
+  // el nombre se conserva porque media pantalla lo usa.
   const filtradas = sugerencias;
 
   // Tres lentes sobre el MISMO conjunto ya filtrado por el motor. No son

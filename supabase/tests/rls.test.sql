@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(64);
+select plan(69);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -544,7 +544,7 @@ select is(
 -- comprueba sobre la firma declarada y no seleccionando la columna: si no
 -- existiera, un select la haria abortar el script entero en vez de fallar.
 select ok(
-  pg_get_function_result('sugerencias_con_ranking(int)'::regprocedure) like '%nivel%',
+  pg_get_function_result('sugerencias_con_ranking(int,text)'::regprocedure) like '%nivel%',
   'sugerencias_con_ranking declara `nivel` por fila' );
 
 -- ════════════════ 45 y 46 · END-09: el score de mascotas al reves ════════════════
@@ -909,7 +909,7 @@ select throws_ok(
 select actuar_como_servicio();
 
 select ok(
-  pg_get_function_result('sugerencias_publicaciones(int)'::regprocedure) not like '%vector_embedding%',
+  pg_get_function_result('sugerencias_publicaciones(int,text)'::regprocedure) not like '%vector_embedding%',
   'sugerencias_publicaciones ya no devuelve el vector al cliente' );
 
 -- Y el Nivel 2 sigue funcionando: el ranking se une por id para conseguirlo, en
@@ -920,6 +920,65 @@ select is(
   (select count(*)::int from sugerencias_con_ranking(30)
     where id in (select id from publicaciones where vector_embedding is not null)),
   'el ranking sigue calculando similitud sin recibir el vector' );
+
+-- ════════════ 65 a 68 · END-17: el filtro de tipo vivia en el telefono ════════════
+-- `inicio.tsx` filtraba por tipo EN EL CLIENTE sobre el top-30 del servidor. Si
+-- en esos 30 no habia cuartos, la app decia «SIN REGISTROS DE ESE TIPO» con
+-- cincuenta cuartos disponibles. Es el invariante 5 al reves: el ultimo filtro
+-- que el usuario toca era el unico que no se aplicaba en Postgres.
+select actuar_como_servicio();
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta,
+                           whatsapp, latitud, longitud, permite_mascotas)
+values ('00000000-0000-0000-0000-00000000c0a1',
+        '00000000-0000-0000-0000-0000000000b2', 'Cuarto B', 'cuarto',
+        'Calle Falsa 125', 2800, '5512345678', 19.29, -99.56, false);
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+-- Con `> 0` explicito: una asercion que solo compruebe «todas son cuarto» pasa
+-- igual de bien con cero filas, y entonces no comprueba nada.
+select is(
+  (select count(*)::int from sugerencias_publicaciones(30, 'cuarto')),
+  (select count(*)::int from sugerencias_publicaciones(30, 'cuarto') where tipo = 'cuarto'),
+  'sugerencias_publicaciones con p_tipo devuelve SOLO ese tipo' );
+
+select cmp_ok(
+  (select count(*)::int from sugerencias_publicaciones(30, null)), '>',
+  (select count(*)::int from sugerencias_publicaciones(30, 'cuarto')),
+  'p_tipo null significa TODO, no nada' );
+
+-- La que de verdad importa. `sugerencias_con_ranking` llama a la otra por
+-- dentro: si la envoltura se olvida de propagar el parametro, devuelve el
+-- catalogo entero sin error y sin log, y la pantalla sigue mintiendo igual que
+-- antes — solo que ahora con una firma que promete lo contrario.
+select is(
+  (select count(*)::int from sugerencias_con_ranking(30, 'cuarto') where tipo <> 'cuarto'),
+  0,
+  'sugerencias_con_ranking PROPAGA p_tipo a la funcion que envuelve' );
+
+-- Fallar cerrado, invariante 1. Un tipo que no existe devuelve vacio, no todo.
+-- Importa porque el valor llega del cliente: el dia que un chip mande una
+-- cadena equivocada —y este repositorio ya tiene una, `casa` por
+-- `casa_compartida`— la app debe mostrar «no hay», no el catalogo completo.
+select is(
+  (select count(*)::int from sugerencias_publicaciones(30, 'mansion')),
+  0,
+  'un tipo desconocido devuelve cero filas, no el catalogo entero' );
+
+-- ════════════ 69 · los tres tipos validos viven en DOS sitios ════════════
+-- `TipoPublicacion` en database.types.ts esta escrito A MANO y espeja este
+-- CHECK. TypeScript comprueba que los chips de `inicio.tsx` usen valores de ese
+-- tipo —y con eso atrapo el `casa` que llevaba aqui desde siempre—, pero no
+-- puede saber si el tipo sigue describiendo la base.
+--
+-- El dia que alguien anada un cuarto valor, esta asercion falla y obliga a
+-- tocar el otro extremo. Sin ella, el tipo nuevo seria invisible para la app:
+-- se podria publicar y no se podria filtrar, sin un solo error en ninguna capa.
+select is(
+  (select pg_get_constraintdef(oid) from pg_constraint
+    where conrelid = 'publicaciones'::regclass and conname = 'publicaciones_tipo_valido'),
+  'CHECK ((tipo = ANY (ARRAY[''depa''::text, ''cuarto''::text, ''casa_compartida''::text])))',
+  'los tipos validos siguen siendo tres, los mismos que conoce el cliente' );
 
 select * from finish();
 rollback;

@@ -22,17 +22,19 @@ import {
   obtenerSugerencias,
   reintentarGeocodingPendiente,
 } from '@/services/publicaciones.service';
-import type { PublicacionSugerida } from '@/types/database.types';
+import type { PublicacionSugerida, TipoPublicacion } from '@/types/database.types';
 
 const MENSAJE_FALLO = 'No pudimos consultar. Revisa tu conexión y desliza para reintentar.';
 
-export function useSugerencias(tipo: string | null) {
+export function useSugerencias(tipo: TipoPublicacion | null) {
   const q = useQuery({
     queryKey: claves.sugerencias(tipo),
-    // El tipo entra en la CLAVE, no en un filtro del cliente: así cada chip
-    // tiene su propia caché y volver al anterior es instantáneo. El filtrado en
-    // el cliente sobre una página ya truncada es END-17, y se cierra en B.3.
-    queryFn: () => obtenerSugerencias(30),
+    // El tipo entra en la clave Y en la consulta. Entre C.3 y B.3 entraba solo
+    // en la clave: cada chip estrenaba su propia caché y pedía exactamente lo
+    // mismo, así que tocar «Cuarto» no filtraba nada. Una clave que distingue
+    // lo que la consulta no distingue es peor que no tener caché — reparte el
+    // mismo resultado en cubos distintos y parece que funciona.
+    queryFn: () => obtenerSugerencias(30, tipo),
   });
 
   return {

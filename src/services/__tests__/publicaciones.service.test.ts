@@ -30,7 +30,27 @@ test('una sola llamada al motor, sin respaldo todo-o-nada', async () => {
   mockRpc.mockResolvedValue({ data: [fila('a', 0.9)], error: null });
   await obtenerSugerencias(30);
   expect(mockRpc).toHaveBeenCalledTimes(1);
-  expect(mockRpc).toHaveBeenCalledWith('sugerencias_con_ranking', { p_limite: 30 });
+  expect(mockRpc).toHaveBeenCalledWith('sugerencias_con_ranking', { p_limite: 30, p_tipo: null });
+});
+
+// END-17 · El tipo tiene que LLEGAR al servidor. Entre C.3 y B.3 entraba en la
+// clave de caché de react-query y no en la llamada, así que cada chip estrenaba
+// su propio cubo y pedía exactamente lo mismo: tocar «Cuarto» no filtraba nada.
+// Esta prueba mira el argumento, que es donde estaba la mentira.
+test('el tipo viaja en la llamada, no solo en la clave de caché', async () => {
+  mockRpc.mockResolvedValue({ data: [], error: null });
+  await obtenerSugerencias(30, 'cuarto');
+  expect(mockRpc).toHaveBeenCalledWith('sugerencias_con_ranking', { p_limite: 30, p_tipo: 'cuarto' });
+});
+
+// Sin tipo se manda null explícito y no se omite el parámetro: PostgREST
+// resuelve la función por los nombres de argumento que recibe, y omitirlo
+// dejaría la llamada dependiendo del default del servidor. Que el default diga
+// hoy lo mismo no lo hace lo mismo.
+test('«Todo» manda null explícito', async () => {
+  mockRpc.mockResolvedValue({ data: [], error: null });
+  await obtenerSugerencias(30, null);
+  expect(mockRpc).toHaveBeenCalledWith('sugerencias_con_ranking', { p_limite: 30, p_tipo: null });
 });
 
 // LA prueba. Antes se devolvían solo las vectorizadas.
