@@ -52,3 +52,15 @@ No real testimonials, case studies, or press — pre-launch student project. Dem
 ## Accessibility & Inclusion
 
 General baseline only: WCAG AA text contrast, 44×44pt minimum touch targets, visible loading states, specific (non-generic) error messages, and respecting the system's font-size scaling. No specific user accessibility requirement has been identified beyond these standards.
+
+**Estado de cada una (19/09/2026).** Se separa lo verificado de lo declarado,
+porque afirmar las cinco por igual sería el defecto que §0.2 del documento de
+endurecimiento imputa a este repositorio:
+
+| Compromiso | Estado |
+|---|---|
+| Contraste WCAG AA | **verificado** · `npm run verificar:contraste`, en CI. Incluye superficie contra superficie, que WCAG no cubre |
+| Objetivos táctiles 44×44 | **verificado** · `npm run verificar:toques`, en CI |
+| Estados de carga visibles | **verificado** · pruebas de pantalla, y `Resultado<T>` distingue «falló» de «vacío» |
+| Mensajes de error específicos | **verificado** · END-11 cerrado: un fallo de red ya no se presenta como dato borrado |
+| Escalado de fuente del sistema | **implementado, SIN verificar en dispositivo** · topes por tipo en `ThemedText`, probados en código. El procedimiento está en [`docs/prueba-escalado.md`](docs/prueba-escalado.md) y nadie lo ha ejecutado |

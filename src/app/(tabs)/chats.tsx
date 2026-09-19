@@ -153,7 +153,9 @@ const estilos = StyleSheet.create({
   insignia: {
     borderRadius: Radios.full,
     minWidth: 22,
-    height: 22,
+    // Piso y no altura fija: la cifra de dentro es de tipo `cifra`, que no
+    // escala (tope 1.0), pero el contenedor no debe recortarla nunca.
+    minHeight: 22,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.one,

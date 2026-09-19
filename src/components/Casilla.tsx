@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   },
   caja: {
     width: 22,
-    height: 22,
+    minHeight: 22,
     borderRadius: Radios.casilla,
     borderWidth: 2,
     alignItems: 'center',

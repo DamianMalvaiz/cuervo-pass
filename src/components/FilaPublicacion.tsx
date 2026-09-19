@@ -33,7 +33,10 @@ import { useTheme } from '@/hooks/use-theme';
  * nada: ahí la pregunta es «cómo va la mía», no «cuál de estas».
  */
 
-/** Alto del renglón. Fijado aquí para que la lista pueda calcular su layout. */
+/**
+ * Alto MÍNIMO del renglón. Es un piso, no una medida fija: con el escalado de
+ * texto del sistema activado la fila crece, y eso es correcto (END-34).
+ */
 export const ALTO_FILA = 132;
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
@@ -134,7 +137,12 @@ function Columna({ etiqueta, valor, atenuado = false }: { etiqueta: string; valo
 
 const estilos = StyleSheet.create({
   fila: {
-    height: ALTO_FILA,
+    // END-34 · `minHeight` y no `height`. Con una altura FIJA, el título
+    // recortaba en cuanto el sistema escalaba el texto: la fila seguía midiendo
+    // 132 px y el contenido no cabía. Con un piso, la tabla mantiene su ritmo
+    // en el caso normal y CEDE cuando alguien necesita letra más grande —que es
+    // el orden correcto de prioridades, aunque cueste la alineación perfecta.
+    minHeight: ALTO_FILA,
     flexDirection: 'row',
     gap: Spacing.two,
     paddingVertical: Spacing.two,
@@ -150,7 +158,7 @@ const estilos = StyleSheet.create({
     borderWidth: Filete.fino,
   },
   sinFoto: { alignItems: 'center', justifyContent: 'center' },
-  derecha: { flex: 1, justifyContent: 'space-between', height: 96 },
+  derecha: { flex: 1, justifyContent: 'space-between', minHeight: 96, gap: Spacing.half },
   titulo: { lineHeight: 18 },
   columnas: { flexDirection: 'row', gap: Spacing.two },
   // Ancho FIJO, no `flex`. Con flex, la columna se ensancha con su contenido y

@@ -37,6 +37,47 @@ export type ThemedTextProps = TextProps & {
   themeColor?: ThemeColor;
 };
 
+/**
+ * Cuánto puede crecer cada tipo con el ajuste de tamaño del sistema · END-34
+ *
+ * `PRODUCT.md` compromete «respecting the system's font-size scaling» y no
+ * había un solo uso de `maxFontSizeMultiplier` en la app. La promesa no estaba
+ * mal ajustada: no existía.
+ *
+ * Lo que rompe al 200 % no es el texto corrido —ése crece y ya— sino las CIFRAS
+ * EN CASILLAS DE ANCHO FIJO. `cifraLista` mide 40/44 px con `numberOfLines={1}`
+ * y `adjustsFontSizeToFit`: al escalar no cabe, y `adjustsFontSizeToFit` la
+ * ENCOGE hasta caber. La calificación —el elemento que este sistema declara
+ * como el más importante— acaba más pequeña que el texto de al lado. **La
+ * jerarquía se invierte justo para quien subió el tamaño porque le costaba
+ * leer**, que es exactamente a quien la función pretendía ayudar.
+ *
+ * Por eso el reparto no es un número global:
+ *
+ *   1.4  texto corrido — crece de verdad, que es el punto
+ *   1.2  títulos — crecen menos: un título al 140 % se come la pantalla y
+ *        empuja el contenido fuera de la primera vista
+ *   1.0  cifras y etiquetas de casilla — no escalan, porque su contenedor es
+ *        de ancho fijo por diseño y escalarlas las encogería
+ *
+ * Nada lleva `allowFontScaling={false}`: apagar el escalado es romper la
+ * promesa, no cumplirla a medias. Lo que se acota es CUÁNTO crece.
+ */
+const TOPE_ESCALADO: Record<NonNullable<ThemedTextProps['type']>, number> = {
+  default: 1.4,
+  small: 1.4,
+  smallBold: 1.4,
+  link: 1.4,
+  linkPrimary: 1.4,
+  code: 1.4,
+  title: 1.2,
+  subtitle: 1.2,
+  etiqueta: 1,
+  cifra: 1,
+  calificacion: 1,
+  folio: 1,
+};
+
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
 
@@ -47,6 +88,11 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 
   return (
     <Text
+      // Antes de `{...rest}` a propósito: quien usa el componente puede bajar el
+      // tope en un sitio concreto —una fila de altura fija, por ejemplo— y el
+      // tipo no tiene forma de saberlo. Lo que no puede es subirlo por
+      // descuido, porque tendría que escribirlo.
+      maxFontSizeMultiplier={TOPE_ESCALADO[type]}
       style={[
         { color: themeColor ? theme[themeColor] : colorBase },
         styles[type],
