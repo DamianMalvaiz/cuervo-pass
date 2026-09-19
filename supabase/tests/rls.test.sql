@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(15);
+select plan(17);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -167,6 +167,32 @@ select is(
       and ('anon' = any(roles) or 'public' = any(roles))),
   0,
   'ninguna policy de Storage permite escribir sin sesión' );
+
+-- ════════════════ 16 y 17 · revelar_contacto DEVUELVE el teléfono ════════════════
+-- Las aserciones 9 y 10 probaban `consumir_cuota` por separado y pasaban, pero
+-- nadie llamaba a `revelar_contacto` de punta a punta. Así se coló el fallo que
+-- corrige la 0020: su `on conflict` apuntaba a un índice PARCIAL sin repetir el
+-- predicado, y Postgres abortaba la función entera con 42P10. En la app eso se
+-- veía como "No pudimos obtener el contacto" — y ninguna prueba lo detectó.
+--
+-- La lección que estas dos fijan: probar las piezas por separado no prueba que
+-- la función que las usa corra.
+-- Ana (a1) pide el contacto de la publicación de Beto (b2). Se usa el id
+-- explícito y no `limit 1`: la aserción 12 insertó catorce publicaciones más
+-- para b2, y una prueba que dependa de cuál devuelva el planificador es una
+-- prueba que falla el día que cambie el orden.
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+select is(
+  (select revelar_contacto('00000000-0000-0000-0000-00000000dea1'::uuid)),
+  '5512345678',
+  'revelar_contacto devuelve el telefono de una publicacion activa' );
+
+-- Repetirlo no debe fallar NI duplicar: el `do nothing` es lo que impide que la
+-- metrica "personas que pidieron tu contacto" se infle con cada toque (AUD-11).
+select lives_ok(
+  $$ select revelar_contacto('00000000-0000-0000-0000-00000000dea1'::uuid) $$,
+  'pedir el mismo contacto dos veces no falla ni duplica el registro' );
 
 select * from finish();
 rollback;

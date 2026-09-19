@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
 import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
@@ -229,35 +229,50 @@ function CampoDesplegable({
           )}
           {cargando && <ActivityIndicator style={styles.cargandoSugerencias} size="small" />}
 
-          <FlatList
+          {/* Un ScrollView y no un FlatList: este desplegable vive DENTRO del
+              ScrollView vertical del formulario, y React Native avisa —con
+              razón— de que ahi la virtualizacion no funciona, porque la lista
+              interna nunca conoce su ventana visible. El aviso no era cosmetico.
+
+              Cambiarlo no cuesta rendimiento: las opciones llegan de una
+              busqueda remota ya acotada (calles del geocodificador, colonias de
+              un codigo postal), son decenas de filas como mucho, y el alto
+              maximo de 200 px las deja desplazarse igual. */}
+          <ScrollView
             style={styles.listaDesplegable}
-            data={datosLista}
-            keyExtractor={(item) => item}
             keyboardShouldPersistTaps="handled"
-            ItemSeparatorComponent={() => <View style={[styles.separadorDesplegable, { backgroundColor: theme.border }]} />}
-            renderItem={({ item }) => {
-              const esOtra = item === OTRA_SENTINEL;
-              const esUsarTexto = item.startsWith('usar:');
-              const texto = esUsarTexto ? item.slice(5) : item;
-              return (
-                <Pressable
-                  onPress={() => (esOtra ? setEscribiendoLibre(true) : onElegir(texto))}
-                  style={styles.filaMenu}
-                  accessibilityRole="button"
-                  accessibilityLabel={esOtra ? `Escribir ${titulo} manualmente` : esUsarTexto ? `Usar "${texto}"` : `Elegir ${texto}`}
-                >
-                  <ThemedText type="small" style={esOtra ? styles.textoOtra : undefined}>
-                    {esOtra ? 'Otra (escribir)' : esUsarTexto ? `Usar "${texto}"` : texto}
-                  </ThemedText>
-                </Pressable>
-              );
-            }}
-            ListEmptyComponent={
+            nestedScrollEnabled
+            showsVerticalScrollIndicator={false}
+          >
+            {datosLista.length === 0 ? (
               <ThemedText type="small" style={styles.listaVacia}>
                 Escribe para buscar
               </ThemedText>
-            }
-          />
+            ) : (
+              datosLista.map((item, indice) => {
+                const esOtra = item === OTRA_SENTINEL;
+                const esUsarTexto = item.startsWith('usar:');
+                const texto = esUsarTexto ? item.slice(5) : item;
+                return (
+                  <View key={item}>
+                    {indice > 0 && (
+                      <View style={[styles.separadorDesplegable, { backgroundColor: theme.border }]} />
+                    )}
+                    <Pressable
+                      onPress={() => (esOtra ? setEscribiendoLibre(true) : onElegir(texto))}
+                      style={styles.filaMenu}
+                      accessibilityRole="button"
+                      accessibilityLabel={esOtra ? `Escribir ${titulo} manualmente` : esUsarTexto ? `Usar "${texto}"` : `Elegir ${texto}`}
+                    >
+                      <ThemedText type="small" style={esOtra ? styles.textoOtra : undefined}>
+                        {esOtra ? 'Otra (escribir)' : esUsarTexto ? `Usar "${texto}"` : texto}
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
         </View>
       )}
     </View>
