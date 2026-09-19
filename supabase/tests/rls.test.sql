@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(59);
+select plan(62);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -840,6 +840,64 @@ select is(
   (select score_final from afinidad_de_para('00000000-0000-0000-0000-0000000000a1',
                                             '00000000-0000-0000-0000-00000000c501'::uuid)),
   'score_mostrado lo calcula el servidor' );
+
+-- ════════════════ 60 a 62 · END-27: errores por SUBCADENA ════════════════
+-- La app distinguia sus errores asi:
+--
+--   mensaje.includes('duplicate') || mensaje.includes('unique')
+--   e.message.includes('límite')
+--   mensaje.includes('cuota')
+--
+-- Eso depende del TEXTO del error de Postgres, que cambia por version y por
+-- locale. En un servidor con locale en espanol, «duplicate key value» ya no
+-- dice «duplicate», y la app mostraria «intenta de nuevo en un momento» ante
+-- algo que no va a funcionar nunca.
+--
+-- Y las dos excepciones propias usaban el MISMO codigo —check_violation—, asi
+-- que el codigo tampoco las distinguia. De ahi la subcadena: no habia otra cosa
+-- a la que agarrarse. La correccion no es leer el codigo, es DARLES uno.
+select actuar_como_servicio();
+update publicaciones set activa = false;
+update usuarios set presupuesto_max = 99999, distancia_max_km = 999
+ where id = '00000000-0000-0000-0000-0000000000a1';
+
+-- Cuota agotada: codigo propio, no `check_violation` compartido.
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select throws_ok(
+  $$ select consumir_cuota('parseo_llm', 0) $$,
+  'CP001',
+  null,
+  'la cuota agotada tiene su propio SQLSTATE' );
+
+-- Limite de publicaciones activas: otro codigo, distinguible del anterior.
+select actuar_como_servicio();
+insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp)
+select '00000000-0000-0000-0000-0000000000c2', 'Tope ' || n, 'depa', 'Calle T ' || n,
+       2500, '5512345678'
+  from generate_series(1, 15) n;
+
+select throws_ok(
+  $$ insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp)
+     values ('00000000-0000-0000-0000-0000000000c2', 'Tope 16', 'depa', 'Calle T 16', 2500, '5512345678') $$,
+  'CP002',
+  null,
+  'el limite de publicaciones tiene su propio SQLSTATE' );
+
+-- Y lo que Postgres YA distingue bien no se reetiqueta: una violacion de
+-- unicidad es 23505 en todas partes, y darle un codigo propio seria inventar un
+-- dialecto donde ya hay un estandar. Esta asercion lo fija, para que la
+-- convencion CP no se extienda a donde no hace falta.
+select actuar_como_servicio();
+insert into reportes (reportado_por, publicacion_id, motivo)
+values ('00000000-0000-0000-0000-0000000000c1',
+        '00000000-0000-0000-0000-00000000c501', 'contenido sospechoso');
+select throws_ok(
+  $$ insert into reportes (reportado_por, publicacion_id, motivo)
+     values ('00000000-0000-0000-0000-0000000000c1',
+             '00000000-0000-0000-0000-00000000c501', 'contenido sospechoso') $$,
+  '23505',
+  null,
+  'un reporte duplicado sigue siendo 23505, el codigo estandar' );
 
 select * from finish();
 rollback;

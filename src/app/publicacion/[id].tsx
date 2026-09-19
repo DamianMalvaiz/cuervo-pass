@@ -35,6 +35,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import { Sello } from '@/components/ficha/Sello';
 import { usePublicacion , useAfinidad } from '@/hooks/queries/usePublicaciones';
+import { SQL, esCodigo } from '@/lib/erroresPostgres';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 const ETIQUETA_TIPO: Record<string, string> = {
@@ -93,10 +94,12 @@ export default function DetallePublicacionScreen() {
         // (migración 0013), y el dueño recibe una notificación.
         Alert.alert('Gracias', 'Reportamos esta publicación para revisión.');
       } catch (e) {
-        const mensaje = e instanceof Error ? e.message : '';
+        // END-27 · 23505 es el código estándar de violación de unicidad, el
+        // mismo en cualquier versión y cualquier locale. El texto «duplicate
+        // key value» no lo es.
         Alert.alert(
           'No se pudo enviar el reporte',
-          mensaje.includes('duplicate') || mensaje.includes('unique')
+          esCodigo(e, SQL.UNIQUE_VIOLATION)
             ? 'Ya habías reportado esta publicación.'
             : 'Intenta de nuevo en un momento.'
         );

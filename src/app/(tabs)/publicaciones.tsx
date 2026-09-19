@@ -17,6 +17,7 @@ import { folioDe } from '@/lib/folio';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
 import { useCambiarEstadoPublicacion, useContactosRecibidos, useMisPublicaciones } from '@/hooks/queries/usePublicaciones';
+import { CP, esCodigo } from '@/lib/erroresPostgres';
 
 // Documento maestro v5 · §25 y §27.
 export default function PublicacionesScreen() {
@@ -55,7 +56,10 @@ export default function PublicacionesScreen() {
               // reactivar igual que al crear.
               Alert.alert(
                 'No se pudo cambiar el estado',
-                e instanceof Error && e.message.includes('límite')
+                // END-27 · Por código. Con la subcadena, un servidor con
+                // locale distinto nunca entraba en esta rama y la persona leía
+                // «intenta de nuevo» ante un límite que no se mueve solo.
+                esCodigo(e, CP.LIMITE_PUBLICACIONES)
                   ? 'Ya tienes 15 publicaciones activas. Desactiva alguna primero.'
                   : 'Intenta de nuevo en un momento.'
               );

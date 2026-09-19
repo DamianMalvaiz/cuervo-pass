@@ -4,6 +4,7 @@ import { ActivityIndicator, Linking, Pressable, StyleSheet } from 'react-native'
 
 import { AppColors, Radios, Spacing, Texto } from '@/constants/theme';
 import { ThemedText } from './themed-text';
+import { CP, esCodigo } from '@/lib/erroresPostgres';
 
 interface Props {
   publicacionId: string;
@@ -40,9 +41,11 @@ export function BotonVerContacto({ publicacionId, titulo, score, onRevelar, onEr
       // en el README y en docs/modelo-amenazas.md, no un descuido.
       await Linking.openURL(`https://wa.me/52${whatsapp.replace(/\D/g, '')}?text=${mensaje}`);
     } catch (e) {
-      const mensaje = e instanceof Error ? e.message : '';
+      // END-27 · Por CÓDIGO y no por subcadena. `includes('cuota')` dependía
+      // del texto del error, que cambia por versión y por locale — y además
+      // habría coincidido con cualquier mensaje que mencionara la palabra.
       onError(
-        mensaje.includes('cuota')
+        esCodigo(e, CP.CUOTA_AGOTADA)
           ? 'Llegaste al límite de contactos por hoy. Vuelve mañana.'
           : 'No pudimos obtener el contacto de esta publicación. Intenta de nuevo en un momento.'
       );
