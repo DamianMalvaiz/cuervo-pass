@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(17);
+select plan(21);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -193,6 +193,53 @@ select is(
 select lives_ok(
   $$ select revelar_contacto('00000000-0000-0000-0000-00000000dea1'::uuid) $$,
   'pedir el mismo contacto dos veces no falla ni duplica el registro' );
+
+-- ════════════════ 18 a 21 · borrar una publicacion con fotos NO puede fallar ════════════════
+-- La 0016 puso un trigger que hacia `delete from storage.objects`, y Supabase
+-- anadio despues una barrera que lo prohibe. El trigger reventaba, la
+-- transaccion entera se caia, y con ella el borrado en cascada desde
+-- auth.users: "Eliminar mi cuenta" devolvia error para cualquiera que hubiera
+-- subido una foto. El aviso de privacidad promete esa pantalla en la tabla de
+-- derechos ARCO, asi que era un incumplimiento, no un detalle.
+--
+-- Ninguna prueba lo cubria porque ninguna borraba una publicacion CON fotos.
+-- Estas cuatro lo fijan.
+--
+-- La publicacion se cuelga de a1 y no de b2: la asercion 12 dejo a b2 con las
+-- quince que permite AUD-26, y una decimosexta la rechaza el trigger del limite,
+-- abortando el script entero antes de llegar aqui.
+select actuar_como_servicio();
+
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta, whatsapp, fotos)
+values ('00000000-0000-0000-0000-00000000f070',
+        '00000000-0000-0000-0000-0000000000a1', 'Con fotos', 'depa',
+        'Calle Foto 1', 2600, '5512345678',
+        array['publicaciones/a1/f070/0.jpg',
+              'publicaciones/a1/f070/1.jpg',
+              'https://images.unsplash.com/sembrada.jpg']);
+
+select lives_ok(
+  $$ delete from publicaciones where id = '00000000-0000-0000-0000-00000000f070' $$,
+  'borrar una publicacion CON fotos no falla' );
+
+select is(
+  (select count(*)::int from fotos_huerfanas
+    where publicacion_id = '00000000-0000-0000-0000-00000000f070'),
+  2,
+  'las rutas del bucket quedan encoladas para el barredor' );
+
+-- Una URL de Unsplash no es un objeto del bucket: encolarla haria que el
+-- barredor pidiera borrar algo que nunca estuvo ahi.
+select is(
+  (select count(*)::int from fotos_huerfanas where ruta like 'http%'),
+  0,
+  'las URLs externas de las publicaciones sembradas no se encolan' );
+
+-- La cola guarda rutas de almacenamiento de OTRAS personas: es tabla de
+-- servicio, como cuotas_uso, y no debe leerse desde el cliente.
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is( (select count(*)::int from fotos_huerfanas), 0,
+           'fotos_huerfanas no es legible desde el cliente' );
 
 select * from finish();
 rollback;

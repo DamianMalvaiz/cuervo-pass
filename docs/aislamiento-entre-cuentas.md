@@ -31,7 +31,7 @@ segunda, y las borra. Sale con código 1 si alguna barrera cede.
 
 ## Por qué existe, si ya está pgTAP
 
-`supabase/tests/rls.test.sql` tiene 17 aserciones y corre en CI. Esta prueba no
+`supabase/tests/rls.test.sql` tiene 21 aserciones y corre en CI. Esta prueba no
 lo reemplaza: responde dos preguntas que aquél no puede.
 
 **Corre contra producción.** El esquema local no es idéntico al real: producción

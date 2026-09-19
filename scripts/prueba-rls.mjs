@@ -10,7 +10,7 @@
 //
 // Por qué existe además de supabase/tests/rls.test.sql:
 //
-//   Las 17 aserciones de pgTAP corren en LOCAL y en CI, contra un esquema
+//   Las 21 aserciones de pgTAP corren en LOCAL y en CI, contra un esquema
 //   reconstruido desde las migraciones. Producción no es idéntica: tiene un
 //   event trigger `ensure_rls` que Supabase instala y el local no, así que CI
 //   valida un esquema MÁS LAXO que el real. Esta prueba pregunta en el sitio

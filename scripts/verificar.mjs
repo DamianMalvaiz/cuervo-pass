@@ -115,6 +115,20 @@ async function revisarDatos() {
     anotar('Vectores de publicaciones', 'ok', `${pub.length}/${pub.length} activas con vector`);
   }
 
+  // La cola de la 0021. Mientras tenga filas hay archivos que alguien creyo
+  // borrados y siguen ocupando espacio que se paga. No es un fallo —el borrado
+  // de la cuenta si funciono— pero es deuda que conviene ver antes que despues.
+  const { count: enCola, error: e3 } = await admin
+    .from('fotos_huerfanas').select('ruta', { count: 'exact', head: true });
+  if (e3) {
+    anotar('Cola de fotos huérfanas', 'fallo', e3.message);
+  } else if (enCola > 0) {
+    anotar('Cola de fotos huérfanas', 'aviso',
+      `${enCola} archivo(s) pendientes de barrer → node --env-file=.env scripts/limpiar-fotos-huerfanas.mjs`);
+  } else {
+    anotar('Cola de fotos huérfanas', 'ok', 'vacía');
+  }
+
   // Caja generosa sobre el centro de México. No es un fallo —una publicación
   // legítima podría estar lejos— pero una geocodificada en Tabasco a 600 km de
   // la UTVT es datos de prueba que nadie limpió.
@@ -235,7 +249,7 @@ const avisos = resultados.filter((r) => r.estado === 'aviso').length;
 console.log(`\n  ${resultados.length - fallos - avisos} correctos · ${avisos} avisos · ${fallos} fallos`);
 
 // Honestidad sobre el alcance: decir qué NO mira es tan útil como lo que mira.
-console.log('\n  No cubre: las policies de RLS (eso es `supabase test db`, 17 aserciones),');
+console.log('\n  No cubre: las policies de RLS (eso es `supabase test db`, 21 aserciones),');
 console.log('  ni que la app compile (`npx tsc --noEmit` y `npx expo lint`).\n');
 
 process.exit(fallos > 0 ? 1 : 0);

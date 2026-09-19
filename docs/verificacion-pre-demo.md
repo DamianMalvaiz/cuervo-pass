@@ -31,6 +31,7 @@ convierte esa casualidad en una pregunta que se hace a propósito.
 | Túnel | el dominio público no responde — se pregunta **por fuera**, no en localhost |
 | Vectores de perfil | cuentas con consentimiento puesto y vector nulo |
 | Vectores de publicaciones | activas sin vector: invisibles para el Nivel 2 |
+| Cola de fotos huérfanas | archivos que alguien creyó borrados y siguen ocupando espacio |
 | Geocodificación | activas sin coordenadas o fuera del centro de México |
 | Cadena de IA | app → `ai-proxy` → túnel → microservicio, con sesión real |
 | `revelar_contacto` | que corra **y** que repetirla no duplique el registro |
@@ -48,6 +49,9 @@ queda rastro. Si alguna vez ves cuentas `verif-…@ejemplo.mx` en la base, el
   que una noche tardó más de media hora en publicarse.
 - **Cuenta con consentimiento y sin vector** → esa persona entra a
   Perfil → Preferencias y guarda otra vez. Con el servicio arriba se regenera.
+- **Cola de fotos huérfanas con filas** → `node --env-file=.env scripts/limpiar-fotos-huerfanas.mjs`.
+  No es un fallo: el borrado de la cuenta sí funcionó. Es deuda visible, que es
+  justo lo que la migración 0021 buscaba en vez de un trigger que reventaba.
 - **Publicaciones sin vector** → `node --env-file=.env scripts/backfill-embeddings.mjs`
   (con `--todos` si hay que regenerarlos todos, no solo los que faltan).
 - **Geocodificación rara** → suelen ser datos de prueba viejos, anteriores al
@@ -63,7 +67,7 @@ queda rastro. Si alguna vez ves cuentas `verif-…@ejemplo.mx` en la base, el
 
 Deliberadamente, para no dar una falsa sensación de cobertura:
 
-- **Las policies de RLS.** Eso es `supabase test db` — 17 aserciones en
+- **Las policies de RLS.** Eso es `supabase test db` — 21 aserciones en
   `supabase/tests/rls.test.sql`, y corre en CI.
 - **Que la app compile.** Eso es `npx tsc --noEmit` y `npx expo lint`.
 - **Que la interfaz se vea bien.** Eso solo se ve en un dispositivo.
