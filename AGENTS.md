@@ -127,7 +127,29 @@ la prueba que falla, todavía no entiendes el bug.
    Una exención que obliga a escribir el porqué es una decisión; una que se
    activa sola es un agujero.
 
-9. **Contraste medido, no supuesto** — y eso incluye superficie contra
+9. **Toda función nueva lleva su `revoke` explícito**, a `public`, `anon` y
+   `authenticated`, y después su `grant` a quien de verdad deba llamarla.
+
+   No basta `revoke ... from public`, que es lo que hacían doce migraciones.
+   Supabase concede EXECUTE a `anon` y `authenticated` de forma **explícita** en
+   la ACL de cada función nueva, y PostgreSQL concede además a **PUBLIC** de
+   fábrica. Son tres concesiones distintas y hay que quitar las tres por nombre.
+
+   `alter default privileges` ayuda con las dos primeras y **no puede** con la de
+   PUBLIC: medido el 19/09/2026, con el revoke aplicado y el catálogo limpio, una
+   función recién creada seguía naciendo con `{=X/postgres,...}`.
+
+   Lo que garantiza que no se olvide es la **aserción 75** de
+   `supabase/tests/rls.test.sql`: compara la lista de funciones ejecutables por
+   `authenticated` contra una lista blanca y se rompe sola en cuanto aparece una
+   de más. Si añades una función que el cliente debe llamar, va a la lista.
+
+   Esto no era teórico. `devolver_cuota` dejaba que cualquiera se reiniciara su
+   propia cuota diaria de revelaciones, en bucle; y `afinidad_de_para` dejaba
+   pedir la afinidad de otra persona pasando su id, que es justo lo que la
+   migración que la creó decía impedir.
+
+10. **Contraste medido, no supuesto** — y eso incluye superficie contra
    superficie, no solo texto sobre fondo.
 
 ---
@@ -156,6 +178,19 @@ Los scripts cargan los dos de cliente y servidor:
 ```bash
 node --env-file=.env --env-file=.env.server scripts/<lo-que-sea>.mjs
 ```
+
+> **Excepción: `backfill-embeddings.mjs` necesita TRES.** Lee `AI_SHARED_TOKEN`,
+> que vive en `ai-service/.env` y en ningún otro sitio. Con los dos de arriba, la
+> línea `...(tokenCompartido ? { Authorization } : {})` omite la cabecera y el
+> microservicio responde **401** sin decir por qué:
+>
+> ```bash
+> node --env-file=.env --env-file=.env.server --env-file=ai-service/.env \
+>      scripts/backfill-embeddings.mjs
+> ```
+>
+> Aquí decía que dos bastaban, y el script llevaba roto lo que llevara.
+> **Antes de escribir una invocación en este archivo, córrela.**
 
 > **La separación es un MECANISMO, no un párrafo.** `scripts/verificar-env.mjs`
 > corre en CI sobre los `.example` y rompe el build si un secreto aparece en el
@@ -210,7 +245,7 @@ Modo claro y modo oscuro.
 
 ```bash
 node scripts/verificar.mjs          # túnel, secrets, vectores, RPCs
-node --env-file=.env scripts/prueba-rls.mjs   # 15 barreras contra PRODUCCIÓN
+node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # 19 barreras contra PRODUCCIÓN
 ```
 
 Ver [docs/verificacion-pre-demo.md](docs/verificacion-pre-demo.md). El túnel de

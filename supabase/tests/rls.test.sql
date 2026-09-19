@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(74);
+select plan(78);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -653,9 +653,11 @@ select is(
 -- END-14 · devolver_cuota, para que ai-proxy no cobre lo que no entrego. Con
 -- el tunel muerto, treinta reintentos agotaban el dia sin una sola llamada al
 -- modelo.
-select actuar_como('00000000-0000-0000-0000-0000000000a8');
-select devolver_cuota('revelar_contacto');
+-- Se llama como SERVICIO y con el usuario por parametro. Antes se llamaba como
+-- el usuario y sin parametro, que es justo lo que la hacia explotable: veinte
+-- llamadas y la cuota diaria volvia a cero (migracion 0036).
 select actuar_como_servicio();
+select devolver_cuota('00000000-0000-0000-0000-0000000000a8', 'revelar_contacto');
 select is(
   (select consumo from cuotas_uso
     where usuario_id = '00000000-0000-0000-0000-0000000000a8'
@@ -665,11 +667,10 @@ select is(
 
 -- Sin piso, un `catch` que se dispare de mas dejaria el consumo en negativo y
 -- regalaria cuota del dia siguiente.
-select actuar_como('00000000-0000-0000-0000-0000000000a8');
-select devolver_cuota('revelar_contacto');
-select devolver_cuota('revelar_contacto');
-select devolver_cuota('revelar_contacto');
 select actuar_como_servicio();
+select devolver_cuota('00000000-0000-0000-0000-0000000000a8', 'revelar_contacto');
+select devolver_cuota('00000000-0000-0000-0000-0000000000a8', 'revelar_contacto');
+select devolver_cuota('00000000-0000-0000-0000-0000000000a8', 'revelar_contacto');
 select is(
   (select consumo from cuotas_uso
     where usuario_id = '00000000-0000-0000-0000-0000000000a8'
@@ -1024,6 +1025,104 @@ select is(
 select cmp_ok(
   reservar_turno_geocodificacion(), '>=', 900,
   'la segunda reserva inmediata espera un segundo' );
+
+-- ═══════ 75 a 78 · el `revoke from public` no revocaba nada ═══════
+-- Supabase trae `alter default privileges ... grant execute on functions to
+-- anon, authenticated, service_role`. Cada funcion nueva nace con esas tres
+-- concesiones ESCRITAS en su ACL, asi que `revoke ... from public` no las quita:
+-- no vienen de PUBLIC. Doce funciones del proyecto llevaban un `revoke` encima
+-- que no hacia nada, y dos de ellas eran explotables:
+--
+--   devolver_cuota('revelar_contacto') decrementaba la cuota del PROPIO
+--   llamante. Veinticinco llamadas la devolvian a cero y permitian revelar
+--   veinticinco telefonos mas, en bucle. El scraping que AUD-04 existe para
+--   impedir, con una RPC de una linea.
+--
+--   afinidad_de_para(usuario, publicacion) acepta el uuid de CUALQUIERA. La
+--   0031 la separo de su envoltura `afinidad_de` precisamente para que nadie
+--   pudiera pedir la afinidad de otra persona, y la separacion no existia.
+--
+-- Estas dos aserciones son LISTAS BLANCAS y no comprobaciones una a una: asi una
+-- funcion futura que nazca abierta rompe la prueba sin que nadie se acuerde de
+-- anadir su caso.
+select actuar_como_servicio();
+
+create or replace function ejecutables_por(p_rol text) returns text[]
+language sql stable as $$
+  select coalesce(array_agg(p.proname order by p.proname), '{}')
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.prokind = 'f'
+     and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+     and has_function_privilege(p_rol, p.oid, 'execute');
+$$;
+
+-- Los tres auxiliares de ESTE archivo se cierran igual que cualquier otra
+-- funcion. No es cosmetica: si se quedaran abiertos habria que excluirlos de la
+-- lista blanca por nombre, y una lista blanca con excepciones es donde acaban
+-- escondiendose las de verdad. Ademas demuestra en vivo que el revoke explicito
+-- es lo que funciona, no el default privileges.
+revoke execute on function actuar_como(uuid) from public, anon, authenticated;
+revoke execute on function actuar_como_servicio() from public, anon, authenticated;
+revoke execute on function ejecutables_por(text) from public, anon, authenticated;
+
+select is(
+  ejecutables_por('authenticated'),
+  array[
+    'abrir_conversacion',
+    'afinidad_de',
+    'consumir_cuota',
+    'contactos_de_mis_publicaciones',
+    'distancia_km',
+    'exportar_mis_datos',
+    'resumen_conversaciones',
+    'revelar_contacto',
+    'score_ajuste',
+    'sugerencias_con_ranking',
+    'sugerencias_publicaciones',
+    'sugerencias_roomies'
+  ],
+  'solo la lista blanca es ejecutable por authenticated' );
+
+-- `anon` es el rol de antes de iniciar sesion. Ninguna funcion del proyecto
+-- tiene nada que hacer ahi: todas dependen de auth.uid().
+select is(
+  ejecutables_por('anon'),
+  '{}'::text[],
+  'anon no puede ejecutar ninguna funcion del proyecto' );
+
+-- La firma vieja de devolver_cuota desaparece. Dejarla en su sitio y solo
+-- revocarla bastaria hoy, pero un `grant` posterior escrito sin pensar la
+-- reabriria; sin la firma no hay nada que reabrir.
+select is(
+  (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'devolver_cuota'
+      and pg_get_function_identity_arguments(p.oid) = 'p_recurso text'),
+  0,
+  'devolver_cuota(text), la que el cliente podia llamar, ya no existe' );
+
+-- Y lo que no puede romperse al cerrar la interna: la envoltura sigue
+-- respondiendo. `afinidad_de` era `security invoker`, asi que llamaba a
+-- `afinidad_de_para` CON LA IDENTIDAD DEL CLIENTE — por eso el cliente
+-- necesitaba poder ejecutarla y por eso la separacion no servia de nada.
+-- Se reactiva a proposito: aserciones anteriores de este archivo la desactivan
+-- para probar la vista publica, y `afinidad_de_para` lee de esa misma vista. Sin
+-- esto la asercion daria cero por el motivo equivocado y pareceria que cerrar la
+-- interna rompio la envoltura.
+select actuar_como_servicio();
+update publicaciones set activa = true, oculta_por_reportes = false
+ where id = '00000000-0000-0000-0000-00000000dea1';
+-- Y el DUENO reactivado: `afinidad_de_para` une contra `perfiles_publicos`, que
+-- exige `activo = true`, y una asercion anterior de este archivo suspende a b2.
+-- Sin esta linea el `cross join` se queda vacio y la asercion da cero por un
+-- motivo que no tiene nada que ver con lo que mide.
+update usuarios set activo = true
+ where id in ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b2');
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is(
+  (select count(*)::int from afinidad_de('00000000-0000-0000-0000-00000000dea1')),
+  1,
+  'afinidad_de sigue respondiendo con la interna cerrada' );
 
 select * from finish();
 rollback;

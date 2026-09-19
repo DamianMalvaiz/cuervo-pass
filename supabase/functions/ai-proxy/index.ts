@@ -56,6 +56,22 @@ Deno.serve(async (req) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return json({ error: 'sesión inválida' }, 401);
 
+  // Cliente de SERVICIO, solo para devolver cuota (migración 0036).
+  //
+  // Antes la devolución se pedía con el cliente de arriba, o sea con el token de
+  // quien llama, y por eso `devolver_cuota` tenía que estar concedida a
+  // `authenticated`. Eso convertía la devolución en una RPC pública que
+  // decrementaba la cuota del propio llamante: veinticinco llamadas y el límite
+  // diario de revelaciones volvía a cero, en bucle, sin tocar esta función.
+  //
+  // Ahora el usuario va por parámetro y solo `service_role` puede llamarla. La
+  // diferencia no es de estilo: es que el permiso de devolver deja de estar en
+  // manos de quien se beneficia de la devolución.
+  const servicio = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  );
+
   let cuerpo: { ruta?: string; texto?: string };
   try {
     cuerpo = await req.json();
@@ -114,7 +130,7 @@ Deno.serve(async (req) => {
     //    pasar un traceback entero de FastAPI, con rutas del contenedor. El
     //    cuerpo real va al registro del servidor, que es donde sirve.
     if (r.status >= 500) {
-      await supabase.rpc('devolver_cuota', { p_recurso: recurso });
+      await servicio.rpc('devolver_cuota', { p_usuario: user.id, p_recurso: recurso });
       console.error('ai-proxy: el microservicio respondió con error', {
         peticionId,
         ruta,
@@ -132,7 +148,7 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     // La cuota se cobró y no se entregó nada: se devuelve.
-    await supabase.rpc('devolver_cuota', { p_recurso: recurso });
+    await servicio.rpc('devolver_cuota', { p_usuario: user.id, p_recurso: recurso });
     // El microservicio no respondió. La app degrada a Nivel 1: esto NO es un 500,
     // es un estado previsto del sistema (§27).
     //
