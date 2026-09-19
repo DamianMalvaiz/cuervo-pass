@@ -46,7 +46,11 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerShown: true,
+        // Sin barra de título: cada pantalla carga el suyo en el cuerpo, a
+        // cuerpo grande y bajo el área segura. Es el patrón de la referencia, y
+        // resuelve algo real: un título largo no se abrevia con puntos
+        // suspensivos, y la etiqueta de la pestaña ya dice en qué sección estás.
+        headerShown: false,
         tabBarActiveTintColor: theme.text,
         tabBarInactiveTintColor: theme.textSecondary,
         tabBarStyle: {

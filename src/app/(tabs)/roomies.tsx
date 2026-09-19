@@ -5,11 +5,13 @@ import { ActivityIndicator, Alert, FlatList, StyleSheet, Switch, View } from 're
 import { Campo } from '@/components/Campo';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { FileteHoja } from '@/components/ficha/CampoFicha';
+import { Encabezado } from '@/components/ficha/Encabezado';
 import { TarjetaRoomie } from '@/components/TarjetaRoomie';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
 import { guardarMiRoomie, listarRoomiesSugeridos, obtenerMiRoomie } from '@/services/roomies.service';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -23,6 +25,7 @@ import type { Roomie, RoomieSugerido } from '@/types/database.types';
 // cerca de la misma universidad— así que el orden es directamente la similitud.
 export default function RoomiesScreen() {
   const theme = useTheme();
+  const margenSuperior = useMargenSuperior();
   const session = useAuthStore((s) => s.session);
   const [roomies, setRoomies] = useState<RoomieSugerido[]>([]);
   const [miRoomie, setMiRoomie] = useState<Roomie | null>(null);
@@ -113,13 +116,19 @@ export default function RoomiesScreen() {
       <FlatList
         data={roomies}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={estilos.lista}
+        contentContainerStyle={[estilos.lista, { paddingTop: margenSuperior }]}
         showsVerticalScrollIndicator={false}
         // La ficha propia va como encabezado de la lista, no fija arriba: así se
         // puede recorrer la lista completa sin que ocupe un tercio de la pantalla
         // en un teléfono pequeño.
         ListHeaderComponent={
           <View style={estilos.encabezado}>
+            <Encabezado
+              kicker="REGISTRO DE ROOMIES"
+              titulo="Roomies"
+              descripcion="Personas que buscan con quién compartir, cerca de tu universidad."
+            />
+
             <View style={[estilos.miFicha, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
               <View style={estilos.filaInterruptor}>
                 <View style={estilos.textoInterruptor}>
@@ -173,7 +182,7 @@ export default function RoomiesScreen() {
             <ThemedText type="folio" themeColor="textSecondary">
               {roomies.length === 1 ? '1 PERSONA BUSCANDO' : `${roomies.length} PERSONAS BUSCANDO`}
             </ThemedText>
-            <View style={[estilos.filetePrincipal, { backgroundColor: theme.text }]} />
+            <View style={[estilos.fileteLista, { backgroundColor: theme.filete }]} />
           </View>
         }
         renderItem={({ item }) => (
@@ -221,6 +230,6 @@ const estilos = StyleSheet.create({
   ayuda: { lineHeight: 20 },
   campoDescripcion: { minHeight: 90, textAlignVertical: 'top', paddingTop: Spacing.three },
   pieCampo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.two },
-  filetePrincipal: { height: Filete.grueso },
+  fileteLista: { height: Filete.fino },
   cargando: { marginTop: Spacing.five, alignItems: 'center', gap: Spacing.two },
 });

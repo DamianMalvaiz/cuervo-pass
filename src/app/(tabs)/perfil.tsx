@@ -24,6 +24,7 @@ import { ThemedView } from '@/components/themed-view';
 import { AppColors, Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
+import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
 import { subirFotoPerfil } from '@/lib/storage';
 import { eliminarMiCuenta, exportarMisDatos } from '@/services/usuarios.service';
@@ -33,6 +34,7 @@ import { usePerfilStore } from '@/store/usePerfilStore';
 // Documento maestro v5 · §25 y §29 (derechos ARCO).
 export default function PerfilScreen() {
   const theme = useTheme();
+  const margenSuperior = useMargenSuperior();
   const { anchoContenido, clase } = useTamanoPantalla();
   const session = useAuthStore((s) => s.session);
   const cerrarSesion = useAuthStore((s) => s.cerrarSesion);
@@ -152,7 +154,7 @@ export default function PerfilScreen() {
 
   if (cargando) {
     return (
-      <ThemedView style={estilos.centrado}>
+      <ThemedView style={[estilos.centrado, { paddingTop: margenSuperior }]}>
         <ActivityIndicator color={theme.acento} />
         <ThemedText type="etiqueta" themeColor="textSecondary">
           CONSULTANDO EXPEDIENTE
@@ -172,7 +174,11 @@ export default function PerfilScreen() {
     <ThemedView style={estilos.pantalla}>
       <KeyboardAvoidingView style={estilos.pantalla} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]}
+          contentContainerStyle={[
+            estilos.desplazable,
+            { paddingTop: margenSuperior },
+            clase === 'amplia' && estilos.centradoAmplio,
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

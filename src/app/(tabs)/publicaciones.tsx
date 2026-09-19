@@ -7,10 +7,12 @@ import { FichaPublicacion } from '@/components/FichaPublicacion';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Sello } from '@/components/ficha/Sello';
+import { Encabezado } from '@/components/ficha/Encabezado';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
 import { folioDe } from '@/lib/folio';
 import {
@@ -25,6 +27,7 @@ import type { Publicacion } from '@/types/database.types';
 // Documento maestro v5 · §25 y §27.
 export default function PublicacionesScreen() {
   const theme = useTheme();
+  const margenSuperior = useMargenSuperior();
   const miId = useAuthStore((s) => s.session?.user.id);
   const [publicaciones, setPublicaciones] = useState<Publicacion[]>([]);
   const [contactos, setContactos] = useState<Map<string, number>>(new Map());
@@ -98,10 +101,12 @@ export default function PublicacionesScreen() {
 
   return (
     <ThemedView style={estilos.pantalla}>
-      <View style={estilos.encabezado}>
-        <ThemedText type="folio" themeColor="textSecondary">
-          {publicaciones.length === 1 ? '1 PUBLICACIÓN' : `${publicaciones.length} PUBLICACIONES`}
-        </ThemedText>
+      <View style={[estilos.encabezado, { paddingTop: margenSuperior }]}>
+        <Encabezado
+          kicker="REGISTRO PROPIO"
+          titulo="Mis publicaciones"
+          meta={publicaciones.length === 1 ? '1 PUBLICACIÓN' : `${publicaciones.length} PUBLICACIONES`}
+        />
         {/* Crear una publicación NAVEGA a un formulario: no compromete nada
             todavía. El sello se gasta en el "Publicar" de ese formulario, que sí
             escribe. Aquí va la variante de contorno: mismo peso, sin la tinta. */}
@@ -113,7 +118,6 @@ export default function PublicacionesScreen() {
         >
           Nueva publicación
         </Sello>
-        <View style={[estilos.filetePrincipal, { backgroundColor: theme.text }]} />
       </View>
 
       {cargando ? (
@@ -231,7 +235,6 @@ export default function PublicacionesScreen() {
 const estilos = StyleSheet.create({
   pantalla: { flex: 1 },
   encabezado: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: Spacing.two },
-  filetePrincipal: { height: Filete.grueso, marginTop: Spacing.one },
   lista: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.six },
   cargando: { marginTop: Spacing.five, alignItems: 'center', gap: Spacing.two },
   registro: { gap: Spacing.two },

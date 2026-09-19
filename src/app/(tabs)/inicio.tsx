@@ -1,177 +1,147 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
+import { ANCHO_FICHA_COMPACTA, FichaCompacta } from '@/components/FichaCompacta';
 import { FichaPublicacion } from '@/components/FichaPublicacion';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
+import { Carrusel } from '@/components/ficha/Carrusel';
+import { Encabezado } from '@/components/ficha/Encabezado';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
 import { fechaHoraDeSello, folioDe } from '@/lib/folio';
 import { obtenerSugerencias } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
+import { usePerfilStore } from '@/store/usePerfilStore';
 import type { PublicacionSugerida } from '@/types/database.types';
 
 // Documento maestro v5 · §17, §18, §25.
 //
 // Esta pantalla ya NO calcula el score: `obtenerSugerencias` llama a las
 // funciones de Postgres, que aplican el filtro DURO (presupuesto, distancia,
-// mascotas) antes de ordenar. Lo que llega aquí ya es viable; la lista solo se
-// reordena si el usuario elige otro criterio.
+// mascotas) antes de ordenar. Lo que llega aquí ya es viable.
+//
+// La composición sigue el patrón de una pantalla de exploración: resumen de los
+// filtros arriba, chips de categoría, y CARRUSELES que enseñan el mismo conjunto
+// viable bajo tres lentes —afinidad, cercanía, precio— antes de la lista
+// completa. El desplegable de orden que había antes desapareció: obligaba a
+// elegir UNA lente y perder el sitio; ahora se ven las tres a la vez.
 
-type Orden = 'recomendado' | 'cercano' | 'lejano' | 'precio_asc' | 'precio_desc';
-
-const OPCIONES_ORDEN: { valor: Orden; etiqueta: string }[] = [
-  { valor: 'recomendado', etiqueta: 'Recomendado' },
-  { valor: 'cercano', etiqueta: 'Más cercano' },
-  { valor: 'lejano', etiqueta: 'Más lejano' },
-  { valor: 'precio_asc', etiqueta: 'Menor precio' },
-  { valor: 'precio_desc', etiqueta: 'Mayor precio' },
+const TIPOS: { valor: string | null; etiqueta: string }[] = [
+  { valor: null, etiqueta: 'Todo' },
+  { valor: 'depa', etiqueta: 'Departamento' },
+  { valor: 'casa', etiqueta: 'Casa' },
+  { valor: 'cuarto', etiqueta: 'Cuarto' },
 ];
 
-// Botón y filas cumplen el mínimo de 44pt (WCAG 2.2 SC 2.5.8) y usan
-// combobox/menu/menuitem con accessibilityValue, no "button" genérico.
-function SelectorOrden({ valor, onCambiar }: { valor: Orden; onCambiar: (v: Orden) => void }) {
+const POR_CARRUSEL = 8;
+
+/**
+ * El resumen de tus filtros, tocable.
+ *
+ * Airbnb pone aquí su búsqueda actual —dónde, cuándo, cuántos— y al tocarla la
+ * edita. El equivalente honesto en este producto no es una caja de búsqueda por
+ * texto, que no existe: son los filtros DUROS que deciden qué publicaciones
+ * llegan siquiera a la lista. Enseñarlos evita la pregunta "¿por qué no aparece
+ * tal departamento?" antes de que se formule.
+ */
+function ResumenFiltros() {
   const theme = useTheme();
-  const [abierto, setAbierto] = useState(false);
-  const etiquetaActual = OPCIONES_ORDEN.find((o) => o.valor === valor)?.etiqueta ?? '';
+  const perfil = usePerfilStore((s) => s.perfil);
+
+  const partes = [
+    perfil?.presupuesto_max != null
+      ? `Hasta $${perfil.presupuesto_max.toLocaleString('es-MX')}`
+      : 'Sin presupuesto',
+    perfil?.distancia_max_km != null ? `${perfil.distancia_max_km} km` : 'Sin distancia',
+    perfil?.universidad ?? 'Sin universidad',
+  ];
 
   return (
-    <View style={[estilos.envolturaSelector, abierto && estilos.envolturaSelectorAbierta]}>
-      <Pressable
-        onPress={() => setAbierto((v) => !v)}
-        style={[estilos.botonSelector, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}
-        accessibilityRole="combobox"
-        accessibilityLabel="Ordenar sugerencias"
-        accessibilityValue={{ text: etiquetaActual }}
-        accessibilityState={{ expanded: abierto }}
-        hitSlop={{ top: 6, bottom: 6, left: 8, right: 8 }}
-      >
-        <Ionicons name="swap-vertical" size={14} color={theme.text} />
-        <ThemedText type="small" numberOfLines={1} style={estilos.textoSelector}>
-          {etiquetaActual}
+    <Pressable
+      onPress={() => router.push('/perfil/preferencias')}
+      accessibilityRole="button"
+      accessibilityLabel={`Ajustar tu búsqueda. Filtros actuales: ${partes.join(', ')}`}
+      style={({ pressed }) => [
+        estilos.pastilla,
+        { borderColor: theme.border, backgroundColor: theme.background },
+        pressed && estilos.presionado,
+      ]}
+    >
+      <Ionicons name="options-outline" size={18} color={theme.text} />
+      <View style={estilos.textoPastilla}>
+        <ThemedText type="etiqueta" themeColor="textSecondary">
+          TU BÚSQUEDA
         </ThemedText>
-        <Ionicons name={abierto ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textSecondary} />
-      </Pressable>
-
-      {abierto && (
-        // Sin sombra ni elevation: este mundo separa con filete, y Android pinta
-        // `elevation` como una sombra gris que no pertenece a la hoja.
-        <View
-          style={[estilos.desplegable, { borderColor: theme.border, backgroundColor: theme.background }]}
-          accessibilityRole="menu"
-        >
-          {OPCIONES_ORDEN.map((opcion, indice) => {
-            const seleccionado = opcion.valor === valor;
-            return (
-              <Pressable
-                key={opcion.valor}
-                onPress={() => {
-                  onCambiar(opcion.valor);
-                  setAbierto(false);
-                }}
-                style={[
-                  estilos.filaSelector,
-                  seleccionado && { backgroundColor: theme.backgroundSelected },
-                  indice < OPCIONES_ORDEN.length - 1 && {
-                    borderBottomWidth: Filete.fino,
-                    borderBottomColor: theme.filete,
-                  },
-                ]}
-                accessibilityRole="menuitem"
-                accessibilityLabel={opcion.etiqueta}
-                accessibilityState={{ selected: seleccionado }}
-              >
-                <ThemedText type="small" themeColor={seleccionado ? 'text' : 'textSecondary'}>
-                  {opcion.etiqueta}
-                </ThemedText>
-                {seleccionado && <Ionicons name="checkmark" size={16} color={theme.text} />}
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-    </View>
+        <ThemedText type="small" numberOfLines={1}>
+          {partes.join(' · ')}
+        </ThemedText>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+    </Pressable>
   );
 }
 
-/**
- * §18 — el encabezado del expediente.
- *
- * El nivel deja de ser una pastilla flotante y pasa a ser lo que un documento
- * pone arriba: qué es y cuántos registros trae. Poder decir "esto corre en Nivel
- * 2; si apago el contenedor sigue funcionando en Nivel 1" — y demostrarlo en
- * vivo — vale más que cualquier feature extra, y aquí se lee sin buscarlo.
- *
- * El nivel no se codifica con ÁMBAR: en esta pantalla no hay ninguna acción que
- * comprometa, así que no hay sello que gastar. El Nivel 2 se distingue por el
- * icono, por el texto y por el contraste pleno frente al tono secundario del
- * Nivel 1 — tres señales, ninguna dependiente solo del color.
- */
-function EncabezadoExpediente({
-  nivel,
-  registros,
-  emitido,
-  orden,
-  onCambiarOrden,
-}: {
-  nivel: 1 | 2;
-  registros: number;
-  /** Cuándo se consultó. Un expediente lleva su fecha de emisión, y aquí además
-   *  dice qué tan fresca es la lista que se está viendo. */
-  emitido: Date | null;
-  orden: Orden;
-  onCambiarOrden: (v: Orden) => void;
-}) {
+/** Chips de tipo. El estado activo no depende solo del color: cambia el filete,
+ *  el fondo y el peso de la letra. */
+function ChipsTipo({ valor, onCambiar }: { valor: string | null; onCambiar: (v: string | null) => void }) {
   const theme = useTheme();
-  const esNivel2 = nivel === 2;
-
   return (
-    <View style={estilos.encabezado}>
-      <View style={estilos.filaEncabezado}>
-        <View style={estilos.nivel}>
-          <Ionicons
-            name={esNivel2 ? 'sparkles' : 'options-outline'}
-            size={14}
-            color={esNivel2 ? theme.text : theme.textSecondary}
-          />
-          <ThemedText type="etiqueta" themeColor={esNivel2 ? 'text' : 'textSecondary'}>
-            {esNivel2 ? 'NIVEL 2 · AFINIDAD SEMÁNTICA' : 'NIVEL 1 · FILTROS PONDERADOS'}
-          </ThemedText>
-        </View>
-        <SelectorOrden valor={orden} onCambiar={onCambiarOrden} />
-      </View>
-
-      <ThemedText type="folio" themeColor="textSecondary">
-        {registros === 1 ? '1 REGISTRO' : `${registros} REGISTROS`}
-        {emitido ? ` · EMITIDO ${fechaHoraDeSello(emitido)}` : ''}
-      </ThemedText>
-
-      {/* El filete grueso cierra el encabezado, como la regla que separa el
-          membrete del cuerpo en un formulario impreso. */}
-      <View style={[estilos.filetePrincipal, { backgroundColor: theme.text }]} />
-    </View>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={estilos.tiraChips}
+      accessibilityRole="tablist"
+    >
+      {TIPOS.map((t) => {
+        const activo = valor === t.valor;
+        return (
+          <Pressable
+            key={t.etiqueta}
+            onPress={() => onCambiar(t.valor)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activo }}
+            accessibilityLabel={t.etiqueta}
+            style={({ pressed }) => [
+              estilos.chip,
+              {
+                borderColor: activo ? theme.text : theme.border,
+                backgroundColor: activo ? theme.backgroundSelected : 'transparent',
+              },
+              pressed && estilos.presionado,
+            ]}
+          >
+            <ThemedText type="small" style={activo ? estilos.chipActivo : undefined}>
+              {t.etiqueta}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
   );
 }
 
 export default function InicioScreen() {
   const session = useAuthStore((s) => s.session);
+  const cargarPerfil = usePerfilStore((s) => s.cargarPerfil);
   const [sugerencias, setSugerencias] = useState<PublicacionSugerida[]>([]);
   const [nivel, setNivel] = useState<1 | 2>(1);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [orden, setOrden] = useState<Orden>('recomendado');
   const [emitido, setEmitido] = useState<Date | null>(null);
+  const [tipo, setTipo] = useState<string | null>(null);
   const theme = useTheme();
+  const margenSuperior = useMargenSuperior();
 
   const cargar = useCallback(async () => {
-    // Sin sesión hay que APAGAR los indicadores igual. Antes esto salía con un
-    // `return` seco antes del try/finally, así que `cargando` se quedaba en true
-    // y la pantalla mostraba "CONSULTANDO EXPEDIENTE" para siempre.
+    // Sin sesión hay que APAGAR los indicadores igual. Un `return` seco antes
+    // del try/finally dejaba `cargando` en true para siempre.
     if (!session?.user.id) {
       setCargando(false);
       setRefrescando(false);
@@ -179,14 +149,13 @@ export default function InicioScreen() {
     }
     setError(null);
     try {
-      const resultado = await obtenerSugerencias();
+      const resultado = await obtenerSugerencias(30);
       setSugerencias(resultado.datos);
       setNivel(resultado.nivel);
       setEmitido(new Date());
     } catch (e) {
       // §27: nunca una pantalla en blanco. Se dice qué pasó y se ofrece
-      // reintentar; "algo salió mal" no es un mensaje de error, es una forma de
-      // no decir nada.
+      // reintentar; "algo salió mal" no es un mensaje, es una forma de callar.
       console.warn('obtenerSugerencias falló:', e);
       setError('No pudimos consultar el expediente. Revisa tu conexión y desliza hacia abajo para reintentar.');
     } finally {
@@ -201,6 +170,12 @@ export default function InicioScreen() {
     }, [cargar])
   );
 
+  // El resumen de filtros necesita el perfil, y esta pantalla es la primera que
+  // se abre tras entrar.
+  useEffect(() => {
+    if (session?.user.id) cargarPerfil(session.user.id);
+  }, [session?.user.id, cargarPerfil]);
+
   const onRefrescar = useCallback(() => {
     setRefrescando(true);
     cargar();
@@ -209,80 +184,139 @@ export default function InicioScreen() {
   // AUD-08: una sola petición para todas las miniaturas visibles.
   const urlsFirmadas = useFotosFirmadas(sugerencias.map((s) => s.fotos?.[0]));
 
-  // "Recomendado" ya viene ordenado por Postgres; las demás opciones son
-  // reordenamientos directos sobre el MISMO conjunto, que ya pasó el filtro duro.
-  const listaFinal = useMemo(() => {
-    const sinDistanciaAlFinal = (a: PublicacionSugerida, b: PublicacionSugerida) => {
-      if (a.distancia == null && b.distancia == null) return 0;
-      if (a.distancia == null) return 1;
-      if (b.distancia == null) return -1;
-      return 0;
-    };
+  const filtradas = useMemo(
+    () => (tipo ? sugerencias.filter((s) => s.tipo === tipo) : sugerencias),
+    [sugerencias, tipo]
+  );
 
-    switch (orden) {
-      case 'cercano':
-        return [...sugerencias].sort((a, b) => sinDistanciaAlFinal(a, b) || (a.distancia ?? 0) - (b.distancia ?? 0));
-      case 'lejano':
-        return [...sugerencias].sort((a, b) => sinDistanciaAlFinal(a, b) || (b.distancia ?? 0) - (a.distancia ?? 0));
-      case 'precio_asc':
-        return [...sugerencias].sort((a, b) => a.precio_renta - b.precio_renta);
-      case 'precio_desc':
-        return [...sugerencias].sort((a, b) => b.precio_renta - a.precio_renta);
-      case 'recomendado':
-      default:
-        return sugerencias;
-    }
-  }, [sugerencias, orden]);
+  // Tres lentes sobre el MISMO conjunto ya filtrado por el motor. No son
+  // consultas distintas: reordenar en el cliente lo que Postgres ya declaró
+  // viable es correcto, y pedir tres veces lo mismo al servidor no lo sería.
+  const lentes = useMemo(() => {
+    const conDistancia = filtradas.filter((p) => p.distancia != null);
+    return {
+      afinidad: filtradas.slice(0, POR_CARRUSEL),
+      cercanas: [...conDistancia]
+        .sort((a, b) => (a.distancia ?? 0) - (b.distancia ?? 0))
+        .slice(0, POR_CARRUSEL),
+      economicas: [...filtradas].sort((a, b) => a.precio_renta - b.precio_renta).slice(0, POR_CARRUSEL),
+    };
+  }, [filtradas]);
+
+  const irADetalle = useCallback((item: PublicacionSugerida) => {
+    router.push({
+      pathname: '/publicacion/[id]',
+      params: {
+        id: item.id,
+        score: String(item.score_final ?? item.score),
+        base: String(item.score),
+        ...(item.similitud != null ? { sim: String(item.similitud) } : {}),
+      },
+    });
+  }, []);
+
+  const compacta = useCallback(
+    (item: PublicacionSugerida) => (
+      <FichaCompacta
+        titulo={item.titulo}
+        precio={item.precio_renta}
+        fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
+        distanciaKm={item.distancia}
+        score={item.score_final ?? item.score}
+        onPress={() => irADetalle(item)}
+      />
+    ),
+    [urlsFirmadas, irADetalle]
+  );
+
+  if (cargando) {
+    return (
+      <ThemedView style={[estilos.cargandoPantalla, { paddingTop: margenSuperior }]}>
+        <ActivityIndicator color={theme.textSecondary} />
+        <ThemedText type="etiqueta" themeColor="textSecondary">
+          CONSULTANDO EXPEDIENTE
+        </ThemedText>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={estilos.pantalla}>
-      <EncabezadoExpediente
-        nivel={nivel}
-        registros={listaFinal.length}
-        emitido={emitido}
-        orden={orden}
-        onCambiarOrden={setOrden}
-      />
+      <FlatList
+        data={filtradas}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={[estilos.lista, { paddingTop: margenSuperior }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refrescando}
+            onRefresh={onRefrescar}
+            tintColor={theme.textSecondary}
+            colors={[theme.textSecondary]}
+          />
+        }
+        ListHeaderComponent={
+          <View style={estilos.cabecera}>
+            <View style={estilos.margen}>
+              <Encabezado
+                kicker={nivel === 2 ? 'NIVEL 2 · AFINIDAD SEMÁNTICA' : 'NIVEL 1 · FILTROS PONDERADOS'}
+                titulo="Sugerencias"
+                meta={
+                  `${filtradas.length === 1 ? '1 REGISTRO' : `${filtradas.length} REGISTROS`}` +
+                  (emitido ? ` · EMITIDO ${fechaHoraDeSello(emitido)}` : '')
+                }
+              />
+              <ResumenFiltros />
+            </View>
 
-      {/* §27: un refresh que falla CON resultados ya en memoria mostraba datos
-          viejos y ningún aviso. Silencioso es la peor forma de fallar, y más a
-          media exposición. El aviso va aquí, sobre la lista, además del bloque
-          que se pinta cuando la lista está vacía. */}
-      {error && listaFinal.length > 0 && (
-        <View style={[estilos.avisoError, { borderColor: theme.error, backgroundColor: theme.backgroundElement }]}>
-          <Ionicons name="cloud-offline-outline" size={16} color={theme.error} />
-          <ThemedText
-            type="small"
-            style={[{ color: theme.error }, estilos.textoAviso]}
-            accessibilityLiveRegion="polite"
-          >
-            No pudimos actualizar. Estás viendo los últimos resultados cargados.
-          </ThemedText>
-        </View>
-      )}
+            <ChipsTipo valor={tipo} onCambiar={setTipo} />
 
-      {cargando ? (
-        <View style={estilos.cargando}>
-          <ActivityIndicator color={theme.textSecondary} />
-          <ThemedText type="etiqueta" themeColor="textSecondary">
-            CONSULTANDO EXPEDIENTE
-          </ThemedText>
-        </View>
-      ) : (
-        <FlatList
-          data={listaFinal}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={estilos.lista}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refrescando}
-              onRefresh={onRefrescar}
-              tintColor={theme.textSecondary}
-              colors={[theme.textSecondary]}
-            />
-          }
-          renderItem={({ item }) => (
+            {/* §27: un refresh fallido CON resultados en memoria mostraba datos
+                viejos y ningún aviso. Silencioso es la peor forma de fallar. */}
+            {error && filtradas.length > 0 && (
+              <View style={[estilos.margen, estilos.avisoError, { borderColor: theme.error }]}>
+                <Ionicons name="cloud-offline-outline" size={16} color={theme.error} />
+                <ThemedText type="small" themeColor="error" style={estilos.textoAviso} accessibilityLiveRegion="polite">
+                  No pudimos actualizar. Estás viendo los últimos resultados cargados.
+                </ThemedText>
+              </View>
+            )}
+
+            {filtradas.length > 0 && (
+              <>
+                <Carrusel
+                  titulo="Mejor afinidad contigo"
+                  descripcion={nivel === 2 ? 'orden del motor' : 'filtros ponderados'}
+                  datos={lentes.afinidad}
+                  claveDe={(p) => `af-${p.id}`}
+                  renderizar={compacta}
+                  anchoItem={ANCHO_FICHA_COMPACTA}
+                />
+                <Carrusel
+                  titulo="Más cerca de tu campus"
+                  datos={lentes.cercanas}
+                  claveDe={(p) => `ce-${p.id}`}
+                  renderizar={compacta}
+                  anchoItem={ANCHO_FICHA_COMPACTA}
+                />
+                <Carrusel
+                  titulo="Las de menor renta"
+                  datos={lentes.economicas}
+                  claveDe={(p) => `ec-${p.id}`}
+                  renderizar={compacta}
+                  anchoItem={ANCHO_FICHA_COMPACTA}
+                />
+
+                <View style={[estilos.margen, estilos.tituloLista]}>
+                  <ThemedText type="subtitle">Todas, en orden</ThemedText>
+                  <View style={[estilos.fileteLista, { backgroundColor: theme.filete }]} />
+                </View>
+              </>
+            )}
+          </View>
+        }
+        renderItem={({ item }) => (
+          <View style={estilos.margen}>
             <FichaPublicacion
               titulo={item.titulo}
               precio={item.precio_renta}
@@ -294,100 +328,75 @@ export default function InicioScreen() {
               permiteMascotas={item.permite_mascotas}
               amueblado={item.amueblado}
               folio={folioDe(item.id)}
-              onPress={() =>
-                // Se pasan los TRES valores, no solo el final: la ficha muestra
-                // el desglose de cómo se compuso, y sin las partes no hay nada
-                // que desglosar. La 0015 lo calcula como 0.6·filtros + 0.4·afinidad.
-                //
-                // En forma de objeto, no de cadena: las rutas tipadas de Expo
-                // Router no pueden verificar una URL concatenada a mano.
-                router.push({
-                  pathname: '/publicacion/[id]',
-                  params: {
-                    id: item.id,
-                    score: String(item.score_final ?? item.score),
-                    base: String(item.score),
-                    ...(item.similitud != null ? { sim: String(item.similitud) } : {}),
-                  },
-                })
-              }
+              onPress={() => irADetalle(item)}
             />
-          )}
-          ListEmptyComponent={
-            error ? (
+          </View>
+        )}
+        ItemSeparatorComponent={() => <View style={estilos.separador} />}
+        ListEmptyComponent={
+          <View style={estilos.margen}>
+            {error ? (
               <BloqueEstado etiqueta="NO SE PUDO CONSULTAR" mensaje={error} icono="cloud-offline-outline" tono="alerta" />
+            ) : tipo ? (
+              <BloqueEstado
+                etiqueta="SIN REGISTROS DE ESE TIPO"
+                mensaje="Ninguna publicación de esta categoría cumple tus filtros. Prueba con Todo."
+                icono="funnel-outline"
+              />
             ) : (
               <BloqueEstado
                 etiqueta="SIN REGISTROS"
-                mensaje="Ninguna publicación cumple tus filtros por ahora. Prueba ampliando el presupuesto o la distancia desde Mis preferencias."
+                mensaje="Ninguna publicación cumple tus filtros por ahora. Prueba ampliando el presupuesto o la distancia desde Tu búsqueda."
                 icono="document-outline"
               />
-            )
-          }
-        />
-      )}
+            )}
+          </View>
+        }
+      />
     </ThemedView>
   );
 }
 
 const estilos = StyleSheet.create({
   pantalla: { flex: 1 },
-  encabezado: {
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.two,
-    gap: Spacing.one,
-    zIndex: 10,
-  },
-  filaEncabezado: {
+  cargandoPantalla: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
+  lista: { paddingBottom: Spacing.six },
+  // El margen va POR BLOQUE, no en el contenedor: los carruseles tienen que
+  // poder sangrar hasta el borde de la pantalla para que se vea que siguen.
+  margen: { paddingHorizontal: Spacing.three },
+  cabecera: { gap: Spacing.four, paddingBottom: Spacing.four },
+  separador: { height: Spacing.three },
+  pastilla: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.three,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.full,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    minHeight: 60,
+    marginTop: Spacing.three,
   },
-  nivel: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, flexShrink: 1 },
-  filetePrincipal: { height: Filete.grueso, marginTop: Spacing.two },
-  lista: { padding: Spacing.three, gap: Spacing.three, paddingBottom: Spacing.six },
-  cargando: { marginTop: Spacing.five, alignItems: 'center', gap: Spacing.two },
+  textoPastilla: { flex: 1, gap: Spacing.half },
+  presionado: { opacity: 0.6 },
+  tiraChips: { paddingHorizontal: Spacing.three, gap: Spacing.two },
+  chip: {
+    borderWidth: Filete.fino,
+    borderRadius: Radios.full,
+    paddingHorizontal: Spacing.three,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  chipActivo: { fontFamily: Tipografia.semibold },
   avisoError: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.two,
-    marginHorizontal: Spacing.three,
-    marginTop: Spacing.three,
     borderWidth: Filete.fino,
     borderRadius: Radios.control,
     padding: Spacing.three,
   },
   textoAviso: { flex: 1, lineHeight: 20 },
-  envolturaSelector: { position: 'relative', zIndex: 1 },
-  envolturaSelectorAbierta: { zIndex: 30 },
-  botonSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-    borderWidth: Filete.fino,
-    borderRadius: Radios.full,
-    paddingHorizontal: Spacing.three,
-    minHeight: 38,
-    maxWidth: 170,
-  },
-  textoSelector: { flexShrink: 1, fontFamily: Tipografia.semibold },
-  desplegable: {
-    position: 'absolute',
-    top: '100%',
-    right: 0,
-    marginTop: Spacing.one,
-    borderWidth: Filete.fino,
-    borderRadius: Radios.hoja,
-    overflow: 'hidden',
-    minWidth: 168,
-  },
-  filaSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    minHeight: 44,
-  },
+  tituloLista: { gap: Spacing.two },
+  fileteLista: { height: Filete.fino },
 });

@@ -5,10 +5,12 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { FileteHoja } from '@/components/ficha/CampoFicha';
+import { Encabezado } from '@/components/ficha/Encabezado';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
 import { formateadorHora } from '@/lib/formatoHora';
 import {
@@ -23,6 +25,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 // aparte y armaba los hilos agrupando todos los mensajes del usuario.
 export default function ChatsScreen() {
   const theme = useTheme();
+  const margenSuperior = useMargenSuperior();
   const session = useAuthStore((s) => s.session);
   const [conversaciones, setConversaciones] = useState<ResumenConversacion[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -67,11 +70,12 @@ export default function ChatsScreen() {
   return (
     <ThemedView style={estilos.pantalla}>
       {/* Membrete del registro: qué es y cuántas entradas tiene. */}
-      <View style={estilos.encabezado}>
-        <ThemedText type="folio" themeColor="textSecondary">
-          {conversaciones.length === 1 ? '1 CONVERSACIÓN' : `${conversaciones.length} CONVERSACIONES`}
-        </ThemedText>
-        <View style={[estilos.filetePrincipal, { backgroundColor: theme.text }]} />
+      <View style={[estilos.encabezado, { paddingTop: margenSuperior }]}>
+        <Encabezado
+          kicker="REGISTRO DE MENSAJES"
+          titulo="Chats"
+          meta={conversaciones.length === 1 ? '1 CONVERSACIÓN' : `${conversaciones.length} CONVERSACIONES`}
+        />
       </View>
 
       {cargando ? (
@@ -168,7 +172,6 @@ export default function ChatsScreen() {
 const estilos = StyleSheet.create({
   pantalla: { flex: 1 },
   encabezado: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: Spacing.one },
-  filetePrincipal: { height: Filete.grueso, marginTop: Spacing.two },
   lista: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.six },
   cargando: { marginTop: Spacing.five, alignItems: 'center', gap: Spacing.two },
   fila: {
