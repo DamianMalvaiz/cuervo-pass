@@ -41,11 +41,21 @@ const anotar = (nombre, estado, detalle) => resultados.push({ nombre, estado, de
 function revisarSecrets() {
   let nombres;
   try {
+    // El CLI intercala avisos ("A new version is available", mensajes de npx)
+    // ANTES del JSON, asi que no se puede parsear la salida entera. Se busca el
+    // primer objeto.
     const salida = execFileSync('npx', ['supabase', 'secrets', 'list'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-    nombres = new Set(JSON.parse(salida).secrets.map((s) => s.name));
-  } catch {
-    anotar('Secrets de Edge Functions', 'aviso', 'no se pudieron listar (¿sesión de supabase caducada?)');
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60_000 });
+    const inicio = salida.indexOf('{');
+    if (inicio === -1) throw new Error(`sin JSON en la salida: ${salida.trim().slice(0, 70)}`);
+    nombres = new Set(JSON.parse(salida.slice(inicio)).secrets.map((s) => s.name));
+  } catch (e) {
+    // El motivo real y no una conjetura. La version anterior decia "¿sesion de
+    // supabase caducada?", que sonaba a diagnostico y era invencion: cuando
+    // fallo de verdad, la sesion estaba perfectamente viva. Un diagnostico
+    // inventado manda a quien lo lee a buscar donde no es.
+    const detalle = (e.stderr || e.message || '').toString().trim().split('\n')[0].slice(0, 80);
+    anotar('Secrets de Edge Functions', 'aviso', `no se pudieron listar — ${detalle || 'sin detalle'}`);
     return;
   }
   const obligatorios = ['AI_SERVICE_URL', 'AI_SHARED_TOKEN'];
