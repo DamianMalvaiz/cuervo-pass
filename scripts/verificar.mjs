@@ -128,8 +128,26 @@ async function revisarDatos() {
   }
 
   const { data: pub, error: e2 } = await admin
-    .from('publicaciones').select('titulo, activa, vector_embedding, latitud, longitud').eq('activa', true);
+    .from('publicaciones').select('titulo, tipo, activa, vector_embedding, latitud, longitud').eq('activa', true);
   if (e2) { anotar('Publicaciones activas', 'fallo', e2.message); return; }
+
+  // B.3 · Los chips de tipo filtran en Postgres desde la migracion 0034. Si el
+  // catalogo entero es de un solo tipo, tres de los cuatro chips llevan al
+  // estado vacio y en la demo eso se lee como que el filtro no sirve.
+  //
+  // Paso de verdad: el 19/09/2026 las 104 publicaciones estaban etiquetadas
+  // 'depa' porque la migracion 0010 anadio la columna sobre filas que ya
+  // existian y las marco en bloque. Sus descripciones decian «Cuarto amplio,
+  // bano compartido». Nadie lo vio en un ano porque el filtro corria en el
+  // cliente, y desde C.3 no corria en absoluto.
+  const porTipo = pub.reduce((acc, p) => ({ ...acc, [p.tipo]: (acc[p.tipo] ?? 0) + 1 }), {});
+  const resumenTipos = Object.entries(porTipo).map(([t, n]) => `${t}:${n}`).join(' · ');
+  if (Object.keys(porTipo).length < 2) {
+    anotar('Variedad de tipos', 'fallo',
+      `todas las activas son del mismo tipo (${resumenTipos}) → 3 de los 4 chips caen al estado vacio`);
+  } else {
+    anotar('Variedad de tipos', 'ok', resumenTipos);
+  }
 
   const sinVector = pub.filter((p) => !p.vector_embedding);
   if (sinVector.length) {
