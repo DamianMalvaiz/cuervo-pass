@@ -36,6 +36,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import type { PublicacionPublica } from '@/types/database.types';
 import { aviso } from '@/lib/registro';
+import { desde, type Resultado } from '@/lib/resultado';
+import { Sello } from '@/components/ficha/Sello';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 const ETIQUETA_TIPO: Record<string, string> = {
@@ -62,8 +64,12 @@ export default function DetallePublicacionScreen() {
   }>();
   const session = useAuthStore((s) => s.session);
   const { perfil, cargarPerfil } = usePerfilStore();
-  const [publicacion, setPublicacion] = useState<PublicacionPublica | null>(null);
+  // END-11 · TRES estados, no dos. Mientras «falló la lectura» y «no existe»
+  // compartieran representación —un `null`—, la pantalla no podía
+  // distinguirlos, y elegía la interpretación más grave: acusar de reportes.
+  const [resultado, setResultado] = useState<Resultado<PublicacionPublica>>({ estado: 'vacio' });
   const [cargando, setCargando] = useState(true);
+  const publicacion = resultado.estado === 'ok' ? resultado.datos : null;
   const [foja, setFoja] = useState(0);
   // El ancho se lee en cada render, no al importar el módulo: con `Dimensions`
   // capturado arriba, el carrusel paginado quedaba desalineado tras rotar el
@@ -71,19 +77,44 @@ export default function DetallePublicacionScreen() {
   // `adaptive`, así que eso no es un caso raro.
   const { width: ancho } = useWindowDimensions();
 
+  // La consulta vive en el efecto y se redispara con `intento`, en vez de
+  // llamarse desde él a una función que hace setState: eso último dispara
+  // renders en cascada y el linter lo marca con razón.
+  //
+  // El `activo` no estaba en la versión anterior: sin él, volver atrás mientras
+  // la petición sigue en vuelo escribe estado sobre un componente desmontado.
+  const [intento, setIntento] = useState(0);
+
   useEffect(() => {
     if (!id) return;
-    obtenerPublicacionPublica(id)
-      .then((p) => setPublicacion(p as PublicacionPublica | null))
-      .catch((e) => aviso('obtenerPublicacionPublica falló', undefined, e))
-      .finally(() => setCargando(false));
-  }, [id]);
+    let activo = true;
+    // `desde` es el único sitio que distingue null de excepción: null es vacío,
+    // una excepción es error. Nunca al revés.
+    void desde(
+      obtenerPublicacionPublica(id) as Promise<PublicacionPublica | null>,
+      'No pudimos consultar esta ficha. Revisa tu conexión y reintenta.'
+    ).then((r) => {
+      if (!activo) return;
+      if (r.estado === 'error') aviso('obtenerPublicacionPublica falló', { id });
+      setResultado(r);
+      setCargando(false);
+    });
+    return () => {
+      activo = false;
+    };
+  }, [id, intento]);
+
+  const reintentar = () => {
+    setCargando(true);
+    setIntento((n) => n + 1);
+  };
+
 
   useEffect(() => {
     if (session?.user.id) cargarPerfil(session.user.id);
   }, [session?.user.id, cargarPerfil]);
 
-  const urlsFirmadas = useFotosFirmadas(publicacion?.fotos ?? []);
+  const { urls: urlsFirmadas, fallo: falloFotos } = useFotosFirmadas(publicacion?.fotos ?? []);
 
   const onReportar = () => {
     if (!session?.user.id || !publicacion) return;
@@ -119,6 +150,26 @@ export default function DetallePublicacionScreen() {
         <ThemedText type="etiqueta" themeColor="textSecondary">
           CONSULTANDO FICHA
         </ThemedText>
+      </ThemedView>
+    );
+  }
+
+  // El fallo de lectura va PRIMERO y no comparte pantalla con el vacío: decir
+  // «pudo ocultarse tras varios reportes» porque se cayó el wifi es acusar al
+  // anuncio de otra persona de algo que nadie denunció.
+  if (resultado.estado === 'error') {
+    return (
+      <ThemedView style={estilos.centrado}>
+        <Ionicons name="cloud-offline-outline" size={28} color={theme.error} />
+        <ThemedText type="etiqueta" themeColor="error">
+          NO PUDIMOS CONSULTAR
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" style={estilos.textoCentrado}>
+          {resultado.mensaje}
+        </ThemedText>
+        <Sello onPress={reintentar} icono="refresh" accessibilityLabel="Reintentar">
+          Reintentar
+        </Sello>
       </ThemedView>
     );
   }
@@ -190,7 +241,23 @@ export default function DetallePublicacionScreen() {
                   transition={160}
                 />
               ) : (
-                <View key={ruta} style={[estilos.foto, { width: ancho, backgroundColor: theme.backgroundElement }]} />
+                <View
+                  key={ruta}
+                  style={[estilos.foto, { width: ancho, backgroundColor: theme.backgroundElement }]}
+                >
+                  {/* END-25 · Un recuadro gris sin texto es indistinguible de
+                      «todavía cargando». Si Storage falló hay que decirlo: si
+                      no, la persona espera indefinidamente algo que no va a
+                      llegar. */}
+                  {falloFotos && (
+                    <View style={estilos.fotoFallida}>
+                      <Ionicons name="image-outline" size={22} color={theme.textSecondary} />
+                      <ThemedText type="folio" themeColor="textSecondary">
+                        FOTOGRAFÍA NO DISPONIBLE
+                      </ThemedText>
+                    </View>
+                  )}
+                </View>
               );
             })}
           </ScrollView>
@@ -351,6 +418,7 @@ export default function DetallePublicacionScreen() {
 }
 
 const estilos = StyleSheet.create({
+  fotoFallida: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.one },
   hoja: { paddingBottom: Spacing.six },
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four, gap: Spacing.two },
   textoCentrado: { textAlign: 'center', lineHeight: 22 },

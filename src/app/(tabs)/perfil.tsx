@@ -62,7 +62,7 @@ export default function PerfilScreen() {
 
   // El bucket es privado (§14): `foto_url` guarda una ruta, y para mostrarla
   // hay que firmarla.
-  const urlsFirmadas = useFotosFirmadas([perfil?.foto_url]);
+  const { urls: urlsFirmadas } = useFotosFirmadas([perfil?.foto_url]);
   const urlFoto = perfil?.foto_url ? urlsFirmadas.get(perfil.foto_url) : null;
 
   const onCambiarFoto = async () => {

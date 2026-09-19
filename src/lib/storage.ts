@@ -11,6 +11,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 
 import { supabase } from '@/lib/supabase';
 import { aviso } from '@/lib/registro';
+import { ok, problema, type Resultado } from '@/lib/resultado';
 
 const BUCKET = 'fotos';
 const CADUCIDAD_SEGUNDOS = 60 * 60;   // una hora: sobra para una sesión de uso
@@ -63,24 +64,36 @@ export function subirFotoPublicacion(
  * tarjetas de cinco fotos son cincuenta viajes de ida y vuelta antes de pintar
  * nada; en red móvil eso es la diferencia entre instantáneo y "¿se trabó?".
  */
-export async function firmarRutas(rutas: (string | null | undefined)[]): Promise<Map<string, string>> {
+export async function firmarRutas(
+  rutas: (string | null | undefined)[]
+): Promise<Resultado<Map<string, string>>> {
   const limpias = [...new Set(rutas.filter((r): r is string => Boolean(r)))];
-  if (limpias.length === 0) return new Map();
+  // Nada que firmar es un ÉXITO con cero entradas, no un vacío ni un fallo:
+  // una publicación sin fotos es perfectamente válida.
+  if (limpias.length === 0) return ok(new Map());
 
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrls(limpias, CADUCIDAD_SEGUNDOS);
+  try {
+    const { data, error } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrls(limpias, CADUCIDAD_SEGUNDOS);
 
-  if (error) {
-    aviso('createSignedUrls falló', { detalle: error.message });
-    return new Map();
+    if (error) {
+      // END-25 · Antes devolvía un Map vacío. Una caída de Storage dejaba la
+      // app sin fotos y SIN UN SOLO AVISO, indistinguible de una publicación
+      // que simplemente no tiene ninguna. §27 pide justo lo contrario.
+      aviso('createSignedUrls falló', { detalle: error.message });
+      return problema('No pudimos cargar las fotos.');
+    }
+
+    const mapa = new Map<string, string>();
+    for (const entrada of data ?? []) {
+      if (entrada.path && entrada.signedUrl) mapa.set(entrada.path, entrada.signedUrl);
+    }
+    return ok(mapa);
+  } catch (e) {
+    aviso('createSignedUrls no respondió', undefined, e);
+    return problema('No pudimos cargar las fotos.');
   }
-
-  const mapa = new Map<string, string>();
-  for (const entrada of data ?? []) {
-    if (entrada.path && entrada.signedUrl) mapa.set(entrada.path, entrada.signedUrl);
-  }
-  return mapa;
 }
 
 /**

@@ -66,7 +66,7 @@ export default function PublicacionesScreen() {
     }, [cargar])
   );
 
-  const urlsFirmadas = useFotosFirmadas(publicaciones.map((p) => p.fotos?.[0]));
+  const { urls: urlsFirmadas } = useFotosFirmadas(publicaciones.map((p) => p.fotos?.[0]));
 
   const onCambiarEstado = (publicacion: Publicacion) => {
     const activar = !publicacion.activa;

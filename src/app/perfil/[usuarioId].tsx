@@ -64,7 +64,7 @@ export default function PerfilRoomieScreen() {
       .finally(() => setCargando(false));
   }, [usuarioId]);
 
-  const urlsFirmadas = useFotosFirmadas([usuario?.foto_url]);
+  const { urls: urlsFirmadas } = useFotosFirmadas([usuario?.foto_url]);
 
   // AUD-07: la conversación la abre una función de Postgres, no un insert desde
   // el cliente. Dos personas tocando el botón a la vez reciben el MISMO

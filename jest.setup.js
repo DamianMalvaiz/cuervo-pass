@@ -43,3 +43,38 @@ jest.mock('react-native-reanimated', () => {
     runOnJS: (fn) => fn,
   };
 });
+
+// `react-native-maps` es un módulo NATIVO: fuera de un dispositivo,
+// `TurboModuleRegistry.getEnforcing('RNMapsAirModule')` lanza al importarlo, y
+// tumba la suite entera de cualquier pantalla que lo use — aunque la prueba no
+// mire el mapa.
+//
+// El doble pinta una View con su testID. Sirve para comprobar que la pantalla
+// monta y que el mapa está donde debe; no dice nada sobre si el mapa se ve, que
+// es justo lo que END-10 tiene abierto y solo se comprueba en un dispositivo.
+jest.mock('react-native-maps', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const Falso = (nombre) => {
+    const C = ({ children, ...props }) =>
+      React.createElement(View, { ...props, testID: props.testID ?? nombre }, children);
+    C.displayName = nombre;
+    return C;
+  };
+  const MapView = Falso('mapa');
+  return {
+    __esModule: true,
+    default: MapView,
+    MapView,
+    Marker: Falso('marcador'),
+    Callout: Falso('globo'),
+    PROVIDER_GOOGLE: 'google',
+  };
+});
+
+// AsyncStorage llega por el cliente de Supabase, que lo usa para persistir la
+// sesión. Es nativo, así que fuera del dispositivo es null y revienta al
+// importarse. La librería trae su propio doble.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+);

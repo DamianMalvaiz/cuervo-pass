@@ -66,7 +66,7 @@ export default function ChatsScreen() {
 
   // AUD-08: una sola petición firmada para todos los avatares visibles, no una
   // por fila. El bucket es privado (§14), así que una ruta cruda no carga.
-  const urlsFirmadas = useFotosFirmadas(conversaciones.map((c) => c.otroUsuario.foto_url));
+  const { urls: urlsFirmadas } = useFotosFirmadas(conversaciones.map((c) => c.otroUsuario.foto_url));
 
   return (
     <ThemedView style={estilos.pantalla}>

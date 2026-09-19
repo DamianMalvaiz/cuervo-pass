@@ -187,7 +187,7 @@ export default function InicioScreen() {
   }, [cargar]);
 
   // AUD-08: una sola petición para todas las miniaturas visibles.
-  const urlsFirmadas = useFotosFirmadas(sugerencias.map((s) => s.fotos?.[0]));
+  const { urls: urlsFirmadas } = useFotosFirmadas(sugerencias.map((s) => s.fotos?.[0]));
 
   const filtradas = useMemo(
     () => (tipo ? sugerencias.filter((s) => s.tipo === tipo) : sugerencias),

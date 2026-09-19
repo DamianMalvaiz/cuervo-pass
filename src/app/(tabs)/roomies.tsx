@@ -61,7 +61,7 @@ export default function RoomiesScreen() {
     }, [cargar])
   );
 
-  const urlsFirmadas = useFotosFirmadas(roomies.map((r) => r.foto_url));
+  const { urls: urlsFirmadas } = useFotosFirmadas(roomies.map((r) => r.foto_url));
 
   const onGuardarMiRoomie = async (nuevoEstado: boolean) => {
     const miId = session?.user.id;
