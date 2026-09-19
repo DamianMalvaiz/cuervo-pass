@@ -236,6 +236,28 @@ Los 168 caracteres confirman de paso una decisión del diseño: quien consiente 
 análisis pero no escribe texto libre igual obtiene vector, porque
 `construirTextoPerfil` arma la descripción con los datos estructurados.
 
+### La palanca del consentimiento, comprobada en vivo (19/09/2026)
+
+El §18 y el §29 dejaron de ser promesas de documento. Ciclo completo ejecutado en
+el teléfono y verificado contra la base en cada paso:
+
+| Paso | consiente_analisis_ia | perfil_vector | Nivel en pantalla |
+|---|---|---|---|
+| Inicial | true | 384 dimensiones | 2 |
+| Retirar el consentimiento | **false** | **NULL** | **1** |
+| Volver a otorgarlo | true | 384 dimensiones, norma 1.0 | 2 |
+
+Lo que importa del paso intermedio: el vector no se quedó ahí apagado, **se
+borró**. Un dato derivado de un consentimiento retirado no tiene fundamento para
+seguir existiendo, y la mayoría de las apps se limitan a apagar la casilla. Al
+reotorgarlo el vector se REGENERA desde cero, no se recupera, porque ya no
+existía — el microservicio registró la segunda petición con el id de usuario real.
+
+Sirve como guion de exposición de treinta segundos, sin diapositivas: enseñar el
+Nivel 2, retirar el consentimiento, ver la app seguir funcionando en Nivel 1,
+volver a darlo y ver regresar el Nivel 2. Y si lo piden, enseñar la fila de la
+base antes y después.
+
 ### Pendientes abiertos
 
 - [ ] Probar el flujo completo en el teléfono: registro → cuestionario →
