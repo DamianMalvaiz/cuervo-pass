@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ANCHO_FICHA_COMPACTA, FichaCompacta } from '@/components/FichaCompacta';
-import { FichaPublicacion } from '@/components/FichaPublicacion';
+import { FilaPublicacion } from '@/components/FilaPublicacion';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { Carrusel } from '@/components/ficha/Carrusel';
 import { Encabezado } from '@/components/ficha/Encabezado';
@@ -14,7 +14,7 @@ import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
-import { fechaHoraDeSello, folioDe } from '@/lib/folio';
+import { fechaHoraDeSello } from '@/lib/folio';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import type { PublicacionSugerida } from '@/types/database.types';
@@ -129,8 +129,6 @@ function ChipsTipo({ valor, onCambiar }: { valor: string | null; onCambiar: (v: 
 export default function InicioScreen() {
   const session = useAuthStore((s) => s.session);
   const cargarPerfil = usePerfilStore((s) => s.cargarPerfil);
-  // El tope de presupuesto explica la holgura de cada ficha (END-30).
-  const miPerfil = usePerfilStore((s) => s.perfil);
   // Dos números y no una bandera: en una misma lista conviven publicaciones
   // ordenadas por afinidad y publicaciones ordenadas solo por filtros (END-08).
   const [tipo, setTipo] = useState<string | null>(null);
@@ -293,26 +291,28 @@ export default function InicioScreen() {
             )}
           </View>
         }
+        // END-33 · Un renglón de tabla, no una tarjeta. La ficha grande mide
+        // 420–450 px —una y media por pantalla— y PRODUCT.md dice que esto
+        // ordena por AJUSTE. El ajuste se evalúa comparando, y comparar exige
+        // ver varias opciones a la vez. `FichaPublicacion` se conserva para
+        // «Mis publicaciones», donde la pregunta es «cómo va la mía» y no
+        // «cuál de estas».
         renderItem={({ item }) => (
           <View style={estilos.margen}>
-            <FichaPublicacion
+            <FilaPublicacion
               titulo={item.titulo}
               precio={item.precio_renta}
-              direccion={item.direccion}
               fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
               distanciaKm={item.distancia}
               score={item.score_final ?? item.score}
               similitud={item.similitud}
-              presupuestoMax={miPerfil?.presupuesto_max ?? null}
-              tipo={item.tipo}
-              permiteMascotas={item.permite_mascotas}
-              amueblado={item.amueblado}
-              folio={folioDe(item.id)}
               onPress={() => irADetalle(item)}
             />
           </View>
         )}
-        ItemSeparatorComponent={() => <View style={estilos.separador} />}
+        // Sin separador: la fila ya trae su filete inferior, y dos líneas
+        // juntas se leen como un error de impresión.
+        ItemSeparatorComponent={null}
         ListEmptyComponent={
           <View style={estilos.margen}>
             {fallo ? (
