@@ -98,7 +98,8 @@ uvicorn main:app --reload     # desde ai-service/, no desde la raíz
 
 # ── Antes de exponer ───────────────────────────────────
 node scripts/verificar.mjs   # túnel, secrets, vectores, RPCs — ver docs/verificacion-pre-demo.md
-npx supabase test db         # 17 aserciones de RLS
+npx supabase test db         # 17 aserciones de RLS (local, contra el esquema reconstruido)
+node --env-file=.env scripts/prueba-rls.mjs   # 15 barreras, contra PRODUCCIÓN y por HTTP
 npx tsc --noEmit && npx expo lint && npx jest
 ```
 
