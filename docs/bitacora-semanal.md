@@ -873,6 +873,158 @@ git log --all -S 'SUPABASE_SERVICE_ROLE_KEY='   # solo plantillas vacías
 Nunca ocurrió. El riesgo se cierra solo cuando `endurecimiento` se fusione a
 `main`; **hasta entonces, no hacer `git add -A` desde `main`.**
 
+### El filtro que no filtraba, y el revoke que no revocaba (19/09/2026 · madrugada)
+
+- **Logrado:** B.3 y B.5, más una corrección de datos y un arreglo de seguridad
+  que ninguna orden pedía.
+- **Atorado:** nada. Pero las dos órdenes de esta tanda destaparon defectos
+  MAYORES que las órdenes mismas, y las dos veces por el mismo mecanismo: una
+  compuerta que empezó a funcionar enseñó lo que llevaba tapando.
+- **Decisión:** el arreglo de seguridad se hizo de inmediato y antes que
+  cualquier cosa de diseño. Dos agujeros explotables con la anon key y sin
+  herramientas no esperan a que toque su turno en un plan.
+- **Horas:** — / —
+
+| Compuerta | Antes | Ahora |
+|---|---|---|
+| pgTAP | 64 | **78** |
+| Frontend | 217 | **219** |
+| RLS contra producción | 19/19 | 19/19 |
+| Migraciones aplicadas | 0033 | **0036** |
+
+#### B.3 · El chip pedía un tipo que no existe
+
+`inicio.tsx` filtraba por tipo en el CLIENTE, sobre el top-30 que Postgres ya
+había truncado: si en esos treinta no caía ningún cuarto, la app decía «SIN
+REGISTROS DE ESE TIPO» habiendo cincuenta. Es el invariante 5 al revés.
+
+La migración `0034` mete `p_tipo` en la función INTERNA, la que trunca. Ponerlo
+en la envoltura habría seguido truncando antes de filtrar y el defecto habría
+sobrevivido con otra ropa.
+
+Dos cosas vivas que la orden no nombraba:
+
+- **Los chips llevaban sin filtrar nada desde C.3.** Metí el tipo en la
+  `queryKey` y dejé `queryFn: () => obtenerSugerencias(30)` ignorándolo. Cada
+  chip estrenaba su cubo de caché y pedía lo mismo. **Una clave que distingue lo
+  que la consulta no distingue reparte el mismo resultado en cubos distintos y
+  parece que funciona** — por eso pasó la prueba en dispositivo de la noche
+  anterior.
+- **El chip mandaba `'casa'`, y ese valor no existe.** El formulario, el enum de
+  zod, `TipoPublicacion`, la ficha y el CHECK de la `0010` dicen todos
+  `'casa_compartida'`. `inicio.tsx:38` era el único sitio del proyecto que decía
+  otra cosa, y sobrevivió porque el arreglo estaba tipado `string | null`. Al
+  mandarlo al servidor habría devuelto vacío **para siempre**. Ahora es
+  `TipoPublicacion | null` y lo atrapa el compilador.
+
+#### Lo primero que hizo el filtro al funcionar fue enseñar que los datos mentían
+
+Las 104 publicaciones estaban etiquetadas `depa`. No por descuido: la migración
+`0010` añadió la columna `tipo` sobre una tabla que ya tenía filas y las marcó en
+bloque con `set tipo = 'depa' where tipo is null`, que era lo único que podía
+hacer. Pero eso dejó publicaciones cuya propia descripción dice «Cuarto amplio,
+baño compartido» o «Casa con jardín» marcadas como departamento.
+
+Nadie lo vio en un año **porque el filtro corría en el cliente y, desde C.3, no
+corría en absoluto**. Una compuerta que no corre no es que pase: es que no mide.
+
+`scripts/corregir-tipos-demo.mjs` no adivina. Las ocho descripciones de
+producción corresponden 1:1 con las PLANTILLAS de `seed-demo.mjs`, que ya traen
+su tipo escrito, y el script usa ese catálogo como tabla de equivalencias.
+Inferirlo por palabras sueltas sería exactamente lo que el comentario de ese
+archivo condena. Una descripción fuera del catálogo se deja intacta y se
+reporta.
+
+Resultado: `depa 56 · cuarto 41 · casa_compartida 7`, y después de sembrar diez
+casas cerca de la UTVT, `casa_compartida 17`. El chip pasó de **1 fila a 11**.
+
+#### B.5 · El encabezado decía «en cola» y no había ninguna
+
+`geocodificar/index.ts` presentaba la cola como una de las tres obligaciones que
+la ODbL impone a cambio de permitir ALMACENAR coordenadas. No existía: solo
+caché. La única serialización era un `for` del cliente que **ni siquiera
+esperaba entre vueltas**, y aunque hubiera esperado, dos teléfonos a la vez
+duplicaban el ritmo igual — Nominatim ve una sola IP, la de Supabase.
+
+La `0035` reparte turnos con un `update ... returning` atómico. La base **no
+duerme**: devuelve los milisegundos que faltan y espera la Edge Function, que es
+efímera. Un `select ... for update` con `pg_sleep` dentro habría sido más corto
+de leer y habría retenido una conexión del pool por cada espera.
+
+Medido tras desplegar, tres geocodificaciones simultáneas: **1167 / 2616 / 3334
+ms**.
+
+#### El hallazgo de la tanda: `revoke ... from public` no revocaba nada
+
+La aserción 72 de la `0035` fue la primera del proyecto que **comprobaba** un
+revoke en vez de escribirlo, y falló. Supabase concede EXECUTE a `anon` y
+`authenticated` de forma **explícita** en la ACL de cada función nueva, y
+`revoke from public` no las toca porque no vienen de PUBLIC. Doce migraciones
+llevaban ese revoke creyendo que cerraba algo.
+
+Dos cosas explotables **en producción**, con la anon key y sin herramientas:
+
+- **`devolver_cuota('revelar_contacto')` decrementaba la cuota del propio
+  llamante.** Veinticinco llamadas la devolvían a cero y permitían revelar
+  veinticinco teléfonos más. En bucle, la base de teléfonos entera: justo el
+  scraping que AUD-04 existe para impedir. Lo abrió B.4 al concederla a
+  `authenticated`, que la necesitaba porque `ai-proxy` la llamaba con el token
+  del usuario.
+- **`afinidad_de_para` aceptaba el uuid de cualquiera.** El commit de la `0031`
+  dice que separarla de su envoltura «es lo que impide pedir la afinidad de OTRA
+  persona». No impedía nada, y por partida doble: estaba concedida, y
+  `afinidad_de` era `security invoker`, así que llamaba a la interna **con la
+  identidad del cliente** y el cliente NECESITABA poder ejecutarla. **Una
+  envoltura invoker no encapsula nada.**
+
+Menores del mismo origen: `barrer_fotos_programado`, `limpiar_cuotas_antiguas`,
+`enviar_notificacion_push` —destinatario, título y cuerpo arbitrarios— y ocho
+funciones de trigger.
+
+La `0036` cierra TODO con un bucle sobre `pg_proc` y abre por lista blanca. De lo
+que se cierra hay que acordarse de ampliar la lista; lo que se abre se revisa
+entero cada vez que se lee.
+
+#### Y mi propio arreglo estuvo a medias, por la misma razón que el error
+
+Añadí `alter default privileges ... revoke execute from anon, authenticated` y
+la aserción 76 siguió en rojo. PostgreSQL concede además a **PUBLIC** de fábrica,
+y ahí el revoke de default privileges **no funciona**. Medido aislado: con el
+revoke aplicado y el catálogo diciendo `{postgres=X,service_role=X}`, la función
+recién creada seguía naciendo con `{=X/postgres,...}`. Se descartó que hubiera un
+event trigger reconcediendo.
+
+Lo atrapó la prueba, no la lectura. Por eso la garantía no es esa línea sino la
+**aserción 75**: una lista blanca de lo ejecutable por `authenticated` que se
+rompe sola en cuanto aparece una función de más. Los tres auxiliares del propio
+archivo de pruebas se revocan también, para que la lista no tenga excepciones —
+**una lista blanca con excepciones es donde acaban escondiéndose las de verdad.**
+
+#### Tres comandos documentados que no podían funcionar
+
+Aparecieron al correrlos, no al leerlos:
+
+- `backfill-embeddings.mjs` respondía **401**. Lee `AI_SHARED_TOKEN`, que vive
+  solo en `ai-service/.env`, y la invocación documentada carga `.env` y
+  `.env.server`. Sin el token, `...(tokenCompartido ? { Authorization } : {})`
+  omite la cabecera y manda la petición sin autenticar. El servicio la rechaza
+  —falla cerrado del lado correcto— pero el script no dice por qué.
+- `prueba-rls.mjs`, tal como lo documentaba AGENTS.md, **revienta al arrancar**:
+  sin `.env.server` no hay service role key. Y decía «15 barreras» cuando son 19.
+- Con el backfill corriendo se arregló de paso la cuenta **«Mit»**, que consentía
+  análisis de IA y no tenía `perfil_vector`: sus sugerencias salían en Nivel 1.
+
+Los tres están corregidos en AGENTS.md, y esta vez **corridos antes de
+escribirlos**. Es el mismo defecto que §0.2 imputa al repositorio, en el archivo
+que dicta cómo se trabaja aquí.
+
+#### Lo que sigue sin poder comprobarse aquí
+
+Unsplash respondió **429** al sembrar las diez casas y se quedaron sin foto. El
+script aborta en vez de repetir la misma imagen ocho veces, que es lo correcto.
+`verificar.mjs` gana el aviso que lo dice: descubrirlo durante la exposición no
+tiene arreglo y resolverlo antes es un comando.
+
 ### Pendientes abiertos
 
 Actualizado el 19/09/2026 por la noche. El plan completo, con sus órdenes
@@ -912,6 +1064,17 @@ ejecutables y su secuencia, está en
 - [x] **D.6, implementación** — topes de escalado por tipo y tres alturas fijas
       convertidas en pisos. **Su verificación en dispositivo sigue abierta**, y
       está en la lista de abajo: sin ella no está cumplido, solo implementado.
+- [x] **B.3** — el filtro de tipo corre en Postgres, dentro de la función que
+      trunca. De paso: los chips llevaban sin filtrar nada desde C.3, y uno
+      mandaba un valor que no existe en el resto del proyecto.
+- [x] **B.5** — límite de ritmo real para la ODbL, repartido por la base. Tres
+      geocodificaciones simultáneas: 1167 / 2616 / 3334 ms.
+- [x] **Datos de demo coherentes** — las 104 publicaciones dejan de decir que
+      son departamentos cuando su descripción dice otra cosa, y hay diez casas
+      compartidas cerca de la UTVT. Chips: 30 · 24 · 11 · 22, todas nivel 2.
+- [x] **Privilegios de ejecución cerrados por defecto** (`0036`). Dos agujeros
+      explotables cerrados, seis funciones de servicio protegidas, y una lista
+      blanca en pgTAP para que no vuelva a pasar en silencio.
 
 **Tuyos — nadie más puede hacerlos**
 
@@ -939,15 +1102,20 @@ ejecutables y su secuencia, está en
 
 **Abiertos, del plan de endurecimiento**
 
-- [ ] **B.3, B.5** — filtro de tipo en el servidor y ritmo real en la
-      geocodificación.
+- [ ] **Sembrar las fotos de las diez casas nuevas** cuando Unsplash deje de
+      responder 429. Es un comando:
+      `node --env-file=.env --env-file=.env.server scripts/sembrar-fotos.mjs`.
+      Solo toca las que no tienen, así que es seguro repetirlo.
 - [ ] **D.5, D.8 a D.12** — un carrusel o ninguno, esqueletos con forma de
       ficha, movimiento y tacto, responsive donde importa, capa semántica de
       color, y reescribir `DESIGN.md` desde lo construido.
 - [ ] **E.1, E.3, E.5, E.6** — plataforma: `app.json`, umbrales de cobertura,
       la API deprecada de imágenes, e higiene de operación del túnel.
-- [ ] **Fusionar `endurecimiento` a `main`.** Además de traer dieciocho órdenes,
-      es lo que cierra el agujero del `.gitignore` descrito arriba.
+- [ ] **Fusionar `endurecimiento` a `main`.** Además de traer veinte órdenes y
+      quince migraciones, es lo que cierra el agujero del `.gitignore` descrito
+      arriba: `.env.server` NO está ignorado en `main`, y ese archivo tiene la
+      service role key. Comprobado que nunca se commiteó; hasta la fusión, no
+      hacer `git add -A` desde `main`.
 - [ ] Retirar la vista de compatibilidad `roomings` (migración 0011) cuando ya
       no quede ningún APK viejo instalado. Sigue viva con 30 filas.
 - [ ] `README.md` tiene la sección de capturas de pantalla vacía.
@@ -956,7 +1124,7 @@ ejecutables y su secuencia, está en
 
 - [ ] La cobertura sigue lejos del 70 % que pide la compuerta de la Fase 2 para
       `src/services` y `src/store`, aunque ambos dejaron el 0 %.
-- [ ] **Ninguna prueba dice si algo se VE bien.** 217 en verde no es eso, y
+- [ ] **Ninguna prueba dice si algo se VE bien.** 219 en verde no es eso, y
       conviene no confundirlo nunca.
 - [ ] El reparto de las pruebas de envío de `FormularioPublicacion` en su propio
       archivo contiene un síntoma cuya causa ya se explicó —`unmount()` envenena
