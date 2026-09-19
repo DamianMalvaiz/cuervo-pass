@@ -1,5 +1,5 @@
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, Switch, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
@@ -13,10 +13,9 @@ import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
-import { guardarMiRoomie, listarRoomiesSugeridos, obtenerMiRoomie } from '@/services/roomies.service';
 import { useAuthStore } from '@/store/useAuthStore';
-import type { Roomie, RoomieSugerido } from '@/types/database.types';
 import { aviso } from '@/lib/registro';
+import { useGuardarMiRoomie, useMiRoomie, useRoomiesSugeridos } from '@/hooks/queries/useRoomies';
 
 // Documento maestro v5 · §11 (la tabla se llama `roomies`), §18, §25.
 //
@@ -28,38 +27,28 @@ export default function RoomiesScreen() {
   const theme = useTheme();
   const margenSuperior = useMargenSuperior();
   const session = useAuthStore((s) => s.session);
-  const [roomies, setRoomies] = useState<RoomieSugerido[]>([]);
-  const [miRoomie, setMiRoomie] = useState<Roomie | null>(null);
   const [descripcion, setDescripcion] = useState('');
   const [buscoRoomie, setBuscoRoomie] = useState(false);
-  const [cargando, setCargando] = useState(true);
-  const [guardando, setGuardando] = useState(false);
 
-  const cargar = useCallback(async () => {
-    const miId = session?.user.id;
-    if (!miId) return;
-    setCargando(true);
-    try {
-      const [sugeridos, propio] = await Promise.all([listarRoomiesSugeridos(), obtenerMiRoomie(miId)]);
-      setRoomies(sugeridos);
-      setMiRoomie(propio);
-      setDescripcion(propio?.descripcion_busqueda ?? '');
-      setBuscoRoomie(propio?.estado === 'activo');
-    } catch (e) {
-      // Nunca dejar la pantalla rota por un error de red o una migración
-      // pendiente — se muestra la lista vacía y se sigue.
-      aviso('No se pudieron cargar los roomies', undefined, e);
-      setRoomies([]);
-    } finally {
-      setCargando(false);
-    }
-  }, [session?.user.id]);
+  // END-18 · Dos consultas separadas en vez de un `Promise.all` dentro de un
+  // `useFocusEffect`. Guardar la ficha propia ya no obliga a volver a pedir la
+  // lista de sugeridos, que es lo caro.
+  const miId = session?.user.id;
+  const { roomies, cargando } = useRoomiesSugeridos(Boolean(miId));
+  const { miRoomie } = useMiRoomie(miId);
+  const guardar = useGuardarMiRoomie(miId);
+  const guardando = guardar.isPending;
 
-  useFocusEffect(
-    useCallback(() => {
-      cargar();
-    }, [cargar])
-  );
+  // Los campos del formulario se siembran desde la ficha guardada la primera
+  // vez que llega, y NO en cada render: si no, escribir en el campo se
+  // sobreescribiría con el valor del servidor en el siguiente refresco.
+  const sembrado = useRef(false);
+  useEffect(() => {
+    if (sembrado.current || !miRoomie) return;
+    sembrado.current = true;
+    setDescripcion(miRoomie.descripcion_busqueda ?? '');
+    setBuscoRoomie(miRoomie.estado === 'activo');
+  }, [miRoomie]);
 
   const { urls: urlsFirmadas } = useFotosFirmadas(roomies.map((r) => r.foto_url));
 
@@ -74,13 +63,11 @@ export default function RoomiesScreen() {
       return;
     }
     setBuscoRoomie(nuevoEstado);
-    setGuardando(true);
     try {
-      const actualizado = await guardarMiRoomie(miId, {
+      await guardar.mutateAsync({
         descripcionBusqueda: descripcion.trim() || 'Busco roomie.',
         estado: nuevoEstado ? 'activo' : 'cerrado',
       });
-      setMiRoomie(actualizado);
     } catch (e) {
       setBuscoRoomie(!nuevoEstado);
       Alert.alert(
@@ -88,26 +75,14 @@ export default function RoomiesScreen() {
         'Revisa tu conexión e intenta de nuevo. Si el problema sigue, puede faltar aplicar una migración de la base de datos.'
       );
       aviso('No se pudo guardar el roomie', undefined, e);
-    } finally {
-      setGuardando(false);
     }
   };
 
   const onGuardarDescripcion = async () => {
-    const miId = session?.user.id;
     if (!miId || !buscoRoomie || descripcion.trim().length < 10) return;
-    setGuardando(true);
-    try {
-      // Guardar la descripción regenera el vector de búsqueda: si no, la
-      // afinidad seguiría calculándose contra el texto anterior.
-      const actualizado = await guardarMiRoomie(miId, {
-        descripcionBusqueda: descripcion.trim(),
-        estado: 'activo',
-      });
-      setMiRoomie(actualizado);
-    } finally {
-      setGuardando(false);
-    }
+    // Guardar la descripción regenera el vector de búsqueda: si no, la afinidad
+    // seguiría calculándose contra el texto anterior.
+    await guardar.mutateAsync({ descripcionBusqueda: descripcion.trim(), estado: 'activo' });
   };
 
   const descripcionSinGuardar = (miRoomie?.descripcion_busqueda ?? '') !== descripcion;

@@ -9,15 +9,17 @@
 // `isLoading` de `isPending` en cada sitio. Lo que la pantalla necesita saber
 // es: qué pinto, estoy cargando, y falló.
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { claves } from '@/lib/consultas';
 import { textoDeError } from '@/lib/registro';
 import {
+  cambiarEstadoPublicacion,
   contarContactosRecibidos,
   listarMisPublicaciones,
   obtenerPublicacionPublica,
   obtenerSugerencias,
+  reintentarGeocodingPendiente,
 } from '@/services/publicaciones.service';
 import type { PublicacionSugerida } from '@/types/database.types';
 
@@ -69,7 +71,17 @@ export function usePublicacion(id: string | undefined) {
 export function useMisPublicaciones(usuarioId: string | undefined) {
   const q = useQuery({
     queryKey: claves.misPublicaciones(usuarioId ?? ''),
-    queryFn: () => listarMisPublicaciones(usuarioId as string),
+    queryFn: async () => {
+      const mias = await listarMisPublicaciones(usuarioId as string);
+      // §27 · v3 prometía un reintento del geocoding «en segundo plano» y no
+      // había nada que lo hiciera. Aquí sí: las publicaciones guardadas sin
+      // coordenadas se reintentan una vez al abrir la pantalla. Vive dentro de
+      // la consulta y no en un efecto aparte porque forma parte de «cargar mis
+      // publicaciones»: partirlo en dos dejaría una ventana en la que la lista
+      // ya está pintada con las coordenadas viejas.
+      const resueltas = await reintentarGeocodingPendiente(mias);
+      return resueltas > 0 ? listarMisPublicaciones(usuarioId as string) : mias;
+    },
     enabled: Boolean(usuarioId),
   });
 
@@ -89,4 +101,27 @@ export function useContactosRecibidos(habilitado: boolean) {
     enabled: habilitado,
   });
   return q.data ?? new Map<string, number>();
+}
+
+/**
+ * Activar o desactivar una publicación propia.
+ *
+ * Invalida las tres consultas que dependen de ese estado. Sin esto, desactivar
+ * una publicación la dejaría visible en la lista hasta el siguiente refresco —y
+ * con `staleTime` de 30 s, «el siguiente refresco» puede tardar—, que es
+ * exactamente la clase de dato viejo que una caché mal invalidada produce.
+ */
+export function useCambiarEstadoPublicacion(usuarioId: string | undefined) {
+  const cliente = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, activa }: { id: string; activa: boolean }) =>
+      cambiarEstadoPublicacion(id, activa),
+    onSuccess: (_datos, { id }) => {
+      void cliente.invalidateQueries({ queryKey: claves.misPublicaciones(usuarioId ?? '') });
+      void cliente.invalidateQueries({ queryKey: claves.publicacion(id) });
+      // Las sugerencias de TODOS los tipos: una publicación desactivada deja de
+      // ser candidata en cualquiera de los chips.
+      void cliente.invalidateQueries({ queryKey: ['sugerencias'] });
+    },
+  });
 }

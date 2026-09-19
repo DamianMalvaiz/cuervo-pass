@@ -1,4 +1,8 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
+
+import { crearClienteConsultas } from '@/lib/consultas';
 
 // Pruebas de humo de las pantallas rediseñadas.
 //
@@ -75,30 +79,41 @@ jest.mock('@/lib/supabase', () => ({ supabase: { auth: { resetPasswordForEmail: 
 // Cada pestaña se comprueba por su encabezado, no por `toJSON()` a secas: una
 // pantalla puede "montar" devolviendo null y eso pasaria igual, que es
 // exactamente la clase de verde enganoso que hoy costo tres bugs.
+// Varias de estas pantallas consultan por react-query (END-18), así que
+// necesitan su provider. El backoff se acorta: aquí solo se comprueba que
+// MONTAN, no cuánto espera un reintento.
+const pintar = async (Pantalla: () => React.ReactElement) => {
+  const cliente = crearClienteConsultas({ queries: { retryDelay: 1 } });
+  const Envoltura = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={cliente}>{children}</QueryClientProvider>
+  );
+  return render(<Pantalla />, { wrapper: Envoltura });
+};
+
 test('Roomies monta con lista vacia y muestra su encabezado', async () => {
   const Pantalla = require('../(tabs)/roomies').default;
-  await render(<Pantalla />);
+  await pintar(Pantalla);
   expect(await screen.findByText('Roomies', {}, { timeout: 5000 })).toBeTruthy();
   expect(await screen.findByText('REGISTRO DE ROOMIES', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 test('Mis publicaciones monta con lista vacia y muestra su encabezado', async () => {
   const Pantalla = require('../(tabs)/publicaciones').default;
-  await render(<Pantalla />);
+  await pintar(Pantalla);
   expect(await screen.findByText('Mis publicaciones', {}, { timeout: 5000 })).toBeTruthy();
   expect(await screen.findByText('REGISTRO PROPIO', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 test('Chats monta con lista vacia y muestra su encabezado', async () => {
   const Pantalla = require('../(tabs)/chats').default;
-  await render(<Pantalla />);
+  await pintar(Pantalla);
   expect(await screen.findByText('Chats', {}, { timeout: 5000 })).toBeTruthy();
   expect(await screen.findByText('REGISTRO DE MENSAJES', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 test('Recuperar contraseña monta con su campo de correo', async () => {
   const Pantalla = require('../(auth)/recuperar-contrasena').default;
-  await render(<Pantalla />);
+  await pintar(Pantalla);
   expect(await screen.findByPlaceholderText('tucorreo@ejemplo.mx', {}, { timeout: 5000 })).toBeTruthy();
   expect(await screen.findByLabelText('Enviar enlace', {}, { timeout: 5000 })).toBeTruthy();
 });
@@ -108,12 +123,12 @@ test('Recuperar contraseña monta con su campo de correo', async () => {
 // propias pruebas de que no se desvia del documento.
 test('El aviso de privacidad monta y muestra sus secciones', async () => {
   const Pantalla = require('../aviso-privacidad').default;
-  await render(<Pantalla />);
+  await pintar(Pantalla);
   expect(await screen.findByText(/Derechos ARCO/i, {}, { timeout: 5000 })).toBeTruthy();
 });
 
 test('El perfil publico monta aunque no encuentre a la persona', async () => {
   const Pantalla = require('../perfil/[usuarioId]').default;
-  await render(<Pantalla />);
+  await pintar(Pantalla);
   await waitFor(() => expect(screen.toJSON()).toBeTruthy());
 });

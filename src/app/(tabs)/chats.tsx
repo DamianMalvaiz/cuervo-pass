@@ -1,6 +1,5 @@
 import { Image } from 'expo-image';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { router } from 'expo-router';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
@@ -13,13 +12,8 @@ import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
 import { formateadorHora } from '@/lib/formatoHora';
-import {
-  listarConversaciones,
-  suscribirseAMisChats,
-  type ResumenConversacion,
-} from '@/services/mensajes.service';
 import { useAuthStore } from '@/store/useAuthStore';
-import { aviso } from '@/lib/registro';
+import { useConversaciones } from '@/hooks/queries/useChat';
 
 // Documento maestro v5 · §25. El nombre de la contraparte y el último mensaje
 // ya vienen resueltos desde el servicio: antes esta pantalla pedía los perfiles
@@ -28,41 +22,9 @@ export default function ChatsScreen() {
   const theme = useTheme();
   const margenSuperior = useMargenSuperior();
   const session = useAuthStore((s) => s.session);
-  const [conversaciones, setConversaciones] = useState<ResumenConversacion[]>([]);
-  const [cargando, setCargando] = useState(true);
-  const idCargaActual = useRef(0);
-
-  // `mostrarSpinner` es false para los refrescos disparados por Realtime — sin
-  // esto, CADA mensaje entrante reemplazaba toda la lista por un spinner y
-  // perdía el scroll. El contador descarta respuestas fuera de orden.
-  const cargar = useCallback(
-    async (mostrarSpinner: boolean) => {
-      const miId = session?.user.id;
-      if (!miId) return;
-      const idCarga = ++idCargaActual.current;
-      if (mostrarSpinner) setCargando(true);
-      try {
-        const resumenes = await listarConversaciones(miId);
-        if (idCarga !== idCargaActual.current) return;
-        setConversaciones(resumenes);
-      } catch (e) {
-        aviso('listarConversaciones falló', undefined, e);
-      } finally {
-        if (idCarga === idCargaActual.current) setCargando(false);
-      }
-    },
-    [session?.user.id]
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      cargar(true);
-    }, [cargar])
-  );
-
-  useEffect(() => {
-    return suscribirseAMisChats(() => cargar(false));
-  }, [cargar]);
+  // END-18 · La suscripción de Realtime, el guardia de respuestas fuera de orden
+  // y la distinción entre recarga visible y silenciosa viven ahora en el hook.
+  const { conversaciones, cargando } = useConversaciones(session?.user.id);
 
   // AUD-08: una sola petición firmada para todos los avatares visibles, no una
   // por fila. El bucket es privado (§14), así que una ruta cruda no carga.

@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { router } from 'expo-router';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { FichaPublicacion } from '@/components/FichaPublicacion';
@@ -15,56 +14,21 @@ import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
 import { folioDe } from '@/lib/folio';
-import {
-  cambiarEstadoPublicacion,
-  contarContactosRecibidos,
-  listarMisPublicaciones,
-  reintentarGeocodingPendiente,
-} from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
-import { aviso } from '@/lib/registro';
+import { useCambiarEstadoPublicacion, useContactosRecibidos, useMisPublicaciones } from '@/hooks/queries/usePublicaciones';
 
 // Documento maestro v5 · §25 y §27.
 export default function PublicacionesScreen() {
   const theme = useTheme();
   const margenSuperior = useMargenSuperior();
   const miId = useAuthStore((s) => s.session?.user.id);
-  const [publicaciones, setPublicaciones] = useState<Publicacion[]>([]);
-  const [contactos, setContactos] = useState<Map<string, number>>(new Map());
-  const [cargando, setCargando] = useState(true);
-
-  const cargar = useCallback(async () => {
-    if (!miId) return;
-    setCargando(true);
-    try {
-      const [mias, recibidos] = await Promise.all([
-        listarMisPublicaciones(miId),
-        contarContactosRecibidos(),
-      ]);
-      setPublicaciones(mias);
-      setContactos(recibidos);
-
-      // §27: v3 prometía un reintento del geocoding "en segundo plano" y no
-      // había nada que lo hiciera. Aquí sí: al abrir esta pantalla, las
-      // publicaciones que se guardaron sin coordenadas se reintentan una vez.
-      const resueltas = await reintentarGeocodingPendiente(mias);
-      if (resueltas > 0) {
-        setPublicaciones(await listarMisPublicaciones(miId));
-      }
-    } catch (e) {
-      aviso('No se pudieron cargar tus publicaciones', undefined, e);
-    } finally {
-      setCargando(false);
-    }
-  }, [miId]);
-
-  // Recarga cada vez que la pestaña vuelve a estar en foco (ej. tras publicar o editar).
-  useFocusEffect(
-    useCallback(() => {
-      cargar();
-    }, [cargar])
-  );
+  // END-18 · La carga, el reintento y la caché viven en el hook. Lo que había
+  // era tres `useState` y un `useFocusEffect` que recargaba entero cada vez que
+  // la pestaña volvía al foco, aunque no hubiera cambiado nada.
+  const { datos: publicaciones, cargando } = useMisPublicaciones(miId);
+  const contactos = useContactosRecibidos(Boolean(miId));
+  const cambiarEstado = useCambiarEstadoPublicacion(miId);
 
   const { urls: urlsFirmadas } = useFotosFirmadas(publicaciones.map((p) => p.fotos?.[0]));
 
@@ -82,7 +46,10 @@ export default function PublicacionesScreen() {
           style: activar ? 'default' : 'destructive',
           onPress: async () => {
             try {
-              await cambiarEstadoPublicacion(publicacion.id, activar);
+              // La mutación invalida las consultas afectadas por sí sola: sin
+              // eso, la publicación desactivada seguiría en la lista hasta que
+              // venciera el staleTime.
+              await cambiarEstado.mutateAsync({ id: publicacion.id, activa: activar });
             } catch (e) {
               // AUD-26: el límite de 15 activas por cuenta se aplica al
               // reactivar igual que al crear.
@@ -93,7 +60,6 @@ export default function PublicacionesScreen() {
                   : 'Intenta de nuevo en un momento.'
               );
             }
-            cargar();
           },
         },
       ]
