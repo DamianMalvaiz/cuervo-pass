@@ -69,20 +69,14 @@ if [ -z "$URL" ]; then
 fi
 echo "   dominio: $URL"
 
-# 4. Esperar a que el DNS propague y comprobar A TRAVÉS del túnel, no en
-#    localhost: el punto es probar el camino que la Edge Function va a usar.
-echo "→ Esperando propagación de DNS…"
-for _ in $(seq 1 40); do
-  if curl -sf -m 8 "$URL/listo" >/dev/null 2>&1; then break; fi
-  sleep 3
-done
-if ! curl -sf -m 10 "$URL/listo" >/dev/null 2>&1; then
-  echo "   El túnel no responde todavía. Revisa $REGISTRO" >&2
-  exit 1
-fi
-echo "   /listo responde a través del túnel."
-
-# 5. Apuntar la Edge Function al dominio nuevo.
+# 4. El secret se fija PRIMERO, antes de esperar al DNS.
+#
+#    Por qué en este orden: el dominio ya está asignado y es definitivo; lo único
+#    pendiente es que Cloudflare publique su registro DNS. Eso tardó MÁS DE MEDIA
+#    HORA una noche de septiembre de 2026, y una versión anterior de este script
+#    lo daba por muerto a los dos minutos y salía con error — dejando el secret
+#    apuntando al túnel ANTERIOR, que sí estaba muerto. Fijarlo primero hace que
+#    la espera sea solo informativa.
 echo "→ Actualizando el secret AI_SERVICE_URL…"
 set -a
 # shellcheck disable=SC1091
@@ -91,6 +85,27 @@ set +a
 npx supabase secrets set AI_SERVICE_URL="$URL" >/dev/null
 echo "   listo."
 
+# El dominio vivo queda en un archivo estable: rastrearlo por el nombre aleatorio
+# del registro es frágil cuando hay varios túneles viejos en /tmp.
+echo "$URL" > .tunel-actual
+echo "   dominio guardado en .tunel-actual"
+
+# 5. Esperar a que el DNS propague, comprobando A TRAVÉS del túnel y no en
+#    localhost: el punto es probar el camino que la Edge Function va a usar.
+echo "→ Esperando propagación de DNS (hasta 10 minutos)…"
+for i in $(seq 1 120); do
+  if curl -sf -m 8 "$URL/listo" >/dev/null 2>&1; then
+    echo "   /listo responde a través del túnel tras $((i * 5)) s."
+    echo
+    echo "Túnel arriba: $URL"
+    exit 0
+  fi
+  sleep 5
+done
+
 echo
-echo "Túnel arriba: $URL"
-echo "Si el Nivel 2 desaparece a media demo, vuelve a correr este comando."
+echo "El dominio sigue sin resolver tras 10 minutos." >&2
+echo "El secret YA apunta ahí, así que en cuanto Cloudflare publique el DNS" >&2
+echo "empezará a funcionar solo. Para comprobarlo:" >&2
+echo "  curl -s -o /dev/null -w '%{http_code}\n' $URL/listo" >&2
+echo "Registro de cloudflared: $REGISTRO" >&2

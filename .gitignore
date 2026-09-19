@@ -65,3 +65,6 @@ supabase/.temp/
 
 # Worktrees de sesiones de Claude Code — copias del propio repo, nunca se suben.
 .claude/worktrees/
+
+# Dominio del túnel en curso: cambia en cada arranque.
+.tunel-actual
