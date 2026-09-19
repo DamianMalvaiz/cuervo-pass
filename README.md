@@ -88,7 +88,9 @@ cd ai-service
 cp .env.example .env          # claves del servidor: NUNCA con prefijo EXPO_PUBLIC_
 python3 -m venv venv && source venv/bin/activate
 pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
-uvicorn main:app --reload     # desde ai-service/, no desde la raíz
+uvicorn main:app --reload     # desde ai-service/, no desde la raíz.
+                              # config.py carga ai-service/.env solo; si falta
+                              # AI_SHARED_TOKEN el servicio NO arranca, a propósito.
 # o con Docker:  docker compose up
 #   Requiere ai-service/.env (el `cp` de arriba): docker-compose.yml lo
 #   declara en env_file y Compose aborta si falta. Eso es lo correcto —

@@ -37,6 +37,12 @@ anthropic==1.6.0
 slowapi==0.1.9
 pydantic==2.10.4
 
+# config.py carga ai-service/.env por su cuenta. Ya llegaba como transitiva de
+# uvicorn[standard], pero una dependencia de la que depende el ARRANQUE no
+# puede venir de rebote: si mañana se quita el extra `standard`, el servicio
+# deja de leer su configuracion y no se entera nadie.
+python-dotenv==1.0.1
+
 # Transitivas que Trivy marcó y que no se arreglan subiendo a su paquete padre.
 # Se fijan aquí porque requirements.txt se instala DESPUÉS del `pip install
 # --upgrade setuptools` del Dockerfile, así que este pin es el que manda.

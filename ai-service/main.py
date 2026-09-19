@@ -34,6 +34,16 @@ listo = {"modelo": False}
 @asynccontextmanager
 async def ciclo_de_vida(app: FastAPI):
     """`@app.on_event("startup")` está obsoleto desde FastAPI 0.109."""
+    # Fallar CERRADO. Un servicio que no puede autenticar no debe servir: antes
+    # arrancaba igual y `identidad()` dejaba pasar a todo el mundo, que es el
+    # peor de los dos fallos posibles. Vale más una caída ruidosa al arrancar
+    # que un endpoint abierto con ANTHROPIC_API_KEY detrás.
+    if not config.AI_SHARED_TOKEN:
+        raise RuntimeError(
+            "AI_SHARED_TOKEN ausente o vacío: el microservicio no arranca sin "
+            "autenticación. Ponlo en ai-service/.env (plantilla en "
+            "ai-service/.env.example) con el mismo valor que el secret de Supabase."
+        )
     t0 = time.perf_counter()
     precalentar()
     listo["modelo"] = True
@@ -65,14 +75,33 @@ def _token_valido(authorization: str | None) -> bool:
     return False
 
 
+def exigir_token(authorization: str | None = Header(default=None)) -> None:
+    """Solo la credencial. Para endpoints que no actúan en nombre de nadie.
+
+    El guard anterior era `if config.AI_SHARED_TOKEN and not _token_valido(...)`.
+    Con la variable ausente la condición entera es falsa y NO se autenticaba a
+    nadie — justo el escenario por omisión de `uvicorn main:app` antes de que
+    config.py cargara su propio .env. Ahora la ausencia se trata en el arranque
+    y aquí solo queda la comprobación.
+    """
+    if not _token_valido(authorization):
+        raise HTTPException(status_code=401, detail="no autorizado")
+
+
 def identidad(
     authorization: str | None = Header(default=None),
     x_usuario_id: str | None = Header(default=None),
 ) -> str:
     """Valida el token compartido y devuelve el id de usuario que reenvía el proxy."""
-    if config.AI_SHARED_TOKEN and not _token_valido(authorization):
-        raise HTTPException(status_code=401, detail="no autorizado")
-    return x_usuario_id or "anonimo"
+    exigir_token(authorization)
+    # AUD-03: sin id no hay cubeta por usuario. Devolver "anonimo" y seguir
+    # hacía que TODAS las peticiones sin cabecera compartieran un solo cupo —
+    # exactamente el límite global que el limitador por usuario existe para
+    # evitar, y en silencio. `ai-proxy` siempre la manda; si falta, algo está
+    # llamando por un camino que no es el previsto.
+    if not x_usuario_id:
+        raise HTTPException(status_code=400, detail="falta la cabecera x-usuario-id")
+    return x_usuario_id
 
 
 def clave_limite(request: Request) -> str:
@@ -151,8 +180,11 @@ def salud():
     return listo_para_servir()
 
 
+# Detrás del token: publicaba conteos y latencias internas a cualquiera que
+# conociera la URL del túnel. Usa `exigir_token` y no `identidad` porque no
+# actúa en nombre de ningún usuario y no tiene por qué exigir x-usuario-id.
 @app.get("/metricas")
-def endpoint_metricas():
+def endpoint_metricas(_: None = Depends(exigir_token)):
     return metricas()
 
 

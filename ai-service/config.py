@@ -9,11 +9,31 @@ Aquí todo es ``.get`` con valor por omisión.
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # Nunca dependas del directorio actual: `uvicorn main:app` desde la raíz del
 # repo y desde ai-service/ resolvían rutas distintas, y el prompt solo se
 # encontraba en uno de los dos casos.
 RAIZ = Path(__file__).resolve().parent
 PROMPTS = RAIZ / "prompts"
+
+# ═══ Por qué se carga el .env aquí y no fuera ═══
+#
+# Había TRES formas de arrancar este servicio y cada una leía un sitio distinto:
+#
+#   · scripts/tunel.sh:42   → el .env de la RAÍZ, con `set -a && . ../.env`
+#   · docker compose up     → ai-service/.env, vía `env_file`
+#   · uvicorn main:app      → NADA. `os.getenv` pelado y ningún cargador.
+#     (README, la línea que más se usa en desarrollo)
+#
+# La tercera era un fallo de seguridad, no una molestia: sin AI_SHARED_TOKEN en
+# el entorno, el guard de main.py no autenticaba a nadie y el servicio —con
+# ANTHROPIC_API_KEY dentro y un túnel público delante— quedaba abierto.
+#
+# `override=False` a propósito: lo que YA está en el entorno manda. Docker
+# inyecta por `env_file` y el shell puede exportar; el archivo solo rellena lo
+# que falte. Así las tres rutas convergen sin que ninguna pise a la otra.
+ENV_CARGADO = load_dotenv(RAIZ / ".env", override=False)
 
 # Cambio crítico frente a v3 (§9): `all-MiniLM-L6-v2` está entrenado sobre
 # corpus en inglés. Acepta español sin quejarse y produce vectores —por eso es

@@ -39,7 +39,11 @@ fi
 echo "→ Comprobando el microservicio en 127.0.0.1:8000…"
 if ! curl -sf -m 5 http://127.0.0.1:8000/listo >/dev/null; then
   echo "   El microservicio NO responde. Levántalo primero:" >&2
-  echo "     cd ai-service && set -a && . ../.env && set +a && .venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000" >&2
+  # Ya no hace falta `set -a && . ../.env`: config.py carga ai-service/.env
+  # por su cuenta. Las tres rutas de arranque (esta, docker compose y el
+  # README) leen ahora el mismo archivo.
+  echo "     cd ai-service && .venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000" >&2
+  echo "     (si falla con AI_SHARED_TOKEN ausente: cp .env.example .env y rellenalo)" >&2
   exit 1
 fi
 echo "   responde."

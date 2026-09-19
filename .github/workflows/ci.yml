@@ -58,6 +58,12 @@ jobs:
       # requirements-dev.txt trae pytest y httpx, que el Dockerfile NO instala:
       # las pruebas no tienen por qué viajar dentro de la imagen de producción.
       - run: pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt -r requirements-dev.txt
+      # config.py carga ai-service/.env por su cuenta (ORDEN A.2). El archivo no
+      # se versiona, así que CI lo crea desde la plantilla igual que hace el
+      # README en una máquina nueva. Sin esto,
+      # test_config_carga_el_env_del_microservicio falla — y debe fallar: es la
+      # prueba de que el cargador existe.
+      - run: cp .env.example .env
       - run: pytest tests -v
 
   imagen:
