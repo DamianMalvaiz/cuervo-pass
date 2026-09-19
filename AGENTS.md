@@ -78,6 +78,23 @@ la prueba que falla, todavía no entiendes el bug.
    sale de `src/constants/theme.ts`. Si falta un token, se añade al tema; no se
    escribe el valor a mano.
 
+   Dos excepciones, y solo dos:
+   - `src/components/themed-text.tsx` (24 apariciones), donde la escala
+     tipográfica se **define**. Tiene que escribir los valores: es su fuente.
+   - `src/app/_layout.tsx` (5) y `src/app/(tabs)/_layout.tsx` (3), porque el tema
+     de React Navigation exige valores crudos y no acepta tokens.
+
+   **Deuda declarada (19/09/2026):** otros 19 archivos incumplen esto con **29**
+   apariciones, para un total de **61**. Se corrigen al tocarlos, no en una
+   pasada aparte. Cero literales `#hex`: eso sí está limpio. Para medirlo:
+
+   ```bash
+   grep -rn 'fontSize:\|fontFamily:' src/components src/app --include=*.tsx \
+     | grep -v __tests__ | wc -l
+   ```
+
+   Ese número solo puede bajar. Si sube, el commit que lo subió está mal.
+
 8. **Objetivo táctil mínimo 44×44 pt**, contando `hitSlop`. Sin excepciones.
 
 9. **Contraste medido, no supuesto** — y eso incluye superficie contra
@@ -93,13 +110,20 @@ Dos archivos, con destinos distintos:
   del bundle, donde cualquiera con el APK lo lee. Aquí solo van valores públicos
   por diseño: URL de Supabase, anon key, token `pk.` de Mapbox.
 - **`.env.server` = SERVIDOR.** `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
-  `SUPABASE_DB_PASSWORD`, `AI_SHARED_TOKEN`, `PERFIL_ENCRYPTION_KEY`. Nunca se
-  lee desde la app.
+  `SUPABASE_DB_PASSWORD`, `AI_SHARED_TOKEN`, `MAPBOX_ACCESS_TOKEN`. Nunca se lee
+  desde la app.
 
 > **Estado actual (por corregir):** `.env.server` todavía NO existe y las claves
-> de servidor están mezcladas en el `.env` de la raíz. Es el mismo defecto que
-> `.env.example` documenta como el peor de v3. Al tocar cualquier script que lea
-> credenciales de servidor, sepáralas en vez de perpetuarlo.
+> de servidor están mezcladas en el `.env` de la raíz; el microservicio arranca
+> con `. ../.env`. Es el mismo defecto que `.env.example` documenta como el peor
+> de v3. Al tocar cualquier script que lea credenciales de servidor, sepáralas en
+> vez de perpetuarlo — y mueve también el arranque del microservicio.
+
+> **`PERFIL_ENCRYPTION_KEY` está muerta.** Sigue en el `.env` de la raíz y no la
+> usa nadie: no aparece en `ai-service/*.py` ni en ningún `.ts`. Lo único que la
+> menciona es un comentario de la migración 0005, que es el cifrado que §30
+> retiró por no proteger nada. **No la muevas a `.env.server`: bórrala.** Una
+> credencial que nadie usa sigue siendo una credencial que se puede filtrar.
 
 Nunca añadas `EXPO_PUBLIC_` a algo que no sea público por diseño. Ninguno de los
 dos archivos se versiona.
