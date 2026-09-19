@@ -426,6 +426,49 @@ limpieza no encontró el bug por listeza, sino por chocar con él.
 Estado: 102 usuarios, 104 publicaciones activas, 104/104 con vector,
 geocodificación dentro del rango esperado, cola de huérfanas vacía.
 
+### Endurecimiento: siete hallazgos propios, tres críticos (19/09/2026)
+
+- **Logrado:** auditoría de la implementación —no del documento— ejecutando el
+  sistema. Treinta y ocho hallazgos propios (END-01 a END-38) en
+  [`docs/endurecimiento-v6.md`](endurecimiento-v6.md). Siete remediados en trece
+  commits sobre la rama `endurecimiento`. pgTAP 21 → 40, aislamiento contra
+  producción 15 → 19, pruebas del microservicio 9 → 16, frontend 92 → 98, y las
+  cuatro Edge Functions tipadas **por primera vez**.
+- **Atorado:** las cinco migraciones nuevas (0022–0026) siguen **sin aplicar a
+  producción**, así que ninguna de las remediaciones protege nada todavía. El
+  túnel de Cloudflare estuvo diez minutos sin resolver DNS y quedó abajo.
+- **Decisión:** los hallazgos llevan prefijo **END-** y no AUD-. Reusar la
+  numeración de v5 haría ambiguo cada uno de los comentarios del código que ya
+  la citan.
+- **Horas:** — / —
+
+Los tres críticos comparten forma con AUD-01 —dos decisiones correctas por
+separado que se contradicen al correr juntas— y los tres eran silenciosos:
+
+1. La migración titulada «storage privado» cambió *cualquiera en internet* por
+   *cualquiera con una cuenta*. Comprobado contra producción: una cuenta recién
+   creada **descargó los bytes** de la foto de perfil de un usuario dado de baja.
+2. El microservicio con `ANTHROPIC_API_KEY` dentro, expuesto por un túnel
+   público, **no autenticaba a nadie** en la ruta de arranque del README. Lo
+   delataba la propia suite: cuatro pruebas llamaban sin cabecera y esperaban
+   200, así que pasaba *gracias* al fallo.
+3. «Reportar usuario» insertaba la fila, mostraba «Gracias», y el trigger salía
+   con `return new`. Nunca hizo nada. Es AUD-16 otra vez, en la ruta de
+   seguridad personal.
+
+Lo que esta entrada deja escrito para el futuro, porque es el patrón y no el
+incidente: **la documentación de este repositorio describe un sistema distinto
+al construido**, no por descuido en la prosa sino por una asimetría entre
+afirmar y verificar. `DESIGN.md` tiene 27 KB y la capa de servicios tenía 0 % de
+cobertura. Se midieron doce pares de contraste de texto a mano y ninguna
+superficie contra superficie — la que falla, con razón **1.00**.
+
+Y cuatro errores de método de la propia auditoría quedan registrados en su §8.
+Los cuatro se detectaron ejecutando, ninguno leyendo; tres no fueron de
+razonamiento sino de no validar las condiciones del experimento. El peor: un
+`grep` terminado en `| grep -v ".venv"` se comió la única línea que refutaba una
+afirmación, y sobre esa premisa falsa se revirtió un commit correcto.
+
 ### Pendientes abiertos
 
 Actualizado el 19/09/2026. El trabajo **sigue**: esta lista es el estado de un

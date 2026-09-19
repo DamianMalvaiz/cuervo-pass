@@ -210,6 +210,7 @@ antes. Nunca registres una cuenta real delante del evaluador.
 
 | Archivo | Qué es |
 |---|---|
+| [docs/endurecimiento-v6.md](docs/endurecimiento-v6.md) | **Auditoria de la implementacion (END-01..38) y plan de trabajo pendiente.** Lee §3 antes de tocar produccion y §5 para la orden que toque |
 | [PRODUCT.md](PRODUCT.md) | Usuarios, alcance, principios de producto |
 | [DESIGN.md](DESIGN.md) | Sistema visual "La Ficha": color, tipografía, componentes |
 | [docs/bitacora-semanal.md](docs/bitacora-semanal.md) | Qué se hizo cada semana y qué se rompió |

@@ -160,6 +160,14 @@ Datos de geocodificación © OpenStreetMap contributors, bajo licencia ODbL.
 
 Bitácora semanal: [`docs/bitacora-semanal.md`](docs/bitacora-semanal.md).
 
+**Endurecimiento en curso.** El documento maestro v5 se auditó *sobre el
+artefacto escrito, sin ejecutar el sistema*. Ya ejecutado, aparecieron treinta y
+ocho hallazgos propios, tres de ellos críticos. Siete están remediados y el
+resto tiene orden de trabajo escrita:
+[`docs/endurecimiento-v6.md`](docs/endurecimiento-v6.md).
+
+Lo que falta aplicar a producción está en su §3.
+
 ## Capturas de pantalla
 
 [agrega aquí conforme haya UI que mostrar]
