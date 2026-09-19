@@ -1,3 +1,5 @@
+import type { TextStyle } from 'react-native';
+
 /**
  * Sistema visual de Cuervo Pass — "La Ficha".
  *
@@ -183,6 +185,99 @@ export const Spacing = {
  * una casilla de 24 px con radio 16 se ve deforme, y una hoja de 360 px con
  * radio 8 se ve tacaña.
  */
+
+/**
+ * La escala tipográfica · END-31
+ *
+ * Vivía dentro de `themed-text.tsx`, y por eso ese archivo tenía que ser una
+ * excepción del invariante 7: era la única fuente de la escala y no podía salir
+ * del tema porque el tema no la tenía.
+ *
+ * Moverla aquí resuelve dos cosas a la vez. `themed-text` deja de ser excepción
+ * —ahora consume tokens como todo lo demás— y, sobre todo, los estilos de
+ * `TextInput` pueden usarla: a un TextInput no se le puede aplicar ThemedText,
+ * así que antes no le quedaba más remedio que escribir `fontFamily` y
+ * `fontSize` a mano. Eran la mayoría de las violaciones del invariante, y no
+ * por descuido: no había alternativa.
+ *
+ * Se declaran con `satisfies TextStyle` para que un valor mal escrito falle al
+ * compilar aquí y no al pintar en el dispositivo.
+ */
+export const Texto = {
+  cuerpo: { fontFamily: Tipografia.regular, fontSize: 16, lineHeight: 24 },
+  titulo: { fontFamily: Tipografia.bold, fontSize: 26, lineHeight: 30, letterSpacing: -0.4 },
+  subtitulo: { fontFamily: Tipografia.semibold, fontSize: 20, lineHeight: 26, letterSpacing: -0.2 },
+  pequeno: { fontFamily: Tipografia.regular, fontSize: 14, lineHeight: 20 },
+  pequenoFuerte: { fontFamily: Tipografia.semibold, fontSize: 14, lineHeight: 20 },
+  enlace: { fontFamily: Tipografia.medium, fontSize: 14, lineHeight: 20 },
+  enlaceFuerte: { fontFamily: Tipografia.semibold, fontSize: 14, lineHeight: 20 },
+  codigo: { fontFamily: 'monospace', fontSize: 12, lineHeight: 16 },
+  // El espaciado va en puntos, no en em: a 11px, 0.08em son ~0.9pt.
+  etiqueta: { fontFamily: Tipografia.semibold, fontSize: 11, lineHeight: 14, letterSpacing: 0.9 },
+  // `tabular-nums` es lo que hace que las cifras de fichas distintas caigan en
+  // la misma columna al recorrer la lista. Sin esto, "1" y "8" ocupan anchos
+  // distintos y la columna se tambalea — que es precisamente lo que un
+  // documento impreso nunca hace.
+  cifra: { fontFamily: Tipografia.bold, fontSize: 17, lineHeight: 22, fontVariant: ['tabular-nums'] },
+  calificacion: {
+    fontFamily: Tipografia.black,
+    fontSize: 56,
+    lineHeight: 56,
+    letterSpacing: -1.8,
+    fontVariant: ['tabular-nums'],
+  },
+  folio: {
+    fontFamily: Tipografia.medium,
+    fontSize: 11,
+    lineHeight: 14,
+    letterSpacing: 0.6,
+    fontVariant: ['tabular-nums'],
+  },
+  /** Cifra grande de lista: la calificación en una ficha de la lista. */
+  cifraLista: { fontFamily: Tipografia.black, fontSize: 40, lineHeight: 44, letterSpacing: -1.2, fontVariant: ['tabular-nums'] },
+  /** Cifra compacta: la calificación en el carrusel. */
+  cifraCompacta: { fontFamily: Tipografia.black, fontSize: 18, lineHeight: 24, letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
+  /** Título de portada de una hoja. Más grande que `titulo`, para membretes. */
+  tituloHoja: { fontFamily: Tipografia.bold, fontSize: 32, lineHeight: 36, letterSpacing: -0.6 },
+  /** Título de pantalla intermedia, entre `titulo` y `subtitulo`. */
+  tituloMedio: { fontFamily: Tipografia.bold, fontSize: 24, lineHeight: 30, letterSpacing: -0.3 },
+  /** Título de sección dentro de un documento largo, como el aviso. */
+  tituloSeccion: { fontFamily: Tipografia.semibold, fontSize: 22, lineHeight: 28 },
+  /** El texto de un sello: versalita ancha sobre un botón. */
+  sello: { fontFamily: Tipografia.bold, fontSize: 15, letterSpacing: 0.4 },
+  /** La marca de hora de un mensaje. El tamaño más pequeño que se usa. */
+  micro: { fontFamily: Tipografia.regular, fontSize: 11, lineHeight: 14 },
+
+  // ── Modificadores de PESO ──
+  //
+  // Cambian el peso sin tocar el tamaño: «el mismo texto, más fuerte». Se
+  // usaban escribiendo `fontFamily: Tipografia.semibold` suelto en un estilo,
+  // que es lo que el invariante 7 prohíbe. Son tokens, no excepciones.
+  pesoMedio: { fontFamily: Tipografia.medium },
+  pesoFuerte: { fontFamily: Tipografia.semibold },
+  pesoNegrita: { fontFamily: Tipografia.bold },
+  // `satisfies` y no `as const`: con `as const`, `fontVariant` queda como
+  // `readonly ['tabular-nums']` y React Native espera un arreglo mutable de
+  // FontVariant. Con `satisfies` se comprueba cada entrada contra TextStyle
+  // —un valor mal escrito falla al compilar, no al pintar— y se conservan los
+  // nombres de las claves, que es lo que se quería del `as const`.
+} satisfies Record<string, TextStyle>;
+
+/**
+ * Escala un token conservando su proporción.
+ *
+ * Existe para que una pantalla que necesita un título más grande en tabletas no
+ * tenga que escribir `fontSize: 34 * factor` a mano — que es un valor a mano
+ * aunque esté multiplicado, y además pierde la relación con la escala.
+ */
+export function escalarTexto(token: TextStyle, factor: number): TextStyle {
+  return {
+    ...token,
+    fontSize: (token.fontSize ?? 16) * factor,
+    lineHeight: (token.lineHeight ?? 24) * factor,
+  };
+}
+
 export const Radios = {
   /** Casillas pequeñas: la calificación, insignias, pastillas de una línea. */
   casilla: 8,

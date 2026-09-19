@@ -16,7 +16,7 @@ import { BurbujaMensaje } from '@/components/BurbujaMensaje';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { AppColors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import {
@@ -335,8 +335,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     minHeight: 48,
     maxHeight: 120,
-    fontFamily: Tipografia.regular,
-    fontSize: 16,
+    ...Texto.cuerpo,
   },
   botonEnviar: {
     width: 48,

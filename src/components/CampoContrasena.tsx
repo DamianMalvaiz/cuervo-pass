@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { forwardRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
-import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -81,8 +81,7 @@ const estilos = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
-    fontFamily: Tipografia.regular,
-    fontSize: 16,
+    ...Texto.cuerpo,
   },
   boton: {
     width: 44,

@@ -1,6 +1,6 @@
-import { StyleSheet, Text, type TextProps } from 'react-native';
+import { StyleSheet, Text, type TextProps, type TextStyle } from 'react-native';
 
-import { Tipografia, type ThemeColor } from '@/constants/theme';
+import { type ThemeColor, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -57,78 +57,20 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
   );
 }
 
-const styles = StyleSheet.create({
-  default: {
-    fontFamily: Tipografia.regular,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  title: {
-    fontFamily: Tipografia.bold,
-    fontSize: 26,
-    lineHeight: 30,
-    letterSpacing: -0.4,
-  },
-  subtitle: {
-    fontFamily: Tipografia.semibold,
-    fontSize: 20,
-    lineHeight: 26,
-    letterSpacing: -0.2,
-  },
-  small: {
-    fontFamily: Tipografia.regular,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  smallBold: {
-    fontFamily: Tipografia.semibold,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  link: {
-    fontFamily: Tipografia.medium,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  linkPrimary: {
-    fontFamily: Tipografia.semibold,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  code: {
-    fontFamily: 'monospace',
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  // El espaciado va en puntos, no en em: a 11px, 0.08em son ~0.9pt.
-  etiqueta: {
-    fontFamily: Tipografia.semibold,
-    fontSize: 11,
-    lineHeight: 14,
-    letterSpacing: 0.9,
-  },
-  // `tabular-nums` es lo que hace que las cifras de fichas distintas caigan en
-  // la misma columna al recorrer la lista. Sin esto, "1" y "8" ocupan anchos
-  // distintos y la columna se tambalea — que es precisamente lo que un
-  // documento impreso nunca hace.
-  cifra: {
-    fontFamily: Tipografia.bold,
-    fontSize: 17,
-    lineHeight: 22,
-    fontVariant: ['tabular-nums'],
-  },
-  calificacion: {
-    fontFamily: Tipografia.black,
-    fontSize: 56,
-    lineHeight: 56,
-    letterSpacing: -1.8,
-    fontVariant: ['tabular-nums'],
-  },
-  folio: {
-    fontFamily: Tipografia.medium,
-    fontSize: 11,
-    lineHeight: 14,
-    letterSpacing: 0.6,
-    fontVariant: ['tabular-nums'],
-  },
+// Los estilos SALEN del tema, no se definen aquí. Este archivo era la única
+// excepción del invariante 7 porque era la fuente de la escala; ahora la fuente
+// es `Texto` en theme.ts y este componente es un consumidor más.
+const styles = StyleSheet.create<Record<string, TextStyle>>({
+  default: { ...Texto.cuerpo },
+  title: { ...Texto.titulo },
+  subtitle: { ...Texto.subtitulo },
+  small: { ...Texto.pequeno },
+  smallBold: { ...Texto.pequenoFuerte },
+  link: { ...Texto.enlace },
+  linkPrimary: { ...Texto.enlaceFuerte },
+  code: { ...Texto.codigo },
+  etiqueta: { ...Texto.etiqueta },
+  cifra: { ...Texto.cifra },
+  calificacion: { ...Texto.calificacion },
+  folio: { ...Texto.folio },
 });

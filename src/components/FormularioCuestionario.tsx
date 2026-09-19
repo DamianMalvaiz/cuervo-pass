@@ -5,7 +5,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
-import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { OPCION_OTRA_UNIVERSIDAD, UNIVERSIDADES } from '@/lib/universidades';
 import { Campo } from './Campo';
@@ -499,7 +499,7 @@ const estilos = StyleSheet.create({
     padding: Spacing.three,
     minHeight: 52,
   },
-  textoElegido: { fontFamily: Tipografia.semibold },
+  textoElegido: { ...Texto.pesoFuerte },
   bloqueDistancia: { gap: Spacing.two },
   atajos: { flexDirection: 'row', gap: Spacing.two, flexWrap: 'wrap' },
   atajo: {

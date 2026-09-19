@@ -3,8 +3,9 @@ import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { Calificacion } from '@/components/ficha/Calificacion';
 
 /**
  * La ficha en formato carrusel.
@@ -66,11 +67,7 @@ export function FichaCompacta({
       <View style={estilos.datos}>
         {/* La calificación primero, igual que en la ficha grande: es la tesis. */}
         <View style={estilos.filaCifras}>
-          <View style={[estilos.casilla, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}>
-            <ThemedText style={estilos.cifraCalificacion} themeColor={hay ? 'text' : 'textSecondary'}>
-              {calificacion ?? '—'}
-            </ThemedText>
-          </View>
+          <Calificacion score={score} tamano="compacta" />
           <ThemedText type="cifra" numberOfLines={1} style={estilos.precio}>
             {precioTexto}
           </ThemedText>
@@ -98,20 +95,6 @@ const estilos = StyleSheet.create({
   sinFoto: { alignItems: 'center', justifyContent: 'center' },
   datos: { gap: Spacing.half },
   filaCifras: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  casilla: {
-    borderWidth: Filete.fino,
-    borderRadius: Radios.casilla,
-    paddingHorizontal: Spacing.one,
-    minWidth: 40,
-    alignItems: 'center',
-  },
-  cifraCalificacion: {
-    fontFamily: Tipografia.black,
-    fontSize: 18,
-    lineHeight: 24,
-    letterSpacing: -0.5,
-    fontVariant: ['tabular-nums'],
-  },
   precio: { flexShrink: 1 },
   titulo: { lineHeight: 18 },
 });

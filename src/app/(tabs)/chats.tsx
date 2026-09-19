@@ -7,7 +7,7 @@ import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Encabezado } from '@/components/ficha/Encabezado';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
@@ -148,7 +148,7 @@ const estilos = StyleSheet.create({
   avatar: { width: 44, height: 44, borderRadius: 22, borderWidth: Filete.fino },
   avatarVacio: { alignItems: 'center', justifyContent: 'center' },
   centro: { flex: 1, gap: Spacing.half },
-  nombreNoLeido: { fontFamily: Tipografia.semibold },
+  nombreNoLeido: Texto.pesoFuerte,
   derecha: { alignItems: 'flex-end', gap: Spacing.one },
   insignia: {
     borderRadius: Radios.full,

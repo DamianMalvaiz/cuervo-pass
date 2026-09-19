@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Filete, Radios, Spacing } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formateadorHora } from '@/lib/formatoHora';
 import type { MensajeLocal } from '@/store/useChatStore';
@@ -80,6 +80,6 @@ const styles = StyleSheet.create({
   // Atenuada mientras viaja: dice «todavía no está» sin ocupar una línea.
   enVuelo: { opacity: 0.6 },
   pie: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half, marginTop: Spacing.half, alignSelf: 'flex-end' },
-  hora: { fontSize: 11, lineHeight: 14 },
+  hora: Texto.micro,
   textoPropioSecundario: { color: 'rgba(18,16,14,0.55)' },
 });

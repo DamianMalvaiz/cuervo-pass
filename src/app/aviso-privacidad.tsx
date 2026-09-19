@@ -3,7 +3,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing, Tipografia } from '@/constants/theme';
+import { Spacing, Texto } from '@/constants/theme';
 import { AVISO_ACTUALIZACION, AVISO_INTRO, SECCIONES, type Bloque } from '@/lib/avisoPrivacidad';
 
 // Documento maestro v5 · §29 — el aviso, dentro de la app.
@@ -131,16 +131,16 @@ export default function AvisoPrivacidadScreen() {
 const styles = StyleSheet.create({
   pantalla: { flex: 1 },
   contenido: { padding: Spacing.four, paddingBottom: Spacing.six },
-  fecha: { marginBottom: Spacing.two, fontFamily: Tipografia.semibold },
+  fecha: { marginBottom: Spacing.two, ...Texto.pesoFuerte },
   intro: { marginBottom: Spacing.five },
   subtitulo: { marginTop: Spacing.two, marginBottom: Spacing.two },
   seccion: { marginBottom: Spacing.five },
   // El número como dato pequeño encima del título, en vez de "1." pegado al
   // texto: deja el título como la línea que el ojo encuentra al hojear.
   numero: { marginBottom: Spacing.half },
-  tituloSeccion: { fontSize: 22, lineHeight: 28, fontFamily: Tipografia.semibold, marginBottom: Spacing.three },
+  tituloSeccion: { ...Texto.tituloSeccion, marginBottom: Spacing.three },
   bloque: { marginBottom: Spacing.three },
-  negrita: { fontFamily: Tipografia.bold },
+  negrita: { ...Texto.pesoNegrita },
   punto: { flexDirection: 'row', marginBottom: Spacing.two },
   vineta: { width: Spacing.three, lineHeight: 24 },
   puntoTexto: { flex: 1 },

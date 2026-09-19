@@ -10,7 +10,7 @@ import { Carrusel } from '@/components/ficha/Carrusel';
 import { Encabezado } from '@/components/ficha/Encabezado';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
@@ -363,7 +363,7 @@ const estilos = StyleSheet.create({
     minHeight: 40,
     justifyContent: 'center',
   },
-  chipActivo: { fontFamily: Tipografia.semibold },
+  chipActivo: Texto.pesoFuerte,
   avisoError: {
     flexDirection: 'row',
     alignItems: 'flex-start',

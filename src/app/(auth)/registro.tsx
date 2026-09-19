@@ -13,7 +13,7 @@ import { Seccion } from '@/components/ficha/Seccion';
 import { RequisitosPassword } from '@/components/RequisitosPassword';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Filete, Radios, Spacing } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto, escalarTexto } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { MENSAJE_CORREO_NO_UNIVERSITARIO, esCorreoUniversitario } from '@/lib/correoUniversitario';
@@ -148,7 +148,7 @@ export default function RegistroScreen() {
               <ThemedText type="etiqueta" themeColor="textSecondary">
                 ALTA DE USUARIO
               </ThemedText>
-              <ThemedText type="title" style={{ fontSize: 30 * escalaTitulo, lineHeight: 34 * escalaTitulo }}>
+              <ThemedText type="title" style={escalarTexto(Texto.tituloMedio, escalaTitulo)}>
                 Crear cuenta
               </ThemedText>
               <View style={[estilos.filete, { backgroundColor: theme.text }]} />

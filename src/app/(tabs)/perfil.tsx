@@ -22,7 +22,7 @@ import { Seccion } from '@/components/ficha/Seccion';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { AppColors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
@@ -520,7 +520,7 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
     marginTop: Spacing.one,
   },
-  textoPeligro: { fontFamily: Tipografia.bold, fontSize: 15, letterSpacing: 0.4 },
+  textoPeligro: Texto.sello,
 
   lista: { gap: 0 },
 });

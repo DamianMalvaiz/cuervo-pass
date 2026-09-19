@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet } from 'react-native';
 
-import { AppColors, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { AppColors, Radios, Spacing, Texto } from '@/constants/theme';
 import { ThemedText } from './themed-text';
 
 interface Props {
@@ -95,5 +95,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     minHeight: 48,
   },
-  texto: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
+  texto: { color: AppColors.selloTexto, ...Texto.pesoFuerte },
 });

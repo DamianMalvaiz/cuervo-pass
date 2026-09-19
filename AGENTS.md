@@ -78,22 +78,28 @@ la prueba que falla, todavía no entiendes el bug.
    sale de `src/constants/theme.ts`. Si falta un token, se añade al tema; no se
    escribe el valor a mano.
 
-   Dos excepciones, y solo dos:
-   - `src/components/themed-text.tsx` (24 apariciones), donde la escala
-     tipográfica se **define**. Tiene que escribir los valores: es su fuente.
-   - `src/app/_layout.tsx` (5) y `src/app/(tabs)/_layout.tsx` (3), porque el tema
-     de React Navigation exige valores crudos y no acepta tokens.
+   **Lo aplica ESLint**, no la buena voluntad: `no-restricted-syntax` sobre
+   `fontSize` y `fontFamily` en esos dos directorios. Cada aparición nueva es un
+   aviso del linter.
 
-   **Deuda declarada (19/09/2026):** otros 19 archivos incumplen esto con **29**
-   apariciones, para un total de **61**. Se corrigen al tocarlos, no en una
-   pasada aparte. Cero literales `#hex`: eso sí está limpio. Para medirlo:
+   Dos excepciones, y solo dos:
+   - `src/app/_layout.tsx` y `src/app/(tabs)/_layout.tsx`, porque el tema de
+     React Navigation exige valores crudos y no acepta tokens.
+
+   `themed-text.tsx` **dejó de ser excepción** (19/09/2026): la escala
+   tipográfica se movió a `Texto` en `theme.ts` y ese componente es ahora un
+   consumidor más. Era la única excepción que existía por una limitación del
+   propio sistema y no del entorno, así que era la única que se podía eliminar
+   en vez de nombrar.
+
+   **Deuda: cero.** Las 29 apariciones medidas el 19/09/2026 se corrigieron en
+   D.3. La mayoría no eran descuido: eran estilos de `TextInput`, y a un
+   TextInput no se le puede aplicar `ThemedText`. No tenían alternativa hasta
+   que la escala salió del componente y llegó al tema. Para comprobarlo:
 
    ```bash
-   grep -rn 'fontSize:\|fontFamily:' src/components src/app --include=*.tsx \
-     | grep -v __tests__ | wc -l
+   npx expo lint | grep -c 'Invariante 7'   # debe dar 0
    ```
-
-   Ese número solo puede bajar. Si sube, el commit que lo subió está mal.
 
 8. **Objetivo táctil mínimo 44×44 pt**, contando `hitSlop`. Sin excepciones.
 

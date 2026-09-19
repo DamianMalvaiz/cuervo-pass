@@ -7,7 +7,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
-import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { buscarPorCodigoPostal } from '@/lib/direccionMx';
 import { buscarCalles } from '@/lib/mapboxAutocomplete';
@@ -846,7 +846,7 @@ const styles = StyleSheet.create({
     minHeight: 36,
     justifyContent: 'center',
   },
-  textoPastillaActiva: { fontFamily: Tipografia.semibold },
+  textoPastillaActiva: { ...Texto.pesoFuerte },
   filaSwitch: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -862,8 +862,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     minHeight: 52,
-    fontFamily: Tipografia.regular,
-    fontSize: 16,
+    ...Texto.cuerpo,
   },
   inputMitad: { flex: 1 },
   filaDos: { flexDirection: 'row', gap: Spacing.three },
