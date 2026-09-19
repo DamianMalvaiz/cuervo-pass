@@ -1,10 +1,12 @@
 import { router } from 'expo-router';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { FormularioCuestionario, type RespuestasCuestionario } from '@/components/FormularioCuestionario';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Filete, Spacing } from '@/constants/theme';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
+import { useTheme } from '@/hooks/use-theme';
 import { generarEmbedding, parsearPerfil } from '@/lib/aiService';
 import { geocodificarDireccion } from '@/lib/geocoding';
 import { construirTextoPerfil } from '@/lib/perfilTexto';
@@ -13,6 +15,8 @@ import { usePerfilStore } from '@/store/usePerfilStore';
 
 // Documento maestro v5 · §26 (el tercer estado de navegación) y §29.
 export default function CuestionarioInicialScreen() {
+  const theme = useTheme();
+  const { anchoContenido, clase } = useTamanoPantalla();
   const session = useAuthStore((s) => s.session);
   const actualizarPerfil = usePerfilStore((s) => s.actualizarPerfil);
 
@@ -94,16 +98,33 @@ export default function CuestionarioInicialScreen() {
   };
 
   return (
-    <ThemedView style={{ flex: 1 }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <ThemedText type="title" style={styles.titulo}>
-            Cuéntanos de ti
-          </ThemedText>
-          <ThemedText type="small" style={styles.subtitulo}>
-            Esto alimenta tus sugerencias de departamento y roomie
-          </ThemedText>
-          <FormularioCuestionario onCompletar={onCompletar} />
+    <ThemedView style={styles.pantalla}>
+      <KeyboardAvoidingView style={styles.pantalla} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={[styles.container, clase === 'amplia' && styles.centradoAmplio]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.columna, { maxWidth: anchoContenido }]}>
+            {/* Es la primera pantalla tras crear la cuenta, así que dice PARA QUÉ
+                sirve contestar. Un cuestionario sin propósito declarado se
+                contesta a la carrera, y sus respuestas son el filtro duro que
+                decide qué publicaciones existen para esta persona. */}
+            <View style={styles.membrete}>
+              <ThemedText type="etiqueta" themeColor="textSecondary">
+                ALTA DE FICHA DE BÚSQUEDA · PASO 2 DE 2
+              </ThemedText>
+              <ThemedText type="title">Cuéntanos de ti</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.explicacion}>
+                Con esto calculamos tus sugerencias. El presupuesto y la distancia son
+                filtros duros: lo que quede fuera no aparece. Puedes cambiarlo cuando
+                quieras desde Mi perfil.
+              </ThemedText>
+              <View style={[styles.filete, { backgroundColor: theme.text }]} />
+            </View>
+
+            <FormularioCuestionario onCompletar={onCompletar} />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>
@@ -111,7 +132,11 @@ export default function CuestionarioInicialScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: Spacing.four, paddingBottom: Spacing.six },
-  titulo: { fontSize: 28, lineHeight: 34 },
-  subtitulo: { marginBottom: Spacing.three },
+  pantalla: { flex: 1 },
+  container: { padding: Spacing.three, paddingBottom: Spacing.six },
+  centradoAmplio: { alignItems: 'center' },
+  columna: { width: '100%', gap: Spacing.four },
+  membrete: { gap: Spacing.one, paddingTop: Spacing.two },
+  explicacion: { lineHeight: 20 },
+  filete: { height: Filete.grueso, marginTop: Spacing.two },
 });

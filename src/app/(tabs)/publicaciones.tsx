@@ -1,13 +1,18 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { FichaPublicacion } from '@/components/FichaPublicacion';
+import { BloqueEstado } from '@/components/ficha/BloqueEstado';
+import { FileteHoja } from '@/components/ficha/CampoFicha';
+import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import {Spacing, Tipografia } from '@/constants/theme';
+import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
+import { folioDe } from '@/lib/folio';
 import {
   cambiarEstadoPublicacion,
   contarContactosRecibidos,
@@ -92,103 +97,152 @@ export default function PublicacionesScreen() {
   };
 
   return (
-    <ThemedView style={{ flex: 1, padding: Spacing.three }}>
-      <ThemedText type="title">Mis publicaciones</ThemedText>
-      <Pressable
-        onPress={() => router.push('/publicacion/nueva')}
-        style={styles.nuevaBoton}
-        accessibilityRole="button"
-        accessibilityLabel="Nueva publicación"
-      >
-        <ThemedText themeColor="acento" style={styles.nuevaBotonTexto}>+ Nueva publicación</ThemedText>
-      </Pressable>
+    <ThemedView style={estilos.pantalla}>
+      <View style={estilos.encabezado}>
+        <ThemedText type="folio" themeColor="textSecondary">
+          {publicaciones.length === 1 ? '1 PUBLICACIÓN' : `${publicaciones.length} PUBLICACIONES`}
+        </ThemedText>
+        {/* Crear una publicación NAVEGA a un formulario: no compromete nada
+            todavía. El sello se gasta en el "Publicar" de ese formulario, que sí
+            escribe. Aquí va la variante de contorno: mismo peso, sin la tinta. */}
+        <Sello
+          variante="contorno"
+          icono="add"
+          onPress={() => router.push('/publicacion/nueva')}
+          accessibilityLabel="Crear una nueva publicación"
+        >
+          Nueva publicación
+        </Sello>
+        <View style={[estilos.filetePrincipal, { backgroundColor: theme.text }]} />
+      </View>
 
       {cargando ? (
-        <ActivityIndicator style={{ marginTop: Spacing.four }} />
+        <View style={estilos.cargando}>
+          <ActivityIndicator color={theme.textSecondary} />
+          <ThemedText type="etiqueta" themeColor="textSecondary">
+            CONSULTANDO TUS PUBLICACIONES
+          </ThemedText>
+        </View>
       ) : (
         <FlatList
           data={publicaciones}
           keyExtractor={(item) => item.id}
+          contentContainerStyle={estilos.lista}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => {
             const recibidos = contactos.get(item.id) ?? 0;
+            const avisos: { icono: 'eye-off-outline' | 'flag-outline' | 'location-outline'; texto: string; alerta: boolean }[] = [];
+            if (!item.activa) avisos.push({ icono: 'eye-off-outline', texto: 'Inactiva: no aparece en las sugerencias', alerta: false });
+            // AUD-16: el dueño se entera de por qué desapareció su publicación,
+            // en vez de descubrirlo por su cuenta.
+            if (item.oculta_por_reportes) avisos.push({ icono: 'flag-outline', texto: 'Oculta por reportes', alerta: true });
+            if (item.pendiente_geocoding)
+              avisos.push({ icono: 'location-outline', texto: 'Sin ubicación en el mapa — se reintenta al abrir esta pantalla', alerta: false });
+
             return (
-              <View style={styles.fila}>
-                <View style={{ flex: 1 }}>
-                  <FichaPublicacion
-                    titulo={item.titulo}
-                    precio={item.precio_renta}
-                    direccion={item.direccion}
-                    fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
-                    onPress={() => router.push(`/publicacion/${item.id}`)}
-                  />
-                  <View style={styles.etiquetas}>
-                    {!item.activa && (
-                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                        Inactiva
+              <View style={estilos.registro}>
+                <FichaPublicacion
+                  titulo={item.titulo}
+                  precio={item.precio_renta}
+                  direccion={item.direccion}
+                  fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
+                  tipo={item.tipo}
+                  permiteMascotas={item.permite_mascotas}
+                  amueblado={item.amueblado}
+                  folio={folioDe(item.id)}
+                  onPress={() => router.push(`/publicacion/${item.id}`)}
+                />
+
+                {/* El pie de gestión: estado y acciones del DUEÑO, en su propio
+                    bloque. Antes iban sueltos al lado de la ficha, que con la
+                    fotografía a todo el ancho la dejaba estrujada en una columna
+                    estrecha, y las etiquetas de estado flotaban fuera de su borde. */}
+                <View style={[estilos.gestion, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+                  {avisos.map((a) => (
+                    <View key={a.texto} style={estilos.aviso}>
+                      <Ionicons name={a.icono} size={14} color={a.alerta ? theme.error : theme.textSecondary} />
+                      <ThemedText
+                        type="small"
+                        themeColor={a.alerta ? 'error' : 'textSecondary'}
+                        style={estilos.textoAviso}
+                      >
+                        {a.texto}
                       </ThemedText>
-                    )}
-                    {/* AUD-16: el dueño se entera de por qué desapareció su
-                        publicación, en vez de descubrirlo por su cuenta. */}
-                    {item.oculta_por_reportes && (
-                      <ThemedText type="small" themeColor="error">
-                        Oculta por reportes
-                      </ThemedText>
-                    )}
-                    {item.pendiente_geocoding && (
-                      <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                        Sin ubicación en el mapa — se reintenta al abrir esta pantalla
-                      </ThemedText>
-                    )}
-                    {/* AUD-11: esta métrica ya no se infla sola con cada toque
-                        repetido; `contactos` tiene índice único por par. */}
-                    <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    </View>
+                  ))}
+
+                  {/* AUD-11: esta métrica ya no se infla sola con cada toque
+                      repetido; `contactos` tiene índice único por par. */}
+                  <View style={estilos.aviso}>
+                    <Ionicons name="people-outline" size={14} color={theme.textSecondary} />
+                    <ThemedText type="small" themeColor="textSecondary" style={estilos.textoAviso}>
                       {recibidos === 1 ? '1 persona pidió tu contacto' : `${recibidos} personas pidieron tu contacto`}
                     </ThemedText>
                   </View>
-                </View>
-                <View style={styles.acciones}>
-                  <Pressable
-                    onPress={() => router.push(`/publicacion/editar/${item.id}`)}
-                    style={styles.accionBoton}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Editar ${item.titulo}`}
-                  >
-                    <ThemedText themeColor="acento" style={styles.editarTexto}>Editar</ThemedText>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => onCambiarEstado(item)}
-                    style={styles.accionBoton}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel={item.activa ? `Desactivar ${item.titulo}` : `Reactivar ${item.titulo}`}
-                  >
-                    <ThemedText
-                      themeColor={item.activa ? 'error' : 'exito'}
-                      style={item.activa ? styles.desactivarTexto : styles.reactivarTexto}
+
+                  <FileteHoja />
+
+                  <View style={estilos.acciones}>
+                    <Pressable
+                      onPress={() => router.push(`/publicacion/editar/${item.id}`)}
+                      style={estilos.accion}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Editar ${item.titulo}`}
                     >
-                      {item.activa ? 'Desactivar' : 'Reactivar'}
-                    </ThemedText>
-                  </Pressable>
+                      <Ionicons name="create-outline" size={16} color={theme.acento} />
+                      <ThemedText type="small" themeColor="acento">
+                        Editar
+                      </ThemedText>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={() => onCambiarEstado(item)}
+                      style={estilos.accion}
+                      accessibilityRole="button"
+                      accessibilityLabel={item.activa ? `Desactivar ${item.titulo}` : `Reactivar ${item.titulo}`}
+                    >
+                      <Ionicons
+                        name={item.activa ? 'eye-off-outline' : 'eye-outline'}
+                        size={16}
+                        color={item.activa ? theme.error : theme.exito}
+                      />
+                      <ThemedText type="small" themeColor={item.activa ? 'error' : 'exito'}>
+                        {item.activa ? 'Desactivar' : 'Reactivar'}
+                      </ThemedText>
+                    </Pressable>
+                  </View>
                 </View>
               </View>
             );
           }}
-          ListEmptyComponent={<ThemedText type="small">Aún no tienes publicaciones — crea la primera.</ThemedText>}
+          ListEmptyComponent={
+            <BloqueEstado
+              etiqueta="SIN PUBLICACIONES"
+              mensaje="Cuando publiques un departamento o un cuarto aparecerá aquí, con cuánta gente pidió tu contacto."
+              icono="business-outline"
+            />
+          }
         />
       )}
     </ThemedView>
   );
 }
 
-const styles = StyleSheet.create({
-  nuevaBoton: { marginVertical: Spacing.three, padding: Spacing.two, minHeight: 44, justifyContent: 'center' },
-  nuevaBotonTexto: { fontFamily: Tipografia.semibold },
-  fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  etiquetas: { marginLeft: Spacing.two, gap: Spacing.half },
-  acciones: { alignItems: 'flex-end', gap: Spacing.half },
-  accionBoton: { padding: Spacing.three, minHeight: 44, justifyContent: 'center' },
-  editarTexto: {},
-  desactivarTexto: {},
-  reactivarTexto: {},
+const estilos = StyleSheet.create({
+  pantalla: { flex: 1 },
+  encabezado: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: Spacing.two },
+  filetePrincipal: { height: Filete.grueso, marginTop: Spacing.one },
+  lista: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.six },
+  cargando: { marginTop: Spacing.five, alignItems: 'center', gap: Spacing.two },
+  registro: { gap: Spacing.two },
+  gestion: {
+    borderWidth: Filete.fino,
+    borderRadius: Radios.hoja,
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  aviso: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
+  textoAviso: { flex: 1, lineHeight: 20 },
+  acciones: { flexDirection: 'row', gap: Spacing.four, paddingTop: Spacing.two },
+  accion: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, minHeight: 44 },
 });

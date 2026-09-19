@@ -1,10 +1,14 @@
+import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
+import { BloqueEstado } from '@/components/ficha/BloqueEstado';
+import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Radios, Spacing } from '@/constants/theme';
+import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
 import { formateadorHora } from '@/lib/formatoHora';
 import {
@@ -56,63 +60,136 @@ export default function ChatsScreen() {
     return suscribirseAMisChats(() => cargar(false));
   }, [cargar]);
 
+  // AUD-08: una sola petición firmada para todos los avatares visibles, no una
+  // por fila. El bucket es privado (§14), así que una ruta cruda no carga.
+  const urlsFirmadas = useFotosFirmadas(conversaciones.map((c) => c.otroUsuario.foto_url));
+
   return (
-    <ThemedView style={{ flex: 1, padding: Spacing.three }}>
-      <ThemedText type="title">Chats</ThemedText>
+    <ThemedView style={estilos.pantalla}>
+      {/* Membrete del registro: qué es y cuántas entradas tiene. */}
+      <View style={estilos.encabezado}>
+        <ThemedText type="folio" themeColor="textSecondary">
+          {conversaciones.length === 1 ? '1 CONVERSACIÓN' : `${conversaciones.length} CONVERSACIONES`}
+        </ThemedText>
+        <View style={[estilos.filetePrincipal, { backgroundColor: theme.text }]} />
+      </View>
+
       {cargando ? (
-        <ActivityIndicator style={{ marginTop: Spacing.four }} />
+        <View style={estilos.cargando}>
+          <ActivityIndicator color={theme.textSecondary} />
+          <ThemedText type="etiqueta" themeColor="textSecondary">
+            CONSULTANDO REGISTRO
+          </ThemedText>
+        </View>
       ) : (
         <FlatList
           data={conversaciones}
           keyExtractor={(item) => item.conversacionId}
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => router.push(`/chat/${item.conversacionId}`)}
-              style={styles.fila}
-              accessibilityRole="button"
-              accessibilityLabel={`Conversación con ${item.otroUsuario.nombre_completo}`}
-            >
-              <View style={{ flex: 1 }}>
-                <ThemedText type="smallBold">{item.otroUsuario.nombre_completo}</ThemedText>
-                <ThemedText type="small" numberOfLines={1} style={{ color: theme.textSecondary }}>
-                  {item.ultimoMensaje?.contenido ?? 'Sin mensajes todavía'}
-                </ThemedText>
-              </View>
-              <View style={styles.derecha}>
-                {item.ultimoMensaje && (
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    {formateadorHora.format(new Date(item.ultimoMensaje.creado_en))}
-                  </ThemedText>
-                )}
-                {/* Cuño de tinta, no de ámbar: un contador de no leídos informa,
-                    no compromete. Alto contraste y monocromo. */}
-                {item.noLeidos > 0 && (
-                  <View style={[styles.insigniaNoLeidos, { backgroundColor: theme.text }]}>
-                    <ThemedText type="small" themeColor="background" style={styles.textoInsignia}>
-                      {item.noLeidos}
+          contentContainerStyle={estilos.lista}
+          showsVerticalScrollIndicator={false}
+          // Filete entre renglones, como un registro impreso. Sin él, una lista
+          // de nombres sobre fondo plano se lee como un bloque continuo.
+          ItemSeparatorComponent={() => <FileteHoja />}
+          renderItem={({ item }) => {
+            const inicial = (item.otroUsuario.nombre_completo ?? '?').trim().charAt(0).toUpperCase();
+            const url = item.otroUsuario.foto_url ? urlsFirmadas.get(item.otroUsuario.foto_url) : null;
+            return (
+              <Pressable
+                onPress={() => router.push(`/chat/${item.conversacionId}`)}
+                style={({ pressed }) => [estilos.fila, pressed && estilos.presionada]}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  `Conversación con ${item.otroUsuario.nombre_completo}. ` +
+                  (item.noLeidos > 0 ? `${item.noLeidos} sin leer. ` : '') +
+                  (item.ultimoMensaje?.contenido ?? 'Sin mensajes todavía')
+                }
+              >
+                {url ? (
+                  <Image source={{ uri: url }} style={[estilos.avatar, { borderColor: theme.filete }]} />
+                ) : (
+                  // Sin foto, la inicial. Un círculo gris vacío no distingue una
+                  // conversación de otra; una letra sí.
+                  <View style={[estilos.avatar, estilos.avatarVacio, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+                    <ThemedText type="smallBold" themeColor="textSecondary">
+                      {inicial}
                     </ThemedText>
                   </View>
                 )}
-              </View>
-            </Pressable>
-          )}
-          ListEmptyComponent={<ThemedText type="small">Aún no tienes conversaciones.</ThemedText>}
+
+                <View style={estilos.centro}>
+                  <ThemedText
+                    numberOfLines={1}
+                    style={item.noLeidos > 0 ? estilos.nombreNoLeido : undefined}
+                  >
+                    {item.otroUsuario.nombre_completo}
+                  </ThemedText>
+                  <ThemedText
+                    type="small"
+                    themeColor={item.noLeidos > 0 ? 'text' : 'textSecondary'}
+                    numberOfLines={1}
+                  >
+                    {item.ultimoMensaje?.contenido ?? 'Sin mensajes todavía'}
+                  </ThemedText>
+                </View>
+
+                <View style={estilos.derecha}>
+                  {item.ultimoMensaje && (
+                    <ThemedText type="folio" themeColor="textSecondary">
+                      {formateadorHora.format(new Date(item.ultimoMensaje.creado_en))}
+                    </ThemedText>
+                  )}
+                  {/* Cuño de tinta, no de ámbar: un contador de no leídos informa,
+                      no compromete. Y no va solo en color: el nombre y el último
+                      mensaje también cambian de peso y de tono. */}
+                  {item.noLeidos > 0 && (
+                    <View style={[estilos.insignia, { backgroundColor: theme.text }]}>
+                      <ThemedText type="folio" themeColor="background">
+                        {item.noLeidos > 99 ? '99+' : item.noLeidos}
+                      </ThemedText>
+                    </View>
+                  )}
+                </View>
+              </Pressable>
+            );
+          }}
+          ListEmptyComponent={
+            <BloqueEstado
+              etiqueta="SIN CONVERSACIONES"
+              mensaje="Cuando pidas el contacto de una publicación o te escriba alguien, el hilo aparece aquí."
+              icono="chatbubbles-outline"
+            />
+          }
         />
       )}
     </ThemedView>
   );
 }
 
-const styles = StyleSheet.create({
-  fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.three, minHeight: 44 },
-  derecha: { alignItems: 'flex-end', gap: Spacing.half },
-  insigniaNoLeidos: {
+const estilos = StyleSheet.create({
+  pantalla: { flex: 1 },
+  encabezado: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: Spacing.one },
+  filetePrincipal: { height: Filete.grueso, marginTop: Spacing.two },
+  lista: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.six },
+  cargando: { marginTop: Spacing.five, alignItems: 'center', gap: Spacing.two },
+  fila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    paddingVertical: Spacing.three,
+    minHeight: 72,
+  },
+  presionada: { opacity: 0.6 },
+  avatar: { width: 44, height: 44, borderRadius: 22, borderWidth: Filete.fino },
+  avatarVacio: { alignItems: 'center', justifyContent: 'center' },
+  centro: { flex: 1, gap: Spacing.half },
+  nombreNoLeido: { fontFamily: Tipografia.semibold },
+  derecha: { alignItems: 'flex-end', gap: Spacing.one },
+  insignia: {
     borderRadius: Radios.full,
-    minWidth: 20,
-    height: 20,
+    minWidth: 22,
+    height: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.half,
+    paddingHorizontal: Spacing.one,
   },
-  textoInsignia: { fontSize: 11, lineHeight: 14 },
 });

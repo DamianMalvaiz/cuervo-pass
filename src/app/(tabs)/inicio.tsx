@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { FichaPublicacion } from '@/components/FichaPublicacion';
+import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
@@ -152,33 +153,6 @@ function EncabezadoExpediente({
       {/* El filete grueso cierra el encabezado, como la regla que separa el
           membrete del cuerpo en un formulario impreso. */}
       <View style={[estilos.filetePrincipal, { backgroundColor: theme.text }]} />
-    </View>
-  );
-}
-
-/** Un estado con forma de campo vacío del documento, no un párrafo suelto. */
-function BloqueEstado({
-  etiqueta,
-  mensaje,
-  icono,
-}: {
-  etiqueta: string;
-  mensaje: string;
-  icono: keyof typeof Ionicons.glyphMap;
-}) {
-  const theme = useTheme();
-  return (
-    <View
-      style={[estilos.bloqueEstado, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}
-      accessibilityLiveRegion="polite"
-    >
-      <Ionicons name={icono} size={22} color={theme.textSecondary} />
-      <ThemedText type="etiqueta" themeColor="textSecondary">
-        {etiqueta}
-      </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary" style={estilos.mensajeEstado}>
-        {mensaje}
-      </ThemedText>
     </View>
   );
 }
@@ -341,7 +315,7 @@ export default function InicioScreen() {
           )}
           ListEmptyComponent={
             error ? (
-              <BloqueEstado etiqueta="NO SE PUDO CONSULTAR" mensaje={error} icono="cloud-offline-outline" />
+              <BloqueEstado etiqueta="NO SE PUDO CONSULTAR" mensaje={error} icono="cloud-offline-outline" tono="alerta" />
             ) : (
               <BloqueEstado
                 etiqueta="SIN REGISTROS"
@@ -385,14 +359,6 @@ const estilos = StyleSheet.create({
     padding: Spacing.three,
   },
   textoAviso: { flex: 1, lineHeight: 20 },
-  bloqueEstado: {
-    borderWidth: Filete.fino,
-    borderRadius: Radios.hoja,
-    padding: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  mensajeEstado: { textAlign: 'center', lineHeight: 20 },
   envolturaSelector: { position: 'relative', zIndex: 1 },
   envolturaSelectorAbierta: { zIndex: 30 },
   botonSelector: {

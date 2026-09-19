@@ -1,7 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
+import { FileteHoja } from '@/components/ficha/CampoFicha';
+import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
 
@@ -15,50 +17,102 @@ interface Props {
   onPress?: () => void;
 }
 
-// La afinidad se muestra como etiqueta, no como número crudo: "0.8137" no le
-// dice nada a nadie, y presumir un decimal invita a la pregunta "¿y por qué
-// 0.81 y no 0.79?", que no tiene buena respuesta.
+/**
+ * La afinidad de un roomie va como ETIQUETA, no como calificación.
+ *
+ * Es deliberado, y difiere a propósito de las publicaciones, donde sí se muestra
+ * "9.4". Allá la cifra se puede defender: el desglose abre la fórmula de la
+ * migración 0015 y enseña de dónde sale cada décima. Aquí `sugerencias_roomies`
+ * devuelve SOLO la similitud de coseno, sin componentes, así que un número
+ * invitaría a la pregunta "¿y por qué 8.1 y no 7.9?" sin nada que responder.
+ *
+ * Mostrar precisión que no se puede justificar es peor que no mostrarla.
+ */
 function etiquetaAfinidad(afinidad: number): string {
-  if (afinidad >= 0.75) return 'Afinidad alta';
-  if (afinidad >= 0.55) return 'Afinidad media';
-  return 'Afinidad baja';
+  if (afinidad >= 0.75) return 'Alta';
+  if (afinidad >= 0.55) return 'Media';
+  return 'Baja';
 }
 
 export function TarjetaRoomie({ nombreUsuario, descripcionBusqueda, fotoUrl, afinidad, onPress }: Props) {
   const theme = useTheme();
   const textoAfinidad = afinidad != null ? etiquetaAfinidad(afinidad) : null;
+  const inicial = (nombreUsuario ?? '?').trim().charAt(0).toUpperCase();
 
   return (
     <Pressable
-      style={styles.tarjeta}
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={[nombreUsuario, descripcionBusqueda, textoAfinidad].filter(Boolean).join(', ')}
+      accessibilityLabel={[
+        nombreUsuario,
+        descripcionBusqueda,
+        textoAfinidad ? `afinidad ${textoAfinidad.toLowerCase()}` : 'sin afinidad calculada',
+      ]
+        .filter(Boolean)
+        .join('. ')}
+      style={({ pressed }) => [
+        estilos.hoja,
+        { borderColor: theme.filete, backgroundColor: theme.background },
+        pressed && estilos.presionada,
+      ]}
     >
-      {fotoUrl ? (
-        <Image source={{ uri: fotoUrl }} style={styles.avatar} contentFit="cover" />
-      ) : (
-        <View style={[styles.avatar, { backgroundColor: theme.backgroundSelected }]} />
-      )}
-      <View style={styles.info}>
-        <ThemedText type="smallBold">{nombreUsuario}</ThemedText>
-        {descripcionBusqueda && (
-          <ThemedText type="small" numberOfLines={2}>
-            {descripcionBusqueda}
-          </ThemedText>
+      <View style={estilos.cabecera}>
+        {fotoUrl ? (
+          <Image source={{ uri: fotoUrl }} style={[estilos.avatar, { borderColor: theme.filete }]} contentFit="cover" />
+        ) : (
+          <View
+            style={[
+              estilos.avatar,
+              estilos.avatarVacio,
+              { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+            ]}
+          >
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              {inicial}
+            </ThemedText>
+          </View>
         )}
-        {textoAfinidad && (
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            {textoAfinidad}
+        <View style={estilos.identidad}>
+          <ThemedText type="subtitle" numberOfLines={1}>
+            {nombreUsuario}
           </ThemedText>
-        )}
+          {textoAfinidad ? (
+            <ThemedText type="etiqueta" themeColor="textSecondary">
+              AFINIDAD {textoAfinidad.toUpperCase()}
+            </ThemedText>
+          ) : (
+            <ThemedText type="etiqueta" themeColor="textSecondary">
+              SIN AFINIDAD CALCULADA
+            </ThemedText>
+          )}
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
       </View>
+
+      {descripcionBusqueda ? (
+        <>
+          <FileteHoja />
+          <View style={estilos.cuerpo}>
+            <ThemedText type="etiqueta" themeColor="textSecondary">
+              QUÉ BUSCA
+            </ThemedText>
+            <ThemedText type="small" numberOfLines={3} style={estilos.descripcion}>
+              {descripcionBusqueda}
+            </ThemedText>
+          </View>
+        </>
+      ) : null}
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  tarjeta: { flexDirection: 'row', gap: Spacing.three, padding: Spacing.two, alignItems: 'center' },
-  avatar: { width: 48, height: 48, borderRadius: 24 },
-  info: { flex: 1, gap: Spacing.half },
+const estilos = StyleSheet.create({
+  hoja: { borderWidth: Filete.fino, borderRadius: Radios.hoja, overflow: 'hidden' },
+  presionada: { opacity: 0.7 },
+  cabecera: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, padding: Spacing.three },
+  avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: Filete.fino },
+  avatarVacio: { alignItems: 'center', justifyContent: 'center' },
+  identidad: { flex: 1, gap: Spacing.half },
+  cuerpo: { padding: Spacing.three, gap: Spacing.one },
+  descripcion: { lineHeight: 20 },
 });

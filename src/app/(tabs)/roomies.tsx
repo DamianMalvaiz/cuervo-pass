@@ -1,7 +1,10 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Switch, View } from 'react-native';
 
+import { Campo } from '@/components/Campo';
+import { BloqueEstado } from '@/components/ficha/BloqueEstado';
+import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { TarjetaRoomie } from '@/components/TarjetaRoomie';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -103,78 +106,121 @@ export default function RoomiesScreen() {
     }
   };
 
+  const descripcionSinGuardar = (miRoomie?.descripcion_busqueda ?? '') !== descripcion;
+
   return (
-    <ThemedView style={{ flex: 1, padding: Spacing.three }}>
-      <ThemedText type="title">Roomies</ThemedText>
+    <ThemedView style={estilos.pantalla}>
+      <FlatList
+        data={roomies}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={estilos.lista}
+        showsVerticalScrollIndicator={false}
+        // La ficha propia va como encabezado de la lista, no fija arriba: así se
+        // puede recorrer la lista completa sin que ocupe un tercio de la pantalla
+        // en un teléfono pequeño.
+        ListHeaderComponent={
+          <View style={estilos.encabezado}>
+            <View style={[estilos.miFicha, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+              <View style={estilos.filaInterruptor}>
+                <View style={estilos.textoInterruptor}>
+                  <ThemedText type="etiqueta" themeColor="textSecondary">
+                    TU FICHA DE ROOMIE
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary" style={estilos.ayuda}>
+                    Actívala para aparecer en esta lista para los demás.
+                  </ThemedText>
+                </View>
+                <Switch
+                  value={buscoRoomie}
+                  onValueChange={onGuardarMiRoomie}
+                  disabled={guardando}
+                  accessibilityLabel="Buscar roomie"
+                  trackColor={{ true: theme.text, false: theme.border }}
+                  thumbColor={theme.background}
+                  ios_backgroundColor={theme.border}
+                />
+              </View>
 
-      <View style={[styles.tarjetaMiRoomie, { borderColor: theme.border }]}>
-        <View style={styles.filaSwitch}>
-          <ThemedText type="smallBold">¿Buscas roomie?</ThemedText>
-          <Switch
-            value={buscoRoomie}
-            onValueChange={onGuardarMiRoomie}
-            disabled={guardando}
-            accessibilityLabel="Buscar roomie"
-          />
-        </View>
-        <TextInput
-          style={[styles.inputDescripcion, { borderColor: theme.border, color: theme.text }]}
-          placeholder="Cuenta qué buscas (zona, presupuesto, horarios...)"
-          placeholderTextColor={theme.textSecondary}
-          accessibilityLabel="Descripción de lo que buscas en un roomie"
-          multiline
-          maxLength={2000}
-          value={descripcion}
-          onChangeText={setDescripcion}
-          onBlur={onGuardarDescripcion}
-        />
-        {miRoomie?.descripcion_busqueda !== descripcion && (
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            Se guarda al salir del campo.
-          </ThemedText>
-        )}
-      </View>
+              {buscoRoomie && (
+                <>
+                  <FileteHoja />
+                  <Campo
+                    etiqueta="QUÉ BUSCAS"
+                    placeholder="Zona, presupuesto, horarios, si fumas, si tienes mascota…"
+                    multiline
+                    maxLength={2000}
+                    style={estilos.campoDescripcion}
+                    value={descripcion}
+                    onChangeText={setDescripcion}
+                    onBlur={onGuardarDescripcion}
+                  />
+                  <View style={estilos.pieCampo}>
+                    <ThemedText type="folio" themeColor="textSecondary">
+                      {descripcion.length}/2000
+                    </ThemedText>
+                    {/* El estado se dice, no se adivina. Antes el aviso "se
+                        guarda al salir del campo" aparecía siempre que hubiera
+                        diferencia, sin distinguir entre "te falta guardar" y
+                        "ya quedó". */}
+                    <ThemedText type="small" themeColor={descripcionSinGuardar ? 'acento' : 'textSecondary'}>
+                      {descripcionSinGuardar ? 'Sin guardar · se guarda al salir del campo' : 'Guardado'}
+                    </ThemedText>
+                  </View>
+                </>
+              )}
+            </View>
 
-      {cargando ? (
-        <ActivityIndicator style={{ marginTop: Spacing.four }} />
-      ) : (
-        <FlatList
-          data={roomies}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TarjetaRoomie
-              nombreUsuario={item.nombre_completo}
-              descripcionBusqueda={item.descripcion_busqueda}
-              fotoUrl={item.foto_url ? urlsFirmadas.get(item.foto_url) : null}
-              afinidad={item.similitud}
-              onPress={() => router.push(`/perfil/${item.usuario_id}`)}
-            />
-          )}
-          ListEmptyComponent={
-            <ThemedText type="small" style={{ marginTop: Spacing.three }}>
-              Aún no hay roomies buscando.
+            <ThemedText type="folio" themeColor="textSecondary">
+              {roomies.length === 1 ? '1 PERSONA BUSCANDO' : `${roomies.length} PERSONAS BUSCANDO`}
             </ThemedText>
-          }
-        />
-      )}
+            <View style={[estilos.filetePrincipal, { backgroundColor: theme.text }]} />
+          </View>
+        }
+        renderItem={({ item }) => (
+          <TarjetaRoomie
+            nombreUsuario={item.nombre_completo}
+            descripcionBusqueda={item.descripcion_busqueda}
+            fotoUrl={item.foto_url ? urlsFirmadas.get(item.foto_url) : null}
+            afinidad={item.similitud}
+            onPress={() => router.push(`/perfil/${item.usuario_id}`)}
+          />
+        )}
+        ListEmptyComponent={
+          cargando ? (
+            <View style={estilos.cargando}>
+              <ActivityIndicator color={theme.textSecondary} />
+              <ThemedText type="etiqueta" themeColor="textSecondary">
+                CONSULTANDO REGISTRO
+              </ThemedText>
+            </View>
+          ) : (
+            <BloqueEstado
+              etiqueta="SIN REGISTROS"
+              mensaje="Nadie está buscando roomie cerca de tu universidad por ahora. Activa tu ficha para que te encuentren a ti."
+              icono="people-outline"
+            />
+          )
+        }
+      />
     </ThemedView>
   );
 }
 
-const styles = StyleSheet.create({
-  tarjetaMiRoomie: {
+const estilos = StyleSheet.create({
+  pantalla: { flex: 1 },
+  lista: { padding: Spacing.three, gap: Spacing.three, paddingBottom: Spacing.six },
+  encabezado: { gap: Spacing.three, paddingBottom: Spacing.one },
+  miFicha: {
     borderWidth: Filete.fino,
     borderRadius: Radios.hoja,
     padding: Spacing.three,
-    marginVertical: Spacing.three,
     gap: Spacing.two,
   },
-  filaSwitch: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  inputDescripcion: {
-    borderWidth: Filete.fino,
-    borderRadius: Radios.control,
-    padding: Spacing.two,
-    minHeight: 60,
-    textAlignVertical: 'top',
-  },
+  filaInterruptor: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.three },
+  textoInterruptor: { flex: 1, gap: Spacing.half },
+  ayuda: { lineHeight: 20 },
+  campoDescripcion: { minHeight: 90, textAlignVertical: 'top', paddingTop: Spacing.three },
+  pieCampo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.two },
+  filetePrincipal: { height: Filete.grueso },
+  cargando: { marginTop: Spacing.five, alignItems: 'center', gap: Spacing.two },
 });
