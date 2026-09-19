@@ -30,8 +30,8 @@ afterEach(() => jest.restoreAllMocks());
 // LA prueba: nunca una pantalla en blanco.
 test('con un error, muestra el fallo en vez de nada', async () => {
   await render(<ErrorBoundary error={new Error('el motor devolvió humo')} retry={jest.fn()} />);
-  expect(screen.getByText('ALGO SE ROMPIÓ')).toBeTruthy();
-  expect(screen.getByText('el motor devolvió humo')).toBeTruthy();
+  expect(await screen.findByText('ALGO SE ROMPIÓ', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('el motor devolvió humo', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 // Un error sin salida deja la app muerta hasta que se mate el proceso. Quien
@@ -39,14 +39,14 @@ test('con un error, muestra el fallo en vez de nada', async () => {
 test('ofrece reintentar, y reintentar llama a retry', async () => {
   const retry = jest.fn();
   await render(<ErrorBoundary error={new Error('x')} retry={retry} />);
-  fireEvent.press(screen.getByLabelText('Reintentar'));
+  fireEvent.press(await screen.findByLabelText('Reintentar', {}, { timeout: 5000 }));
   expect(retry).toHaveBeenCalled();
 });
 
 test('ofrece compartir el detalle, con la traza incluida', async () => {
   const e = new Error('detalle que importa');
   await render(<ErrorBoundary error={e} retry={jest.fn()} />);
-  fireEvent.press(screen.getByLabelText('Compartir detalle'));
+  fireEvent.press(await screen.findByLabelText('Compartir detalle', {}, { timeout: 5000 }));
   expect(compartido).toContain('detalle que importa');
 });
 
@@ -56,7 +56,7 @@ test('lo compartido no lleva correos en claro', async () => {
   await render(
     <ErrorBoundary error={new Error('falló al escribir a ana@utvt.edu.mx')} retry={jest.fn()} />
   );
-  fireEvent.press(screen.getByLabelText('Compartir detalle'));
+  fireEvent.press(await screen.findByLabelText('Compartir detalle', {}, { timeout: 5000 }));
   expect(compartido).toContain('[correo]');
   expect(compartido).not.toContain('ana@utvt.edu.mx');
 });
@@ -65,8 +65,8 @@ test('lo compartido no lleva correos en claro', async () => {
 // la pantalla blanca que esto viene a eliminar.
 test('un error sin mensaje sigue diciendo algo', async () => {
   await render(<ErrorBoundary error={new Error('')} retry={jest.fn()} />);
-  expect(screen.getByText('ALGO SE ROMPIÓ')).toBeTruthy();
-  expect(screen.getByText('sin detalle')).toBeTruthy();
+  expect(await screen.findByText('ALGO SE ROMPIÓ', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('sin detalle', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 // El fallo tiene que quedar registrado, no solo pintado: en release la consola

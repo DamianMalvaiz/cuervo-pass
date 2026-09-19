@@ -81,8 +81,8 @@ test('al editar, los ocho campos de direccion nacen llenos', async () => {
   );
   // Calle y Colonia son desplegables: pintan texto, no son TextInput con
   // `value`, asi que se comprueban por lo que se ve.
-  expect(screen.getByText('Calle Zapata')).toBeTruthy();
-  expect(screen.getByText('Guadalupe')).toBeTruthy();
+  expect(await screen.findByText('Calle Zapata', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('Guadalupe', {}, { timeout: 5000 })).toBeTruthy();
   expect(valorDe('Número exterior')).toBe('224');
   expect(valorDe('Código postal')).toBe('52104');
   expect(valorDe('Localidad')).toBe('San Mateo Atenco');

@@ -78,3 +78,10 @@ jest.mock('react-native-maps', () => {
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
+
+// Los runners de CI son bastante más lentos que una laptop, y bajo la
+// instrumentación de cobertura un render que aquí tarda 200 ms allí puede tardar
+// segundos. El timeout de 5 s por defecto de Jest convertía eso en fallos al
+// azar — END-23. Una compuerta que falla sin motivo se acaba apagando, que es
+// justo lo que el comentario de Trivy en ci.yml advierte.
+jest.setTimeout(15000);

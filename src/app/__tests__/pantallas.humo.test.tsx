@@ -78,29 +78,29 @@ jest.mock('@/lib/supabase', () => ({ supabase: { auth: { resetPasswordForEmail: 
 test('Roomies monta con lista vacia y muestra su encabezado', async () => {
   const Pantalla = require('../(tabs)/roomies').default;
   await render(<Pantalla />);
-  await waitFor(() => expect(screen.getByText('Roomies')).toBeTruthy());
-  expect(screen.getByText('REGISTRO DE ROOMIES')).toBeTruthy();
+  expect(await screen.findByText('Roomies', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('REGISTRO DE ROOMIES', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 test('Mis publicaciones monta con lista vacia y muestra su encabezado', async () => {
   const Pantalla = require('../(tabs)/publicaciones').default;
   await render(<Pantalla />);
-  await waitFor(() => expect(screen.getByText('Mis publicaciones')).toBeTruthy());
-  expect(screen.getByText('REGISTRO PROPIO')).toBeTruthy();
+  expect(await screen.findByText('Mis publicaciones', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('REGISTRO PROPIO', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 test('Chats monta con lista vacia y muestra su encabezado', async () => {
   const Pantalla = require('../(tabs)/chats').default;
   await render(<Pantalla />);
-  await waitFor(() => expect(screen.getByText('Chats')).toBeTruthy());
-  expect(screen.getByText('REGISTRO DE MENSAJES')).toBeTruthy();
+  expect(await screen.findByText('Chats', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('REGISTRO DE MENSAJES', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 test('Recuperar contraseña monta con su campo de correo', async () => {
   const Pantalla = require('../(auth)/recuperar-contrasena').default;
   await render(<Pantalla />);
-  await waitFor(() => expect(screen.getByPlaceholderText('tucorreo@ejemplo.mx')).toBeTruthy());
-  expect(screen.getByLabelText('Enviar enlace')).toBeTruthy();
+  expect(await screen.findByPlaceholderText('tucorreo@ejemplo.mx', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByLabelText('Enviar enlace', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 // Esta es la unica del grupo que puede comprobar CONTENIDO real sin inventarse
@@ -109,7 +109,7 @@ test('Recuperar contraseña monta con su campo de correo', async () => {
 test('El aviso de privacidad monta y muestra sus secciones', async () => {
   const Pantalla = require('../aviso-privacidad').default;
   await render(<Pantalla />);
-  await waitFor(() => expect(screen.getByText(/Derechos ARCO/i)).toBeTruthy());
+  expect(await screen.findByText(/Derechos ARCO/i, {}, { timeout: 5000 })).toBeTruthy();
 });
 
 test('El perfil publico monta aunque no encuentre a la persona', async () => {

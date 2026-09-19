@@ -57,21 +57,21 @@ afterEach(() => jest.restoreAllMocks());
 test('con datos, pinta la ficha', async () => {
   mockObtener.mockResolvedValue(PUB);
   await render(<Detalle />);
-  await waitFor(() => expect(screen.getByText('Depa cerca del campus')).toBeTruthy());
+  expect(await screen.findByText('Depa cerca del campus', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 // Vacío legítimo: la publicación de verdad ya no está.
 test('si no existe, dice que no está disponible', async () => {
   mockObtener.mockResolvedValue(null);
   await render(<Detalle />);
-  await waitFor(() => expect(screen.getByText('FICHA NO DISPONIBLE')).toBeTruthy());
+  expect(await screen.findByText('FICHA NO DISPONIBLE', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 // LA prueba. Un fallo de red NO puede producir el mensaje de arriba.
 test('si falla la red, NO acusa de reportes: dice que no se pudo consultar', async () => {
   mockObtener.mockRejectedValue(new Error('network request failed'));
   await render(<Detalle />);
-  await waitFor(() => expect(screen.getByText('NO PUDIMOS CONSULTAR')).toBeTruthy());
+  expect(await screen.findByText('NO PUDIMOS CONSULTAR', {}, { timeout: 5000 })).toBeTruthy();
   expect(screen.queryByText('FICHA NO DISPONIBLE')).toBeNull();
   expect(screen.queryByText(/reportes/i)).toBeNull();
 });
@@ -81,9 +81,9 @@ test('si falla la red, NO acusa de reportes: dice que no se pudo consultar', asy
 test('el estado de error ofrece reintentar, y reintentar vuelve a consultar', async () => {
   mockObtener.mockRejectedValue(new Error('network request failed'));
   await render(<Detalle />);
-  await waitFor(() => expect(screen.getByText('NO PUDIMOS CONSULTAR')).toBeTruthy());
+  expect(await screen.findByText('NO PUDIMOS CONSULTAR', {}, { timeout: 5000 })).toBeTruthy();
 
   mockObtener.mockResolvedValue(PUB);
-  fireEvent.press(screen.getByLabelText('Reintentar'));
-  await waitFor(() => expect(screen.getByText('Depa cerca del campus')).toBeTruthy());
+  fireEvent.press(await screen.findByLabelText('Reintentar', {}, { timeout: 5000 }));
+  expect(await screen.findByText('Depa cerca del campus', {}, { timeout: 5000 })).toBeTruthy();
 });
