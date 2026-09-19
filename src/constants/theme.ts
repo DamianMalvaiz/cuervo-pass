@@ -14,7 +14,18 @@
  * color en toda la hoja; aquí igual. Solo aparece sobre lo que valida o
  * compromete, nunca como decoración.
  *
- * Todos los contrastes de este archivo están medidos, no supuestos:
+ * Los contrastes de este archivo se MIDEN con `npm run verificar:contraste`,
+ * que corre en CI. Los números de abajo son la salida de ese comando, no una
+ * anotación a mano.
+ *
+ * Una versión anterior de este encabezado afirmaba que «todos los contrastes
+ * están medidos, no supuestos». Era verdad a medias, y la mitad que faltaba era
+ * la que fallaba: se midieron doce pares de TEXTO sobre fondo, y ninguna
+ * superficie contra superficie. `tintedSurface` contra el papel daba **1.00**.
+ * Una afirmación sin su comando es una promesa; el comando es lo que la vuelve
+ * comprobable.
+ *
+ * Contrastes declarados:
  *   tinta/papel 16.9:1 · secundario/papel 6.5:1 · acento/papel 5.5:1
  *   tinta/sello 8.8:1  · borde de campo 3.4:1 (claro) y 3.5:1 (oscuro)
  */
@@ -37,9 +48,17 @@ export const Colors = {
     filete: '#C9C0B0',
     /** Ámbar legible como TEXTO sobre papel. El #E8A33D del sello da 1.9:1 aquí. */
     acento: '#8A5606',
-    /** Lavado del sello, para el bloque que la hoja quiere destacar. */
-    tintedSurface: '#FBF0DC',
-    tintedBorder: '#E3CFA4',
+    /**
+     * Lavado del sello, para el bloque que la hoja quiere destacar.
+     *
+     * END-29 · El #FBF0DC anterior daba **1.00** contra el papel: exactamente
+     * la misma luminancia, un cambio de matiz con cero cambio de valor. El
+     * bloque destacado no destacaba bajo el sol, con reflejo, en escala de
+     * grises, ni para alguien con daltonismo. Medido ahora: 1.36.
+     */
+    tintedSurface: '#F1CC88',
+    /** Delinea el lavado. 3.21 contra el papel: es un borde, le aplica el 3:1. */
+    tintedBorder: '#A58133',
     error: '#A81E12',
     /** Texto sobre un relleno de `error`. Blanco da 7.3:1 sobre este rojo. */
     errorTexto: '#FFFFFF',
@@ -51,13 +70,15 @@ export const Colors = {
     text: '#F5F1EA',
     background: '#12100E',
     backgroundElement: '#1C1916',
-    backgroundSelected: '#262119',
+    backgroundSelected: '#302A1F',
     textSecondary: '#A39A8C',
     border: '#726960',
     filete: '#322D27',
     acento: '#E8A33D',
-    tintedSurface: '#241B0F',
-    tintedBorder: '#4A3616',
+    /** Mismo defecto que en claro: 1.12 contra el fondo. Ahora 1.37. */
+    tintedSurface: '#382A17',
+    /** 3.21 contra el fondo oscuro. */
+    tintedBorder: '#8A6529',
     error: '#F08074',
     // En oscuro el rojo es CLARO, así que el blanco daría 2.6:1 y reprobaría.
     // La tinta sobre él da 7.3:1. Mismo patrón que el sello: el relleno trae

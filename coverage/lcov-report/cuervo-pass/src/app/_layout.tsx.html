@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">40.9% </span>
+                <span class="strong">39.13% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>9/22</span>
+                <span class='fraction'>9/23</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">45% </span>
+                <span class="strong">42.85% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>9/20</span>
+                <span class='fraction'>9/21</span>
             </div>
         
             
@@ -251,7 +251,19 @@
 <a name='L186'></a><a href='#L186'>186</a>
 <a name='L187'></a><a href='#L187'>187</a>
 <a name='L188'></a><a href='#L188'>188</a>
-<a name='L189'></a><a href='#L189'>189</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -304,6 +316,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -336,6 +354,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -439,11 +459,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold, Archivo_700Bold, Archivo_900Black, useFonts } from '@expo-google-fonts/archivo';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { QueryClientProvider } from '@tanstack/react-query';
+import { Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold, Archivo_700Bold, Archivo_900Black, useFonts } from '@expo-google-fonts/archivo';
 import { Stack, ThemeProvider, type Theme } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, Share, StyleSheet, View } from 'react-native';
 &nbsp;
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
@@ -452,6 +473,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Spacing, Tipografia } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { crearClienteConsultas } from '@/lib/consultas';
 import { fallo, limpiar, textoDeError } from '@/lib/registro';
 &nbsp;
 // La pantalla de arranque se sostiene hasta que Archivo esté en memoria. Sin
@@ -492,6 +514,12 @@ function <span class="fstat-no" title="function not covered" >temaNavegacion(</s
 }
 &nbsp;
 export default function <span class="fstat-no" title="function not covered" >RootLayout(</span>) {
+  // El cliente se crea UNA vez por montaje de la app, no en cada render: un
+  // QueryClient nuevo tira la caché entera, que es justo lo contrario de para
+  // lo que está. `useState` con inicializador perezoso es la forma corta de
+  // decir eso sin un `useRef` y una guarda.
+  const [clienteConsultas] = <span class="cstat-no" title="statement not covered" >useState(crearClienteConsultas);</span>
+&nbsp;
   const scheme = <span class="cstat-no" title="statement not covered" >useColorScheme();</span>
   const esOscuro = <span class="cstat-no" title="statement not covered" >scheme === 'dark';</span>
   const c = <span class="cstat-no" title="statement not covered" >esOscuro ? Colors.dark : Colors.light;</span>
@@ -524,6 +552,7 @@ export default function <span class="fstat-no" title="function not covered" >Roo
   } as const;
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  return (</span>
+    &lt;QueryClientProvider client={clienteConsultas}&gt;
     &lt;ThemeProvider value={temaNavegacion(esOscuro)}&gt;
       &lt;StatusBar style={esOscuro ? 'light' : 'dark'} /&gt;
       &lt;Stack
@@ -553,6 +582,7 @@ export default function <span class="fstat-no" title="function not covered" >Roo
         &lt;Stack.Screen name="aviso-privacidad" options={{ ...encabezado, title: 'Aviso de privacidad' }} /&gt;
       &lt;/Stack&gt;
     &lt;/ThemeProvider&gt;
+    &lt;/QueryClientProvider&gt;
   );
 }
 &nbsp;
@@ -634,7 +664,7 @@ const estilos = StyleSheet.create({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-09-19T18:23:55.815Z
+                at 2026-09-19T20:11:36.631Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -62,19 +62,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "verificar:env": "node scripts/verificar-env.mjs"
+    "verificar:env": "node scripts/verificar-env.mjs",
+    "verificar:contraste": "node scripts/verificar-contraste.mjs"
   },
-  "private": true,
-  "jest": {
-    "preset": "jest-expo",
-    "moduleNameMapper": {
-      "\\.css$": "<rootDir>/jest.cssMock.js"
-    },
-    "modulePathIgnorePatterns": [
-      "<rootDir>/.claude/worktrees/"
-    ],
-    "setupFilesAfterEnv": [
-      "<rootDir>/jest.setup.js"
-    ]
-  }
+  "private": true
 }

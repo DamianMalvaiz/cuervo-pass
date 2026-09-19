@@ -60,6 +60,11 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run lint
+      # END-29 · El contraste se MIDE, no se anota a mano. `theme.ts` afirmaba
+      # que todos sus contrastes estaban medidos y era verdad a medias: se
+      # midieron doce pares de texto sobre fondo y ninguna superficie contra
+      # superficie, que era justo la que fallaba — 1.00 contra el papel.
+      - run: npm run verificar:contraste
       - run: npm test -- --watchAll=false --passWithNoTests
 
   servicio-ia:

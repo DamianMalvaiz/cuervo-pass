@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for cuervo-pass/src/components/ficha/Seccion.tsx</title>
+    <title>Code coverage report for cuervo-pass/src/hooks/queries/useChat.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../../../prettify.css" />
     <link rel="stylesheet" href="../../../../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../../index.html">All files</a> / <a href="index.html">cuervo-pass/src/components/ficha</a> Seccion.tsx</h1>
+        <h1><a href="../../../../index.html">All files</a> / <a href="index.html">cuervo-pass/src/hooks/queries</a> useChat.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">77.77% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>7/9</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">62.5% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>5/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/1</span>
+                <span class='fraction'>3/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">87.5% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>7/8</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -106,9 +106,7 @@
 <a name='L41'></a><a href='#L41'>41</a>
 <a name='L42'></a><a href='#L42'>42</a>
 <a name='L43'></a><a href='#L43'>43</a>
-<a name='L44'></a><a href='#L44'>44</a>
-<a name='L45'></a><a href='#L45'>45</a>
-<a name='L46'></a><a href='#L46'>46</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L44'></a><a href='#L44'>44</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -127,77 +125,73 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { StyleSheet, View } from 'react-native';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// Consultas del chat · END-18
+//
+// Lo que esta capa quita de la pantalla, además de la caché:
+//
+//   · El guardia de respuestas fuera de orden hecho a mano (un `useRef` con un
+//     contador de carga). react-query descarta por sí solo la respuesta de una
+//     consulta que ya fue reemplazada.
+//   · La distinción entre «recarga con spinner» y «recarga silenciosa por
+//     Realtime». Invalidar deja `isRefetching` en true y `data` intacta, así que
+//     la lista no parpadea ni pierde el scroll — que es justo lo que aquel
+//     `mostrarSpinner` intentaba conseguir a mano.
 &nbsp;
-import { FileteHoja } from '@/components/ficha/CampoFicha';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 &nbsp;
-/**
- * Un apartado del documento: versalita, filete, contenido.
- *
- * Es la unidad que hace legible un formulario largo. Seis campos seguidos no se
- * leen; tres bloques de dos sí. Lo hace cualquier formulario oficial y también
- * Airbnb con sus formularios largos, por la misma razón.
- *
- * `accion` va en la misma línea del título porque ahí es donde se busca: quien
- * lee el encabezado de un bloque es quien quiere hacer algo con ese bloque.
- */
-export function Seccion({
-  titulo,
-  accion,
-  children,
-}: {
-  titulo: string;
-  accion?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    &lt;View style={estilos.seccion}&gt;
-      &lt;View style={estilos.cabecera}&gt;
-        &lt;ThemedText type="etiqueta" themeColor="textSecondary" style={estilos.titulo}&gt;
-          {titulo}
-        &lt;/ThemedText&gt;
-        {accion}
-      &lt;/View&gt;
-      &lt;FileteHoja /&gt;
-      &lt;View style={estilos.contenido}&gt;{children}&lt;/View&gt;
-    &lt;/View&gt;
-  );
+import { claves } from '@/lib/consultas';
+import { listarConversaciones, suscribirseAMisChats } from '@/services/mensajes.service';
+&nbsp;
+export function useConversaciones(usuarioId: string | undefined) {
+  const cliente = useQueryClient();
+&nbsp;
+  const q = useQuery({
+    queryKey: claves.conversaciones(usuarioId ?? <span class="branch-1 cbranch-no" title="branch not covered" >'')</span>,
+    queryFn: () =&gt; listarConversaciones(usuarioId as string),
+    enabled: Boolean(usuarioId),
+  });
+&nbsp;
+  // Realtime no trae el dato: avisa de que el que hay dejó de valer. Invalidar
+  // y dejar que react-query decida cuándo refrescar es más barato que recargar
+  // la lista entera por cada mensaje entrante, y no pierde el scroll.
+  useEffect(() =&gt; {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!usuarioId) <span class="cstat-no" title="statement not covered" >return;</span>
+    return suscribirseAMisChats(<span class="fstat-no" title="function not covered" >()</span> =&gt; {
+<span class="cstat-no" title="statement not covered" >      void cliente.invalidateQueries({ queryKey: claves.conversaciones(usuarioId) });</span>
+    });
+  }, [usuarioId, cliente]);
+&nbsp;
+  return {
+    conversaciones: q.data ?? [],
+    cargando: q.isPending,
+    fallo: q.isError ? <span class="branch-0 cbranch-no" title="branch not covered" >'No pudimos cargar tus conversaciones.' </span>: null,
+  };
 }
-&nbsp;
-const estilos = StyleSheet.create({
-  seccion: { gap: Spacing.two },
-  cabecera: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
-  titulo: { flexShrink: 1 },
-  contenido: { gap: Spacing.three, paddingTop: Spacing.one },
-});
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
