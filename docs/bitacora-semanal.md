@@ -721,6 +721,34 @@ filas. Está comprobado por aritmética —132 px más 8 de separación sobre 80
 y confundir una cosa con la otra es exactamente el defecto que §0.2 del
 documento de endurecimiento imputa al proyecto.
 
+### Primera pasada en dispositivo tras el bloque D (19/09/2026 · noche)
+
+- **Logrado:** el rediseño se probó en el teléfono, con el túnel arriba y Nivel 2
+  vivo. Confirmado por quien lo usó: las sugerencias son filas y **caben cuatro
+  por pantalla**, la calificación dice AJUSTE en medios puntos, el desglose
+  aparece al abrir una ficha —sin depender de por dónde entres— y el envío de
+  mensajes pinta la burbuja al instante.
+- **Atorado:** nada. Pero la segunda pasada, con el tamaño de letra del sistema
+  al máximo, **no se hizo**.
+- **Decisión:** D.4 se da por cerrado —su aceptación pedía «al menos 4 filas» y
+  hay cuatro— y **D.6 NO**. `PRODUCT.md` sigue diciendo «implementado, sin
+  verificar en dispositivo» para el escalado de fuente, y
+  `docs/prueba-escalado.md` sigue diciendo «sin ejecutar». Dar por buena una
+  promesa de accesibilidad con un «se ve bien» de la pasada normal sería
+  exactamente el defecto que §0.2 del endurecimiento imputa a este repositorio.
+- **Horas:** — / —
+
+Un apunte de método que costó un susto: al correr `verificar.mjs` para dejar el
+terreno listo, reportó FALLO en `revelar_contacto` sobre una función que estaba
+perfectamente bien. La migración `0031` le había quitado el parámetro `p_score`
+—porque la métrica la dictaba el cliente— y el propio verificador seguía
+llamándola con él. **Cambiar la firma de una RPC obliga a revisar todo lo que la
+llama, y los scripts de verificación son llamadores como cualquier otro.**
+
+De paso, el conteo de aserciones de pgTAP pasó a leerse del archivo de pruebas:
+decía «37» cuando ya eran 59. Un verificador que miente sobre su propia
+cobertura es peor que uno que calla.
+
 ### Pendientes abiertos
 
 Actualizado el 19/09/2026 por la noche. El plan completo, con sus órdenes
@@ -762,9 +790,14 @@ ejecutables y su secuencia, está en
       Android. Alternativa evaluada: una imagen estática de Mapbox, cuyo token
       ya existe, evita crear cuenta con tarjeta y evita un módulo nativo — a
       cambio de que el mapa no sea interactivo. Es decisión de producto.
-- [ ] **Verificar en dispositivo** lo que ningún agente puede: que caben cuatro
-      filas por pantalla (D.4), que el escalado de fuente al 200 % no rompe las
-      casillas (D.6), y que el contraste corregido se ve como se pretendía.
+- [x] Que caben cuatro filas por pantalla (D.4) y que el contraste corregido se
+      ve bien: **comprobado en dispositivo el 19/09/2026**.
+- [ ] **Verificar en dispositivo el escalado de fuente al 200 %** (D.6). Es lo
+      único de la pasada que quedó sin hacer, y es lo que separa «implementado»
+      de «cumplido» en el compromiso de accesibilidad de `PRODUCT.md`. El
+      procedimiento está en [`docs/prueba-escalado.md`](prueba-escalado.md):
+      siete pantallas, cinco cosas que mirar en cada una. Lo que se busca es una
+      sola: **que ninguna cifra quede más pequeña que el texto que la rodea.**
 - [ ] Decidir sobre `ANTHROPIC_API_KEY` y sobre **Sentry**. Ambas se pueden
       añadir después sin coste: el gancho de Sentry ya está puesto.
 
