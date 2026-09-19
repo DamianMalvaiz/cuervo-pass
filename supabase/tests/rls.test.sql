@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(78);
+select plan(82);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -544,7 +544,7 @@ select is(
 -- comprueba sobre la firma declarada y no seleccionando la columna: si no
 -- existiera, un select la haria abortar el script entero en vez de fallar.
 select ok(
-  pg_get_function_result('sugerencias_con_ranking(int,text)'::regprocedure) like '%nivel%',
+  pg_get_function_result('sugerencias_con_ranking(int,text,text)'::regprocedure) like '%nivel%',
   'sugerencias_con_ranking declara `nivel` por fila' );
 
 -- ════════════════ 45 y 46 · END-09: el score de mascotas al reves ════════════════
@@ -910,7 +910,7 @@ select throws_ok(
 select actuar_como_servicio();
 
 select ok(
-  pg_get_function_result('sugerencias_publicaciones(int,text)'::regprocedure) not like '%vector_embedding%',
+  pg_get_function_result('sugerencias_publicaciones(int,text,text)'::regprocedure) not like '%vector_embedding%',
   'sugerencias_publicaciones ya no devuelve el vector al cliente' );
 
 -- Y el Nivel 2 sigue funcionando: el ranking se une por id para conseguirlo, en
@@ -1053,17 +1053,25 @@ language sql stable as $$
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.prokind = 'f'
      and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+     -- Los auxiliares de este archivo, explicados abajo.
+     and p.proname not in ('actuar_como', 'actuar_como_servicio', 'ejecutables_por')
      and has_function_privilege(p_rol, p.oid, 'execute');
 $$;
 
--- Los tres auxiliares de ESTE archivo se cierran igual que cualquier otra
--- funcion. No es cosmetica: si se quedaran abiertos habria que excluirlos de la
--- lista blanca por nombre, y una lista blanca con excepciones es donde acaban
--- escondiendose las de verdad. Ademas demuestra en vivo que el revoke explicito
--- es lo que funciona, no el default privileges.
-revoke execute on function actuar_como(uuid) from public, anon, authenticated;
-revoke execute on function actuar_como_servicio() from public, anon, authenticated;
-revoke execute on function ejecutables_por(text) from public, anon, authenticated;
+-- Los tres auxiliares de ESTE archivo quedan FUERA del recuento, y conviene
+-- decir por que en vez de dejarlo como una excepcion silenciosa.
+--
+-- Se intento cerrarlos como cualquier otra funcion. No se puede: el arnes
+-- alterna entre `actuar_como(usuario)` y `actuar_como_servicio()`, asi que la
+-- segunda tiene que ser ejecutable POR EL ROL DESDE EL QUE SE VUELVE — es decir,
+-- por `authenticated`. Revocarla deja la prueba sin forma de regresar a
+-- privilegios de servicio, y el archivo entero aborta con «permission denied»
+-- en el primer bloque que venga despues.
+--
+-- Viven solo dentro de esta transaccion, que termina en `rollback`: no existen
+-- en la base real ni un instante. Excluirlas por nombre aqui es mas honesto que
+-- dejarlas en la lista blanca de produccion, donde nadie sabria por que estan.
+
 
 select is(
   ejecutables_por('authenticated'),
@@ -1074,6 +1082,7 @@ select is(
     'contactos_de_mis_publicaciones',
     'distancia_km',
     'exportar_mis_datos',
+    'nuevas_esta_semana',
     'resumen_conversaciones',
     'revelar_contacto',
     'score_ajuste',
@@ -1123,6 +1132,72 @@ select is(
   (select count(*)::int from afinidad_de('00000000-0000-0000-0000-00000000dea1')),
   1,
   'afinidad_de sigue respondiendo con la interna cerrada' );
+
+-- ══════════ 79 a 82 · END-32: cuatro veces el mismo contenido ══════════
+-- `inicio.tsx` pintaba TRES carruseles y una lista con el mismo conjunto. El
+-- primero, «Mejor afinidad», era `filtradas.slice(0, 8)`: un prefijo LITERAL de
+-- la lista que empezaba 24 fichas mas abajo. Los otros dos eran reordenamientos.
+--
+-- Y «Las de menor renta» ordenaba por precio el top-30 YA TRUNCADO por score:
+-- eran las mas baratas de las treinta que mejor encajan, no las mas baratas. Es
+-- END-17 con otro disfraz, y por eso el control de orden va al SERVIDOR y no al
+-- cliente, aunque la orden D.5 dijera «en el sitio».
+select actuar_como_servicio();
+
+update usuarios set activo = true
+ where id in ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b2');
+
+-- Dos publicaciones construidas para que precio y ajuste discrepen: la barata
+-- esta lejos y es vieja; la cara esta al lado y es de hoy.
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta,
+                           whatsapp, latitud, longitud, permite_mascotas, creado_en)
+values
+  ('00000000-0000-0000-0000-00000000d501', '00000000-0000-0000-0000-0000000000b2',
+   'Barata y lejos', 'depa', 'Calle D 1', 2000, '5512345678', 19.36, -99.55, false,
+   now() - interval '200 days'),
+  ('00000000-0000-0000-0000-00000000d502', '00000000-0000-0000-0000-0000000000b2',
+   'Cara y al lado', 'depa', 'Calle D 2', 3400, '5512345678', 19.281, -99.551, false,
+   now()),
+  ('00000000-0000-0000-0000-00000000d503', '00000000-0000-0000-0000-0000000000b2',
+   'Vieja de verdad', 'cuarto', 'Calle D 3', 2500, '5512345678', 19.282, -99.552, false,
+   now() - interval '30 days');
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+-- LA asercion de esta orden. Con limite 1 y orden por precio, tiene que salir la
+-- BARATA. Si el orden se aplicara despues de truncar —que es lo que hacia el
+-- carrusel en el cliente— saldria la que mejor puntua, y el control mentiria
+-- exactamente igual que los chips de tipo antes de B.3.
+select is(
+  (select id from sugerencias_publicaciones(1, null, 'precio')),
+  '00000000-0000-0000-0000-00000000d501'::uuid,
+  'ordenar por precio se aplica ANTES de truncar, no despues' );
+
+-- Y el orden por defecto no cambia: sigue siendo el ajuste. Se afirma sobre el
+-- SCORE y no sobre un id concreto: la primera version de esta asercion nombraba
+-- una publicacion que yo daba por ganadora y gano otra del fixture. Afirmar
+-- «sale esta fila» cuando lo que se quiere decir es «sale la de mayor score» es
+-- atar la prueba a datos que no controla.
+select is(
+  (select score from sugerencias_publicaciones(1, null, 'ajuste')),
+  (select max(score) from sugerencias_publicaciones(30, null, 'ajuste')),
+  'el orden por defecto sigue siendo el ajuste' );
+
+-- El carrusel que sustituye a los tres trae algo que la lista NO tiene: lo
+-- reciente. Una publicacion de hace treinta dias no es novedad.
+select is(
+  (select count(*)::int from nuevas_esta_semana(20)
+    where id = '00000000-0000-0000-0000-00000000d503'),
+  0,
+  'nuevas_esta_semana excluye lo que ya no es de esta semana' );
+
+-- Y respeta el chip activo. Un carrusel de novedades que ignore el filtro de
+-- tipo contradice a la pantalla en la que vive: con «Cuarto» seleccionado
+-- ofreceria departamentos.
+select is(
+  (select count(*)::int from nuevas_esta_semana(20, 'cuarto') where tipo <> 'cuarto'),
+  0,
+  'nuevas_esta_semana respeta el filtro de tipo' );
 
 select * from finish();
 rollback;

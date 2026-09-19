@@ -60,9 +60,22 @@ test('deduplica: dos hooks con la misma clave consultan una vez', async () => {
 test('cada tipo es su propia clave', async () => {
   const { Envoltura, cliente } = envolver();
   await renderHook(() => useSugerencias(null), { wrapper: Envoltura });
-  await waitFor(() => expect(cliente.getQueryData(['sugerencias', null])).toBeTruthy());
+  await waitFor(() => expect(cliente.getQueryData(['sugerencias', null, 'ajuste'])).toBeTruthy());
   await renderHook(() => useSugerencias('cuarto'), { wrapper: Envoltura });
-  await waitFor(() => expect(cliente.getQueryData(['sugerencias', 'cuarto'])).toBeTruthy());
+  await waitFor(() => expect(cliente.getQueryData(['sugerencias', 'cuarto', 'ajuste'])).toBeTruthy());
+  expect(mockObtenerSugerencias).toHaveBeenCalledTimes(2);
+});
+
+// END-32 · Y cada ORDEN tambien. Si el orden no entrara en la clave, cambiarlo
+// reutilizaria la respuesta anterior y el control no haria nada visible hasta
+// que la cache caducara — que es literalmente lo que le paso al chip de tipo
+// entre C.3 y B.3.
+test('cada orden es su propia clave', async () => {
+  const { Envoltura, cliente } = envolver();
+  await renderHook(() => useSugerencias(null, 'ajuste'), { wrapper: Envoltura });
+  await waitFor(() => expect(cliente.getQueryData(['sugerencias', null, 'ajuste'])).toBeTruthy());
+  await renderHook(() => useSugerencias(null, 'precio'), { wrapper: Envoltura });
+  await waitFor(() => expect(cliente.getQueryData(['sugerencias', null, 'precio'])).toBeTruthy());
   expect(mockObtenerSugerencias).toHaveBeenCalledTimes(2);
 });
 
@@ -80,7 +93,7 @@ test('un fallo transitorio se reintenta y termina en verde', async () => {
   const { Envoltura, cliente } = envolver(clienteRapido());
   await renderHook(() => useSugerencias(null), { wrapper: Envoltura });
   await waitFor(() => expect(mockObtenerSugerencias).toHaveBeenCalledTimes(2));
-  await waitFor(() => expect(cliente.getQueryData(['sugerencias', null])).toBeTruthy());
+  await waitFor(() => expect(cliente.getQueryData(['sugerencias', null, 'ajuste'])).toBeTruthy());
 });
 
 // Y si falla de verdad, se dice. §27: un fallo no puede presentarse como lista
@@ -91,8 +104,8 @@ test('un fallo definitivo reintenta lo declarado y no deja datos', async () => {
   await renderHook(() => useSugerencias(null), { wrapper: Envoltura });
   // Tres intentos: el original más los dos reintentos declarados.
   await waitFor(() => expect(mockObtenerSugerencias).toHaveBeenCalledTimes(3));
-  expect(cliente.getQueryData(['sugerencias', null])).toBeUndefined();
-  expect(cliente.getQueryState(['sugerencias', null])?.status).toBe('error');
+  expect(cliente.getQueryData(['sugerencias', null, 'ajuste'])).toBeUndefined();
+  expect(cliente.getQueryState(['sugerencias', null, 'ajuste'])?.status).toBe('error');
 });
 
 test('usePublicacion no consulta sin id', async () => {
@@ -124,5 +137,5 @@ test('dentro del staleTime, remontar NO vuelve a consultar', async () => {
   const segundo = await renderHook(() => useSugerencias(null), { wrapper: Envoltura });
   await waitFor(() => expect(segundo.result.current.datos).toHaveLength(1));
   expect(mockObtenerSugerencias).toHaveBeenCalledTimes(1);
-  expect(cliente.getQueryData(['sugerencias', null])).toBeTruthy();
+  expect(cliente.getQueryData(['sugerencias', null, 'ajuste'])).toBeTruthy();
 });

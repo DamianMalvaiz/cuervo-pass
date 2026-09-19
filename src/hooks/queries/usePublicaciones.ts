@@ -19,22 +19,28 @@ import {
   contarContactosRecibidos,
   listarMisPublicaciones,
   obtenerPublicacionPublica,
+  obtenerNuevasEstaSemana,
   obtenerSugerencias,
   reintentarGeocodingPendiente,
 } from '@/services/publicaciones.service';
-import type { PublicacionSugerida, TipoPublicacion } from '@/types/database.types';
+import type {
+  OrdenSugerencias,
+  PublicacionNueva,
+  PublicacionSugerida,
+  TipoPublicacion,
+} from '@/types/database.types';
 
 const MENSAJE_FALLO = 'No pudimos consultar. Revisa tu conexión y desliza para reintentar.';
 
-export function useSugerencias(tipo: TipoPublicacion | null) {
+export function useSugerencias(tipo: TipoPublicacion | null, orden: OrdenSugerencias = 'ajuste') {
   const q = useQuery({
-    queryKey: claves.sugerencias(tipo),
+    queryKey: claves.sugerencias(tipo, orden),
     // El tipo entra en la clave Y en la consulta. Entre C.3 y B.3 entraba solo
     // en la clave: cada chip estrenaba su propia caché y pedía exactamente lo
     // mismo, así que tocar «Cuarto» no filtraba nada. Una clave que distingue
     // lo que la consulta no distingue es peor que no tener caché — reparte el
     // mismo resultado en cubos distintos y parece que funciona.
-    queryFn: () => obtenerSugerencias(30, tipo),
+    queryFn: () => obtenerSugerencias(30, tipo, orden),
   });
 
   return {
@@ -49,6 +55,28 @@ export function useSugerencias(tipo: TipoPublicacion | null) {
     // Con caché esas dos dejan de coincidir, y el membrete diría una hora que
     // no corresponde a lo que hay en pantalla.
     emitido: q.dataUpdatedAt ? new Date(q.dataUpdatedAt) : null,
+  };
+}
+
+/**
+ * END-32 · El único carrusel.
+ *
+ * Clave propia y no un derivado de `sugerencias`: es otra consulta, con otro
+ * orden y otro límite. Colgarla de la misma clave habría hecho que cambiar el
+ * orden de la lista reconsultara también las novedades, que no dependen de él.
+ */
+export function useNuevas(tipo: TipoPublicacion | null) {
+  const q = useQuery({
+    queryKey: claves.nuevas(tipo),
+    queryFn: () => obtenerNuevasEstaSemana(10, tipo),
+  });
+
+  return {
+    datos: (q.data ?? []) as PublicacionNueva[],
+    cargando: q.isPending,
+    // Sin `fallo`: este carrusel es accesorio. Si no carga, no se pinta, y la
+    // pantalla sigue entera. Poner un aviso de error sobre un bloque opcional
+    // le da un peso que no tiene.
   };
 }
 

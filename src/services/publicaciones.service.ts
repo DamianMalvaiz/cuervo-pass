@@ -10,7 +10,13 @@ import { generarEmbedding } from '@/lib/aiService';
 import { geocodificarDireccion } from '@/lib/geocoding';
 import { subirFotoPublicacion } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
-import type { Publicacion, PublicacionSugerida, TipoPublicacion } from '@/types/database.types';
+import type {
+  OrdenSugerencias,
+  Publicacion,
+  PublicacionNueva,
+  PublicacionSugerida,
+  TipoPublicacion,
+} from '@/types/database.types';
 import { aviso } from '@/lib/registro';
 
 // El título y la descripción son lo semánticamente rico ("pet friendly",
@@ -67,7 +73,8 @@ export interface ResultadoSugerencias {
  */
 export async function obtenerSugerencias(
   limite = 20,
-  tipo: TipoPublicacion | null = null
+  tipo: TipoPublicacion | null = null,
+  orden: OrdenSugerencias = 'ajuste'
 ): Promise<ResultadoSugerencias> {
   // END-17 · El tipo va al SERVIDOR. Filtrarlo aquí, sobre un top-30 que
   // Postgres ya truncó, es lo que hacía que la app dijera «SIN REGISTROS DE ESE
@@ -77,6 +84,7 @@ export async function obtenerSugerencias(
   const { data, error } = await supabase.rpc('sugerencias_con_ranking', {
     p_limite: limite,
     p_tipo: tipo,
+    p_orden: orden,
   });
   if (error) throw error;
 
@@ -86,6 +94,29 @@ export async function obtenerSugerencias(
     conAfinidad: datos.filter((p) => p.similitud != null).length,
     total: datos.length,
   };
+}
+
+/**
+ * END-32 · Lo reciente, que es lo único que la lista no dice.
+ *
+ * La pantalla tenía TRES carruseles sobre el mismo conjunto que la lista: el
+ * primero era `slice(0, 8)` de esa misma lista, un prefijo literal. Un carrusel
+ * se justifica por traer otra información, no por presentar la misma con otro
+ * peine.
+ *
+ * Devuelve pocas filas a propósito: si no llegan a tres, la pantalla no lo
+ * pinta. Un carrusel con dos elementos es un hueco con título.
+ */
+export async function obtenerNuevasEstaSemana(
+  limite = 10,
+  tipo: TipoPublicacion | null = null
+): Promise<PublicacionNueva[]> {
+  const { data, error } = await supabase.rpc('nuevas_esta_semana', {
+    p_limite: limite,
+    p_tipo: tipo,
+  });
+  if (error) throw error;
+  return (data ?? []) as PublicacionNueva[];
 }
 
 // ═══════════════════ Lectura ═══════════════════

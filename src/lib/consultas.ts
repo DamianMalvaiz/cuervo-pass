@@ -13,7 +13,13 @@
 import { QueryClient, type QueryClientConfig } from '@tanstack/react-query';
 
 export const claves = {
-  sugerencias: (tipo: string | null) => ['sugerencias', tipo] as const,
+  // El ORDEN entra en la clave igual que el tipo, y por el mismo motivo: son dos
+  // consultas distintas al servidor. Si solo entrara el tipo, cambiar de orden
+  // reutilizaría la respuesta anterior y el control no haría nada visible hasta
+  // que la caché caducara — que es exactamente lo que le pasó al chip de tipo
+  // entre C.3 y B.3.
+  sugerencias: (tipo: string | null, orden: string) => ['sugerencias', tipo, orden] as const,
+  nuevas: (tipo: string | null) => ['nuevas', tipo] as const,
   publicacion: (id: string) => ['publicacion', id] as const,
   misPublicaciones: (usuarioId: string) => ['misPublicaciones', usuarioId] as const,
   contactosRecibidos: () => ['contactosRecibidos'] as const,

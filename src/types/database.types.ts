@@ -149,6 +149,34 @@ export interface PublicacionSugerida {
   nivel?: 1 | 2;
 }
 
+/**
+ * END-32 · El orden que el usuario elige, aplicado en Postgres.
+ *
+ * No es cosmético que viva aquí y no en la pantalla: ordenar en el cliente
+ * significaría ordenar el top-30 YA TRUNCADO por encaje, así que «menor renta»
+ * daría las más baratas de las treinta que mejor encajan, no las más baratas.
+ * Es el mismo defecto que END-17, y el carrusel «Las de menor renta» lo tenía.
+ */
+export type OrdenSugerencias = 'ajuste' | 'cercania' | 'precio';
+
+/** Fila de `nuevas_esta_semana`. No trae `similitud` ni `nivel`: este carrusel
+ *  ordena por FECHA, y mezclar ahí la afinidad volvería a contar lo mismo. */
+export interface PublicacionNueva {
+  [key: string]: unknown;
+  id: string;
+  titulo: string;
+  tipo: TipoPublicacion;
+  direccion: string;
+  precio_renta: number;
+  descripcion: string | null;
+  fotos: string[] | null;
+  latitud: number | null;
+  longitud: number | null;
+  distancia: number | null;
+  score: number;
+  creado_en: string;
+}
+
 export interface Roomie {
   [key: string]: unknown;
   id: string;
@@ -277,12 +305,18 @@ export interface Database {
       // después. Filtrar una página ya truncada es lo que hacía que la app
       // negara la existencia de publicaciones que sí estaban.
       sugerencias_publicaciones: {
-        Args: { p_limite?: number; p_tipo?: TipoPublicacion | null };
+        Args: { p_limite?: number; p_tipo?: TipoPublicacion | null; p_orden?: OrdenSugerencias };
         Returns: PublicacionSugerida[];
       };
       sugerencias_con_ranking: {
-        Args: { p_limite?: number; p_tipo?: TipoPublicacion | null };
+        Args: { p_limite?: number; p_tipo?: TipoPublicacion | null; p_orden?: OrdenSugerencias };
         Returns: PublicacionSugerida[];
+      };
+      // END-32 · El único carrusel. Trae lo que la lista no tiene —lo reciente—
+      // en vez de reordenar el mismo conjunto por tercera vez.
+      nuevas_esta_semana: {
+        Args: { p_limite?: number; p_tipo?: TipoPublicacion | null };
+        Returns: PublicacionNueva[];
       };
       sugerencias_roomies: {
         Args: { p_limite?: number };

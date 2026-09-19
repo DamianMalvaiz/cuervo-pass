@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ANCHO_FICHA_COMPACTA, FichaCompacta } from '@/components/FichaCompacta';
@@ -17,8 +17,13 @@ import { useTheme } from '@/hooks/use-theme';
 import { fechaHoraDeSello } from '@/lib/folio';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
-import type { PublicacionSugerida, TipoPublicacion } from '@/types/database.types';
-import { useSugerencias } from '@/hooks/queries/usePublicaciones';
+import type {
+  OrdenSugerencias,
+  PublicacionNueva,
+  PublicacionSugerida,
+  TipoPublicacion,
+} from '@/types/database.types';
+import { useNuevas, useSugerencias } from '@/hooks/queries/usePublicaciones';
 
 // Documento maestro v5 · §17, §18, §25.
 //
@@ -26,11 +31,21 @@ import { useSugerencias } from '@/hooks/queries/usePublicaciones';
 // funciones de Postgres, que aplican el filtro DURO (presupuesto, distancia,
 // mascotas) antes de ordenar. Lo que llega aquí ya es viable.
 //
-// La composición sigue el patrón de una pantalla de exploración: resumen de los
-// filtros arriba, chips de categoría, y CARRUSELES que enseñan el mismo conjunto
-// viable bajo tres lentes —afinidad, cercanía, precio— antes de la lista
-// completa. El desplegable de orden que había antes desapareció: obligaba a
-// elegir UNA lente y perder el sitio; ahora se ven las tres a la vez.
+// END-32 · Había TRES carruseles y una lista, los cuatro sobre el mismo
+// conjunto. El primero, «Mejor afinidad contigo», era `filtradas.slice(0, 8)`:
+// un prefijo LITERAL de la lista que empezaba veinticuatro fichas más abajo. Los
+// otros dos eran reordenamientos. Cuatro pinceladas del mismo contenido no son
+// arquitectura de información, son indecisión renderizada.
+//
+// Se defendió aquí que tres lentes simultáneas eran mejores que un desplegable
+// que «obliga a elegir UNA y perder el sitio». El argumento tenía un agujero:
+// «Las de menor renta» ordenaba por precio el top-30 YA TRUNCADO por encaje, así
+// que enseñaba las más baratas de las treinta que mejor encajan — no las más
+// baratas. Una lente que miente no es una lente.
+//
+// Queda UN carrusel, con lo único que la lista no dice: lo reciente. Y un
+// control de orden que reordena la lista en su sitio, aplicado en POSTGRES por
+// la misma razón por la que el filtro de tipo se fue allí en B.3.
 
 // El tipo del arreglo NO es `string | null`, y ese es el arreglo de fondo.
 // Escrito como `string`, este chip decía `'casa'` —un valor que no existe en
@@ -46,7 +61,15 @@ const TIPOS: { valor: TipoPublicacion | null; etiqueta: string }[] = [
   { valor: 'cuarto', etiqueta: 'Cuarto' },
 ];
 
-const POR_CARRUSEL = 8;
+/** Por debajo de tres, el carrusel no se pinta: un carril con dos elementos es
+ *  un hueco con título, y encima invita a deslizar algo que no se mueve. */
+const MINIMO_CARRUSEL = 3;
+
+const ORDENES: { valor: OrdenSugerencias; etiqueta: string }[] = [
+  { valor: 'ajuste', etiqueta: 'Ajuste' },
+  { valor: 'cercania', etiqueta: 'Cercanía' },
+  { valor: 'precio', etiqueta: 'Renta' },
+];
 
 /**
  * El resumen de tus filtros, tocable.
@@ -139,12 +162,68 @@ function ChipsTipo({
   );
 }
 
+/**
+ * El control de orden, pegado a la lista que ordena.
+ *
+ * No son pastillas como los chips de tipo, a propósito: el tipo FILTRA —cambia
+ * qué hay— y el orden solo reordena lo mismo. Dos controles con el mismo peso
+ * visual harían creer que hacen lo mismo. Aquí el estado activo se marca con el
+ * peso de la letra y un filete debajo, que es como un documento marca la columna
+ * por la que está ordenado.
+ */
+function ControlOrden({
+  valor,
+  onCambiar,
+}: {
+  valor: OrdenSugerencias;
+  onCambiar: (v: OrdenSugerencias) => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={estilos.filaOrden} accessibilityRole="tablist">
+      <ThemedText type="etiqueta" themeColor="textSecondary">
+        ORDENAR POR
+      </ThemedText>
+      <View style={estilos.opcionesOrden}>
+        {ORDENES.map((o) => {
+          const activo = valor === o.valor;
+          return (
+            <Pressable
+              key={o.valor}
+              onPress={() => onCambiar(o.valor)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activo }}
+              accessibilityLabel={`Ordenar por ${o.etiqueta}`}
+              style={({ pressed }) => [estilos.opcionOrden, pressed && estilos.presionado]}
+            >
+              <ThemedText
+                type="small"
+                themeColor={activo ? 'text' : 'textSecondary'}
+                style={activo ? estilos.ordenActivo : undefined}
+              >
+                {o.etiqueta}
+              </ThemedText>
+              <View
+                style={[
+                  estilos.fileteOrden,
+                  { backgroundColor: activo ? theme.text : 'transparent' },
+                ]}
+              />
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export default function InicioScreen() {
   const session = useAuthStore((s) => s.session);
   const cargarPerfil = usePerfilStore((s) => s.cargarPerfil);
   // Dos números y no una bandera: en una misma lista conviven publicaciones
   // ordenadas por afinidad y publicaciones ordenadas solo por filtros (END-08).
   const [tipo, setTipo] = useState<TipoPublicacion | null>(null);
+  const [orden, setOrden] = useState<OrdenSugerencias>('ajuste');
   const theme = useTheme();
   const margenSuperior = useMargenSuperior();
 
@@ -153,7 +232,7 @@ export default function InicioScreen() {
   // `useFocusEffect` que reconsultaba el motor COMPLETO en cada regreso desde
   // el detalle, reemplazando el arreglo entero — parpadeo y pérdida del scroll.
   const { datos: sugerencias, conAfinidad, total, cargando, refrescando, fallo, refrescar, emitido } =
-    useSugerencias(tipo);
+    useSugerencias(tipo, orden);
 
   // El resumen de filtros necesita el perfil, y esta pantalla es la primera que
   // se abre tras entrar.
@@ -161,28 +240,23 @@ export default function InicioScreen() {
     if (session?.user.id) cargarPerfil(session.user.id);
   }, [session?.user.id, cargarPerfil]);
 
-  // AUD-08: una sola petición para todas las miniaturas visibles.
-  const { urls: urlsFirmadas } = useFotosFirmadas(sugerencias.map((s) => s.fotos?.[0]));
+  // END-32 · El único carrusel. No depende del orden de la lista: ordena por
+  // fecha, que es lo suyo.
+  const { datos: nuevas } = useNuevas(tipo);
+
+  // AUD-08: una sola petición para todas las miniaturas visibles, y las del
+  // carrusel VAN INCLUIDAS. Firmarlas en dos llamadas separadas era el defecto
+  // que AUD-08 vino a quitar, y un hook nuevo es justo donde se vuelve a colar.
+  const { urls: urlsFirmadas } = useFotosFirmadas([
+    ...sugerencias.map((s) => s.fotos?.[0]),
+    ...nuevas.map((n) => n.fotos?.[0]),
+  ]);
 
   // B.3 · El filtro ya corre en Postgres, dentro de la función que trunca a
   // treinta, así que lo que llega aquí es el top-30 DE ESE TIPO y no lo que
   // quedó de filtrar el top-30 general. No hay nada que filtrar en el cliente:
   // el nombre se conserva porque media pantalla lo usa.
   const filtradas = sugerencias;
-
-  // Tres lentes sobre el MISMO conjunto ya filtrado por el motor. No son
-  // consultas distintas: reordenar en el cliente lo que Postgres ya declaró
-  // viable es correcto, y pedir tres veces lo mismo al servidor no lo sería.
-  const lentes = useMemo(() => {
-    const conDistancia = filtradas.filter((p) => p.distancia != null);
-    return {
-      afinidad: filtradas.slice(0, POR_CARRUSEL),
-      cercanas: [...conDistancia]
-        .sort((a, b) => (a.distancia ?? 0) - (b.distancia ?? 0))
-        .slice(0, POR_CARRUSEL),
-      economicas: [...filtradas].sort((a, b) => a.precio_renta - b.precio_renta).slice(0, POR_CARRUSEL),
-    };
-  }, [filtradas]);
 
   // END-21 · Solo el id. La calificación viajaba por la URL, así que un enlace
   // directo a una ficha no la traía y el desglose desaparecía según por dónde
@@ -193,17 +267,17 @@ export default function InicioScreen() {
   }, []);
 
   const compacta = useCallback(
-    (item: PublicacionSugerida) => (
+    (item: PublicacionNueva) => (
       <FichaCompacta
         titulo={item.titulo}
         precio={item.precio_renta}
         fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
         distanciaKm={item.distancia}
-        score={item.score_final ?? item.score}
-        onPress={() => irADetalle(item)}
+        score={item.score}
+        onPress={() => router.push({ pathname: '/publicacion/[id]', params: { id: item.id } })}
       />
     ),
-    [urlsFirmadas, irADetalle]
+    [urlsFirmadas]
   );
 
   if (cargando) {
@@ -266,36 +340,27 @@ export default function InicioScreen() {
               </View>
             )}
 
-            {filtradas.length > 0 && (
-              <>
-                <Carrusel
-                  titulo="Mejor afinidad contigo"
-                  descripcion={conAfinidad > 0 ? 'orden del motor' : 'filtros ponderados'}
-                  datos={lentes.afinidad}
-                  claveDe={(p) => `af-${p.id}`}
-                  renderizar={compacta}
-                  anchoItem={ANCHO_FICHA_COMPACTA}
-                />
-                <Carrusel
-                  titulo="Más cerca de tu campus"
-                  datos={lentes.cercanas}
-                  claveDe={(p) => `ce-${p.id}`}
-                  renderizar={compacta}
-                  anchoItem={ANCHO_FICHA_COMPACTA}
-                />
-                <Carrusel
-                  titulo="Las de menor renta"
-                  datos={lentes.economicas}
-                  claveDe={(p) => `ec-${p.id}`}
-                  renderizar={compacta}
-                  anchoItem={ANCHO_FICHA_COMPACTA}
-                />
+            {/* Lo ÚNICO que la lista de abajo no dice. Se pinta solo si hay
+                al menos tres: un carril con dos es un hueco con título. */}
+            {nuevas.length >= MINIMO_CARRUSEL && (
+              <Carrusel
+                titulo="Nuevas esta semana"
+                descripcion="por fecha de publicación"
+                datos={nuevas}
+                claveDe={(p) => `nv-${p.id}`}
+                renderizar={compacta}
+                anchoItem={ANCHO_FICHA_COMPACTA}
+              />
+            )}
 
-                <View style={[estilos.margen, estilos.tituloLista]}>
-                  <ThemedText type="subtitle">Todas, en orden</ThemedText>
-                  <View style={[estilos.fileteLista, { backgroundColor: theme.filete }]} />
-                </View>
-              </>
+            {filtradas.length > 0 && (
+              <View style={[estilos.margen, estilos.tituloLista]}>
+                <ThemedText type="subtitle">
+                  {conAfinidad > 0 ? 'Todas, por afinidad y filtros' : 'Todas, por filtros'}
+                </ThemedText>
+                <ControlOrden valor={orden} onCambiar={setOrden} />
+                <View style={[estilos.fileteLista, { backgroundColor: theme.filete }]} />
+              </View>
             )}
           </View>
         }
@@ -386,5 +451,12 @@ const estilos = StyleSheet.create({
   },
   textoAviso: { flex: 1, lineHeight: 20 },
   tituloLista: { gap: Spacing.two },
+  filaOrden: { gap: Spacing.one },
+  opcionesOrden: { flexDirection: 'row', gap: Spacing.four },
+  // 44 pt de alto contando el filete: el objetivo táctil no se negocia porque el
+  // control sea visualmente ligero (invariante 8).
+  opcionOrden: { minHeight: 44, justifyContent: 'center', gap: Spacing.half },
+  ordenActivo: Texto.pesoFuerte,
+  fileteOrden: { height: Filete.grueso },
   fileteLista: { height: Filete.fino },
 });

@@ -30,7 +30,7 @@ test('una sola llamada al motor, sin respaldo todo-o-nada', async () => {
   mockRpc.mockResolvedValue({ data: [fila('a', 0.9)], error: null });
   await obtenerSugerencias(30);
   expect(mockRpc).toHaveBeenCalledTimes(1);
-  expect(mockRpc).toHaveBeenCalledWith('sugerencias_con_ranking', { p_limite: 30, p_tipo: null });
+  expect(mockRpc).toHaveBeenCalledWith('sugerencias_con_ranking', { p_limite: 30, p_tipo: null, p_orden: 'ajuste' });
 });
 
 // END-17 · El tipo tiene que LLEGAR al servidor. Entre C.3 y B.3 entraba en la
@@ -40,17 +40,29 @@ test('una sola llamada al motor, sin respaldo todo-o-nada', async () => {
 test('el tipo viaja en la llamada, no solo en la clave de caché', async () => {
   mockRpc.mockResolvedValue({ data: [], error: null });
   await obtenerSugerencias(30, 'cuarto');
-  expect(mockRpc).toHaveBeenCalledWith('sugerencias_con_ranking', { p_limite: 30, p_tipo: 'cuarto' });
+  expect(mockRpc).toHaveBeenCalledWith('sugerencias_con_ranking', { p_limite: 30, p_tipo: 'cuarto', p_orden: 'ajuste' });
 });
 
 // Sin tipo se manda null explícito y no se omite el parámetro: PostgREST
 // resuelve la función por los nombres de argumento que recibe, y omitirlo
 // dejaría la llamada dependiendo del default del servidor. Que el default diga
 // hoy lo mismo no lo hace lo mismo.
+// END-32 · El orden tambien viaja al servidor. Ordenar en el cliente seria
+// ordenar el top-30 YA TRUNCADO por encaje: «menor renta» daria las mas baratas
+// de las treinta que mejor encajan, que es END-17 con otro disfraz. El carrusel
+// «Las de menor renta» tenia exactamente ese defecto.
+test('el orden viaja al servidor, no se aplica sobre la pagina ya truncada', async () => {
+  mockRpc.mockResolvedValue({ data: [], error: null });
+  await obtenerSugerencias(30, null, 'precio');
+  expect(mockRpc).toHaveBeenCalledWith('sugerencias_con_ranking', {
+    p_limite: 30, p_tipo: null, p_orden: 'precio',
+  });
+});
+
 test('«Todo» manda null explícito', async () => {
   mockRpc.mockResolvedValue({ data: [], error: null });
   await obtenerSugerencias(30, null);
-  expect(mockRpc).toHaveBeenCalledWith('sugerencias_con_ranking', { p_limite: 30, p_tipo: null });
+  expect(mockRpc).toHaveBeenCalledWith('sugerencias_con_ranking', { p_limite: 30, p_tipo: null, p_orden: 'ajuste' });
 });
 
 // LA prueba. Antes se devolvían solo las vectorizadas.
