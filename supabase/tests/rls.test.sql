@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(51);
+select plan(55);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -676,6 +676,99 @@ select is(
       and recurso = 'revelar_contacto' and dia = current_date),
   0,
   'devolver_cuota nunca baja de cero' );
+
+-- ════════════════ 52 a 55 · END-16: 1200 mensajes para resolver 30 hilos ════════════════
+-- `listarConversaciones` traia `limite * PAGINA_MENSAJES` = 1200 mensajes y los
+-- plegaba en JavaScript. El encabezado del propio archivo acusa a v3 de
+-- «traerse TODOS los mensajes y agruparlos en JavaScript».
+--
+-- Y tenia dos defectos VISIBLES, no solo de coste: el orden es `creado_en desc`
+-- GLOBAL, asi que un chat activo se come la ventana y un hilo tranquilo aparece
+-- SIN ultimo mensaje; y el contador de no leidos se trunca en silencio.
+--
+-- El bloque usa TRES cuentas propias. Reutilizar b2 fallaba con «usuario no
+-- disponible»: las aserciones 26 a 31 lo suspenden al tercer reporte, y
+-- abrir_conversacion lo respeta. Ese fallo es, de paso, la 0023 funcionando.
+select actuar_como_servicio();
+
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data)
+values
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000c1',
+   'authenticated', 'authenticated', 'c1@test.mx', '', now(), now(),
+   '{"nombre_usuario":"usuario_c1","nombre_completo":"Cuenta Uno"}'),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000c2',
+   'authenticated', 'authenticated', 'c2@test.mx', '', now(), now(),
+   '{"nombre_usuario":"usuario_c2","nombre_completo":"Cuenta Dos"}'),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000c4',
+   'authenticated', 'authenticated', 'c4@test.mx', '', now(), now(),
+   '{"nombre_usuario":"usuario_c4","nombre_completo":"Cuenta Cuatro"}');
+
+select actuar_como('00000000-0000-0000-0000-0000000000c1');
+select abrir_conversacion('00000000-0000-0000-0000-0000000000c2');
+select abrir_conversacion('00000000-0000-0000-0000-0000000000c4');
+select actuar_como_servicio();
+
+-- Hilo RUIDOSO con c2: cincuenta mensajes recientes, todos sin leer.
+insert into mensajes (conversacion_id, remitente_id, contenido, creado_en, leido)
+select (select id from conversaciones
+         where (usuario_a = '00000000-0000-0000-0000-0000000000c1' and usuario_b = '00000000-0000-0000-0000-0000000000c2')
+            or (usuario_b = '00000000-0000-0000-0000-0000000000c1' and usuario_a = '00000000-0000-0000-0000-0000000000c2')),
+       '00000000-0000-0000-0000-0000000000c2', 'ruido ' || n,
+       now() - (n || ' seconds')::interval, false
+  from generate_series(1, 50) n;
+
+-- Hilo TRANQUILO con c4: un solo mensaje, y MAS VIEJO que todos los anteriores.
+insert into mensajes (conversacion_id, remitente_id, contenido, creado_en, leido)
+values ((select id from conversaciones
+          where (usuario_a = '00000000-0000-0000-0000-0000000000c1' and usuario_b = '00000000-0000-0000-0000-0000000000c4')
+             or (usuario_b = '00000000-0000-0000-0000-0000000000c1' and usuario_a = '00000000-0000-0000-0000-0000000000c4')),
+        '00000000-0000-0000-0000-0000000000c4', 'el tranquilo',
+        now() - interval '10 days', false);
+
+select actuar_como('00000000-0000-0000-0000-0000000000c1');
+
+-- LA asercion. Con una ventana global de mensajes, este hilo aparece SIN ultimo
+-- mensaje porque los cincuenta del otro se comen el cupo.
+select is(
+  (select ultimo_contenido from resumen_conversaciones(30)
+    where otro_usuario_id = '00000000-0000-0000-0000-0000000000c4'),
+  'el tranquilo',
+  'un hilo tranquilo conserva su ultimo mensaje aunque otro este activo' );
+
+select is(
+  (select no_leidos from resumen_conversaciones(30)
+    where otro_usuario_id = '00000000-0000-0000-0000-0000000000c2'),
+  50,
+  'el contador de no leidos no se trunca' );
+
+-- Los propios no cuentan como no leidos: nadie se manda mensajes sin leer.
+--
+-- Primero se marca como leido el de c4, que SI es ajeno y sin leer — la version
+-- anterior de esta asercion esperaba 0 sin hacerlo y fallaba con have: 1. El
+-- fallo era de la prueba: ese 1 era correcto.
+select actuar_como_servicio();
+update mensajes set leido = true
+ where remitente_id = '00000000-0000-0000-0000-0000000000c4';
+insert into mensajes (conversacion_id, remitente_id, contenido, leido)
+values ((select id from conversaciones
+          where (usuario_a = '00000000-0000-0000-0000-0000000000c1' and usuario_b = '00000000-0000-0000-0000-0000000000c4')
+             or (usuario_b = '00000000-0000-0000-0000-0000000000c1' and usuario_a = '00000000-0000-0000-0000-0000000000c4')),
+        '00000000-0000-0000-0000-0000000000c1', 'mio y sin leer', false);
+select actuar_como('00000000-0000-0000-0000-0000000000c1');
+select is(
+  (select no_leidos from resumen_conversaciones(30)
+    where otro_usuario_id = '00000000-0000-0000-0000-0000000000c4'),
+  0,
+  'los mensajes propios no cuentan como no leidos' );
+
+-- Y RLS sigue aplicando: c4 no ve la conversacion de c1 con c2.
+select actuar_como('00000000-0000-0000-0000-0000000000c4');
+select is(
+  (select count(*)::int from resumen_conversaciones(30)
+    where otro_usuario_id = '00000000-0000-0000-0000-0000000000c2'),
+  0,
+  'resumen_conversaciones solo devuelve las conversaciones propias' );
 
 select * from finish();
 rollback;

@@ -289,6 +289,20 @@ export interface Database {
         Args: { p_otro: string };
         Returns: string;
       };
+      // END-16 · Resuelve el último mensaje y los no leídos de CADA hilo con dos
+      // `lateral join`, en vez de traer 1200 mensajes y plegarlos en el cliente.
+      resumen_conversaciones: {
+        Args: { p_limite: number };
+        Returns: {
+          conversacion_id: string;
+          otro_usuario_id: string;
+          ultimo_contenido: string | null;
+          ultimo_creado_en: string | null;
+          ultimo_remitente_id: string | null;
+          ultimo_leido: boolean | null;
+          no_leidos: number;
+        }[];
+      };
       revelar_contacto: {
         Args: { p_publicacion_id: string; p_score?: number | null };
         Returns: string;
