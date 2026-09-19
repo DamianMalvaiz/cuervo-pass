@@ -579,91 +579,226 @@ que solo guarda los aciertos no sirve para aprender de él.
   ese comentario nunca fue falso: describía el filtro duro, que siempre estuvo
   bien. Lo que estaba mal era el score, que ahora por fin lo obedece.
 
+### La capa de datos, el chat y cuatro órdenes de diseño (19/09/2026 · noche)
+
+- **Logrado:** siete órdenes más — C.3, C.4, D.1, D.2, D.3, D.4 y D.7. La app
+  gana una capa de datos con caché, el chat deja de perder mensajes, y tres
+  reglas de diseño que el repositorio declaraba y violaba pasan a ser
+  compuertas que corren en CI.
+- **Atorado:** nada bloqueó. Lo que costó tiempo fueron dos peleas con el arnés
+  de pruebas, ambas registradas abajo porque se van a repetir.
+- **Decisión:** ninguna orden se cerró sin su prueba en rojo primero, incluidas
+  las de diseño. Un verificador de contraste que solo se comprueba «en verde»
+  pasaría igual si no mirara nada.
+- **Horas:** — / —
+
+| Compuerta | Antes | Ahora |
+|---|---|---|
+| Frontend | 144 | **199** |
+| pgTAP | 51 | **55** |
+| Contraste | **ninguna** | script en CI |
+| Objetivos táctiles | **ninguna** | script en CI |
+| Tokens de diseño | prosa en AGENTS.md | regla de ESLint |
+
+#### El chat perdía mensajes, y eso no es rendimiento
+
+**END-16** · `listarConversaciones` pedía **1200 mensajes** para resolver treinta
+hilos y los plegaba en JavaScript, en el mismo archivo cuyo encabezado acusa a
+v3 de «traerse TODOS los mensajes y agruparlos en JavaScript». Y no era solo
+coste: el orden de esa ventana es global, así que **un chat activo escondía el
+último mensaje de los tranquilos**, que aparecían como si estuvieran vacíos.
+Ahora son dos `left join lateral` en Postgres: treinta hilos, treinta filas.
+
+**END-20** · El cursor de paginación era solo `creado_en`. Dos mensajes con la
+misma marca de tiempo —dos personas escribiendo a la vez— hacían que **uno
+desapareciera** al paginar: el primero cerraba la página y el segundo caía fuera
+del `<`. Un mensaje perdido en un chat no es un fallo de rendimiento: **es la
+app borrando algo que alguien escribió.** El cursor pasa a ser el par
+`(creado_en, id)`, que sí es único.
+
+Y el envío se vuelve optimista. Si falla, **el texto ya no vuelve al campo**: la
+burbuja se queda en su sitio marcada como fallida, con reintento al tocarla.
+Devolverlo al campo se lee como que el mensaje se borró, cuando la persona ya lo
+había mandado.
+
+#### Tres reglas que el repositorio declaraba y violaba
+
+Las tres tenían la misma forma: una afirmación escrita en un documento, sin
+nada que la comprobara.
+
+**END-29 · El bloque destacado era invisible.** `theme.ts` afirmaba que «todos
+los contrastes de este archivo están medidos, no supuestos». Era verdad a
+medias, y la mitad que faltaba era la que fallaba: se midieron doce pares de
+TEXTO sobre fondo y **ninguna superficie contra superficie**. El «lavado del
+sello» daba **1.00** contra el papel — la misma luminancia exacta. Un cambio de
+matiz con cero cambio de valor: desaparece bajo el sol, con reflejo, en escala
+de grises y para alguien con daltonismo.
+
+El umbral de superficie **no existe en WCAG**, y por eso ese par se escapó. WCAG
+cubre texto y bordes de control; nadie mide superficie contra superficie porque
+ninguna norma lo pide.
+
+**END-35 · Objetivos táctiles bajo el propio estándar.** El invariante 8 dice
+«44×44 pt, sin excepciones» y llevaba semanas escrito. Había **cinco controles
+por debajo**: 30, 32, 36, 38 y 40 pt.
+
+**END-31 · Deuda de tokens.** El invariante 7 prohíbe `fontSize` y `fontFamily`
+sueltos, y había 29 apariciones. Al encender la regla de ESLint salió el
+hallazgo de fondo: **la mayoría no eran descuido.** Eran estilos de `TextInput`,
+y a un TextInput no se le puede aplicar `ThemedText` — no tenían alternativa,
+porque la escala tipográfica vivía DENTRO de `themed-text.tsx` y el tema no la
+tenía para ofrecerla. Movida a `Texto` en `theme.ts`, la deuda bajó a **cero** y
+`themed-text` dejó de ser excepción: era la única que existía por una limitación
+del propio sistema y no del entorno, así que era la única que se podía eliminar
+en vez de nombrar.
+
+#### La cifra que afirmaba de más
+
+**END-30** · «AFINIDAD 9.4», en `Archivo_900Black` a 56 px, dentro de una
+casilla que imita un kardex universitario. Tres problemas apilados:
+
+1. **Precisión fabricada.** El número es `0.6 × score + 0.4 × similitud`, una
+   mezcla ponderada de cuatro heurísticas normalizadas a mano. No tiene una
+   décima de resolución: 8.7 y 8.6 son ruido entre sí. Ahora redondea a medios
+   puntos — veintiún valores en vez de ciento uno.
+2. **Significado falso.** Por el término de presupuesto, lo más barato siempre
+   gana: un «9.4» significaba *barato y cerca*, no «excelente departamento». La
+   etiqueta pasa a **AJUSTE**.
+3. **Autoridad prestada.** Una calificación de kardex es un número *ganado y
+   auditable*, y la metáfora le prestaba a este una credibilidad que no tiene, a
+   alguien que elige dónde va a vivir sin haber visto el lugar. Bajo la casilla
+   van ahora sus razones —`1.2 km · $500 bajo tu tope · afinidad 0.87`—, y en el
+   detalle: *«Este ajuste compara tus filtros con lo publicado. No verificamos
+   el inmueble.»*
+
+Una cifra con su desglose al lado se puede **discutir**, y eso es lo que
+distingue una recomendación de una sentencia.
+
+#### La densidad contradecía el posicionamiento
+
+**END-33** · La ficha medía 420–450 px: **una tarjeta y media por pantalla**. Y
+`PRODUCT.md` dice «Airbnb ordena por deseo […] esto ordena por ajuste». El
+ajuste se evalúa comparando, y comparar exige ver varias opciones a la vez. La
+fila nueva mide 132 px y pone las tres cifras en columnas de ancho fijo con
+`tabular-nums`, para que formen columna al recorrer. La ficha grande se conserva
+para «Mis publicaciones», donde la pregunta es «cómo va la mía» y no «cuál de
+estas».
+
+#### Dos peleas con el arnés, registradas porque se repiten
+
+1. **Una prueba que llama a `unmount()` deja sin pintar a todo render posterior
+   del mismo archivo.** Comprobado: aislada pasa, en medio hace fallar a las
+   tres siguientes, movida al final pasan las siete. Esto explica además el
+   misterio de `FormularioPublicacion`, donde hubo que partir las pruebas de
+   envío a otro archivo sin entender por qué: aquel archivo tiene
+   `afterEach(cleanup)`, que es un unmount explícito.
+
+2. **Declarar `transform` en `package.json` REEMPLAZA el del preset de Expo.**
+   Al intentar añadir una entrada para `.mjs`, `.ts` y `.tsx` dejaron de
+   transformarse y cuatro suites fallaron con «Jest failed to parse a file», que
+   no menciona la causa por ningún lado. Spreadear el preset tampoco sirve:
+   rompe sus rutas internas.
+
+#### Tres cosas que el linter encontró y una prueba no habría encontrado
+
+Vale la pena registrarlo porque contradice la intuición de que las pruebas son
+la única red:
+
+- Al migrar la lista a la fila nueva, una variable quedó huérfana — y esa
+  variable era la que alimentaba la línea del «porqué» que D.2 acababa de
+  añadir. **Media orden anterior se deshacía sin que ninguna prueba fallara.**
+- Catorce archivos dejaron de importar `Tipografia` tras D.3, lo que confirmó
+  que ya no tocan las tipografías crudas en absoluto.
+- Un `useState` colocado después de un `return` temprano en `_layout.tsx`
+  —añadido al montar el provider de react-query— es un error de reglas de hooks
+  que ninguna prueba de esta suite habría detectado.
+
+#### Lo que sigue sin poder comprobarse aquí
+
+La orden D.4 pide verificar **en un dispositivo** que caben al menos cuatro
+filas. Está comprobado por aritmética —132 px más 8 de separación sobre 800 px
+útiles dan cinco—, no con un teléfono en la mano. Ningún agente puede hacer eso,
+y confundir una cosa con la otra es exactamente el defecto que §0.2 del
+documento de endurecimiento imputa al proyecto.
+
 ### Pendientes abiertos
 
-Actualizado el 19/09/2026 por la tarde. El trabajo **sigue**: esta lista es el
-estado de un proyecto en marcha, no un cierre. El plan completo, con sus órdenes
+Actualizado el 19/09/2026 por la noche. El plan completo, con sus órdenes
 ejecutables y su secuencia, está en
 [`docs/endurecimiento-v6.md`](endurecimiento-v6.md) §5 y §6.
 
 **Cerrados**
 
-- [x] Flujo completo en el teléfono: registro → cuestionario → sugerencias →
-      ver contacto → chat.
-- [x] Consentimiento de IA verificado en vivo, con la fila de la base antes y
-      después de cada paso.
-- [x] Prueba de aislamiento entre cuentas, aplazada desde la semana 8. Hoy
-      **19 de 19** contra producción.
-- [x] Separar el `.env` de cliente y el de servidor. Hecho de verdad: tres
-      archivos y `npm run verificar:env` como compuerta en CI.
-- [x] Limpieza de las cuentas de prueba y de la publicación mal geocodificada.
-- [x] **Fase 0 del endurecimiento**: migraciones 0022–0026 en producción,
-      `pg_cron` activo, secretos de Vault, barredor desplegado y verificado.
-- [x] Órdenes B.1, B.2, B.4, C.1, C.2 y E.2.
+- [x] Flujo completo en el teléfono, consentimiento de IA en vivo, y la prueba
+      de aislamiento entre cuentas aplazada desde la semana 8 — hoy **19/19**
+      contra producción.
+- [x] Separación real de los `.env`, con `npm run verificar:env` en CI.
+- [x] Limpieza de las cuentas de prueba.
+- [x] **Fase 0 completa**: migraciones 0022–0026 aplicadas, `pg_cron`, secretos
+      de Vault, barredor desplegado y verificado de punta a punta.
+- [x] **B.1, B.2, B.4** — el motor deja de esconder publicaciones, el score de
+      mascotas obedece a su propio comentario, y la cuota solo se cobra cuando
+      entrega.
+- [x] **C.1, C.2** — `ErrorBoundary` y registro propio; y «falló la red» deja de
+      presentarse como dato borrado.
+- [x] **C.3, C.4** — capa de datos con caché, y el chat: 1200 mensajes pasan a
+      30 filas, cursor compuesto, envío optimista, desalojo de memoria.
+- [x] **D.1, D.2, D.3, D.4, D.7** — contraste medido, la cifra deja de afirmar
+      de más, un solo componente de calificación con deuda de tokens en cero,
+      densidad comparable, y objetivos táctiles a 44 pt.
+- [x] **E.2** — la suite dejó de fallar al azar. Re-verificada tras cada tanda,
+      no dada por buena.
 
 **Tuyos — nadie más puede hacerlos**
 
 - [ ] Activar **"Prevent use of leaked passwords"** (Authentication → Attack
-      Protection). Es la comprobación contra HaveIBeenPwned, corre en el
-      servidor y vale más que cualquier regla de composición. No es configurable
-      desde `config.toml`.
+      Protection). Corre en el servidor y vale más que cualquier regla de
+      composición. No es configurable desde `config.toml`.
 - [ ] Activar **Confirm email** (Authentication → Providers → Email), que es lo
       que la `0026` da por supuesto. Ojo: a partir de ahí registrarse exige
       correo `.edu.mx` y confirmar un buzón, así que **no registres una cuenta
       en vivo delante del evaluador**.
-- [ ] Conseguir una clave de **Google Maps** y ponerla en `app.json`. Sin ella
-      el mapa de la ficha sale **gris en Android** (END-10, orden E.1), y eso sí
-      se ve en la demo.
-- [ ] Decidir sobre `ANTHROPIC_API_KEY`. Sigue vacía. **Corregido dos veces, y
-      las dos vale la pena dejarlas escritas:** primero se buscó en los secrets
-      de las Edge Functions, donde nunca va; después se dijo que iba en
-      `ai-service/.env`, archivo que no existía. Su destino real, según
-      AGENTS.md, es `.env.server`. Sin ella solo se pierde
-      `horario_predominante`, un campo del perfil público que ya degrada a
-      "Variable": **no toca el ranking ni el embedding**, porque no aparece ni
-      en el motor de la 0015 ni en `perfilTexto.ts`. El Nivel 2 corre en un
-      modelo local y no depende de ninguna API de pago. Se puede añadir después.
-- [ ] Decidir si se instala **Sentry**. Es módulo nativo y obliga a reconstruir
-      el dev client; el gancho ya está puesto.
-- [ ] Las cuentas existentes conservan su contraseña anterior: las reglas nuevas
-      aplican a registros nuevos y a cambios de contraseña.
+- [ ] **Google Maps** (orden E.1): sin la clave el mapa de la ficha sale gris en
+      Android. Alternativa evaluada: una imagen estática de Mapbox, cuyo token
+      ya existe, evita crear cuenta con tarjeta y evita un módulo nativo — a
+      cambio de que el mapa no sea interactivo. Es decisión de producto.
+- [ ] **Verificar en dispositivo** lo que ningún agente puede: que caben cuatro
+      filas por pantalla (D.4), que el escalado de fuente al 200 % no rompe las
+      casillas (D.6), y que el contraste corregido se ve como se pretendía.
+- [ ] Decidir sobre `ANTHROPIC_API_KEY` y sobre **Sentry**. Ambas se pueden
+      añadir después sin coste: el gancho de Sentry ya está puesto.
 
 **Abiertos, del plan de endurecimiento**
 
-- [ ] **C.3** (TanStack Query) y **C.4** (el chat: 1200 mensajes para resolver
-      30 hilos, cursor compuesto, envío optimista). Son órdenes de una sesión
-      completa cada una.
 - [ ] **B.3, B.5, B.6, C.5, C.6, C.7** — filtro de tipo en el servidor, ritmo
       real en la geocodificación, dejar de mandar 384 flotantes al teléfono, la
       calificación fuera de la URL, códigos de error en vez de subcadenas, y
       refirmar las URLs antes de que caduquen.
-- [ ] **Bloque D completo (D.1 a D.12)** — diseño. El más caro y el más visible:
-      el «lavado del sello» tiene contraste **1.00** contra el papel, la
-      calificación afirma más precisión de la que el motor calcula, y
-      `MaxContentWidth` es un token muerto.
-- [ ] **E.3** (umbrales de cobertura), **E.4** (pinear el resto de CI), **E.5**
-      (API deprecada), **E.6** (higiene de operación del túnel).
+- [ ] **D.5, D.6, D.8 a D.12** — un carrusel o ninguno, escalado de fuente real,
+      esqueletos con forma de ficha, movimiento y tacto, responsive donde
+      importa, capa semántica de color, y reescribir `DESIGN.md` desde lo
+      construido.
+- [ ] **E.1, E.3, E.4, E.5, E.6** — plataforma: `app.json`, umbrales de
+      cobertura, pinear el resto de CI, la API deprecada de imágenes, e higiene
+      de operación del túnel.
 - [ ] Retirar la vista de compatibilidad `roomings` (migración 0011) cuando ya
       no quede ningún APK viejo instalado. Sigue viva con 30 filas.
-- [ ] `README.md` tiene la sección de capturas de pantalla vacía, con la
-      interfaz ya rediseñada.
+- [ ] `README.md` tiene la sección de capturas de pantalla vacía.
 
 **Abiertos, de calidad**
 
-- [ ] La cobertura sigue concentrada donde es fácil. `src/services` dejó el 0 %
-      pero está lejos del 70 % que pide la compuerta de la Fase 2.
-- [ ] Ninguna prueba dice si algo se **ve** bien: ni un botón fuera de pantalla,
-      ni un texto cortado, ni un contraste insuficiente. Eso solo se juzga en un
-      dispositivo, y conviene no confundir 144 pruebas en verde con eso.
+- [ ] La cobertura sigue lejos del 70 % que pide la compuerta de la Fase 2 para
+      `src/services` y `src/store`, aunque ambos dejaron el 0 %.
+- [ ] **Ninguna prueba dice si algo se VE bien.** 199 en verde no es eso, y
+      conviene no confundirlo nunca.
 - [ ] El reparto de las pruebas de envío de `FormularioPublicacion` en su propio
-      archivo contiene un síntoma cuya causa no se encontró.
+      archivo contiene un síntoma cuya causa ya se explicó —`unmount()` envenena
+      los renders posteriores del archivo— pero no se ha comprobado si quitar
+      su `afterEach(cleanup)` permite volver a juntarlas.
 
 **Riesgo operativo permanente**
 
-- [ ] El túnel de cloudflared es efímero: `*.trycloudflare.com` cambia de
-      dominio en cada arranque y `AI_SERVICE_URL` hay que volver a fijarlo. Peor
-      aún, el proceso **no se muere** cuando su dominio caduca: se queda
-      reintentando, así que nada avisa. Mitigado —no resuelto— por
-      `scripts/tunel.sh` y por `scripts/verificar.mjs`, que pregunta por el
-      dominio público y no por `localhost`. Correr el verificador **antes de
-      cada exposición**. El §5 E.6 recoge tres defectos más observados en vivo.
+- [ ] El túnel de cloudflared es efímero, y el proceso **no se muere** cuando su
+      dominio caduca: se queda reintentando, así que nada avisa. Mitigado —no
+      resuelto— por `scripts/tunel.sh` y `scripts/verificar.mjs`. Correr el
+      verificador **antes de cada exposición**.
