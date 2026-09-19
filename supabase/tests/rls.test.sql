@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(21);
+select plan(25);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -240,6 +240,75 @@ select is(
 select actuar_como('00000000-0000-0000-0000-0000000000a1');
 select is( (select count(*)::int from fotos_huerfanas), 0,
            'fotos_huerfanas no es legible desde el cliente' );
+
+-- ════════════════ 22 a 25 · Storage: la lectura del bucket ════════════════
+--
+-- La migración 0016 se titula "storage privado" y su encabezado dice que v3 era
+-- vulnerable porque «cualquiera en internet que adivinara el patrón
+-- perfiles/<uuid>.jpg leía las fotos sin sesión». Lo que dejó escrito fue:
+--
+--   create policy "leer fotos con sesion" on storage.objects
+--     for select to authenticated using (bucket_id = 'fotos');
+--
+-- Sin restricción de ruta. Eso cambia «cualquiera en internet» por «cualquiera
+-- con una cuenta», y como el registro es abierto y sin verificación de correo,
+-- esas dos poblaciones se separan por treinta segundos. Las URLs firmadas no
+-- protegen nada: quien tiene sesión pide la firma él mismo.
+--
+-- Estas cuatro aserciones fijan lo que debe valer: se lee la foto de quien está
+-- visible, y solo esa.
+select actuar_como_servicio();
+
+-- Un tercer usuario, desactivado: no aparece en perfiles_publicos.
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data)
+values ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000c3',
+        'authenticated', 'authenticated', 'c@test.mx', '', now(), now(),
+        '{"nombre_usuario":"usuario_c","nombre_completo":"Caro Prueba"}');
+update usuarios set activo = false where id = '00000000-0000-0000-0000-0000000000c3';
+
+-- Una publicación de B, oculta por reportes: tampoco aparece en la vista.
+update publicaciones set oculta_por_reportes = true
+ where id = '00000000-0000-0000-0000-00000000dea1';
+
+-- Y una propia de A, para comprobar que el dueño nunca pierde acceso.
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta, whatsapp)
+values ('00000000-0000-0000-0000-00000000aa01',
+        '00000000-0000-0000-0000-0000000000a1', 'Mia', 'depa', 'Calle Mia 1', 2600, '5512345678');
+
+insert into storage.objects (bucket_id, name) values
+  ('fotos', 'perfiles/00000000-0000-0000-0000-0000000000b2.jpg'),
+  ('fotos', 'perfiles/00000000-0000-0000-0000-0000000000c3.jpg'),
+  ('fotos', 'publicaciones/00000000-0000-0000-0000-0000000000b2/00000000-0000-0000-0000-00000000dea1/0.jpg'),
+  ('fotos', 'publicaciones/00000000-0000-0000-0000-0000000000a1/00000000-0000-0000-0000-00000000aa01/0.jpg');
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+select is(
+  (select count(*)::int from storage.objects
+    where name = 'perfiles/00000000-0000-0000-0000-0000000000c3.jpg'),
+  0,
+  'storage: no se lee la foto de perfil de un usuario desactivado' );
+
+select is(
+  (select count(*)::int from storage.objects
+    where name = 'publicaciones/00000000-0000-0000-0000-0000000000b2/00000000-0000-0000-0000-00000000dea1/0.jpg'),
+  0,
+  'storage: no se lee la foto de una publicacion oculta por reportes' );
+
+-- Las dos de abajo son el contrapeso: una policy que cierra de mas rompe la app
+-- en silencio, que es el mismo tipo de fallo que AUD-01.
+select is(
+  (select count(*)::int from storage.objects
+    where name = 'perfiles/00000000-0000-0000-0000-0000000000b2.jpg'),
+  1,
+  'storage: la foto de perfil de un usuario activo SI se lee' );
+
+select is(
+  (select count(*)::int from storage.objects
+    where name = 'publicaciones/00000000-0000-0000-0000-0000000000a1/00000000-0000-0000-0000-00000000aa01/0.jpg'),
+  1,
+  'storage: el dueno lee la foto de su propia publicacion aunque no sea visible' );
 
 select * from finish();
 rollback;
