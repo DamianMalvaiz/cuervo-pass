@@ -8,8 +8,8 @@ import { z } from 'zod';
 
 import { Campo } from '@/components/Campo';
 import { Casilla } from '@/components/Casilla';
-import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Sello } from '@/components/ficha/Sello';
+import { Seccion } from '@/components/ficha/Seccion';
 import { RequisitosPassword } from '@/components/RequisitosPassword';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -327,18 +327,6 @@ export default function RegistroScreen() {
   );
 }
 
-/** Un bloque del formulario: versalita, filete y campos. */
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <View style={estilos.seccion}>
-      <ThemedText type="etiqueta" themeColor="textSecondary">
-        {titulo}
-      </ThemedText>
-      <FileteHoja />
-      <View style={estilos.camposSeccion}>{children}</View>
-    </View>
-  );
-}
 
 const estilos = StyleSheet.create({
   pantalla: { flex: 1 },
@@ -347,8 +335,6 @@ const estilos = StyleSheet.create({
   columna: { width: '100%', gap: Spacing.four },
   membrete: { gap: Spacing.one },
   filete: { height: Filete.grueso, marginTop: Spacing.two },
-  seccion: { gap: Spacing.two },
-  camposSeccion: { gap: Spacing.three, paddingTop: Spacing.one },
   enlaceAviso: {
     flexDirection: 'row',
     alignItems: 'center',

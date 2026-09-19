@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
@@ -11,14 +12,18 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 
+import { Campo } from '@/components/Campo';
+import { CampoFicha } from '@/components/ficha/CampoFicha';
+import { Seccion } from '@/components/ficha/Seccion';
+import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Spacing, Tipografia } from '@/constants/theme';
+import { AppColors, Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { subirFotoPerfil } from '@/lib/storage';
 import { eliminarMiCuenta, exportarMisDatos } from '@/services/usuarios.service';
@@ -28,6 +33,7 @@ import { usePerfilStore } from '@/store/usePerfilStore';
 // Documento maestro v5 · §25 y §29 (derechos ARCO).
 export default function PerfilScreen() {
   const theme = useTheme();
+  const { anchoContenido, clase } = useTamanoPantalla();
   const session = useAuthStore((s) => s.session);
   const cerrarSesion = useAuthStore((s) => s.cerrarSesion);
   const { perfil, cargando, cargarPerfil, actualizarPerfil } = usePerfilStore();
@@ -146,163 +152,365 @@ export default function PerfilScreen() {
 
   if (cargando) {
     return (
-      <ThemedView style={styles.centrado}>
-        <ActivityIndicator />
+      <ThemedView style={estilos.centrado}>
+        <ActivityIndicator color={theme.acento} />
+        <ThemedText type="etiqueta" themeColor="textSecondary">
+          CONSULTANDO EXPEDIENTE
+        </ThemedText>
       </ThemedView>
     );
   }
 
+  const folio = (perfil?.id ?? '').replace(/-/g, '').slice(0, 4).toUpperCase();
+  const biografiaCambiada = biografia !== (perfil?.biografia ?? '');
+  const presupuesto =
+    perfil?.presupuesto_min != null && perfil?.presupuesto_max != null
+      ? `$${perfil.presupuesto_min.toLocaleString('es-MX')} – $${perfil.presupuesto_max.toLocaleString('es-MX')}`
+      : 'sin definir';
+
   return (
-    <ThemedView style={{ flex: 1 }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <ThemedText type="title">Mi perfil</ThemedText>
+    <ThemedView style={estilos.pantalla}>
+      <KeyboardAvoidingView style={estilos.pantalla} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
+            {/* ── Identidad ────────────────────────────────────────────── */}
+            <View style={estilos.identidad}>
+              <Pressable
+                onPress={onCambiarFoto}
+                disabled={subiendoFoto}
+                accessibilityRole="button"
+                accessibilityLabel={urlFoto ? 'Cambiar tu foto de perfil' : 'Agregar una foto de perfil'}
+                accessibilityState={{ busy: subiendoFoto }}
+                style={({ pressed }) => [estilos.envolturaFoto, pressed && estilos.presionado]}
+              >
+                {urlFoto ? (
+                  <Image source={{ uri: urlFoto }} style={[estilos.foto, { borderColor: theme.filete }]} />
+                ) : (
+                  <View
+                    style={[
+                      estilos.foto,
+                      estilos.sinFoto,
+                      { backgroundColor: theme.backgroundElement, borderColor: theme.border },
+                    ]}
+                  >
+                    <Ionicons name="person-outline" size={34} color={theme.textSecondary} />
+                  </View>
+                )}
+                {/* La afordancia va SOBRE la foto, no como texto debajo: ahí es
+                    donde la mano espera encontrarla. */}
+                <View style={[estilos.insigniaCamara, { backgroundColor: AppColors.sello, borderColor: theme.background }]}>
+                  {subiendoFoto ? (
+                    <ActivityIndicator size="small" color={AppColors.selloTexto} />
+                  ) : (
+                    <Ionicons name="camera" size={16} color={AppColors.selloTexto} />
+                  )}
+                </View>
+              </Pressable>
 
-          <Pressable
-            onPress={onCambiarFoto}
-            style={styles.fotoContenedor}
-            disabled={subiendoFoto}
-            accessibilityRole="button"
-            accessibilityLabel="Cambiar foto de perfil"
-            accessibilityState={{ busy: subiendoFoto }}
-          >
-            {urlFoto ? (
-              <Image source={{ uri: urlFoto }} style={styles.foto} />
-            ) : (
-              <View style={[styles.foto, { backgroundColor: theme.backgroundSelected }]} />
-            )}
-            <View style={styles.fotoOverlay}>
-              {subiendoFoto ? (
-                <ActivityIndicator color={theme.text} />
-              ) : (
-                <ThemedText themeColor="acento" style={styles.fotoOverlayTexto}>Cambiar foto</ThemedText>
-              )}
+              <View style={estilos.datosIdentidad}>
+                <ThemedText type="folio" themeColor="textSecondary">
+                  EXPEDIENTE {folio}
+                </ThemedText>
+                <ThemedText type="subtitle" numberOfLines={2}>
+                  {perfil?.nombre_completo ?? 'Sin nombre'}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  @{perfil?.nombre_usuario ?? '—'}
+                </ThemedText>
+                {perfil?.universidad ? (
+                  <View style={estilos.universidad}>
+                    <Ionicons name="school-outline" size={14} color={theme.textSecondary} />
+                    <ThemedText type="small" themeColor="textSecondary" numberOfLines={2} style={estilos.flexible}>
+                      {perfil.universidad}
+                    </ThemedText>
+                  </View>
+                ) : null}
+              </View>
             </View>
-          </Pressable>
 
-          <ThemedText type="small" style={styles.etiqueta}>
-            Biografía
-          </ThemedText>
-          <TextInput
-            style={[styles.biografiaInput, { borderColor: theme.border, color: theme.text }]}
-            placeholder="Cuéntale a otros quién eres (genera confianza para quien no puede visitarte antes)"
-            placeholderTextColor={theme.textSecondary}
-            multiline
-            accessibilityLabel="Biografía"
-            value={biografia}
-            onChangeText={setBiografia}
-          />
+            <View style={[estilos.filetePrincipal, { backgroundColor: theme.text }]} />
 
-          {error && (
-            <ThemedText style={styles.error} accessibilityLiveRegion="assertive">
-              {error}
-            </ThemedText>
-          )}
+            {error && (
+              <View style={[estilos.errorBloque, { borderColor: theme.error }]}>
+                <Ionicons name="alert-circle-outline" size={18} color={theme.error} />
+                <ThemedText
+                  type="small"
+                  style={[{ color: theme.error }, estilos.flexible]}
+                  accessibilityLiveRegion="assertive"
+                >
+                  {error}
+                </ThemedText>
+              </View>
+            )}
 
-          <Pressable
-            style={styles.boton}
-            onPress={onGuardarBiografia}
-            disabled={guardando}
-            accessibilityRole="button"
-            accessibilityLabel="Guardar biografía"
-            accessibilityState={{ disabled: guardando, busy: guardando }}
-          >
-            {guardando ? <ActivityIndicator color={AppColors.selloTexto} /> : <ThemedText style={styles.botonTexto}>Guardar</ThemedText>}
-          </Pressable>
-
-          {/* §25: el cuestionario es editable desde aquí. Antes solo se podía
-              contestar una vez, al registrarse, así que cambiar de presupuesto
-              o de universidad exigía crear otra cuenta. */}
-          <Pressable
-            style={[styles.boton, styles.botonSecundario, { borderColor: theme.border }]}
-            onPress={() => router.push('/perfil/preferencias')}
-            accessibilityRole="button"
-            accessibilityLabel="Editar mis preferencias de búsqueda"
-          >
-            <ThemedText style={[styles.botonTexto, { color: theme.text }]}>Editar mis preferencias</ThemedText>
-          </Pressable>
-
-          <View style={[styles.bloqueDatos, { borderColor: theme.border }]}>
-            <ThemedText type="smallBold">Tus datos</ThemedText>
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              Puedes llevarte una copia de todo lo que guardamos, o borrarlo por completo.
-            </ThemedText>
-
-            <Pressable
-              style={[styles.boton, styles.botonSecundario, { borderColor: theme.border }]}
-              onPress={onDescargarMisDatos}
-              disabled={exportando}
-              accessibilityRole="button"
-              accessibilityLabel="Descargar mis datos"
-              accessibilityState={{ disabled: exportando, busy: exportando }}
+            {/* ── Ficha de búsqueda ────────────────────────────────────── */}
+            {/* §25: el cuestionario es editable. Antes solo se contestaba una
+                vez al registrarse, así que cambiar de presupuesto exigía crear
+                otra cuenta. Y hasta ahora ni siquiera se podían VER las
+                respuestas sin entrar a editarlas. */}
+            <Seccion
+              titulo="TU FICHA DE BÚSQUEDA"
+              accion={
+                <Pressable
+                  onPress={() => router.push('/perfil/preferencias')}
+                  style={estilos.accionSeccion}
+                  accessibilityRole="button"
+                  accessibilityLabel="Editar mis preferencias de búsqueda"
+                  hitSlop={8}
+                >
+                  <ThemedText type="small" themeColor="acento">
+                    Editar
+                  </ThemedText>
+                  <Ionicons name="chevron-forward" size={14} color={theme.acento} />
+                </Pressable>
+              }
             >
-              {exportando ? (
-                <ActivityIndicator />
-              ) : (
-                <ThemedText style={[styles.botonTexto, { color: theme.text }]}>Descargar mis datos</ThemedText>
+              <View style={estilos.rejilla}>
+                <CampoFicha etiqueta="PRESUPUESTO MENSUAL" valor={presupuesto} ancho={1} />
+                <CampoFicha
+                  etiqueta="DISTANCIA MÁXIMA"
+                  valor={perfil?.distancia_max_km != null ? `${perfil.distancia_max_km} km` : 'sin definir'}
+                  ancho={1}
+                  tono={perfil?.distancia_max_km != null ? 'normal' : 'atenuado'}
+                />
+              </View>
+              <View style={estilos.rejilla}>
+                <CampoFicha
+                  etiqueta="MASCOTAS"
+                  valor={perfil?.mascotas ? 'Tengo' : 'No tengo'}
+                  ancho={1}
+                  icono="paw-outline"
+                  tono={perfil?.mascotas ? 'normal' : 'atenuado'}
+                />
+                <CampoFicha
+                  etiqueta="TABACO"
+                  valor={perfil?.fuma ? 'Fumo' : 'No fumo'}
+                  ancho={1}
+                  tono={perfil?.fuma ? 'normal' : 'atenuado'}
+                />
+              </View>
+              <View style={estilos.rejilla}>
+                <CampoFicha
+                  etiqueta="NIVEL DE RUIDO"
+                  valor={perfil?.nivel_ruido ?? 'sin definir'}
+                  ancho={1}
+                  tono={perfil?.nivel_ruido ? 'normal' : 'atenuado'}
+                />
+                <CampoFicha
+                  etiqueta="BUSCA ROOMIE"
+                  valor={perfil?.busca_roomie ? 'Sí' : 'No'}
+                  ancho={1}
+                  tono={perfil?.busca_roomie ? 'normal' : 'atenuado'}
+                />
+              </View>
+            </Seccion>
+
+            {/* ── Consentimiento de IA ─────────────────────────────────── */}
+            {/* §29 · §18. Se muestra aparte y con su propio recuadro porque es
+                el único ajuste cuyo estado cambia lo que la app HACE: con él,
+                las sugerencias corren en Nivel 2; sin él, en Nivel 1. Enterrarlo
+                dentro de la lista de preferencias lo volvía invisible. */}
+            <View
+              style={[
+                estilos.bloqueIa,
+                {
+                  borderColor: perfil?.consiente_analisis_ia ? theme.tintedBorder : theme.border,
+                  backgroundColor: perfil?.consiente_analisis_ia ? theme.tintedSurface : theme.backgroundElement,
+                },
+              ]}
+            >
+              <View style={estilos.filaIa}>
+                <Ionicons
+                  name={perfil?.consiente_analisis_ia ? 'sparkles' : 'sparkles-outline'}
+                  size={18}
+                  color={perfil?.consiente_analisis_ia ? theme.acento : theme.textSecondary}
+                />
+                <ThemedText type="etiqueta" themeColor={perfil?.consiente_analisis_ia ? 'acento' : 'textSecondary'}>
+                  ANÁLISIS CON IA · {perfil?.consiente_analisis_ia ? 'ACTIVADO' : 'DESACTIVADO'}
+                </ThemedText>
+              </View>
+              <ThemedText type="small" themeColor="textSecondary" style={estilos.textoIa}>
+                {perfil?.consiente_analisis_ia
+                  ? 'Tus sugerencias se ordenan también por afinidad semántica (Nivel 2). Puedes retirarlo cuando quieras desde Editar.'
+                  : 'Tus sugerencias se calculan solo con el cuestionario (Nivel 1). Actívalo desde Editar si quieres que también se ordenen por afinidad.'}
+              </ThemedText>
+            </View>
+
+            {/* ── Biografía ────────────────────────────────────────────── */}
+            <Seccion titulo="BIOGRAFÍA">
+              <Campo
+                etiqueta="SOBRE TI"
+                placeholder="Cuéntale a otros quién eres. Genera confianza para quien no puede ir a verte antes de decidir."
+                multiline
+                maxLength={280}
+                style={estilos.biografia}
+                value={biografia}
+                onChangeText={setBiografia}
+              />
+              <View style={estilos.pieBiografia}>
+                <ThemedText type="folio" themeColor="textSecondary">
+                  {biografia.length}/280
+                </ThemedText>
+                {/* El botón aparece SOLO si hay algo sin guardar. Un "Guardar"
+                    permanentemente encendido no distingue entre "ya está" y
+                    "te falta", que es justo lo que uno necesita saber. */}
+                {biografiaCambiada && (
+                  <ThemedText type="small" themeColor="acento">
+                    Sin guardar
+                  </ThemedText>
+                )}
+              </View>
+              {biografiaCambiada && (
+                <Sello onPress={onGuardarBiografia} cargando={guardando} accessibilityLabel="Guardar biografía">
+                  Guardar biografía
+                </Sello>
               )}
-            </Pressable>
+            </Seccion>
 
+            {/* ── Derechos ARCO ────────────────────────────────────────── */}
+            <Seccion titulo="TUS DATOS">
+              <ThemedText type="small" themeColor="textSecondary" style={estilos.textoSeccion}>
+                Puedes llevarte una copia de todo lo que guardamos sobre ti, en un archivo JSON.
+              </ThemedText>
+              <Sello
+                variante="contorno"
+                onPress={onDescargarMisDatos}
+                cargando={exportando}
+                icono="download-outline"
+                accessibilityLabel="Descargar mis datos"
+              >
+                Descargar mis datos
+              </Sello>
+            </Seccion>
+
+            {/* ── Eliminar la cuenta ───────────────────────────────────── */}
+            {/* El peso visual estaba INVERTIDO: "Cerrar sesión" era un botón
+                rojo relleno —lo más ruidoso de la pantalla— y "Eliminar mi
+                cuenta" un contorno discreto. Lo irreversible ahora se ve
+                irreversible, y lo rutinario se ve rutinario. */}
+            <View style={[estilos.zonaRiesgo, { borderColor: theme.error }]}>
+              <View style={estilos.filaIa}>
+                <Ionicons name="warning-outline" size={18} color={theme.error} />
+                <ThemedText type="etiqueta" style={{ color: theme.error }}>
+                  ELIMINAR LA CUENTA
+                </ThemedText>
+              </View>
+              <ThemedText type="small" themeColor="textSecondary" style={estilos.textoSeccion}>
+                Se borran tu perfil, tus publicaciones, tus fotografías y tus mensajes. Es
+                irreversible y no conservamos copia.
+              </ThemedText>
+              <Pressable
+                onPress={onEliminarCuenta}
+                style={({ pressed }) => [
+                  estilos.botonPeligro,
+                  { backgroundColor: theme.error },
+                  pressed && estilos.presionado,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Eliminar mi cuenta"
+              >
+                <ThemedText style={[estilos.textoPeligro, { color: theme.errorTexto }]}>
+                  Eliminar mi cuenta
+                </ThemedText>
+              </Pressable>
+            </View>
+
+            {/* Rutinaria y reversible: acción de texto, no un botón que grita. */}
             <Pressable
-              style={[styles.boton, styles.botonPeligro]}
-              onPress={onEliminarCuenta}
+              onPress={onCerrarSesion}
+              style={estilos.cerrarSesion}
               accessibilityRole="button"
-              accessibilityLabel="Eliminar mi cuenta"
+              accessibilityLabel="Cerrar sesión"
             >
-              <ThemedText style={[styles.botonTexto, { color: AppColors.destructiveRed }]}>
-                Eliminar mi cuenta
+              <Ionicons name="log-out-outline" size={16} color={theme.textSecondary} />
+              <ThemedText type="small" themeColor="textSecondary">
+                Cerrar sesión
               </ThemedText>
             </Pressable>
           </View>
-
-          <Pressable
-            style={[styles.boton, styles.botonCerrarSesion]}
-            onPress={onCerrarSesion}
-            accessibilityRole="button"
-            accessibilityLabel="Cerrar sesión"
-          >
-            <ThemedText style={styles.botonTexto}>Cerrar sesión</ThemedText>
-          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>
   );
 }
 
-const styles = StyleSheet.create({
-  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  container: { padding: Spacing.three, paddingBottom: Spacing.six },
-  fotoContenedor: { alignSelf: 'center', marginVertical: Spacing.three },
-  foto: { width: 120, height: 120, borderRadius: 60 },
-  fotoOverlay: { alignItems: 'center', marginTop: Spacing.one },
-  fotoOverlayTexto: { fontFamily: Tipografia.semibold },
-  etiqueta: { marginBottom: Spacing.one },
-  biografiaInput: {
-    borderWidth: 1,
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  error: { color: AppColors.destructiveRed, marginTop: Spacing.two },
-  boton: {
-    backgroundColor: AppColors.sello,
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
+const estilos = StyleSheet.create({
+  pantalla: { flex: 1 },
+  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
+  desplazable: { padding: Spacing.three, paddingBottom: Spacing.six },
+  centradoAmplio: { alignItems: 'center' },
+  columna: { width: '100%', gap: Spacing.four },
+  flexible: { flex: 1 },
+  presionado: { opacity: 0.7 },
+
+  identidad: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingTop: Spacing.two },
+  envolturaFoto: { width: 88, height: 88 },
+  foto: { width: 88, height: 88, borderRadius: 44, borderWidth: Filete.fino },
+  sinFoto: { alignItems: 'center', justifyContent: 'center' },
+  insigniaCamara: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 2,
     alignItems: 'center',
-    marginTop: Spacing.three,
-    minHeight: 44,
     justifyContent: 'center',
   },
-  botonSecundario: { backgroundColor: 'transparent', borderWidth: 1 },
-  botonPeligro: { backgroundColor: 'transparent', borderWidth: 1, borderColor: AppColors.destructiveRed },
-  botonCerrarSesion: { backgroundColor: AppColors.destructiveRed },
-  botonTexto: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
-  bloqueDatos: {
-    borderWidth: 1,
-    borderRadius: Spacing.two,
+  datosIdentidad: { flex: 1, gap: Spacing.half },
+  universidad: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, marginTop: Spacing.half },
+  filetePrincipal: { height: Filete.grueso },
+
+  errorBloque: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.control,
     padding: Spacing.three,
-    marginTop: Spacing.four,
+  },
+
+  accionSeccion: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half, minHeight: 32 },
+  rejilla: { flexDirection: 'row', gap: Spacing.three },
+  textoSeccion: { lineHeight: 20 },
+
+  bloqueIa: {
+    borderWidth: Filete.fino,
+    borderRadius: Radios.hoja,
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  filaIa: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  textoIa: { lineHeight: 20 },
+
+  biografia: { minHeight: 110, textAlignVertical: 'top', paddingTop: Spacing.three },
+  pieBiografia: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+
+  zonaRiesgo: {
+    borderWidth: Filete.fino,
+    borderRadius: Radios.hoja,
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  botonPeligro: {
+    minHeight: 48,
+    borderRadius: Radios.control,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.one,
+  },
+  textoPeligro: { fontFamily: Tipografia.bold, fontSize: 15, letterSpacing: 0.4 },
+
+  cerrarSesion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: Spacing.one,
+    minHeight: 48,
   },
 });

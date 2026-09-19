@@ -1,13 +1,17 @@
+import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { ActivityIndicator, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { z } from 'zod';
 
-import { AppColors, Spacing, Tipografia } from '@/constants/theme';
+import { AppColors, Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { OPCION_OTRA_UNIVERSIDAD, UNIVERSIDADES } from '@/lib/universidades';
+import { Campo } from './Campo';
 import { Casilla } from './Casilla';
+import { Seccion } from './ficha/Seccion';
+import { Sello } from './ficha/Sello';
 import { ThemedText } from './themed-text';
 
 // Documento maestro v5 · §25 (pantallas) y §29 (consentimiento para la IA).
@@ -133,268 +137,398 @@ export function FormularioCuestionario({ valoresIniciales, textoBoton = 'Guardar
     }
   };
 
-  const estiloInput = [styles.input, { borderColor: theme.border, color: theme.text }];
+  /** Atajos de distancia. Teclear "5" en un campo numérico es peor que tocarlo,
+   *  y el campo sigue ahí para quien quiera otro valor. */
+  const ATAJOS_KM = ['1', '3', '5', '10'];
 
   return (
-    <View style={styles.container}>
-      <ThemedText type="small" style={styles.etiqueta}>
-        Tu universidad
-      </ThemedText>
-      <Controller
-        control={control}
-        name="universidadId"
-        render={({ field: { onChange, value } }) => (
-          <View style={styles.listaUniversidades}>
-            {UNIVERSIDADES.map((u) => {
-              const seleccionado = value === u.id;
-              return (
-                <Pressable
+    <View style={estilos.contenedor}>
+      {/* ── Dónde estudias ───────────────────────────────────────────── */}
+      <Seccion titulo="TU UNIVERSIDAD">
+        <Controller
+          control={control}
+          name="universidadId"
+          render={({ field: { onChange, value } }) => (
+            <View style={estilos.opciones}>
+              {UNIVERSIDADES.map((u) => (
+                <OpcionRadio
                   key={u.id}
+                  etiqueta={u.nombre}
+                  seleccionado={value === u.id}
                   onPress={() => onChange(u.id)}
-                  style={[styles.opcionUniversidad, { borderColor: theme.border }, seleccionado && styles.opcionSeleccionada]}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: seleccionado }}
-                  accessibilityLabel={u.nombre}
-                >
-                  <ThemedText style={seleccionado ? styles.textoSeleccionado : undefined}>{u.nombre}</ThemedText>
-                </Pressable>
-              );
-            })}
-            <Pressable
-              onPress={() => onChange(OPCION_OTRA_UNIVERSIDAD)}
-              style={[styles.opcionUniversidad, { borderColor: theme.border }, esOtra && styles.opcionSeleccionada]}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: esOtra }}
-              accessibilityLabel="Otra universidad"
-            >
-              <ThemedText style={esOtra ? styles.textoSeleccionado : undefined}>Otra (escribir)</ThemedText>
-            </Pressable>
-          </View>
+                />
+              ))}
+              <OpcionRadio
+                etiqueta="Otra (escribir)"
+                seleccionado={esOtra}
+                onPress={() => onChange(OPCION_OTRA_UNIVERSIDAD)}
+              />
+            </View>
+          )}
+        />
+        {errors.universidadId && (
+          <ThemedText type="small" style={{ color: theme.error }}>
+            {errors.universidadId.message}
+          </ThemedText>
         )}
-      />
-      {errors.universidadId && <ThemedText style={styles.error}>{errors.universidadId.message}</ThemedText>}
 
-      {esOtra && (
-        <Controller
-          control={control}
-          name="universidadOtroNombre"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              style={estiloInput}
-              placeholder="Nombre completo de tu universidad"
-              placeholderTextColor={theme.textSecondary}
-              accessibilityLabel="Nombre de tu universidad"
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-            />
-          )}
-        />
-      )}
-      {errors.universidadOtroNombre && <ThemedText style={styles.error}>{errors.universidadOtroNombre.message}</ThemedText>}
-
-      <ThemedText type="small" style={styles.etiqueta}>
-        Presupuesto mensual (MXN)
-      </ThemedText>
-      <View style={styles.filaPresupuesto}>
-        <Controller
-          control={control}
-          name="presupuestoMin"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              style={[estiloInput, styles.inputMitad]}
-              placeholder="Mínimo"
-              placeholderTextColor={theme.textSecondary}
-              keyboardType="numeric"
-              accessibilityLabel="Presupuesto mínimo mensual"
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name="presupuestoMax"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              style={[estiloInput, styles.inputMitad]}
-              placeholder="Máximo"
-              placeholderTextColor={theme.textSecondary}
-              keyboardType="numeric"
-              accessibilityLabel="Presupuesto máximo mensual"
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-            />
-          )}
-        />
-      </View>
-      {errors.presupuestoMin && <ThemedText style={styles.error}>{errors.presupuestoMin.message}</ThemedText>}
-      {errors.presupuestoMax && <ThemedText style={styles.error}>{errors.presupuestoMax.message}</ThemedText>}
-
-      <ThemedText type="small" style={styles.etiqueta}>
-        ¿Qué tan lejos de tu universidad aceptas vivir?
-      </ThemedText>
-      <Controller
-        control={control}
-        name="distanciaMaxKm"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            style={estiloInput}
-            placeholder="Kilómetros (ej. 5)"
-            placeholderTextColor={theme.textSecondary}
-            keyboardType="numeric"
-            accessibilityLabel="Distancia máxima en kilómetros"
-            onBlur={onBlur}
-            onChangeText={onChange}
-            value={value}
+        {esOtra && (
+          <Controller
+            control={control}
+            name="universidadOtroNombre"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Campo
+                etiqueta="NOMBRE DE TU UNIVERSIDAD"
+                placeholder="Universidad Tecnológica del Valle de Toluca"
+                error={errors.universidadOtroNombre?.message}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={value}
+              />
+            )}
           />
         )}
-      />
-      <ThemedText type="small" style={{ color: theme.textSecondary }}>
-        No te mostramos publicaciones más lejos que esto.
-      </ThemedText>
-      {errors.distanciaMaxKm && <ThemedText style={styles.error}>{errors.distanciaMaxKm.message}</ThemedText>}
+      </Seccion>
 
-      <ThemedText type="small" style={styles.etiqueta}>
-        ¿Cómo te gusta tu casa?
-      </ThemedText>
-      <Controller
-        control={control}
-        name="nivelRuido"
-        render={({ field: { onChange, value } }) => (
-          <View style={styles.listaUniversidades}>
-            {NIVELES_RUIDO.map((n) => {
-              const seleccionado = value === n.valor;
-              return (
-                <Pressable
-                  key={n.valor}
-                  onPress={() => onChange(n.valor)}
-                  style={[styles.opcionUniversidad, { borderColor: theme.border }, seleccionado && styles.opcionSeleccionada]}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: seleccionado }}
-                  accessibilityLabel={`${n.etiqueta}. ${n.ayuda}`}
-                >
-                  <ThemedText style={seleccionado ? styles.textoSeleccionado : undefined}>{n.etiqueta}</ThemedText>
-                  <ThemedText
-                    type="small"
-                    style={seleccionado ? styles.textoSeleccionado : { color: theme.textSecondary }}
-                  >
-                    {n.ayuda}
-                  </ThemedText>
-                </Pressable>
-              );
-            })}
+      {/* ── Los filtros DUROS ────────────────────────────────────────── */}
+      {/* Estos dos no son preferencias suaves: son el corte real que aplica el
+          filtro de la migración 0015. Lo que quede fuera NO se muestra, y
+          decirlo evita la pregunta "¿por qué no aparece tal departamento?". */}
+      <Seccion titulo="PRESUPUESTO Y DISTANCIA">
+        <View style={estilos.fila}>
+          <View style={estilos.mitad}>
+            <Controller
+              control={control}
+              name="presupuestoMin"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <Campo
+                  etiqueta="MÍNIMO (MXN)"
+                  placeholder="2000"
+                  keyboardType="numeric"
+                  error={errors.presupuestoMin?.message}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  value={value}
+                />
+              )}
+            />
           </View>
-        )}
-      />
+          <View style={estilos.mitad}>
+            <Controller
+              control={control}
+              name="presupuestoMax"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <Campo
+                  etiqueta="MÁXIMO (MXN)"
+                  placeholder="5000"
+                  keyboardType="numeric"
+                  error={errors.presupuestoMax?.message}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  value={value}
+                />
+              )}
+            />
+          </View>
+        </View>
 
-      <View style={styles.filaSwitch}>
-        <ThemedText>¿Tienes mascotas?</ThemedText>
+        <Controller
+          control={control}
+          name="distanciaMaxKm"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <View style={estilos.bloqueDistancia}>
+              <Campo
+                etiqueta="DISTANCIA MÁXIMA (KM)"
+                placeholder="5"
+                keyboardType="numeric"
+                error={errors.distanciaMaxKm?.message}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                value={value}
+              />
+              <View style={estilos.atajos}>
+                {ATAJOS_KM.map((km) => {
+                  const activo = value === km;
+                  return (
+                    <Pressable
+                      key={km}
+                      onPress={() => onChange(km)}
+                      style={[
+                        estilos.atajo,
+                        {
+                          borderColor: activo ? theme.acento : theme.border,
+                          backgroundColor: activo ? theme.tintedSurface : 'transparent',
+                        },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${km} kilómetros`}
+                      accessibilityState={{ selected: activo }}
+                    >
+                      <ThemedText type="small" themeColor={activo ? 'acento' : 'textSecondary'}>
+                        {km} km
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <ThemedText type="small" themeColor="textSecondary" style={estilos.ayuda}>
+                Es un corte real: no te mostramos publicaciones más lejos que esto.
+              </ThemedText>
+            </View>
+          )}
+        />
+      </Seccion>
+
+      {/* ── Convivencia ──────────────────────────────────────────────── */}
+      <Seccion titulo="CONVIVENCIA">
+        <View style={estilos.grupo}>
+          <ThemedText type="etiqueta" themeColor="textSecondary">
+            ¿CÓMO TE GUSTA TU CASA?
+          </ThemedText>
+          <Controller
+            control={control}
+            name="nivelRuido"
+            render={({ field: { onChange, value } }) => (
+              <View style={estilos.opciones}>
+                {NIVELES_RUIDO.map((n) => (
+                  <OpcionRadio
+                    key={n.valor}
+                    etiqueta={n.etiqueta}
+                    ayuda={n.ayuda}
+                    seleccionado={value === n.valor}
+                    onPress={() => onChange(n.valor)}
+                  />
+                ))}
+              </View>
+            )}
+          />
+        </View>
+
         <Controller
           control={control}
           name="mascotas"
           render={({ field: { onChange, value } }) => (
-            <Switch value={value} onValueChange={onChange} accessibilityLabel="¿Tienes mascotas?" />
+            <FilaInterruptor etiqueta="¿Tienes mascotas?" valor={value} onCambiar={onChange} />
           )}
         />
-      </View>
-
-      <View style={styles.filaSwitch}>
-        <ThemedText>¿Fumas?</ThemedText>
         <Controller
           control={control}
           name="fuma"
           render={({ field: { onChange, value } }) => (
-            <Switch value={value} onValueChange={onChange} accessibilityLabel="¿Fumas?" />
+            <FilaInterruptor etiqueta="¿Fumas?" valor={value} onCambiar={onChange} />
           )}
         />
-      </View>
-
-      <View style={styles.filaSwitch}>
-        <ThemedText>¿Ya tienes depa y buscas roomie?</ThemedText>
         <Controller
           control={control}
           name="buscaRoomie"
           render={({ field: { onChange, value } }) => (
-            <Switch value={value} onValueChange={onChange} accessibilityLabel="¿Ya tienes depa y buscas roomie?" />
+            <FilaInterruptor
+              etiqueta="¿Ya tienes depa y buscas roomie?"
+              ayuda="Si lo activas, apareces en la pestaña de Roomies."
+              valor={value}
+              onCambiar={onChange}
+            />
+          )}
+        />
+      </Seccion>
+
+      {/* ── Texto libre ──────────────────────────────────────────────── */}
+      <Seccion titulo="SOBRE TI">
+        <Controller
+          control={control}
+          name="textoLibre"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <Campo
+              etiqueta="CUÉNTANOS DE TI (OPCIONAL)"
+              placeholder="Ej. soy tranquilo, tengo un gato, estudio en las mañanas…"
+              multiline
+              maxLength={2000}
+              style={estilos.textoLibre}
+              error={errors.textoLibre?.message}
+              onBlur={onBlur}
+              onChangeText={onChange}
+              value={value}
+            />
+          )}
+        />
+      </Seccion>
+
+      {/* ── Consentimiento de IA ─────────────────────────────────────── */}
+      {/* §29 · AUD-23. Va en su propio bloque y no perdido entre las demás
+          preguntas: es el único ajuste que cambia lo que la app HACE, y el
+          único que la ley exige que no venga premarcado. */}
+      <View style={[estilos.bloqueIa, { borderColor: theme.tintedBorder, backgroundColor: theme.tintedSurface }]}>
+        <View style={estilos.tituloIa}>
+          <Ionicons name="sparkles-outline" size={18} color={theme.acento} />
+          <ThemedText type="etiqueta" themeColor="acento">
+            ANÁLISIS CON INTELIGENCIA ARTIFICIAL
+          </ThemedText>
+        </View>
+        <Controller
+          control={control}
+          name="consienteIa"
+          render={({ field: { onChange, value } }) => (
+            <Casilla
+              valor={value}
+              onCambiar={onChange}
+              etiqueta="Quiero que la app analice mi descripción con inteligencia artificial para sugerirme mejores opciones."
+              ayuda="Si no la marcas, tus sugerencias se calculan solo con el cuestionario y tu texto no sale de esta app. Puedes cambiarlo cuando quieras; al retirarlo se borra el vector."
+            />
           )}
         />
       </View>
 
-      <ThemedText type="small" style={styles.etiqueta}>
-        Cuéntanos de ti (opcional)
-      </ThemedText>
-      <Controller
-        control={control}
-        name="textoLibre"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            style={[estiloInput, styles.textoLibreInput]}
-            placeholder="Ej. soy tranquilo, tengo un gato, estudio en las mañanas..."
-            placeholderTextColor={theme.textSecondary}
-            accessibilityLabel="Cuéntanos de ti, texto libre opcional"
-            multiline
-            maxLength={2000}
-            onBlur={onBlur}
-            onChangeText={onChange}
-            value={value}
-          />
-        )}
-      />
-      {errors.textoLibre && <ThemedText style={styles.error}>{errors.textoLibre.message}</ThemedText>}
+      {error && (
+        <View style={[estilos.errorBloque, { borderColor: theme.error }]}>
+          <Ionicons name="alert-circle-outline" size={18} color={theme.error} />
+          <ThemedText type="small" style={[{ color: theme.error }, estilos.flexible]} accessibilityLiveRegion="assertive">
+            {error}
+          </ThemedText>
+        </View>
+      )}
 
-      <Controller
-        control={control}
-        name="consienteIa"
-        render={({ field: { onChange, value } }) => (
-          <Casilla
-            valor={value}
-            onCambiar={onChange}
-            etiqueta="Quiero que la app analice mi descripción con inteligencia artificial para sugerirme mejores opciones."
-            ayuda="Si no la marcas, tus sugerencias se calculan solo con el cuestionario y tu texto no sale de esta app."
-          />
-        )}
-      />
-
-      {error && <ThemedText style={styles.error}>{error}</ThemedText>}
-
-      <Pressable
-        style={styles.boton}
-        onPress={handleSubmit(onSubmit)}
-        disabled={enviando}
-        accessibilityRole="button"
-        accessibilityLabel={textoBoton}
-        accessibilityState={{ disabled: enviando, busy: enviando }}
-      >
-        {enviando ? <ActivityIndicator color={AppColors.selloTexto} /> : <ThemedText style={styles.botonTexto}>{textoBoton}</ThemedText>}
-      </Pressable>
+      <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel={textoBoton}>
+        {textoBoton}
+      </Sello>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { gap: Spacing.two },
-  input: { borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.three },
-  inputMitad: { flex: 1 },
-  textoLibreInput: { minHeight: 80, textAlignVertical: 'top' },
-  filaPresupuesto: { flexDirection: 'row', gap: Spacing.two },
-  etiqueta: { marginTop: Spacing.two },
-  error: { color: AppColors.destructiveRed },
-  filaSwitch: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.one },
-  listaUniversidades: { gap: Spacing.two },
-  opcionUniversidad: { borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.three, gap: Spacing.half },
-  opcionSeleccionada: { backgroundColor: AppColors.sello, borderColor: AppColors.sello },
-  textoSeleccionado: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
-  boton: {
-    backgroundColor: AppColors.sello,
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
+/**
+ * Una opción de lista.
+ *
+ * La versión anterior rellenaba de ámbar la opción elegida. Eso gastaba la
+ * tinta del sello en algo que no compromete nada —elegir una universidad es
+ * reversible— y con cuatro opciones dejaba la pantalla llena de ámbar. Ahora la
+ * selección se marca como en un formulario: lavado suave, filete del acento, y
+ * una PALOMA. Tres señales, ninguna dependiente solo del color.
+ */
+function OpcionRadio({
+  etiqueta,
+  ayuda,
+  seleccionado,
+  onPress,
+}: {
+  etiqueta: string;
+  ayuda?: string;
+  seleccionado: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: seleccionado }}
+      accessibilityLabel={ayuda ? `${etiqueta}. ${ayuda}` : etiqueta}
+      style={({ pressed }) => [
+        estilos.opcion,
+        {
+          borderColor: seleccionado ? theme.acento : theme.border,
+          backgroundColor: seleccionado ? theme.tintedSurface : 'transparent',
+        },
+        pressed && estilos.presionado,
+      ]}
+    >
+      <View style={estilos.flexible}>
+        <ThemedText style={seleccionado ? estilos.textoElegido : undefined}>{etiqueta}</ThemedText>
+        {ayuda ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {ayuda}
+          </ThemedText>
+        ) : null}
+      </View>
+      {seleccionado && <Ionicons name="checkmark-circle" size={20} color={theme.acento} />}
+    </Pressable>
+  );
+}
+
+/** Pregunta de sí/no. El interruptor se tiñe con el acento, no con el verde de
+ *  sistema que no pertenece a esta paleta. */
+function FilaInterruptor({
+  etiqueta,
+  ayuda,
+  valor,
+  onCambiar,
+}: {
+  etiqueta: string;
+  ayuda?: string;
+  valor: boolean;
+  onCambiar: (v: boolean) => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={estilos.filaInterruptor}>
+      <View style={estilos.flexible}>
+        <ThemedText>{etiqueta}</ThemedText>
+        {ayuda ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            {ayuda}
+          </ThemedText>
+        ) : null}
+      </View>
+      <Switch
+        value={valor}
+        onValueChange={onCambiar}
+        accessibilityLabel={etiqueta}
+        trackColor={{ true: AppColors.sello, false: theme.border }}
+        thumbColor={valor ? AppColors.selloTexto : theme.background}
+        ios_backgroundColor={theme.border}
+      />
+    </View>
+  );
+}
+
+const estilos = StyleSheet.create({
+  contenedor: { gap: Spacing.four },
+  flexible: { flex: 1 },
+  presionado: { opacity: 0.7 },
+  fila: { flexDirection: 'row', gap: Spacing.three },
+  mitad: { flex: 1 },
+  grupo: { gap: Spacing.two },
+  opciones: { gap: Spacing.two },
+  opcion: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.three,
-    minHeight: 44,
+    gap: Spacing.two,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.control,
+    padding: Spacing.three,
+    minHeight: 52,
+  },
+  textoElegido: { fontFamily: Tipografia.semibold },
+  bloqueDistancia: { gap: Spacing.two },
+  atajos: { flexDirection: 'row', gap: Spacing.two, flexWrap: 'wrap' },
+  atajo: {
+    borderWidth: Filete.fino,
+    borderRadius: Radios.full,
+    paddingHorizontal: Spacing.three,
+    minHeight: 38,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  botonTexto: { color: AppColors.selloTexto, fontFamily: Tipografia.semibold },
+  ayuda: { lineHeight: 20 },
+  filaInterruptor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+    minHeight: 48,
+  },
+  textoLibre: { minHeight: 100, textAlignVertical: 'top', paddingTop: Spacing.three },
+  bloqueIa: {
+    borderWidth: Filete.fino,
+    borderRadius: Radios.hoja,
+    padding: Spacing.three,
+    gap: Spacing.three,
+  },
+  tituloIa: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  errorBloque: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.control,
+    padding: Spacing.three,
+  },
 });

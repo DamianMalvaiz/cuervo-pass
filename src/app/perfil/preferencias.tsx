@@ -1,10 +1,12 @@
 import { router } from 'expo-router';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { FormularioCuestionario, type RespuestasCuestionario } from '@/components/FormularioCuestionario';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Filete, Spacing } from '@/constants/theme';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
+import { useTheme } from '@/hooks/use-theme';
 import { generarEmbedding, parsearPerfil } from '@/lib/aiService';
 import { geocodificarDireccion } from '@/lib/geocoding';
 import { construirTextoPerfil } from '@/lib/perfilTexto';
@@ -19,6 +21,8 @@ import { usePerfilStore } from '@/store/usePerfilStore';
 // en dos lugares, tarde o temprano divergen y solo uno de los dos coincide con
 // los CHECK de la tabla.
 export default function PreferenciasScreen() {
+  const theme = useTheme();
+  const { anchoContenido, clase } = useTamanoPantalla();
   const session = useAuthStore((s) => s.session);
   const { perfil, actualizarPerfil } = usePerfilStore();
 
@@ -82,19 +86,37 @@ export default function PreferenciasScreen() {
   if (!perfil) {
     return (
       <ThemedView style={styles.centrado}>
-        <ActivityIndicator />
+        <ActivityIndicator color={theme.acento} />
+        <ThemedText type="etiqueta" themeColor="textSecondary">
+          CONSULTANDO TU FICHA
+        </ThemedText>
       </ThemedView>
     );
   }
 
   return (
-    <ThemedView style={{ flex: 1 }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <ThemedText type="small" style={styles.subtitulo}>
-            Esto define qué publicaciones ves y en qué orden.
-          </ThemedText>
-          <FormularioCuestionario
+    <ThemedView style={styles.pantalla}>
+      <KeyboardAvoidingView style={styles.pantalla} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={[styles.container, clase === 'amplia' && styles.centradoAmplio]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.columna, { maxWidth: anchoContenido }]}>
+            {/* Decir de entrada qué HACE este formulario: no son gustos, es el
+                corte que decide qué publicaciones existen para ti. */}
+            <View style={styles.membrete}>
+              <ThemedText type="etiqueta" themeColor="textSecondary">
+                FICHA DE BÚSQUEDA
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.explicacion}>
+                Esto define qué publicaciones ves y en qué orden. El presupuesto y la distancia son
+                filtros duros: lo que quede fuera no aparece.
+              </ThemedText>
+              <View style={[styles.filete, { backgroundColor: theme.text }]} />
+            </View>
+
+            <FormularioCuestionario
             textoBoton="Guardar preferencias"
             valoresIniciales={{
               universidad: perfil.universidad ?? undefined,
@@ -108,8 +130,9 @@ export default function PreferenciasScreen() {
               textoLibre: perfil.perfil_texto ?? undefined,
               consienteIa: perfil.consiente_analisis_ia,
             }}
-            onCompletar={onCompletar}
-          />
+              onCompletar={onCompletar}
+            />
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>
@@ -117,7 +140,12 @@ export default function PreferenciasScreen() {
 }
 
 const styles = StyleSheet.create({
-  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  container: { padding: Spacing.four, paddingBottom: Spacing.six },
-  subtitulo: { marginBottom: Spacing.three },
+  pantalla: { flex: 1 },
+  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
+  container: { padding: Spacing.three, paddingBottom: Spacing.six },
+  centradoAmplio: { alignItems: 'center' },
+  columna: { width: '100%', gap: Spacing.four },
+  membrete: { gap: Spacing.one, paddingTop: Spacing.two },
+  explicacion: { lineHeight: 20 },
+  filete: { height: Filete.grueso, marginTop: Spacing.two },
 });

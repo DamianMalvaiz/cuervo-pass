@@ -16,8 +16,9 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 
 import { BotonVerContacto } from '@/components/BotonVerContacto';
-import { CampoFicha, FileteHoja } from '@/components/ficha/CampoFicha';
+import { CampoFicha } from '@/components/ficha/CampoFicha';
 import { DesgloseCalificacion } from '@/components/ficha/DesgloseCalificacion';
+import { Seccion } from '@/components/ficha/Seccion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppColors, Filete, Radios, Spacing } from '@/constants/theme';
@@ -50,18 +51,6 @@ function aNumero(v: string | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Una sección del documento: versalita, filete, contenido. */
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <View style={estilos.seccion}>
-      <ThemedText type="etiqueta" themeColor="textSecondary">
-        {titulo}
-      </ThemedText>
-      <FileteHoja />
-      <View style={estilos.contenidoSeccion}>{children}</View>
-    </View>
-  );
-}
 
 export default function DetallePublicacionScreen() {
   const theme = useTheme();
@@ -365,8 +354,6 @@ const estilos = StyleSheet.create({
     paddingVertical: Spacing.half,
   },
   cuerpo: { padding: Spacing.three, gap: Spacing.three },
-  seccion: { gap: Spacing.two },
-  contenidoSeccion: { gap: Spacing.three },
   rejilla: { flexDirection: 'row', gap: Spacing.three },
   descripcion: { lineHeight: 24 },
   marcoMapa: { borderWidth: Filete.fino, borderRadius: Radios.hoja, overflow: 'hidden' },

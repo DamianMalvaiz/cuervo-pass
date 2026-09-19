@@ -4,7 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
-import { Colors, Filete, Tipografia } from '@/constants/theme';
+import { Colors, Tipografia } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 // La pantalla de arranque se sostiene hasta que Archivo esté en memoria. Sin

@@ -41,6 +41,8 @@ export const Colors = {
     tintedSurface: '#FBF0DC',
     tintedBorder: '#E3CFA4',
     error: '#A81E12',
+    /** Texto sobre un relleno de `error`. Blanco da 7.3:1 sobre este rojo. */
+    errorTexto: '#FFFFFF',
   },
   /** La lámpara. */
   dark: {
@@ -55,6 +57,10 @@ export const Colors = {
     tintedSurface: '#241B0F',
     tintedBorder: '#4A3616',
     error: '#F08074',
+    // En oscuro el rojo es CLARO, así que el blanco daría 2.6:1 y reprobaría.
+    // La tinta sobre él da 7.3:1. Mismo patrón que el sello: el relleno trae
+    // su propio color de texto en vez de asumir que siempre es blanco.
+    errorTexto: '#12100E',
   },
 } as const;
 
