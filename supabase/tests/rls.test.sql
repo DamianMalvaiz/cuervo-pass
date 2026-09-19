@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(36);
+select plan(37);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -454,6 +454,17 @@ select throws_ok(
   $$ select vector_busqueda from sugerencias_roomies(1) $$,
   null,
   'sugerencias_roomies no devuelve vector_busqueda' );
+
+-- ════════════════ 37 · el barrido de fotos está programado ════════════════
+-- La 0021 dejó una cola que vaciaba un script manual, o sea que el derecho de
+-- cancelación dependía de que alguien se acordara. La 0025 lo programa. Esta
+-- asercion existe para que "esta programado" deje de ser una creencia: si
+-- alguien retira la tarea, el build se rompe.
+select actuar_como_servicio();
+select is(
+  (select count(*)::int from cron.job where jobname = 'barrer-fotos' and active),
+  1,
+  'la tarea barrer-fotos esta programada y activa' );
 
 select * from finish();
 rollback;

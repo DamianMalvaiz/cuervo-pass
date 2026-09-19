@@ -135,15 +135,32 @@ async function revisarDatos() {
   }
 
   // La cola de la 0021. Mientras tenga filas hay archivos que alguien creyo
-  // borrados y siguen ocupando espacio que se paga. No es un fallo —el borrado
-  // de la cuenta si funciono— pero es deuda que conviene ver antes que despues.
+  // borrados y siguen ocupando espacio que se paga.
   const { count: enCola, error: e3 } = await admin
     .from('fotos_huerfanas').select('ruta', { count: 'exact', head: true });
+
+  // Desde la 0025 el barrido corre solo cada hora. Eso cambia cómo se lee esta
+  // cola: unas pocas filas recién encoladas son normales; filas VIEJAS
+  // significan que el barrido no está corriendo, y entonces hay archivos que
+  // alguien creyó borrados y siguen ahí. Eso ya no es un aviso, es un fallo:
+  // el aviso de privacidad promete el borrado en la tabla de derechos ARCO.
+  const HORAS_TOLERADAS = 2;
+  const limite = new Date(Date.now() - HORAS_TOLERADAS * 3600_000).toISOString();
+  const { count: viejas } = await admin
+    .from('fotos_huerfanas')
+    .select('ruta', { count: 'exact', head: true })
+    .lt('encolada_en', limite);
+
   if (e3) {
     anotar('Cola de fotos huérfanas', 'fallo', e3.message);
+  } else if (viejas > 0) {
+    anotar('Cola de fotos huérfanas', 'fallo',
+      `${viejas} archivo(s) llevan más de ${HORAS_TOLERADAS} h sin barrer: la tarea `
+      + `programada no está corriendo. Revisa el cron y los secretos de Vault `
+      + `(0025), o vacíala a mano con scripts/limpiar-fotos-huerfanas.mjs`);
   } else if (enCola > 0) {
-    anotar('Cola de fotos huérfanas', 'aviso',
-      `${enCola} archivo(s) pendientes de barrer → node --env-file=.env scripts/limpiar-fotos-huerfanas.mjs`);
+    anotar('Cola de fotos huérfanas', 'ok',
+      `${enCola} recién encolado(s); el barrido programado los recoge en menos de una hora`);
   } else {
     anotar('Cola de fotos huérfanas', 'ok', 'vacía');
   }
