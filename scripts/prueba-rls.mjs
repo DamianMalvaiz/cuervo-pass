@@ -52,7 +52,7 @@ async function crearCuenta(etiqueta) {
   return { id: data.user.id, correo, cliente };
 }
 
-let A = null, B = null;
+let A = null, B = null, D = null;
 try {
   A = await crearCuenta('a');
   B = await crearCuenta('b');
@@ -176,20 +176,42 @@ try {
   // rompe la app en silencio, que es el mismo tipo de fallo que AUD-01.
   const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
 
-  const rutaPubB = `publicaciones/${B.id}/${pubB.id}/0.jpg`;
-  await B.cliente.storage.from('fotos').upload(rutaPubB, jpg, { contentType: 'image/jpeg', upsert: true });
+  // ── El detalle que hacía mentir a estas cuatro barreras ──
+  //
+  // La primera versión pedía la MISMA ruta antes y después de ocultar el
+  // objeto. Storage sirve la segunda petición desde caché, así que nunca llega
+  // a evaluarse la policy, y las dos barreras negativas reportaban
+  // «[ EXPUESTO ] SE DESCARGÓ» con la 0022 aplicada y funcionando.
+  //
+  // Comprobado por separado: publicación desactivada, misma ruta ya pedida →
+  // descarga; ruta hermana nunca pedida → bloqueada. La policy filtraba bien
+  // desde el principio; lo que medía la prueba era una respuesta guardada.
+  //
+  // Por eso cada barrera NEGATIVA usa una ruta FRÍA, jamás pedida mientras el
+  // objeto era visible. Es la misma regla que §8 del documento de endurecimiento
+  // se aplica a sí mismo: verifica las condiciones del experimento antes de
+  // creerle al resultado. Una prueba de seguridad que grita sin motivo acaba
+  // ignorada, que es peor que no tenerla.
+  const rutaVisible = `publicaciones/${B.id}/${pubB.id}/0.jpg`;
+  const rutaFria = `publicaciones/${B.id}/${pubB.id}/1.jpg`;
+  await B.cliente.storage.from('fotos').upload(rutaVisible, jpg, { contentType: 'image/jpeg', upsert: true });
+  await B.cliente.storage.from('fotos').upload(rutaFria, jpg, { contentType: 'image/jpeg', upsert: true });
 
-  const visible = await A.cliente.storage.from('fotos').download(rutaPubB);
+  const visible = await A.cliente.storage.from('fotos').download(rutaVisible);
   comprobar('A SÍ lee la foto de una publicación VISIBLE de B',
     !!visible.data && !visible.error,
     visible.error ? `cerró de más: ${visible.error.message.slice(0, 48)}` : 'bytes recibidos');
 
   await B.cliente.from('publicaciones').update({ activa: false }).eq('id', pubB.id);
-  const noVisible = await A.cliente.storage.from('fotos').download(rutaPubB);
+  const noVisible = await A.cliente.storage.from('fotos').download(rutaFria);
   comprobar('A no lee la foto de una publicación DESACTIVADA de B',
     !noVisible.data || !!noVisible.error,
     noVisible.data ? 'SE DESCARGÓ — la lectura del bucket no filtra por visibilidad' : 'bloqueado');
 
+  // La foto de perfil vive en una ruta fija por persona —`perfiles/<uid>.jpg`—,
+  // así que aquí no hay ruta hermana que pedir: la ruta fría tiene que ser la de
+  // OTRA cuenta. C nace desactivada a efectos de esta comprobación y su foto no
+  // se pide nunca mientras es visible.
   const rutaPerfilB = `perfiles/${B.id}.jpg`;
   await B.cliente.storage.from('fotos').upload(rutaPerfilB, jpg, { contentType: 'image/jpeg', upsert: true });
 
@@ -198,8 +220,11 @@ try {
     !!perfilActivo.data && !perfilActivo.error,
     perfilActivo.error ? `cerró de más: ${perfilActivo.error.message.slice(0, 48)}` : 'bytes recibidos');
 
-  await B.cliente.from('usuarios').update({ activo: false }).eq('id', B.id);
-  const perfilInactivo = await A.cliente.storage.from('fotos').download(rutaPerfilB);
+  D = await crearCuenta('d');
+  const rutaPerfilD = `perfiles/${D.id}.jpg`;
+  await D.cliente.storage.from('fotos').upload(rutaPerfilD, jpg, { contentType: 'image/jpeg', upsert: true });
+  await D.cliente.from('usuarios').update({ activo: false }).eq('id', D.id);
+  const perfilInactivo = await A.cliente.storage.from('fotos').download(rutaPerfilD);
   comprobar('A no lee la foto de perfil de una cuenta DESACTIVADA',
     !perfilInactivo.data || !!perfilInactivo.error,
     perfilInactivo.data ? 'SE DESCARGÓ — un usuario dado de baja sigue expuesto' : 'bloqueado');
@@ -227,8 +252,12 @@ try {
     try { await admin.storage.from('fotos').remove(unicas); } catch { /* sin efecto */ }
     try { await admin.from('fotos_huerfanas').delete().in('ruta', unicas); } catch { /* sin efecto */ }
   }
+  if (D) {
+    try { await admin.storage.from('fotos').remove([`perfiles/${D.id}.jpg`]); } catch { /* sin efecto */ }
+  }
   if (A) await admin.auth.admin.deleteUser(A.id).catch(() => {});
   if (B) await admin.auth.admin.deleteUser(B.id).catch(() => {});
+  if (D) await admin.auth.admin.deleteUser(D.id).catch(() => {});
 }
 
 console.log('\nPrueba de aislamiento entre cuentas · contra producción, por HTTP\n');
