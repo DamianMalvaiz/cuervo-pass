@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(62);
+select plan(64);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -898,6 +898,28 @@ select throws_ok(
   '23505',
   null,
   'un reporte duplicado sigue siendo 23505, el codigo estandar' );
+
+-- ════════════════ 63 y 64 · END-28: 384 flotantes al telefono ════════════════
+-- `sugerencias_publicaciones` devolvia `vector_embedding vector(384)` en su
+-- tabla de retorno. Medido contra produccion el 19/09/2026: **el 85 % del
+-- payload**, 4.7 KB por fila, de un valor que el cliente NUNCA lee — toda la
+-- similitud de coseno se calcula en Postgres (§18).
+--
+-- Con treinta filas son ~140 KB por refresco, en red movil, para nada.
+select actuar_como_servicio();
+
+select ok(
+  pg_get_function_result('sugerencias_publicaciones(int)'::regprocedure) not like '%vector_embedding%',
+  'sugerencias_publicaciones ya no devuelve el vector al cliente' );
+
+-- Y el Nivel 2 sigue funcionando: el ranking se une por id para conseguirlo, en
+-- vez de recibirlo de vuelta. Sin esta asercion, quitar la columna podria
+-- romper la similitud sin que nada se quejara.
+select is(
+  (select count(*)::int from sugerencias_con_ranking(30) where similitud is not null),
+  (select count(*)::int from sugerencias_con_ranking(30)
+    where id in (select id from publicaciones where vector_embedding is not null)),
+  'el ranking sigue calculando similitud sin recibir el vector' );
 
 select * from finish();
 rollback;

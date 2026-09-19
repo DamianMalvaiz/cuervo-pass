@@ -84,11 +84,23 @@ export async function obtenerSugerencias(limite = 20): Promise<ResultadoSugerenc
  * teléfono. Leer la tabla directamente devolvería cero filas para cualquiera
  * que no sea el dueño (policy publicaciones_select_propias) — que es
  * exactamente el síntoma de AUD-01, y por eso conviene tenerlo claro aquí.
+ *
+ * END-28 · Las columnas van ENUMERADAS y no `select('*')`. La vista sí expone
+ * `vector_embedding`, porque `sugerencias_con_ranking` lo necesita del lado del
+ * servidor; con el asterisco esos 384 flotantes —4 697 bytes medidos— bajaban al
+ * teléfono en cada apertura de ficha, para una columna que ninguna pantalla lee.
+ * La lista es la misma de `PublicacionPublica` menos el vector, así que al
+ * añadir una columna a la vista hay que tocar los dos lugares: es el precio de
+ * no mandar lo que no se usa.
  */
 export async function obtenerPublicacionPublica(id: string) {
   const { data, error } = await supabase
     .from('publicaciones_publicas')
-    .select('*')
+    // Un LITERAL de una pieza, no una concatenación: supabase-js infiere el tipo
+    // de la fila leyendo esta cadena en tiempo de compilación. Partida en dos con
+    // `+`, deja de poder leerla y `data` degrada a `GenericStringError` — 31
+    // errores de tsc que no mencionan la causa por ningún lado.
+    .select('id, usuario_id, titulo, tipo, direccion, latitud, longitud, precio_renta, descripcion, permite_mascotas, amueblado, servicios_incluidos, recamaras, fotos, creado_en')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;

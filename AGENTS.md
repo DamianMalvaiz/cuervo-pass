@@ -66,7 +66,16 @@ la prueba que falla, todavía no entiendes el bug.
    - Nunca editar una migración ya aplicada. Su hash vive en
      `supabase_migrations.schema_migrations` y editarla hace que el historial
      deje de describir lo que realmente corrió. Se corrige con una migración
-     nueva. La siguiente es la **0022**.
+     nueva. **El siguiente número se consulta, no se recuerda:**
+
+     ```bash
+     ls supabase/migrations | tail -1
+     ```
+
+     Aquí decía "la siguiente es la 0022" y para el 19/09/2026 la última
+     aplicada era la 0033: un número escrito a mano en un documento que hay que
+     actualizar en cada migración y que nadie actualizó doce veces seguidas. Un
+     dato que se puede consultar no se copia.
    - Nombra explícitamente todo índice. Un `drop index if exists` sobre un nombre
      autogenerado que adivinaste falla en silencio.
    - Antes de cualquier `db push`: `npx supabase db dump --data-only -f respaldos/$(date +%F).sql`.
