@@ -103,7 +103,9 @@ node --env-file=.env scripts/prueba-rls.mjs   # 15 barreras, contra PRODUCCIÓN 
 npx tsc --noEmit && npx expo lint && npx jest
 ```
 
-Los dos `.env` son **dos archivos separados a propósito**: el de la raíz es del cliente y todo lo que lleva `EXPO_PUBLIC_` se compila dentro del bundle; el de `ai-service/` nunca se lee desde la app. Ninguno de los dos se versiona.
+El `.env` de la raíz es **del cliente**: todo lo que lleva `EXPO_PUBLIC_` se compila dentro del bundle, donde cualquiera con el APK lo lee. Los secretos de servidor —`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_PASSWORD`, `AI_SHARED_TOKEN`, `ANTHROPIC_API_KEY`, `MAPBOX_ACCESS_TOKEN`— tienen que vivir en un `.env.server` aparte.
+
+**Ese archivo todavía no existe** y hoy están mezclados en el de la raíz; el microservicio arranca con `. ../.env`. Está registrado como pendiente en AGENTS.md. Una versión anterior de este párrafo afirmaba que el reparto ya estaba hecho, que es justo el defecto que AGENTS.md llama el más caro: documentación que describe un sistema distinto al construido. No se versiona ninguno de los dos.
 
 ## Decisiones de ingeniería
 
