@@ -449,13 +449,9 @@ proyecto en marcha, no un cierre.
       HaveIBeenPwned, corre en el servidor y vale más que cualquier regla de
       composición. No es configurable desde `config.toml`, así que no puede
       entrar en una migración ni en `config push`.
-- [ ] `ANTHROPIC_API_KEY` sigue vacía. **Corregido dos veces, y las dos vale la
-      pena dejarlas escritas.** Primero se buscó en los secrets de las Edge
-      Functions, donde nunca va: quien llama al modelo es el microservicio.
-      Después se dijo que iba en `ai-service/.env`, archivo que **no existe** —
-      el microservicio arranca con `. ../.env` y hoy la lee del `.env` de la
-      raíz. Su destino real, según AGENTS.md, es `.env.server`, que también está
-      pendiente de crearse. Se
+- [ ] `ANTHROPIC_API_KEY` sigue vacía. **Corrección respecto a lo que se
+      escribió antes:** la clave va en `ai-service/.env`, no en los secrets de
+      las Edge Functions — quien llama al modelo es el microservicio. Se
       rastreó qué se pierde sin ella: solo `horario_predominante`, un campo del
       perfil público que ya degrada a "Variable". **No toca el ranking ni el
       embedding**, porque no aparece ni en el motor de la 0015 ni en

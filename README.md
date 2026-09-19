@@ -90,6 +90,11 @@ python3 -m venv venv && source venv/bin/activate
 pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 uvicorn main:app --reload     # desde ai-service/, no desde la raíz
 # o con Docker:  docker compose up
+#   Requiere ai-service/.env (el `cp` de arriba): docker-compose.yml lo
+#   declara en env_file y Compose aborta si falta. Eso es lo correcto —
+#   el microservicio sin AI_SHARED_TOKEN no debe arrancar.
+#   Compose NO está instalado en la máquina de desarrollo actual
+#   (19/09/2026): esta ruta está sin probar aquí. Se usa uvicorn.
 
 # ── Túnel, para que Supabase alcance tu laptop ─────────
 ./scripts/tunel.sh           # NO uses `cloudflared tunnel --url` a pelo: no
@@ -103,9 +108,9 @@ node --env-file=.env scripts/prueba-rls.mjs   # 15 barreras, contra PRODUCCIÓN 
 npx tsc --noEmit && npx expo lint && npx jest
 ```
 
-El `.env` de la raíz es **del cliente**: todo lo que lleva `EXPO_PUBLIC_` se compila dentro del bundle, donde cualquiera con el APK lo lee. Los secretos de servidor —`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_PASSWORD`, `AI_SHARED_TOKEN`, `ANTHROPIC_API_KEY`, `MAPBOX_ACCESS_TOKEN`— tienen que vivir en un `.env.server` aparte.
+Los dos `.env` son **dos archivos separados a propósito**: el de la raíz es del cliente y todo lo que lleva `EXPO_PUBLIC_` se compila dentro del bundle; el de `ai-service/` nunca se lee desde la app. Ninguno de los dos se versiona.
 
-**Ese archivo todavía no existe** y hoy están mezclados en el de la raíz; el microservicio arranca con `. ../.env`. Está registrado como pendiente en AGENTS.md. Una versión anterior de este párrafo afirmaba que el reparto ya estaba hecho, que es justo el defecto que AGENTS.md llama el más caro: documentación que describe un sistema distinto al construido. No se versiona ninguno de los dos.
+Falta un tercero. `SUPABASE_SERVICE_ROLE_KEY` —que leen ocho scripts y dos Edge Functions— y `SUPABASE_DB_PASSWORD` —que consume el CLI de Supabase— siguen hoy en el `.env` de la raíz, que es el del cliente. Su destino es un `.env.server` que todavía no existe. Está registrado como pendiente en `AGENTS.md`.
 
 ## Decisiones de ingeniería
 

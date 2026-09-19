@@ -64,9 +64,10 @@ function revisarSecrets() {
   else anotar('Secrets de Edge Functions', 'ok', `${obligatorios.length} obligatorios presentes`);
 
   // ANTHROPIC_API_KEY NO se comprueba aquí. Una versión anterior la buscaba en
-  // esta lista y avisaba de que faltaba — pero esa clave es del microservicio,
-  // no de las Edge Functions. La comprobación era una falsa alarma por
-  // construcción: habría avisado igual con la clave perfectamente puesta.
+  // esta lista y avisaba de que faltaba — pero esa clave vive en
+  // ai-service/.env, no en los secrets de las Edge Functions, porque quien
+  // llama al modelo es el microservicio. La comprobación era una falsa alarma
+  // por construcción: habría avisado igual con la clave perfectamente puesta.
   // Se pregunta en revisarTunel(), leyendo `api_llm_configurada` de /listo, que
   // es el propio servicio diciendo si la tiene.
 }
@@ -95,7 +96,7 @@ async function revisarTunel() {
       anotar('Análisis con LLM (Anthropic)', 'ok', `clave presente · modelo ${salud.modelo_llm ?? 'por omisión'}`);
     } else {
       anotar('Análisis con LLM (Anthropic)', 'aviso',
-        'sin ANTHROPIC_API_KEY: /parsear-perfil siempre degradado. Su destino es .env.server; hoy el microservicio la lee del .env de la raíz. El Nivel 2 (embeddings) NO depende de esto');
+        'sin ANTHROPIC_API_KEY en ai-service/.env: /parsear-perfil siempre degradado. El Nivel 2 (embeddings) NO depende de esto');
     }
   } catch (e) {
     anotar('Túnel a Cloudflare', 'fallo', `${dominio} no responde (${e.message}) · corre scripts/tunel.sh`);

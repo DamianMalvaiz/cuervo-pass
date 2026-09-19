@@ -104,29 +104,47 @@ la prueba que falla, todavía no entiendes el bug.
 
 ## Secretos
 
-Dos archivos, con destinos distintos:
+Tres archivos, con destinos distintos. Los dos primeros **están diseñados,
+documentados e implementados**; el tercero está pendiente de crearse.
 
 - **`.env` (raíz) = CLIENTE.** Todo lo que lleva `EXPO_PUBLIC_` se compila dentro
   del bundle, donde cualquiera con el APK lo lee. Aquí solo van valores públicos
-  por diseño: URL de Supabase, anon key, token `pk.` de Mapbox.
-- **`.env.server` = SERVIDOR.** `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
-  `SUPABASE_DB_PASSWORD`, `AI_SHARED_TOKEN`, `MAPBOX_ACCESS_TOKEN`. Nunca se lee
-  desde la app.
+  por diseño: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`,
+  `EXPO_PUBLIC_MAPBOX_TOKEN` (el `pk.`, con restricción de URL).
+- **`ai-service/.env` = MICROSERVICIO.** `ANTHROPIC_API_KEY`, `AI_SHARED_TOKEN`,
+  `AI_SHARED_TOKEN_SIGUIENTE`, `MODELO_EMBEDDINGS`, `MODELO_LLM`, `TIMEOUT_LLM`.
+  Es el que lee `ai-service/config.py` con `os.getenv` y el que
+  `docker-compose.yml` declara en `env_file`. Plantilla en
+  `ai-service/.env.example`.
+- **`.env.server` = HERRAMIENTAS Y SCRIPTS.** `SUPABASE_SERVICE_ROLE_KEY` (ocho
+  scripts y dos Edge Functions) y `SUPABASE_DB_PASSWORD` (lo consume el CLI de
+  Supabase, no código nuestro).
 
-> **Estado actual (por corregir):** `.env.server` todavía NO existe y las claves
-> de servidor están mezcladas en el `.env` de la raíz; el microservicio arranca
-> con `. ../.env`. Es el mismo defecto que `.env.example` documenta como el peor
-> de v3. Al tocar cualquier script que lea credenciales de servidor, sepáralas en
-> vez de perpetuarlo — y mueve también el arranque del microservicio.
+> **Estado actual, verificado el 19/09/2026:**
+> - `ai-service/.env` **no existe en esta máquina**. Falta correr el paso que el
+>   README ya documenta: `cd ai-service && cp .env.example .env`. No es una
+>   discrepancia de arquitectura, es un paso de instalación pendiente.
+> - `.env.server` no existe; `SUPABASE_SERVICE_ROLE_KEY` y
+>   `SUPABASE_DB_PASSWORD` siguen en el `.env` de la raíz, que es el del
+>   cliente. Al tocar cualquier script que las lea, sepáralas en vez de
+>   perpetuarlo.
 
-> **`PERFIL_ENCRYPTION_KEY` está muerta.** Sigue en el `.env` de la raíz y no la
-> usa nadie: no aparece en `ai-service/*.py` ni en ningún `.ts`. Lo único que la
-> menciona es un comentario de la migración 0005, que es el cifrado que §30
-> retiró por no proteger nada. **No la muevas a `.env.server`: bórrala.** Una
-> credencial que nadie usa sigue siendo una credencial que se puede filtrar.
+> **Dos variables del `.env` de la raíz están MUERTAS. Bórralas, no las muevas.**
+> Verificado con grep sobre `src/`, `scripts/`, `ai-service/` y
+> `supabase/functions/`:
+> - **`PERFIL_ENCRYPTION_KEY`** — cero lectores. Las migraciones 0005 y 0009 usan
+>   `current_setting('app.perfil_encryption_key')`, que es un **GUC de Postgres**:
+>   otra cosa, con nombre parecido. El cifrado que la justificaba lo retiró §30.
+> - **`MAPBOX_ACCESS_TOKEN`** — cero lectores. El único Mapbox vivo es
+>   `EXPO_PUBLIC_MAPBOX_TOKEN` en `src/lib/mapboxAutocomplete.ts`. El nombre
+>   sugiere que es su par privado; no lo es, y no lo usa nadie.
+>
+> Una credencial que nadie usa sigue siendo una credencial que se puede filtrar.
+> **Antes de declarar que una variable es "de servidor", corre el grep.** Deducir
+> del nombre ya metió una credencial fantasma en este archivo una vez.
 
 Nunca añadas `EXPO_PUBLIC_` a algo que no sea público por diseño. Ninguno de los
-dos archivos se versiona.
+tres archivos se versiona.
 
 ---
 

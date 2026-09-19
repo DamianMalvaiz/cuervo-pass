@@ -27,7 +27,7 @@ convierte esa casualidad en una pregunta que se hace a propósito.
 | Comprobación | Qué detecta |
 |---|---|
 | Secrets de Edge Functions | `AI_SERVICE_URL` o `AI_SHARED_TOKEN` ausentes |
-| Análisis con LLM | sin `ANTHROPIC_API_KEY`, `/parsear-perfil` devuelve constantes |
+| Análisis con LLM | sin `ANTHROPIC_API_KEY` en `ai-service/.env`, `/parsear-perfil` devuelve constantes |
 | Túnel | el dominio público no responde — se pregunta **por fuera**, no en localhost |
 | Vectores de perfil | cuentas con consentimiento puesto y vector nulo |
 | Vectores de publicaciones | activas sin vector: invisibles para el Nivel 2 |
@@ -47,14 +47,8 @@ queda rastro. Si alguna vez ves cuentas `verif-…@ejemplo.mx` en la base, el
 
 Se puede en cualquier momento, sin tocar código ni redesplegar nada:
 
-1. Poner `ANTHROPIC_API_KEY=` donde la lea el microservicio. **No** va en los
-   secrets de Supabase: quien llama al modelo es el servicio de Python, no una
-   Edge Function.
-
-   Su destino, según AGENTS.md, es **`.env.server`**. Ese archivo todavía no
-   existe y el microservicio arranca con `. ../.env`, así que hoy la lee del
-   `.env` de la raíz. Al separar los secretos habrá que mover también el
-   arranque; mientras tanto, va en el de la raíz.
+1. Poner `ANTHROPIC_API_KEY=` en **`ai-service/.env`** (no en los secrets de
+   Supabase: quien llama al modelo es el microservicio).
 2. Reiniciar el microservicio. `config.py` lee la variable con `os.getenv` en
    tiempo de import, así que un proceso ya arrancado no la ve.
 3. `node scripts/verificar.mjs` debe pasar de aviso a OK.
