@@ -1,10 +1,11 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Encabezado } from '@/components/ficha/Encabezado';
+import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
@@ -42,11 +43,10 @@ export default function ChatsScreen() {
       </View>
 
       {cargando ? (
-        <View style={estilos.cargando}>
-          <ActivityIndicator color={theme.textSecondary} />
-          <ThemedText type="etiqueta" themeColor="textSecondary">
-            CONSULTANDO REGISTRO
-          </ThemedText>
+        // END-38 · El esqueleto espeja el renglón real: avatar de 44, nombre y
+        // último mensaje. El encabezado con el conteo se queda arriba.
+        <View style={estilos.lista}>
+          <ListaEsqueleto variante="renglon" filas={6} />
         </View>
       ) : (
         <FlatList

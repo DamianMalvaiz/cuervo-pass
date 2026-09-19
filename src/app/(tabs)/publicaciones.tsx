@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { FichaPublicacion } from '@/components/FichaPublicacion';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Sello } from '@/components/ficha/Sello';
 import { Encabezado } from '@/components/ficha/Encabezado';
+import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
@@ -92,11 +93,8 @@ export default function PublicacionesScreen() {
       </View>
 
       {cargando ? (
-        <View style={estilos.cargando}>
-          <ActivityIndicator color={theme.textSecondary} />
-          <ThemedText type="etiqueta" themeColor="textSecondary">
-            CONSULTANDO TUS PUBLICACIONES
-          </ThemedText>
+        <View style={estilos.lista}>
+          <ListaEsqueleto variante="hoja" filas={2} etiquetas={['RENTA MENSUAL', 'DISTANCIA']} />
         </View>
       ) : (
         <FlatList

@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ANCHO_FICHA_COMPACTA, FichaCompacta } from '@/components/FichaCompacta';
 import { FilaPublicacion } from '@/components/FilaPublicacion';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { Carrusel } from '@/components/ficha/Carrusel';
+import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { Encabezado } from '@/components/ficha/Encabezado';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -280,17 +281,6 @@ export default function InicioScreen() {
     [urlsFirmadas]
   );
 
-  if (cargando) {
-    return (
-      <ThemedView style={[estilos.cargandoPantalla, { paddingTop: margenSuperior }]}>
-        <ActivityIndicator color={theme.textSecondary} />
-        <ThemedText type="etiqueta" themeColor="textSecondary">
-          CONSULTANDO EXPEDIENTE
-        </ThemedText>
-      </ThemedView>
-    );
-  }
-
   return (
     <ThemedView style={estilos.pantalla}>
       <FlatList
@@ -311,17 +301,29 @@ export default function InicioScreen() {
             <View style={estilos.margen}>
               <Encabezado
                 kicker={
+                  // END-38 · Mientras carga NO se afirma el nivel. Al quitar el
+                  // `return` temprano, este membrete quedaba visible con
+                  // `conAfinidad = 0` y declaraba «NIVEL 1 · FILTROS
+                  // PONDERADOS» antes de haber preguntado — y si la respuesta
+                  // traía afinidad, se corregía solo, delante de quien lo
+                  // estuviera leyendo. Un esqueleto honesto no puede tener un
+                  // encabezado que adivina.
+                  //
                   // El conteo prueba que el motor corre y hasta dónde alcanza.
                   // Una bandera binaria solo lo afirmaba — y mentía cuando una
                   // sola publicación vectorizada la ponía en 2.
-                  conAfinidad === 0
-                    ? 'NIVEL 1 · FILTROS PONDERADOS'
-                    : `NIVEL 2 · ${conAfinidad} DE ${total} CON AFINIDAD SEMÁNTICA`
+                  cargando
+                    ? 'CONSULTANDO EXPEDIENTE'
+                    : conAfinidad === 0
+                      ? 'NIVEL 1 · FILTROS PONDERADOS'
+                      : `NIVEL 2 · ${conAfinidad} DE ${total} CON AFINIDAD SEMÁNTICA`
                 }
                 titulo="Sugerencias"
                 meta={
-                  `${filtradas.length === 1 ? '1 REGISTRO' : `${filtradas.length} REGISTROS`}` +
-                  (emitido ? ` · EMITIDO ${fechaHoraDeSello(emitido)}` : '')
+                  cargando
+                    ? ''
+                    : `${filtradas.length === 1 ? '1 REGISTRO' : `${filtradas.length} REGISTROS`}` +
+                      (emitido ? ` · EMITIDO ${fechaHoraDeSello(emitido)}` : '')
                 }
               />
               <ResumenFiltros />
@@ -387,6 +389,14 @@ export default function InicioScreen() {
         // juntas se leen como un error de impresión.
         ItemSeparatorComponent={null}
         ListEmptyComponent={
+          // El esqueleto va DENTRO de la lista, no en lugar de la pantalla. El
+          // encabezado, el resumen de filtros y los chips siguen ahí y siguen
+          // siendo tocables: se puede cambiar de tipo mientras carga.
+          cargando ? (
+            <View style={estilos.margen}>
+              <ListaEsqueleto filas={5} />
+            </View>
+          ) : (
           <View style={estilos.margen}>
             {fallo ? (
               <BloqueEstado etiqueta="NO SE PUDO CONSULTAR" mensaje={fallo} icono="cloud-offline-outline" tono="alerta" />
@@ -404,6 +414,7 @@ export default function InicioScreen() {
               />
             )}
           </View>
+          )
         }
       />
     </ThemedView>
@@ -412,7 +423,6 @@ export default function InicioScreen() {
 
 const estilos = StyleSheet.create({
   pantalla: { flex: 1 },
-  cargandoPantalla: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
   lista: { paddingBottom: Spacing.six },
   // El margen va POR BLOQUE, no en el contenedor: los carruseles tienen que
   // poder sangrar hasta el borde de la pantalla para que se vea que siguen.

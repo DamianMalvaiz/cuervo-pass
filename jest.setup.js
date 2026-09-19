@@ -38,6 +38,13 @@ jest.mock('react-native-reanimated', () => {
     useSharedValue: (v) => ({ value: v }),
     useAnimatedStyle: (fn) => (typeof fn === 'function' ? fn() : {}),
     withTiming: (v) => v, withSpring: (v) => v, withDelay: (_, v) => v,
+    // El pulso de los esqueletos (END-38). `withRepeat` devuelve su valor para
+    // que `useAnimatedStyle` siga produciendo un estilo valido, y se expone como
+    // jest.fn() porque hay una prueba que comprueba que NO se llama cuando el
+    // sistema pide reducir el movimiento — ahi lo que importa es la llamada, no
+    // el valor.
+    withRepeat: jest.fn((v) => v),
+    Easing: { inOut: (f) => f, ease: (t) => t, linear: (t) => t, bezier: () => (t) => t },
     useAnimatedScrollHandler: () => () => {},
     interpolate: (x) => x, Extrapolation: { CLAMP: 'clamp' },
     runOnJS: (fn) => fn,

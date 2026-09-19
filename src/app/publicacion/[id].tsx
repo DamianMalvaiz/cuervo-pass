@@ -3,7 +3,6 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -19,6 +18,7 @@ import { BotonVerContacto } from '@/components/BotonVerContacto';
 import { CampoFicha } from '@/components/ficha/CampoFicha';
 import { DesgloseCalificacion } from '@/components/ficha/DesgloseCalificacion';
 import { Seccion } from '@/components/ficha/Seccion';
+import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {Filete, Radios, Spacing } from '@/constants/theme';
@@ -113,12 +113,19 @@ export default function DetallePublicacionScreen() {
   };
 
   if (cargando) {
+    // END-38 · Una hoja con la forma de la ficha, no un punto girando en medio
+    // de la nada. Aquí el esqueleto vale MÁS que en una lista: esta pantalla se
+    // abre desde un toque, así que quien llega ya sabe qué publicación pidió y
+    // lo que necesita es ver que está apareciendo, no que se está esperando.
     return (
-      <ThemedView style={estilos.centrado}>
-        <ActivityIndicator color={theme.acento} />
-        <ThemedText type="etiqueta" themeColor="textSecondary">
-          CONSULTANDO FICHA
-        </ThemedText>
+      <ThemedView style={estilos.esqueletoPantalla}>
+        <ScrollView contentContainerStyle={estilos.esqueleto}>
+          <ListaEsqueleto
+            variante="hoja"
+            filas={1}
+            etiquetas={['RENTA MENSUAL', 'DISTANCIA']}
+          />
+        </ScrollView>
       </ThemedView>
     );
   }
@@ -405,6 +412,8 @@ export default function DetallePublicacionScreen() {
 }
 
 const estilos = StyleSheet.create({
+  esqueletoPantalla: { flex: 1 },
+  esqueleto: { padding: Spacing.three },
   descargoAjuste: { marginTop: Spacing.one, lineHeight: 16 },
   fotoFallida: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.one },
   hoja: { paddingBottom: Spacing.six },

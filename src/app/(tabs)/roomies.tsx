@@ -1,12 +1,13 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Switch, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, Switch, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Encabezado } from '@/components/ficha/Encabezado';
 import { TarjetaRoomie } from '@/components/TarjetaRoomie';
+import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
@@ -173,12 +174,11 @@ export default function RoomiesScreen() {
         )}
         ListEmptyComponent={
           cargando ? (
-            <View style={estilos.cargando}>
-              <ActivityIndicator color={theme.textSecondary} />
-              <ThemedText type="etiqueta" themeColor="textSecondary">
-                CONSULTANDO REGISTRO
-              </ThemedText>
-            </View>
+            // Sin foto: `TarjetaRoomie` lleva avatar, no fotografía de 3:2.
+            // Espejar una foto que no existe crearía justo el salto que el
+            // esqueleto viene a evitar.
+            <ListaEsqueleto variante="hoja" filas={3} conFoto={false}
+                            etiquetas={['APORTACIÓN', 'DISTANCIA']} />
           ) : (
             <BloqueEstado
               etiqueta="SIN REGISTROS"
