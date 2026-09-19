@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(31);
+select plan(36);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -402,6 +402,58 @@ select throws_ok(
   $$ update usuarios set activo = true where id = '00000000-0000-0000-0000-0000000000b2' $$,
   null,
   'un suspendido no puede reactivarse cambiando solo activo' );
+
+-- ════════════════ 32 a 34 · roomies deja de estar abierta ════════════════
+--
+-- El README afirma: «Las tablas están CERRADAS: cada usuario solo ve sus
+-- propias filas. Lo que otros pueden ver sale de dos vistas con lista blanca».
+-- No era cierto para `roomies`. La 0014 dejó:
+--
+--   create policy roomies_select_activos on roomies
+--     for select to authenticated using (estado = 'activo' or auth.uid() = usuario_id);
+--
+-- `select * from roomies` bajaba TODAS las columnas de toda fila activa,
+-- incluido `vector_busqueda` — 384 flotantes derivados del texto libre de esa
+-- persona, del que se puede reconstruir buena parte del original. Se le hizo
+-- cirugía de vistas a `usuarios` y a `publicaciones`, y se saltó la tercera.
+--
+-- La 34 es la que importa: cerrar la tabla sin tocar la función de sugerencias
+-- la dejaría devolviendo CERO filas, sin error y sin log. AUD-01 otra vez.
+select actuar_como_servicio();
+
+-- Un roomie activo de alguien que no es A. (El de B quedó en 'pausado' al
+-- suspenderse su cuenta en la prueba anterior.)
+insert into roomies (usuario_id, descripcion_busqueda, estado, presupuesto_aportacion)
+values ('00000000-0000-0000-0000-0000000000d4', 'Busco depa cerca del campus', 'activo', 2500)
+on conflict (usuario_id) do update set estado = 'activo';
+
+-- `has_view` primero, y no es ceremonia: `hasnt_column` sobre una relacion que
+-- NO existe devuelve verdadero. Sin esta linea la asercion de abajo pasaba en
+-- vacio y habria certificado una vista inexistente.
+select has_view( 'public', 'roomies_publicos',
+           'roomies_publicos existe' );
+select hasnt_column( 'public', 'roomies_publicos', 'vector_busqueda',
+           'roomies_publicos no expone el vector de busqueda' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+select is(
+  (select count(*)::int from roomies),
+  0,
+  'la TABLA roomies solo devuelve las filas propias (A no tiene)' );
+
+-- El contrapeso. Sin esto, cerrar la tabla pasa la prueba anterior y rompe la
+-- pantalla de roomies en silencio, que es exactamente el fallo que se corrige.
+select cmp_ok(
+  (select count(*)::int from sugerencias_roomies(30)), '>', 0,
+  'sugerencias_roomies sigue devolviendo roomies AJENOS' );
+
+-- El vector entra en el calculo y NO sale. La lista blanca de una funcion
+-- `security definer` es su firma de retorno, asi que se afirma sobre ella.
+select throws_ok(
+  $$ select vector_busqueda from sugerencias_roomies(1) $$,
+  null,
+  'sugerencias_roomies no devuelve vector_busqueda' );
 
 select * from finish();
 rollback;
