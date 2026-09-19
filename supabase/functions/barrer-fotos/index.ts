@@ -49,6 +49,10 @@ function igualEnTiempoConstante(a: string, b: string): boolean {
 }
 
 Deno.serve(async (req) => {
+  // Sin manejo de OPTIONS ni cabeceras CORS, al contrario que las otras tres
+  // funciones. No es un olvido: a esta la llama `pg_cron` a través de pg_net,
+  // nunca un navegador. Abrirla a peticiones de navegador no habilita ningún
+  // caso de uso y sí amplía su superficie, aunque siga exigiendo el CRON_SECRET.
   if (req.method !== 'POST') return json({ error: 'método no permitido' }, 405);
 
   const esperado = Deno.env.get('CRON_SECRET');

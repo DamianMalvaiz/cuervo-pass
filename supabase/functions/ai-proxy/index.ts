@@ -21,13 +21,27 @@ const CUOTA: Record<string, { recurso: string; limite: number }> = {
   'generar-embedding': { recurso: 'embedding', limite: 200 },
 };
 
+// CORS · END-14 · `req.method !== 'POST'` devolvía 405 también al preflight, así
+// que un navegador nunca llegaba a hacer la petición real. `package.json` tiene
+// script `web` y `react-native-web` en dependencias, así que la app web está
+// contemplada y esto la rompía en silencio.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
+};
+
 const json = (cuerpo: unknown, status: number, extra: Record<string, string> = {}) =>
   new Response(JSON.stringify(cuerpo), {
     status,
-    headers: { 'Content-Type': 'application/json', ...extra },
+    headers: { 'Content-Type': 'application/json', ...CORS, ...extra },
   });
 
 Deno.serve(async (req) => {
+  // El preflight va ANTES de cualquier comprobación: no lleva credenciales por
+  // definición, así que exigirlas aquí lo rechazaría siempre.
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return json({ error: 'método no permitido' }, 405);
 
   const auth = req.headers.get('Authorization');
@@ -87,11 +101,38 @@ Deno.serve(async (req) => {
       body: JSON.stringify({ texto }),
     });
 
-    return new Response(await r.text(), {
+    const cuerpo = await r.text();
+
+    // END-14 · Dos correcciones en el mismo punto.
+    //
+    // 1. La cuota se DEVUELVE cuando el microservicio falla. Antes se cobraba
+    //    antes del fetch y no se devolvía nunca: con el túnel muerto, treinta
+    //    reintentos agotaban el día sin una sola llamada al modelo.
+    //
+    // 2. El cuerpo ajeno NO se reenvía. Se sanitizaban con cuidado los errores
+    //    propios —el comentario de `motivo` de abajo es de eso— y se dejaba
+    //    pasar un traceback entero de FastAPI, con rutas del contenedor. El
+    //    cuerpo real va al registro del servidor, que es donde sirve.
+    if (r.status >= 500) {
+      await supabase.rpc('devolver_cuota', { p_recurso: recurso });
+      console.error('ai-proxy: el microservicio respondió con error', {
+        peticionId,
+        ruta,
+        estado: r.status,
+        cuerpo: cuerpo.slice(0, 500),
+      });
+      return json({ degradado: true, motivo: 'servicio-error' }, 503, {
+        'x-peticion-id': peticionId,
+      });
+    }
+
+    return new Response(cuerpo, {
       status: r.status,
-      headers: { 'Content-Type': 'application/json', 'x-peticion-id': peticionId },
+      headers: { 'Content-Type': 'application/json', ...CORS, 'x-peticion-id': peticionId },
     });
   } catch (e) {
+    // La cuota se cobró y no se entregó nada: se devuelve.
+    await supabase.rpc('devolver_cuota', { p_recurso: recurso });
     // El microservicio no respondió. La app degrada a Nivel 1: esto NO es un 500,
     // es un estado previsto del sistema (§27).
     //

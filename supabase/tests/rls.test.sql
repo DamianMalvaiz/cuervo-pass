@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(46);
+select plan(51);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -602,6 +602,80 @@ select is(
                  '00000000-0000-0000-0000-00000000e902')),
   1,
   'con mascota, el que no las permite queda fuera del filtro duro' );
+
+-- ════════════════ 47 a 51 · END-13: la cuota se cobraba sin entregar ════════════════
+-- `revelar_contacto` llama a `consumir_cuota` ANTES del `on conflict do
+-- nothing`. Volver a abrir una publicacion que ya revelaste cobra otra vez,
+-- aunque no haya nada nuevo que entregar: el telefono ya lo tenias. Reabrir
+-- cinco publicaciones cinco veces agota las 25 diarias USANDO LA APP CON
+-- NORMALIDAD, y en una demo se toca mucho.
+--
+-- La cuota existe para acotar el coste de revelar contactos NUEVOS (AUD-04),
+-- no para cobrar por mirar dos veces lo mismo.
+select actuar_como_servicio();
+
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data)
+values ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a8',
+        'authenticated', 'authenticated', 'a8@test.mx', '', now(), now(),
+        '{"nombre_usuario":"usuario_a8","nombre_completo":"Ocho Prueba"}');
+
+select actuar_como('00000000-0000-0000-0000-0000000000a8');
+
+-- Tres veces el MISMO contacto.
+select lives_ok(
+  $$ select revelar_contacto('00000000-0000-0000-0000-00000000e901'::uuid) $$,
+  'revelar un contacto funciona' );
+select revelar_contacto('00000000-0000-0000-0000-00000000e901'::uuid);
+select revelar_contacto('00000000-0000-0000-0000-00000000e901'::uuid);
+
+select actuar_como_servicio();
+
+-- LA asercion. Antes de la correccion vale 3.
+select is(
+  (select consumo from cuotas_uso
+    where usuario_id = '00000000-0000-0000-0000-0000000000a8'
+      and recurso = 'revelar_contacto' and dia = current_date),
+  1,
+  'tres revelaciones del MISMO contacto consumen una sola cuota' );
+
+-- Y un contacto distinto si cobra: el arreglo no puede volver la cuota inutil.
+select actuar_como('00000000-0000-0000-0000-0000000000a8');
+select revelar_contacto('00000000-0000-0000-0000-00000000e902'::uuid);
+select actuar_como_servicio();
+select is(
+  (select consumo from cuotas_uso
+    where usuario_id = '00000000-0000-0000-0000-0000000000a8'
+      and recurso = 'revelar_contacto' and dia = current_date),
+  2,
+  'un contacto NUEVO si consume cuota' );
+
+-- END-14 · devolver_cuota, para que ai-proxy no cobre lo que no entrego. Con
+-- el tunel muerto, treinta reintentos agotaban el dia sin una sola llamada al
+-- modelo.
+select actuar_como('00000000-0000-0000-0000-0000000000a8');
+select devolver_cuota('revelar_contacto');
+select actuar_como_servicio();
+select is(
+  (select consumo from cuotas_uso
+    where usuario_id = '00000000-0000-0000-0000-0000000000a8'
+      and recurso = 'revelar_contacto' and dia = current_date),
+  1,
+  'devolver_cuota descuenta lo cobrado de mas' );
+
+-- Sin piso, un `catch` que se dispare de mas dejaria el consumo en negativo y
+-- regalaria cuota del dia siguiente.
+select actuar_como('00000000-0000-0000-0000-0000000000a8');
+select devolver_cuota('revelar_contacto');
+select devolver_cuota('revelar_contacto');
+select devolver_cuota('revelar_contacto');
+select actuar_como_servicio();
+select is(
+  (select consumo from cuotas_uso
+    where usuario_id = '00000000-0000-0000-0000-0000000000a8'
+      and recurso = 'revelar_contacto' and dia = current_date),
+  0,
+  'devolver_cuota nunca baja de cero' );
 
 select * from finish();
 rollback;

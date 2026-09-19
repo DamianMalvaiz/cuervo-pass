@@ -14,13 +14,27 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+// CORS · END-14 · `req.method !== 'POST'` devolvía 405 también al preflight, así
+// que un navegador nunca llegaba a hacer la petición real. `package.json` tiene
+// script `web` y `react-native-web` en dependencias, así que la app web está
+// contemplada y esto la rompía en silencio.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
+};
+
 const json = (cuerpo: unknown, status: number) =>
   new Response(JSON.stringify(cuerpo), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...CORS },
   });
 
 Deno.serve(async (req) => {
+  // El preflight va ANTES de cualquier comprobación: no lleva credenciales por
+  // definición, así que exigirlas aquí lo rechazaría siempre.
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (req.method !== 'POST') return json({ error: 'método no permitido' }, 405);
 
   const auth = req.headers.get('Authorization');
