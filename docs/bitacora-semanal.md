@@ -749,6 +749,130 @@ De paso, el conteo de aserciones de pgTAP pasó a leerse del archivo de pruebas:
 decía «37» cuando ya eran 59. Un verificador que miente sobre su propia
 cobertura es peor que uno que calla.
 
+### Seis órdenes: el servidor recupera lo que el cliente dictaba (19/09/2026 · madrugada)
+
+- **Logrado:** C.5, C.6, C.7, D.6, E.4 y B.6. Cuatro de las seis quitan una
+  decisión de las manos del cliente y la devuelven al servidor, que es de lo que
+  iba media auditoría sin haberlo dicho así.
+- **Atorado:** nada bloqueó. Lo que sí apareció fue un agujero de secretos en
+  `main` que ninguna de las seis órdenes buscaba; queda abajo.
+- **Decisión:** las dos migraciones —`0032` y `0033`— se escribieron con su
+  prueba pgTAP en rojo primero, y la `0033` se verificó contra **producción**
+  con una medición que podía salir mal, no con una que solo podía confirmar.
+- **Horas:** — / —
+
+| Compuerta | Antes | Ahora |
+|---|---|---|
+| Frontend | 199 | **217** |
+| pgTAP | 55 | **64** |
+| RLS contra producción | 19/19 | 19/19 |
+| Acciones de CI pineadas por SHA | 0 de 16 | **16 de 16** |
+
+#### El hilo común: quién tiene la autoridad
+
+Tres órdenes distintas resultaron ser la misma falla en tres capas:
+
+- **C.5** — la calificación viajaba como parámetro de ruta y se escribía en
+  `contactos.score_mostrado`. La métrica que el producto presenta **la
+  suministraba el medido**: cualquiera con la anon key registraba el número que
+  quisiera. Ahora la fórmula vive en `score_ajuste(...)`, en un solo sitio, y la
+  aserción 56 afirma que `afinidad_de` y `sugerencias_con_ranking` devuelven el
+  mismo valor — si alguien vuelve a copiar la fórmula, esa igualdad se rompe.
+- **C.6** — la app distinguía «llegaste a tu límite» de «falló la red»
+  buscando subcadenas en el mensaje de Postgres. El diagnóstico incómodo no era
+  la pereza sino que **no había código que leer**: las dos excepciones propias
+  usaban `check_violation`, el mismo que devuelve cualquier CHECK de cualquier
+  tabla. La `0032` les da uno (clase `CP`). Con subcadenas, un «no hay cuota de
+  disco en el servidor» habría hecho que la persona leyera que agotó su cupo
+  diario.
+- **B.6** — `sugerencias_publicaciones` devolvía 384 flotantes por fila que
+  ninguna pantalla lee. Medido antes de tocar nada: **4 697 bytes por fila, el
+  85 % del payload**; ~138 KB por refresco a 30 filas.
+
+Las otras dos no son de autoridad sino de tiempo y de personas: **C.7**, las URLs
+firmadas caducaban a la hora y se pedían una sola vez —una app abierta más de
+sesenta minutos se quedaba sin ninguna foto y no se recuperaba nunca—, y **D.6**,
+el escalado de fuente que `PRODUCT.md` prometía y que tenía cero usos en todo el
+código.
+
+#### Tres tipos que no verificaban nada
+
+`PublicacionSugerida` **nunca declaró** `vector_embedding`. La orden B.6 pedía
+«ajusta el tipo» y no había nada que ajustar: el tipo ya mentía por omisión.
+`tsc` dejó pasar 4,7 KB por fila durante meses porque la interfaz lleva
+`[key: string]: unknown`, y ese índice está en casi todas las de
+`database.types.ts`. Es un agujero sistemático, no un caso.
+
+La segunda fuga, que la auditoría no listaba: `obtenerPublicacionPublica` hacía
+`select('*')` sobre `publicaciones_publicas`, y esa vista **sí** expone el
+vector, porque el ranking lo necesita del lado del servidor. Quitarlo de las
+sugerencias y dejar el asterisco habría movido la fuga a la pantalla que más se
+abre. Al enumerar las columnas hay que hacerlo en **un literal de una pieza**:
+partido con `+`, supabase-js no puede leerlo en tiempo de compilación y `data`
+degrada a `GenericStringError` — 31 errores de tsc que no nombran la causa.
+
+#### La verificación que podía salir mal
+
+Para la `0033` no bastaba medir que el payload bajó: eso lo confirma cualquier
+cosa. Lo que había que comprobar es que el `left join lateral` por id trae **la
+fila correcta**, no una cualquiera. Se le copió a una cuenta desechable el vector
+de una publicación real de producción: esa publicación salió con similitud
+**exactamente 1**, ninguna otra la alcanzó, y 30 de 30 filas siguieron en Nivel
+2. La cuenta se borró al terminar.
+
+#### 211 + 9 no da 217
+
+El mensaje del commit de C.6 dice «nueve pruebas». El archivo tiene **seis**
+bloques `it(`, y el total medido pasó de 211 a 217. Los totales son reales —se
+comprobaron corriendo la suite en los dos commits—; el «nueve» era mío y estaba
+mal. Se registra porque es la misma clase de defecto que §0.2 imputa al
+repositorio, esta vez en un mensaje de commit: **un número escrito a mano no es
+una medición, aunque lo escriba quien acaba de medir.**
+
+De paso, el mismo hábito destapó que `AGENTS.md` decía «la siguiente migración es
+la **0022**» cuando la última aplicada era la **0033**. Un contador a mano que
+hay que actualizar en cada migración y que nadie actualizó doce veces seguidas.
+Se sustituyó por el comando que lo consulta.
+
+#### CI dejó de confiar en referencias móviles
+
+`ci.yml` explicaba con detalle por qué `npm ci` y no `npm install`, y dos jobs
+más abajo usaba `aquasecurity/trivy-action@master` **en el job de seguridad** y
+un `curl … install.sh | sh` desde la rama `main` de otro proyecto, con escritura
+en `/usr/local/bin`, dentro del job que produce el inventario de seguridad.
+
+El hallazgo que más sorprende: `supabase/setup-cli@v1` **no es una etiqueta, es
+una rama**. Comprobado con la API de GitHub — `git/ref/tags/v1` devuelve 404 y
+`git/ref/heads/v1` devuelve un SHA. Se veía exactamente igual que una versión
+fijada y no lo era.
+
+Dieciséis acciones pineadas por SHA, cada una anotada con la etiqueta que
+representa: un SHA sin su etiqueta al lado es imposible de auditar de un vistazo.
+Y `npm audit --audit-level=high` en el frontend, porque Trivy miraba la imagen
+del microservicio y **nadie miraba `node_modules`**, que es donde vive la mayor
+parte del código de terceros que acaba en el APK. El umbral es `high` y no
+`moderate` a propósito, y queda escrito por qué: hoy hay 14 moderadas, todas
+transitivas de Expo, que no se corrigen sin salir del SDK 57; con `moderate` el
+job nacería en rojo permanente, y una compuerta siempre roja se acaba apagando.
+
+#### Un agujero de secretos que sigue abierto en `main`
+
+Apareció por accidente, al volver de un `git checkout` para contar pruebas:
+`.env.server` sale como **no ignorado** en `main`. La línea que lo ignora existe
+solo en la rama `endurecimiento`. Ese archivo tiene la `SUPABASE_SERVICE_ROLE_KEY`
+y **el repositorio es público**, así que un `git add -A` hecho desde `main`
+publica la llave que se salta toda la RLS.
+
+Comprobado antes de alarmar:
+
+```bash
+git log --all --oneline -- .env.server     # vacío: nunca se commiteó
+git log --all -S 'SUPABASE_SERVICE_ROLE_KEY='   # solo plantillas vacías
+```
+
+Nunca ocurrió. El riesgo se cierra solo cuando `endurecimiento` se fusione a
+`main`; **hasta entonces, no hacer `git add -A` desde `main`.**
+
 ### Pendientes abiertos
 
 Actualizado el 19/09/2026 por la noche. El plan completo, con sus órdenes
@@ -776,6 +900,18 @@ ejecutables y su secuencia, está en
       densidad comparable, y objetivos táctiles a 44 pt.
 - [x] **E.2** — la suite dejó de fallar al azar. Re-verificada tras cada tanda,
       no dada por buena.
+- [x] **C.5, C.6** — la calificación sale de la URL y la calcula el servidor; y
+      los errores se distinguen por código (clase `CP`) en vez de por subcadena.
+- [x] **C.7** — las URLs firmadas se refirman a los 50 minutos, con diez de
+      holgura fijada por una aserción y no por dos números que casualmente
+      cuadran.
+- [x] **B.6** — el vector de 384 flotantes deja de bajar al teléfono. Verificado
+      contra producción: 756 bytes por fila y Nivel 2 intacto, 30 de 30.
+- [x] **E.4** — dieciséis acciones de CI pineadas por SHA, `concurrency` con
+      cancelación, y `npm audit` mirando `node_modules` por primera vez.
+- [x] **D.6, implementación** — topes de escalado por tipo y tres alturas fijas
+      convertidas en pisos. **Su verificación en dispositivo sigue abierta**, y
+      está en la lista de abajo: sin ella no está cumplido, solo implementado.
 
 **Tuyos — nadie más puede hacerlos**
 
@@ -803,17 +939,15 @@ ejecutables y su secuencia, está en
 
 **Abiertos, del plan de endurecimiento**
 
-- [ ] **B.3, B.5, B.6, C.5, C.6, C.7** — filtro de tipo en el servidor, ritmo
-      real en la geocodificación, dejar de mandar 384 flotantes al teléfono, la
-      calificación fuera de la URL, códigos de error en vez de subcadenas, y
-      refirmar las URLs antes de que caduquen.
-- [ ] **D.5, D.6, D.8 a D.12** — un carrusel o ninguno, escalado de fuente real,
-      esqueletos con forma de ficha, movimiento y tacto, responsive donde
-      importa, capa semántica de color, y reescribir `DESIGN.md` desde lo
-      construido.
-- [ ] **E.1, E.3, E.4, E.5, E.6** — plataforma: `app.json`, umbrales de
-      cobertura, pinear el resto de CI, la API deprecada de imágenes, e higiene
-      de operación del túnel.
+- [ ] **B.3, B.5** — filtro de tipo en el servidor y ritmo real en la
+      geocodificación.
+- [ ] **D.5, D.8 a D.12** — un carrusel o ninguno, esqueletos con forma de
+      ficha, movimiento y tacto, responsive donde importa, capa semántica de
+      color, y reescribir `DESIGN.md` desde lo construido.
+- [ ] **E.1, E.3, E.5, E.6** — plataforma: `app.json`, umbrales de cobertura,
+      la API deprecada de imágenes, e higiene de operación del túnel.
+- [ ] **Fusionar `endurecimiento` a `main`.** Además de traer dieciocho órdenes,
+      es lo que cierra el agujero del `.gitignore` descrito arriba.
 - [ ] Retirar la vista de compatibilidad `roomings` (migración 0011) cuando ya
       no quede ningún APK viejo instalado. Sigue viva con 30 filas.
 - [ ] `README.md` tiene la sección de capturas de pantalla vacía.
@@ -822,7 +956,7 @@ ejecutables y su secuencia, está en
 
 - [ ] La cobertura sigue lejos del 70 % que pide la compuerta de la Fase 2 para
       `src/services` y `src/store`, aunque ambos dejaron el 0 %.
-- [ ] **Ninguna prueba dice si algo se VE bien.** 199 en verde no es eso, y
+- [ ] **Ninguna prueba dice si algo se VE bien.** 217 en verde no es eso, y
       conviene no confundirlo nunca.
 - [ ] El reparto de las pruebas de envío de `FormularioPublicacion` en su propio
       archivo contiene un síntoma cuya causa ya se explicó —`unmount()` envenena
