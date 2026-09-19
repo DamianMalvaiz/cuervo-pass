@@ -139,8 +139,14 @@ export interface PublicacionSugerida {
   longitud: number | null;
   distancia: number | null;         // km, ya calculada en Postgres; null si no hay geocoding
   score: number;
-  similitud?: number | null;        // solo en Nivel 2
-  score_final?: number | null;      // solo en Nivel 2
+  // `similitud` es null cuando esa publicación no tiene embedding. Null y no
+  // cero: cero es una afinidad medida, null es su ausencia (END-08).
+  similitud?: number | null;
+  score_final?: number | null;
+  // El nivel es POR FILA, no una bandera de la consulta: en una misma lista
+  // conviven publicaciones ordenadas por afinidad y publicaciones ordenadas
+  // solo por filtros.
+  nivel?: 1 | 2;
 }
 
 export interface Roomie {

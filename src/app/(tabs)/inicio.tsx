@@ -130,7 +130,10 @@ export default function InicioScreen() {
   const session = useAuthStore((s) => s.session);
   const cargarPerfil = usePerfilStore((s) => s.cargarPerfil);
   const [sugerencias, setSugerencias] = useState<PublicacionSugerida[]>([]);
-  const [nivel, setNivel] = useState<1 | 2>(1);
+  // Dos números, no una bandera: en una misma lista conviven publicaciones
+  // ordenadas por afinidad y publicaciones ordenadas solo por filtros (END-08).
+  const [conAfinidad, setConAfinidad] = useState(0);
+  const [total, setTotal] = useState(0);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,7 +154,8 @@ export default function InicioScreen() {
     try {
       const resultado = await obtenerSugerencias(30);
       setSugerencias(resultado.datos);
-      setNivel(resultado.nivel);
+      setConAfinidad(resultado.conAfinidad);
+      setTotal(resultado.total);
       setEmitido(new Date());
     } catch (e) {
       // §27: nunca una pantalla en blanco. Se dice qué pasó y se ofrece
@@ -259,7 +263,14 @@ export default function InicioScreen() {
           <View style={estilos.cabecera}>
             <View style={estilos.margen}>
               <Encabezado
-                kicker={nivel === 2 ? 'NIVEL 2 · AFINIDAD SEMÁNTICA' : 'NIVEL 1 · FILTROS PONDERADOS'}
+                kicker={
+                  // El conteo prueba que el motor corre y hasta dónde alcanza.
+                  // Una bandera binaria solo lo afirmaba — y mentía cuando una
+                  // sola publicación vectorizada la ponía en 2.
+                  conAfinidad === 0
+                    ? 'NIVEL 1 · FILTROS PONDERADOS'
+                    : `NIVEL 2 · ${conAfinidad} DE ${total} CON AFINIDAD SEMÁNTICA`
+                }
                 titulo="Sugerencias"
                 meta={
                   `${filtradas.length === 1 ? '1 REGISTRO' : `${filtradas.length} REGISTROS`}` +
@@ -286,7 +297,7 @@ export default function InicioScreen() {
               <>
                 <Carrusel
                   titulo="Mejor afinidad contigo"
-                  descripcion={nivel === 2 ? 'orden del motor' : 'filtros ponderados'}
+                  descripcion={conAfinidad > 0 ? 'orden del motor' : 'filtros ponderados'}
                   datos={lentes.afinidad}
                   claveDe={(p) => `af-${p.id}`}
                   renderizar={compacta}

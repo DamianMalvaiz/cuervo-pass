@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(40);
+select plan(44);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -478,6 +478,74 @@ select hasnt_column( 'public', 'perfiles_publicos', 'email',
            'perfiles_publicos NO expone el correo' );
 select hasnt_column( 'public', 'perfiles_publicos', 'email_confirmed_at',
            'perfiles_publicos NO expone la fecha de confirmacion' );
+
+-- ════════════════ 41 a 44 · END-08: el Nivel 2 escondia publicaciones ════════════════
+-- `sugerencias_con_ranking` descartaba toda publicacion sin embedding:
+--
+--   where yo.perfil_vector is not null and c.vector_embedding is not null
+--
+-- Y el servicio devolvia Nivel 2 con que hubiera UNA sola fila. De veinte
+-- publicaciones viables con tres vectorizadas, el usuario veia TRES y creia que
+-- ese era el catalogo. Las otras diecisiete pasaban el filtro duro perfectamente.
+--
+-- Es AUD-01 una capa mas arriba: lista incompleta, sin error, sin log, sin
+-- pista. La degradacion era todo-o-nada en la granularidad equivocada: lo que
+-- degrada es el ORDEN de cada fila, no la existencia de la lista.
+select actuar_como_servicio();
+
+-- Aislamiento: las publicaciones sembradas por aserciones anteriores tambien
+-- pasarian el filtro de a1 y el conteo dejaria de ser comprobable.
+update publicaciones set activa = false;
+
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data)
+values ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a7',
+        'authenticated', 'authenticated', 'a7@test.mx', '', now(), now(),
+        '{"nombre_usuario":"usuario_a7","nombre_completo":"Aurora Prueba"}');
+
+-- Cinco publicaciones que pasan los filtros duros de a1 (2000-3500, 10 km,
+-- sin exigencia de mascotas). Solo DOS llevan vector.
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta,
+                           whatsapp, latitud, longitud, vector_embedding)
+select ('00000000-0000-0000-0000-00000000e8' || lpad(n::text, 2, '0'))::uuid,
+       '00000000-0000-0000-0000-0000000000a7',
+       'Viable ' || n, 'depa', 'Calle E8 ' || n, 2800, '5512345678', 19.29, -99.56,
+       case when n <= 2
+            then ('[' || array_to_string(array_fill(0.05::float8, array[384]), ',') || ']')::vector
+            else null end
+  from generate_series(1, 5) n;
+
+update usuarios
+   set perfil_vector = ('[' || array_to_string(array_fill(0.05::float8, array[384]), ',') || ']')::vector
+ where id = '00000000-0000-0000-0000-0000000000a1';
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+-- LA asercion. Antes de la correccion devuelve 2.
+select is(
+  (select count(*)::int from sugerencias_con_ranking(30)),
+  5,
+  'el Nivel 2 devuelve TODAS las viables, no solo las vectorizadas' );
+
+-- Las que no tienen vector no pueden inventarse una similitud.
+select is(
+  (select count(*)::int from sugerencias_con_ranking(30) where similitud is null),
+  3,
+  'las publicaciones sin vector traen similitud nula, no cero' );
+
+-- Y su orden cae al score de filtros, sin castigo adicional.
+select is(
+  (select count(*)::int from sugerencias_con_ranking(30)
+    where similitud is null and score_final = score),
+  3,
+  'sin similitud, el orden es el score de filtros' );
+
+-- El nivel deja de ser una bandera global y pasa a ser columna POR FILA. Se
+-- comprueba sobre la firma declarada y no seleccionando la columna: si no
+-- existiera, un select la haria abortar el script entero en vez de fallar.
+select ok(
+  pg_get_function_result('sugerencias_con_ranking(int)'::regprocedure) like '%nivel%',
+  'sugerencias_con_ranking declara `nivel` por fila' );
 
 select * from finish();
 rollback;

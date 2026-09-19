@@ -40,31 +40,40 @@ async function generarEmbeddingSeguro(datos: {
 
 export interface ResultadoSugerencias {
   datos: PublicacionSugerida[];
-  /** 1 = filtros ponderados. 2 = además reordenado por similitud semántica. */
-  nivel: 1 | 2;
+  /** Cuántas de `datos` traen afinidad semántica. */
+  conAfinidad: number;
+  /** Cuántas devolvió el motor en total. */
+  total: number;
 }
 
 /**
  * §18 — degradación real, no una frase en una tabla.
  *
- * Si el perfil o las publicaciones no tienen vector —usuario que no consintió
- * el análisis con IA, microservicio caído al momento de publicar— el Nivel 2
- * devuelve menos filas o ninguna, y se cae al Nivel 1.
+ * Una sola llamada. Antes eran dos, con un respaldo todo-o-nada que escondía
+ * publicaciones válidas (END-08): `sugerencias_con_ranking` descartaba las que
+ * no tenían embedding y el servicio devolvía Nivel 2 con que hubiera UNA fila.
+ * De veinte viables con tres vectorizadas, el usuario veía tres y creía que ese
+ * era el catálogo.
  *
- * El `nivel` se muestra en pantalla durante la demo a propósito: poder decir
- * "esto corre en Nivel 2; si apago el contenedor la app sigue funcionando en
- * Nivel 1" — y demostrarlo en vivo — vale más que cualquier feature extra.
+ * La migración 0027 mueve ese filtro a un `left join`, así que la función ya
+ * devuelve TODAS las viables con `nivel` por fila. No queda nada que
+ * reintentar: si el perfil no tiene vector, todas vuelven con nivel 1, que es
+ * exactamente el Nivel 1 de antes.
+ *
+ * Lo que se enseña en la demo deja de ser una bandera y pasa a ser un conteo
+ * —«12 de 20 con afinidad semántica»—, que prueba que el motor corre y hasta
+ * dónde alcanza en vez de afirmarlo.
  */
 export async function obtenerSugerencias(limite = 20): Promise<ResultadoSugerencias> {
-  const conIA = await supabase.rpc('sugerencias_con_ranking', { p_limite: limite });
-  if (!conIA.error && conIA.data?.length) {
-    return { datos: conIA.data as PublicacionSugerida[], nivel: 2 };
-  }
-  if (conIA.error) console.warn('sugerencias_con_ranking falló:', conIA.error.message);
+  const { data, error } = await supabase.rpc('sugerencias_con_ranking', { p_limite: limite });
+  if (error) throw error;
 
-  const base = await supabase.rpc('sugerencias_publicaciones', { p_limite: limite });
-  if (base.error) throw base.error;
-  return { datos: (base.data ?? []) as PublicacionSugerida[], nivel: 1 };
+  const datos = (data ?? []) as PublicacionSugerida[];
+  return {
+    datos,
+    conAfinidad: datos.filter((p) => p.similitud != null).length,
+    total: datos.length,
+  };
 }
 
 // ═══════════════════ Lectura ═══════════════════
