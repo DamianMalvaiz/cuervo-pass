@@ -85,6 +85,10 @@ echo "→ Actualizando el secret AI_SERVICE_URL…"
 set -a
 # shellcheck disable=SC1091
 . ./.env
+# El de servidor tambien: `supabase secrets set` necesita credenciales que
+# desde la ORDEN A.3 ya no estan en el de cliente.
+# shellcheck disable=SC1091
+[ -f ./.env.server ] && . ./.env.server
 set +a
 npx supabase secrets set AI_SERVICE_URL="$URL" >/dev/null
 echo "   listo."

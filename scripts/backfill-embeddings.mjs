@@ -1,7 +1,9 @@
 // Genera embeddings para las cuentas/publicaciones demo que seed-demo.mjs creó
 // antes de que existiera el Nivel 2 (Semana 9) — sin esto, el reordenamiento
 // por similitud no tiene nada que reordenar. Usa el microservicio LOCAL
-// (gratis, sin ANTHROPIC_API_KEY) vía EXPO_PUBLIC_AI_SERVICE_URL.
+// (gratis, sin ANTHROPIC_API_KEY) via AI_SERVICE_URL de .env.server. Se llamaba
+// EXPO_PUBLIC_AI_SERVICE_URL: ese prefijo la compilaba dentro del APK para nada,
+// porque la app no habla con el microservicio desde la v5 (A.3).
 //
 // Uso: node --env-file=.env scripts/backfill-embeddings.mjs
 // (requiere que ai-service esté corriendo: cd ai-service && .venv/bin/uvicorn main:app)
@@ -16,7 +18,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const aiServiceUrl = process.env.EXPO_PUBLIC_AI_SERVICE_URL || 'http://localhost:8000';
+const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 
 if (!url || !serviceKey) {
   console.error('Faltan EXPO_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en .env');

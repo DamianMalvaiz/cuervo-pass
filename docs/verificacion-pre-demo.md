@@ -63,14 +63,14 @@ Nivel 2 corre en un modelo local y no depende de ninguna API de pago.
   que una noche tardó más de media hora en publicarse.
 - **Cuenta con consentimiento y sin vector** → esa persona entra a
   Perfil → Preferencias y guarda otra vez. Con el servicio arriba se regenera.
-- **Cola de fotos huérfanas con filas** → `node --env-file=.env scripts/limpiar-fotos-huerfanas.mjs`.
+- **Cola de fotos huérfanas con filas** → `node --env-file=.env --env-file=.env.server scripts/limpiar-fotos-huerfanas.mjs`.
   No es un fallo: el borrado de la cuenta sí funcionó. Es deuda visible, que es
   justo lo que la migración 0021 buscaba en vez de un trigger que reventaba.
-- **Publicaciones sin vector** → `node --env-file=.env scripts/backfill-embeddings.mjs`
+- **Publicaciones sin vector** → `node --env-file=.env --env-file=.env.server scripts/backfill-embeddings.mjs`
   (con `--todos` si hay que regenerarlos todos, no solo los que faltan).
 - **Geocodificación rara** → suelen ser datos de prueba viejos, anteriores al
   formulario de dirección estructurado. Si vienen del sembrado,
-  `node --env-file=.env scripts/fix-demo-coordinates.mjs` las corrige; si son
+  `node --env-file=.env --env-file=.env.server scripts/fix-demo-coordinates.mjs` las corrige; si son
   altas de prueba sueltas, se borran a mano. No es un bug de código: el
   formulario actual exige calle, número, CP, colonia, municipio y estado, así
   que ya no puede producir una dirección tan incompleta.

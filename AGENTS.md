@@ -117,45 +117,36 @@ documentados e implementados**; el tercero está pendiente de crearse.
   `docker-compose.yml` declara en `env_file`. Plantilla en
   `ai-service/.env.example`.
 - **`.env.server` = HERRAMIENTAS Y SCRIPTS.** `SUPABASE_SERVICE_ROLE_KEY` (ocho
-  scripts y dos Edge Functions) y `SUPABASE_DB_PASSWORD` (lo consume el CLI de
-  Supabase, no código nuestro).
+  scripts y dos Edge Functions), `SUPABASE_DB_PASSWORD` (lo consume el CLI de
+  Supabase), `AI_SERVICE_URL` (destino del microservicio para
+  `scripts/backfill-embeddings.mjs`) y `CRON_SECRET` (barrido de fotos, 0025).
 
-> **Estado actual, verificado el 19/09/2026. La separación está DISEÑADA, NO
-> CUMPLIDA.** Hay tres rutas de arranque del microservicio y cada una lee un
-> sitio distinto:
->
-> | Ruta | Qué lee | Estado |
-> |---|---|---|
-> | `scripts/tunel.sh:42` | el `.env` de la **raíz**, vía `set -a && . ../.env` | es la que se usa |
-> | `docker compose up` | `ai-service/.env`, vía `env_file` | Compose no instalado aquí |
-> | `uvicorn main:app --reload` (README) | **nada**: no hay `python-dotenv` | arranca sin `AI_SHARED_TOKEN` |
->
-> - La tercera fila es un fallo de seguridad activo, no teórico: combinada con
->   el guard `if AI_SHARED_TOKEN and not valido` de `main.py`, la ruta que el
->   README documenta arranca el servicio **sin autenticar a nadie**. Lo cierra
->   la ORDEN A.2 del plan de endurecimiento.
-> - `ai-service/.env` ya existe, pero con los valores VACÍOS de la plantilla, y
->   hoy no lo lee nadie: sin `python-dotenv`, solo lo consume `env_file` de
->   Compose.
-> - `.env.server` no existe; `SUPABASE_SERVICE_ROLE_KEY` y
->   `SUPABASE_DB_PASSWORD` siguen en el `.env` de la raíz, que es el del
->   cliente.
->
-> Unificar las tres rutas en una es parte del trabajo de separar los secretos.
+Los scripts cargan los dos de cliente y servidor:
 
-> **Dos variables del `.env` de la raíz están MUERTAS. Bórralas, no las muevas.**
-> Verificado con grep sobre `src/`, `scripts/`, `ai-service/` y
-> `supabase/functions/`:
-> - **`PERFIL_ENCRYPTION_KEY`** — cero lectores. Las migraciones 0005 y 0009 usan
->   `current_setting('app.perfil_encryption_key')`, que es un **GUC de Postgres**:
->   otra cosa, con nombre parecido. El cifrado que la justificaba lo retiró §30.
-> - **`MAPBOX_ACCESS_TOKEN`** — cero lectores. El único Mapbox vivo es
+```bash
+node --env-file=.env --env-file=.env.server scripts/<lo-que-sea>.mjs
+```
+
+> **La separación es un MECANISMO, no un párrafo.** `scripts/verificar-env.mjs`
+> corre en CI sobre los `.example` y rompe el build si un secreto aparece en el
+> archivo del cliente, o si algo con `EXPO_PUBLIC_` aparece en el del servidor.
+> Antes esto era solo una advertencia escrita en `.env.example`, y el proyecto
+> la incumplió durante meses.
+>
+>     npm run verificar:env
+
+> **Dos variables se BORRARON del `.env` por muertas** (`git grep`, cero
+> lectores en `src/`, `scripts/`, `ai-service/` y `supabase/functions/`):
+> - **`PERFIL_ENCRYPTION_KEY`** — las migraciones 0005 y 0009 usan
+>   `current_setting('app.perfil_encryption_key')`, que es un **GUC de
+>   Postgres**: otra cosa con nombre parecido. El cifrado que la justificaba lo
+>   retiró §30.
+> - **`MAPBOX_ACCESS_TOKEN`** — el único Mapbox vivo es
 >   `EXPO_PUBLIC_MAPBOX_TOKEN` en `src/lib/mapboxAutocomplete.ts`. El nombre
->   sugiere que es su par privado; no lo es, y no lo usa nadie.
+>   sugiere que es su par privado; no lo es.
 >
-> Una credencial que nadie usa sigue siendo una credencial que se puede filtrar.
-> **Antes de declarar que una variable es "de servidor", corre el grep.** Deducir
-> del nombre ya metió una credencial fantasma en este archivo una vez.
+> **Antes de declarar que una variable es "de servidor", corre el grep.**
+> Deducir del nombre ya metió una credencial fantasma en este archivo una vez.
 
 Nunca añadas `EXPO_PUBLIC_` a algo que no sea público por diseño. Ninguno de los
 tres archivos se versiona.

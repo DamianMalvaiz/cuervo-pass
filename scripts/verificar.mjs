@@ -18,7 +18,12 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 
-try { process.loadEnvFile('.env'); } catch { /* las variables ya pueden venir del entorno */ }
+// Dos archivos: el de cliente y el de servidor. SUPABASE_SERVICE_ROLE_KEY vive
+// en el segundo desde la ORDEN A.3 — en el primero acababa compilada en el APK
+// si alguien le ponia el prefijo por descuido.
+for (const archivo of ['.env', '.env.server']) {
+  try { process.loadEnvFile(archivo); } catch { /* puede venir del entorno */ }
+}
 
 const URL_SB = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -285,7 +290,7 @@ const avisos = resultados.filter((r) => r.estado === 'aviso').length;
 console.log(`\n  ${resultados.length - fallos - avisos} correctos · ${avisos} avisos · ${fallos} fallos`);
 
 // Honestidad sobre el alcance: decir qué NO mira es tan útil como lo que mira.
-console.log('\n  No cubre: las policies de RLS (eso es `supabase test db`, 21 aserciones),');
+console.log('\n  No cubre: las policies de RLS (eso es `supabase test db`, 37 aserciones),');
 console.log('  ni que la app compile (`npx tsc --noEmit` y `npx expo lint`).\n');
 
 process.exit(fallos > 0 ? 1 : 0);

@@ -20,6 +20,34 @@ jobs:
       - run: supabase start
       - run: supabase test db
 
+  # §34 · ORDEN A.3 — el reparto de variables deja de ser un parrafo y pasa a
+  # ser una compuerta. Corre sobre los .example, que si se versionan.
+  secretos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node scripts/verificar-env.mjs .env.example .env.server.example
+      # Escaneo de secretos sobre el repositorio. Trivy (job `imagen`) mira la
+      # imagen de Docker; nadie miraba el arbol, en un proyecto cuyo tema
+      # central es el manejo de credenciales.
+      - name: Buscar credenciales versionadas
+        uses: gitleaks/gitleaks-action@83373cf2f8c4db6e24b41c1a9b086bb9619e9cd3   # v2.3.7
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  # ORDEN A.5 / E.2 — las Edge Functions son la frontera de seguridad (usan
+  # service_role) y hasta hoy ningun job las tocaba: ni tipado, ni lint.
+  edge-functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@909cc5acb0fdd60627fb858598759246509fa755   # v2.0.2
+        with: { deno-version: v2.x }
+      - run: deno check supabase/functions/*/index.ts
+      - run: deno lint supabase/functions/
+
   frontend:
     runs-on: ubuntu-latest
     steps:

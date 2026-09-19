@@ -60,7 +60,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "jest"
+    "test": "jest",
+    "verificar:env": "node scripts/verificar-env.mjs"
   },
   "private": true,
   "jest": {

@@ -34,6 +34,7 @@ yarn-error.*
 # el del servidor en ai-service/. Nunca se versiona ninguno de los dos.
 .env
 .env*.local
+.env.server
 ai-service/.env
 
 # respaldos previos a cada `db push` a partir de la semana 5 (§33.4)
