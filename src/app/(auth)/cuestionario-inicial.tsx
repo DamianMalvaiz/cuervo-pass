@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { FormularioCuestionario, type RespuestasCuestionario } from '@/components/FormularioCuestionario';
 import { ThemedText } from '@/components/themed-text';
@@ -7,9 +7,10 @@ import { ThemedView } from '@/components/themed-view';
 import { Filete, Spacing } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
-import { generarEmbedding, parsearPerfil } from '@/lib/aiService';
+import { parsearPerfil } from '@/lib/aiService';
 import { geocodificarDireccion } from '@/lib/geocoding';
 import { construirTextoPerfil } from '@/lib/perfilTexto';
+import { avisoVector, campoVector, resolverPerfilVector } from '@/lib/perfilVector';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 
@@ -64,14 +65,7 @@ export default function CuestionarioInicialScreen() {
       textoLibre: respuestas.textoLibre,
     });
 
-    let perfilVector: number[] | null = null;
-    if (usaIa) {
-      try {
-        perfilVector = await generarEmbedding(textoPerfil);
-      } catch (e) {
-        console.warn('generarEmbedding (perfil) falló, se sigue sin él:', e);
-      }
-    }
+    const resultadoVector = await resolverPerfilVector(usaIa, textoPerfil);
 
     await actualizarPerfil(session.user.id, {
       universidad: respuestas.universidad,
@@ -87,13 +81,22 @@ export default function CuestionarioInicialScreen() {
       ...(horario ? { horario_predominante: horario } : {}),
       // Si no consintió, el vector se limpia: así "quitar el consentimiento"
       // tiene efecto de verdad y no deja el embedding anterior dando vueltas.
-      perfil_vector: perfilVector,
+      // Un fallo del servicio NO cuenta como no consentir (ver perfilVector.ts).
+      ...campoVector(resultadoVector),
       latitud_universidad: coords?.lat ?? null,
       longitud_universidad: coords?.lng ?? null,
       // Se escribe AL FINAL, cuando ya quedó todo lo demás: es lo que el guard
       // de §26 lee para decidir si esta persona puede entrar a las pestañas.
       cuestionario_completo: true,
     });
+
+    const aviso = avisoVector(resultadoVector, false);
+    if (aviso) {
+      Alert.alert(aviso.titulo, aviso.cuerpo, [
+        { text: 'Entendido', onPress: () => router.replace('/(tabs)/inicio') },
+      ]);
+      return;
+    }
     router.replace('/(tabs)/inicio');
   };
 

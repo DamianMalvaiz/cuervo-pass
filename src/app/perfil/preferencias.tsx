@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import {
   FormularioCuestionario,
@@ -14,9 +14,10 @@ import { ThemedView } from '@/components/themed-view';
 import { Filete, Spacing } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
-import { generarEmbedding, parsearPerfil } from '@/lib/aiService';
+import { parsearPerfil } from '@/lib/aiService';
 import { geocodificarDireccion } from '@/lib/geocoding';
 import { construirTextoPerfil } from '@/lib/perfilTexto';
+import { avisoVector, campoVector, resolverPerfilVector } from '@/lib/perfilVector';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 
@@ -51,24 +52,19 @@ export default function PreferenciasScreen() {
       }
     }
 
-    let perfilVector: number[] | null = null;
-    if (usaIa) {
-      try {
-        perfilVector = await generarEmbedding(
-          construirTextoPerfil({
-            universidad: respuestas.universidad,
-            presupuestoMin: respuestas.presupuestoMin,
-            presupuestoMax: respuestas.presupuestoMax,
-            mascotas: respuestas.mascotas,
-            fuma: respuestas.fuma,
-            nivelRuido: respuestas.nivelRuido,
-            textoLibre: respuestas.textoLibre,
-          })
-        );
-      } catch (e) {
-        console.warn('generarEmbedding (perfil) falló, se sigue sin él:', e);
-      }
-    }
+    const teniaVector = Boolean(perfil?.perfil_vector);
+    const resultadoVector = await resolverPerfilVector(
+      usaIa,
+      construirTextoPerfil({
+        universidad: respuestas.universidad,
+        presupuestoMin: respuestas.presupuestoMin,
+        presupuestoMax: respuestas.presupuestoMax,
+        mascotas: respuestas.mascotas,
+        fuma: respuestas.fuma,
+        nivelRuido: respuestas.nivelRuido,
+        textoLibre: respuestas.textoLibre,
+      })
+    );
 
     await actualizarPerfil(session.user.id, {
       universidad: respuestas.universidad,
@@ -85,10 +81,20 @@ export default function PreferenciasScreen() {
       // Retirar el consentimiento borra el vector: si no, el embedding anterior
       // seguiría ordenando las sugerencias con un texto que la persona ya dijo
       // que no quiere que analicemos.
-      perfil_vector: perfilVector,
+      //
+      // Pero SOLO si lo retiró de verdad. Cuando el servicio falla, campoVector
+      // no manda la columna y el vector anterior sobrevive: antes un fallo de
+      // red lo borraba igual que un "no consiento", y nadie se enteraba.
+      ...campoVector(resultadoVector),
       latitud_universidad: coords?.lat ?? null,
       longitud_universidad: coords?.lng ?? null,
     });
+
+    const aviso = avisoVector(resultadoVector, teniaVector);
+    if (aviso) {
+      Alert.alert(aviso.titulo, aviso.cuerpo, [{ text: 'Entendido', onPress: () => router.back() }]);
+      return;
+    }
     router.back();
   };
 
