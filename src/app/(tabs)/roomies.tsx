@@ -154,6 +154,7 @@ export default function RoomiesScreen() {
                 <>
                   <FileteHoja />
                   <Campo
+                    punteado
                     etiqueta="QUÉ BUSCAS"
                     placeholder="Zona, presupuesto, horarios, si fumas, si tienes mascota…"
                     multiline

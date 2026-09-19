@@ -22,9 +22,21 @@ import { useTheme } from '@/hooks/use-theme';
  */
 export const Campo = forwardRef<
   TextInput,
-  TextInputProps & { etiqueta: string; error?: string; contrasena?: boolean }
->(function Campo({ etiqueta, error, contrasena, style, ...props }, ref) {
+  TextInputProps & {
+    etiqueta: string;
+    error?: string;
+    contrasena?: boolean;
+    /**
+     * Marca el campo como "casilla sin llenar" mientras esté vacío: fondo
+     * tintado, filete discontinuo y el texto de ayuda a la vista. Para los
+     * campos opcionales y largos —biografía, texto libre— donde un recuadro
+     * idéntico a los demás no distingue "no quise" de "se me olvidó".
+     */
+    punteado?: boolean;
+  }
+>(function Campo({ etiqueta, error, contrasena, punteado, style, value, ...props }, ref) {
   const theme = useTheme();
+  const vacio = punteado === true && !String(value ?? '').trim();
 
   return (
     <View style={estilos.bloque}>
@@ -33,17 +45,28 @@ export const Campo = forwardRef<
       </ThemedText>
 
       {contrasena ? (
-        <CampoContrasena ref={ref} accessibilityLabel={etiqueta} {...props} />
+        <CampoContrasena ref={ref} accessibilityLabel={etiqueta} value={value} {...props} />
       ) : (
         <TextInput
           ref={ref}
           style={[
             estilos.entrada,
-            { borderColor: theme.border, color: theme.text, backgroundColor: theme.background },
+            {
+              borderColor: vacio ? theme.filete : theme.border,
+              color: theme.text,
+              backgroundColor: vacio ? theme.backgroundElement : theme.background,
+            },
+            // El discontinuo es un EXTRA, no el portador del significado:
+            // Android ignora `borderStyle: 'dashed'` cuando hay `borderRadius` y
+            // lo pinta sólido. Lo que distingue el estado vacío en los dos
+            // sistemas es el fondo tintado y el filete más claro; en iOS, además,
+            // se ve la discontinua.
+            vacio && estilos.punteado,
             style,
           ]}
           placeholderTextColor={theme.textSecondary}
           accessibilityLabel={etiqueta}
+          value={value}
           {...props}
         />
       )}
@@ -59,6 +82,7 @@ export const Campo = forwardRef<
 
 const estilos = StyleSheet.create({
   bloque: { gap: Spacing.one },
+  punteado: { borderStyle: 'dashed', borderWidth: Filete.grueso },
   entrada: {
     borderWidth: Filete.fino,
     borderRadius: Radios.control,

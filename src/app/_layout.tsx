@@ -91,7 +91,13 @@ export default function RootLayout() {
         <Stack.Screen name="publicacion/nueva" options={{ ...encabezado, title: 'Nueva publicación' }} />
         <Stack.Screen name="publicacion/editar/[id]" options={{ ...encabezado, title: 'Editar publicación' }} />
         <Stack.Screen name="perfil/[usuarioId]" options={{ ...encabezado, title: 'Perfil' }} />
-        <Stack.Screen name="perfil/preferencias" options={{ ...encabezado, title: 'Mis preferencias' }} />
+        {/* Hoja modal, no empujada: editar tus preferencias es una tarea
+            autocontenida de la que se sale cancelando, y el gesto de arrastrar
+            hacia abajo para cerrar ya lo conoce cualquiera. */}
+        <Stack.Screen
+          name="perfil/preferencias"
+          options={{ ...encabezado, title: 'Mis preferencias', presentation: 'modal' }}
+        />
         {/* La ruta es la conversación, no el otro usuario: el hilo existe como
             fila en `conversaciones` desde la migración 0012 (§26). */}
         <Stack.Screen name="chat/[conversacionId]" options={{ ...encabezado, title: 'Chat' }} />

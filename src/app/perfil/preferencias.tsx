@@ -1,7 +1,14 @@
 import { router } from 'expo-router';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
-import { FormularioCuestionario, type RespuestasCuestionario } from '@/components/FormularioCuestionario';
+import {
+  FormularioCuestionario,
+  type ControlCuestionario,
+  type RespuestasCuestionario,
+} from '@/components/FormularioCuestionario';
+import { PieFijo } from '@/components/ficha/PieFijo';
+import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Spacing } from '@/constants/theme';
@@ -22,6 +29,8 @@ import { usePerfilStore } from '@/store/usePerfilStore';
 // los CHECK de la tabla.
 export default function PreferenciasScreen() {
   const theme = useTheme();
+  const formulario = useRef<ControlCuestionario>(null);
+  const [guardando, setGuardando] = useState(false);
   const { anchoContenido, clase } = useTamanoPantalla();
   const session = useAuthStore((s) => s.session);
   const { perfil, actualizarPerfil } = usePerfilStore();
@@ -117,7 +126,10 @@ export default function PreferenciasScreen() {
             </View>
 
             <FormularioCuestionario
-            textoBoton="Guardar preferencias"
+              ref={formulario}
+              botonEnPie
+              onEstadoEnvio={setGuardando}
+              textoBoton="Guardar preferencias"
             valoresIniciales={{
               universidad: perfil.universidad ?? undefined,
               presupuestoMin: perfil.presupuesto_min ?? undefined,
@@ -134,6 +146,20 @@ export default function PreferenciasScreen() {
             />
           </View>
         </ScrollView>
+
+        {/* La acción fija al pie: en un formulario de cinco secciones, el botón
+            al final obliga a deslizar hasta abajo para confirmar, y mientras
+            editas un campo de en medio no hay ninguna pista de que exista una
+            acción pendiente. */}
+        <PieFijo>
+          <Sello
+            onPress={() => formulario.current?.enviar()}
+            cargando={guardando}
+            accessibilityLabel="Guardar preferencias"
+          >
+            Guardar preferencias
+          </Sello>
+        </PieFijo>
       </KeyboardAvoidingView>
     </ThemedView>
   );

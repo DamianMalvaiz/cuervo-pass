@@ -1,7 +1,13 @@
+import { useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
-import { FormularioPublicacion } from '@/components/FormularioPublicacion';
+import {
+  FormularioPublicacion,
+  type ControlPublicacion,
+} from '@/components/FormularioPublicacion';
+import { PieFijo } from '@/components/ficha/PieFijo';
+import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Spacing } from '@/constants/theme';
@@ -11,6 +17,8 @@ import { crearPublicacion } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export default function NuevaPublicacionScreen() {
+  const formulario = useRef<ControlPublicacion>(null);
+  const [guardando, setGuardando] = useState(false);
   const theme = useTheme();
   const { anchoContenido, clase } = useTamanoPantalla();
   const session = useAuthStore((s) => s.session);
@@ -35,6 +43,9 @@ export default function NuevaPublicacionScreen() {
               <View style={[styles.filete, { backgroundColor: theme.text }]} />
             </View>
           <FormularioPublicacion
+              ref={formulario}
+              botonEnPie
+              onEstadoEnvio={setGuardando}
             textoBoton="Publicar"
             onGuardar={async (datos) => {
               if (!session?.user.id) return;
@@ -57,6 +68,19 @@ export default function NuevaPublicacionScreen() {
           />
           </View>
         </ScrollView>
+
+        {/* Dieciséis campos: el botón al final obligaba a deslizar hasta abajo
+            para confirmar, y mientras editabas un campo de en medio no había
+            ninguna pista de que existiera una acción pendiente. */}
+        <PieFijo>
+          <Sello
+            onPress={() => formulario.current?.enviar()}
+            cargando={guardando}
+            accessibilityLabel="Publicar"
+          >
+            Publicar
+          </Sello>
+        </PieFijo>
       </KeyboardAvoidingView>
     </ThemedView>
   );

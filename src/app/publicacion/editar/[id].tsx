@@ -1,8 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
-import { FormularioPublicacion } from '@/components/FormularioPublicacion';
+import {
+  FormularioPublicacion,
+  type ControlPublicacion,
+} from '@/components/FormularioPublicacion';
+import { PieFijo } from '@/components/ficha/PieFijo';
+import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Spacing } from '@/constants/theme';
@@ -13,6 +18,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
 
 export default function EditarPublicacionScreen() {
+  const formulario = useRef<ControlPublicacion>(null);
+  const [guardando, setGuardando] = useState(false);
   const theme = useTheme();
   const { anchoContenido, clase } = useTamanoPantalla();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -70,6 +77,9 @@ export default function EditarPublicacionScreen() {
               <View style={[styles.filete, { backgroundColor: theme.text }]} />
             </View>
           <FormularioPublicacion
+              ref={formulario}
+              botonEnPie
+              onEstadoEnvio={setGuardando}
             textoBoton="Guardar cambios"
             valoresIniciales={{
               titulo: publicacion.titulo,
@@ -105,6 +115,19 @@ export default function EditarPublicacionScreen() {
           />
           </View>
         </ScrollView>
+
+        {/* Dieciséis campos: el botón al final obligaba a deslizar hasta abajo
+            para confirmar, y mientras editabas un campo de en medio no había
+            ninguna pista de que existiera una acción pendiente. */}
+        <PieFijo>
+          <Sello
+            onPress={() => formulario.current?.enviar()}
+            cargando={guardando}
+            accessibilityLabel="Guardar cambios"
+          >
+            Guardar cambios
+          </Sello>
+        </PieFijo>
       </KeyboardAvoidingView>
     </ThemedView>
   );

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
@@ -75,13 +75,26 @@ export interface RespuestasCuestionario {
   consienteIa: boolean;
 }
 
+/** Lo que el formulario expone hacia afuera cuando su botón vive en un pie fijo. */
+export interface ControlCuestionario {
+  enviar: () => void;
+}
+
 interface Props {
   valoresIniciales?: Partial<RespuestasCuestionario>;
   textoBoton?: string;
+  /** Oculta el botón interno: la pantalla lo pone en un PieFijo y lo dispara
+   *  por la referencia. */
+  botonEnPie?: boolean;
+  /** Para que el pie pueda mostrar su estado de carga. */
+  onEstadoEnvio?: (enviando: boolean) => void;
   onCompletar: (respuestas: RespuestasCuestionario) => Promise<void>;
 }
 
-export function FormularioCuestionario({ valoresIniciales, textoBoton = 'Guardar y continuar', onCompletar }: Props) {
+export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(function FormularioCuestionario(
+  { valoresIniciales, textoBoton = 'Guardar y continuar', botonEnPie, onEstadoEnvio, onCompletar },
+  ref
+) {
   const theme = useTheme();
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +126,12 @@ export function FormularioCuestionario({ valoresIniciales, textoBoton = 'Guardar
 
   const universidadIdSeleccionada = watch('universidadId');
   const esOtra = universidadIdSeleccionada === OPCION_OTRA_UNIVERSIDAD;
+
+  useImperativeHandle(ref, () => ({ enviar: () => handleSubmit(onSubmit)() }));
+
+  useEffect(() => {
+    onEstadoEnvio?.(enviando);
+  }, [enviando, onEstadoEnvio]);
 
   const onSubmit = async (valores: FormCuestionario) => {
     setError(null);
@@ -356,6 +375,7 @@ export function FormularioCuestionario({ valoresIniciales, textoBoton = 'Guardar
           name="textoLibre"
           render={({ field: { onChange, onBlur, value } }) => (
             <Campo
+              punteado
               etiqueta="CUÉNTANOS DE TI (OPCIONAL)"
               placeholder="Ej. soy tranquilo, tengo un gato, estudio en las mañanas…"
               multiline
@@ -404,12 +424,14 @@ export function FormularioCuestionario({ valoresIniciales, textoBoton = 'Guardar
         </View>
       )}
 
-      <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel={textoBoton}>
-        {textoBoton}
-      </Sello>
+      {!botonEnPie && (
+        <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel={textoBoton}>
+          {textoBoton}
+        </Sello>
+      )}
     </View>
   );
-}
+});
 
 /**
  * Una opción de lista.

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { z } from 'zod';
@@ -84,10 +84,18 @@ export interface DatosGuardarPublicacion extends ValoresFormularioPublicacion {
   fotos: FotoEntrada[];
 }
 
+/** Lo que el formulario expone cuando su botón vive en un pie fijo. */
+export interface ControlPublicacion {
+  enviar: () => void;
+}
+
 interface Props {
   valoresIniciales?: Partial<ValoresFormularioPublicacion>;
   fotosIniciales?: string[];
   textoBoton: string;
+  /** Oculta el botón interno: la pantalla lo pone en un PieFijo. */
+  botonEnPie?: boolean;
+  onEstadoEnvio?: (enviando: boolean) => void;
   onGuardar: (datos: DatosGuardarPublicacion) => Promise<void>;
 }
 
@@ -262,12 +270,16 @@ function CampoDesplegable({
 
 // Fila de fotos con miniaturas que se pueden quitar y placeholder para agregar
 // más — misma UI tanto para crear (fotosIniciales vacío) como para editar.
-export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], textoBoton, onGuardar }: Props) {
+export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(function FormularioPublicacion(
+  { valoresIniciales, fotosIniciales = [], textoBoton, botonEnPie, onEstadoEnvio, onGuardar },
+  ref
+) {
   const theme = useTheme();
   const [fotos, setFotos] = useState<FotoEntrada[]>(
     fotosIniciales.map((url) => ({ url, esNueva: false }))
   );
   const [enviando, setEnviando] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
 
   const [sugerenciasCalle, setSugerenciasCalle] = useState<string[]>([]);
@@ -389,6 +401,14 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
       setEnviando(false);
     }
   };
+
+  // DESPUÉS de onSubmit y de useForm, no antes: referenciar `handleSubmit`
+  // arriba del archivo lo lee en su zona muerta temporal y revienta al montar.
+  useImperativeHandle(ref, () => ({ enviar: () => handleSubmit(onSubmit)() }));
+
+  useEffect(() => {
+    onEstadoEnvio?.(enviando);
+  }, [enviando, onEstadoEnvio]);
 
   const estiloInput = [styles.input, { borderColor: theme.border, color: theme.text }];
 
@@ -764,12 +784,14 @@ export function FormularioPublicacion({ valoresIniciales, fotosIniciales = [], t
 
       {/* Publicar SÍ compromete: escribe la fila, sube las fotos y geocodifica.
           Es el único ámbar del formulario. */}
-      <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel={textoBoton}>
-        {textoBoton}
-      </Sello>
+      {!botonEnPie && (
+        <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel={textoBoton}>
+          {textoBoton}
+        </Sello>
+      )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   filaTipos: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },

@@ -350,6 +350,7 @@ export default function PerfilScreen() {
             {/* ── Biografía ────────────────────────────────────────────── */}
             <Seccion titulo="BIOGRAFÍA">
               <Campo
+                punteado
                 etiqueta="SOBRE TI"
                 placeholder="Cuéntale a otros quién eres. Genera confianza para quien no puede ir a verte antes de decidir."
                 multiline
