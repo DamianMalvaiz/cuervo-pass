@@ -14,7 +14,7 @@ import { aviso } from '@/lib/registro';
 import { ok, problema, type Resultado } from '@/lib/resultado';
 
 const BUCKET = 'fotos';
-const CADUCIDAD_SEGUNDOS = 60 * 60;   // una hora: sobra para una sesión de uso
+export const CADUCIDAD_SEGUNDOS = 60 * 60;   // una hora: sobra para una sesión de uso
 
 // Comprime/redimensiona antes de subir — nunca mandamos el archivo original de
 // la cámara. Una foto de celular ronda los 4 MB; diez publicaciones con cinco
