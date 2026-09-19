@@ -364,7 +364,7 @@ const estilos = StyleSheet.create({
     borderWidth: Filete.fino,
     borderRadius: Radios.full,
     paddingHorizontal: Spacing.three,
-    minHeight: 40,
+    minHeight: 44,
     justifyContent: 'center',
   },
   chipActivo: Texto.pesoFuerte,

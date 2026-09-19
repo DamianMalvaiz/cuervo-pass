@@ -63,7 +63,8 @@
     "lint": "expo lint",
     "test": "jest",
     "verificar:env": "node scripts/verificar-env.mjs",
-    "verificar:contraste": "node scripts/verificar-contraste.mjs"
+    "verificar:contraste": "node scripts/verificar-contraste.mjs",
+    "verificar:toques": "node scripts/verificar-toques.mjs"
   },
   "private": true
 }

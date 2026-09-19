@@ -491,7 +491,7 @@ const estilos = StyleSheet.create({
     padding: Spacing.three,
   },
 
-  accionSeccion: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half, minHeight: 32 },
+  accionSeccion: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half, minHeight: 44 },
   rejilla: { flexDirection: 'row', gap: Spacing.three },
   textoSeccion: { lineHeight: 20 },
 

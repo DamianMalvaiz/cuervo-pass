@@ -101,7 +101,22 @@ la prueba que falla, todavía no entiendes el bug.
    npx expo lint | grep -c 'Invariante 7'   # debe dar 0
    ```
 
-8. **Objetivo táctil mínimo 44×44 pt**, contando `hitSlop`. Sin excepciones.
+8. **Objetivo táctil mínimo 44×44 pt**, contando `hitSlop`.
+
+   **Lo comprueba `npm run verificar:toques`**, que corre en CI. Vivía solo aquí
+   y había cinco controles por debajo (30, 32, 36, 38 y 40 pt): una regla que
+   solo está escrita depende de que alguien la recuerde al teclear cada estilo.
+
+   `hitSlop` se declara en el componente y la altura en el estilo, así que el
+   script no puede correlacionarlos. Cuando el área real sí llega a 44, se
+   escribe la exención **con su motivo** en la línea anterior:
+
+   ```ts
+   // toque-ok: hitSlop de 12 a cada lado lo lleva a 20 + 24 = 44
+   ```
+
+   Una exención que obliga a escribir el porqué es una decisión; una que se
+   activa sola es un agujero.
 
 9. **Contraste medido, no supuesto** — y eso incluye superficie contra
    superficie, no solo texto sobre fondo.

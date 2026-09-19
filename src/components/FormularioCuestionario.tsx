@@ -506,7 +506,7 @@ const estilos = StyleSheet.create({
     borderWidth: Filete.fino,
     borderRadius: Radios.full,
     paddingHorizontal: Spacing.three,
-    minHeight: 38,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

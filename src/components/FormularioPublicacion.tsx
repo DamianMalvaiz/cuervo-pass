@@ -843,7 +843,7 @@ const styles = StyleSheet.create({
     borderRadius: Radios.full,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
-    minHeight: 36,
+    minHeight: 44,
     justifyContent: 'center',
   },
   textoPastillaActiva: { ...Texto.pesoFuerte },
@@ -933,6 +933,9 @@ const styles = StyleSheet.create({
     right: -Spacing.half,
     borderRadius: 10,
     width: 20,
+    // toque-ok: la Pressable lleva hitSlop de 12 a cada lado, así que el área
+    // real es 20 + 24 = 44. La insignia se ve pequeña a propósito: más grande
+    // taparía la miniatura que sirve para reconocer la foto.
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',

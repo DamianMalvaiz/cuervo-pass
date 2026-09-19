@@ -65,6 +65,11 @@ jobs:
       # midieron doce pares de texto sobre fondo y ninguna superficie contra
       # superficie, que era justo la que fallaba — 1.00 contra el papel.
       - run: npm run verificar:contraste
+      # END-35 · El invariante 8 dice «44×44 pt, sin excepciones» y vivía solo
+      # en AGENTS.md: había cinco controles por debajo —30, 32, 36, 38 y 40—
+      # porque una regla que solo está escrita depende de que alguien la
+      # recuerde al teclear cada estilo.
+      - run: npm run verificar:toques
       - run: npm test -- --watchAll=false --passWithNoTests
 
   servicio-ia:
