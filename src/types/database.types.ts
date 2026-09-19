@@ -57,6 +57,13 @@ export interface PerfilPublico {
   nivel_ruido: 'bajo' | 'medio' | 'alto' | null;
   horario_predominante: 'diurno' | 'nocturno' | 'mixto' | null;
   creado_en: string;
+  /**
+   * Se derivó de `auth.users.email_confirmed_at` en la vista (migración 0026),
+   * no es una columna copiada. Dice que el correo existe y que esa persona lo
+   * controla — NADA más. No es «usuario verificado»: la app no verifica
+   * identidades (§28). Etiquétalo en pantalla como «correo verificado».
+   */
+  correo_verificado: boolean;
 }
 
 export type TipoPublicacion = 'depa' | 'cuarto' | 'casa_compartida';

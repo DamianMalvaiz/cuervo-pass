@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(37);
+select plan(40);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -465,6 +465,19 @@ select is(
   (select count(*)::int from cron.job where jobname = 'barrer-fotos' and active),
   1,
   'la tarea barrer-fotos esta programada y activa' );
+
+-- ════════════════ 38 a 40 · la insignia de correo verificado ════════════════
+-- Se DERIVA de auth.users en la consulta, no se copia a una columna: una
+-- insignia de confianza desincronizada es peor que no tenerla. Y se expone
+-- como booleano, no como fecha — cuando alguien confirmo su correo no le
+-- importa a nadie mas que a el (§29, minimizacion).
+select actuar_como_servicio();
+select has_column( 'public', 'perfiles_publicos', 'correo_verificado',
+           'perfiles_publicos expone correo_verificado' );
+select hasnt_column( 'public', 'perfiles_publicos', 'email',
+           'perfiles_publicos NO expone el correo' );
+select hasnt_column( 'public', 'perfiles_publicos', 'email_confirmed_at',
+           'perfiles_publicos NO expone la fecha de confirmacion' );
 
 select * from finish();
 rollback;
