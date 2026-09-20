@@ -109,7 +109,11 @@ async function revisarTunel() {
     // medicion posterior en ruido — incluidas las de este mismo script.
     let enArbol = '';
     try {
-      enArbol = execFileSync('git', ['rev-parse', '--short', 'HEAD'],
+      // El ultimo commit que toco ai-service, no el HEAD del repositorio: con
+      // el HEAD, un commit de documentacion haria saltar este aviso sin que
+      // nada del microservicio hubiera cambiado, y un aviso que salta de mas se
+      // aprende a ignorar.
+      enArbol = execFileSync('git', ['log', '-1', '--format=%h', '--', 'ai-service'],
         { encoding: 'utf8', timeout: 5_000 }).trim();
     } catch {
       // Sin git no se puede comparar. No es un fallo del sistema verificado.

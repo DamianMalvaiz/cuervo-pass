@@ -64,7 +64,8 @@ echo "   responde."
 # arrancó y en realidad el que contesta es el de antes.
 #
 # Esto no lo adivina: lo pregunta.
-COMMIT_ARBOL="$(git rev-parse --short HEAD 2>/dev/null || true)"
+# El ultimo commit que toco ai-service, no el HEAD del repositorio.
+COMMIT_ARBOL="$(git log -1 --format=%h -- ai-service 2>/dev/null || true)"
 COMMIT_VIVO="$(printf '%s' "$LOCAL" | grep -oE '"commit"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -E 's/.*"([^"]*)"$/\1/' || true)"
 
 if [ -z "$COMMIT_VIVO" ]; then

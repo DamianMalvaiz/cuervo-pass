@@ -55,12 +55,22 @@ ENV_CARGADO = load_dotenv(RAIZ / ".env", override=False)
 # en cada petición diría la versión del REPOSITORIO, no la del proceso — que es
 # justo la confusión que esto viene a deshacer: lo que importa es con qué código
 # arrancó, no lo que hay en disco ahora.
+#
+# Se lee el último commit que tocó ESTE directorio, no el HEAD del repositorio.
+# Con el HEAD, un commit de documentación obligaría a reiniciar el microservicio
+# —o, peor, dispararía un aviso que no significa nada—, y un aviso que salta de
+# más se aprende a ignorar. Que es exactamente el fallo que esto viene a evitar.
+#
+# Lo que NINGUNA de las dos formas detecta: cambios sin commitear. Si arrancas
+# con el archivo editado y sin guardar en git, el proceso reporta el commit
+# anterior y parece desfasado aunque corra lo último. Es la lectura correcta:
+# nadie puede saber qué código es ese.
 def _commit_del_arbol() -> str:
     try:
         import subprocess
 
         return subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
+            ["git", "log", "-1", "--format=%h", "--", "."],
             cwd=RAIZ,
             capture_output=True,
             text=True,
