@@ -275,7 +275,8 @@ antes. Nunca registres una cuenta real delante del evaluador.
 
 | Archivo | Qué es |
 |---|---|
-| [docs/endurecimiento-v6.md](docs/endurecimiento-v6.md) | **Auditoria de la implementacion (END-01..38) y plan de trabajo pendiente.** Lee §3 antes de tocar produccion y §5 para la orden que toque |
+| [docs/cola-de-trabajo.md](docs/cola-de-trabajo.md) | **Lo que falta.** Ordenes ejecutables con defecto, aceptacion y verificacion. Empieza aqui |
+| [docs/endurecimiento-v6.md](docs/endurecimiento-v6.md) | Auditoria de la implementacion: END-01 a END-40, todos remediados. Se lee para saber POR QUE algo esta como esta, no para saber que hacer |
 | [PRODUCT.md](PRODUCT.md) | Usuarios, alcance, principios de producto |
 | [DESIGN.md](DESIGN.md) | Sistema visual "La Ficha": color, tipografía, componentes |
 | [docs/bitacora-semanal.md](docs/bitacora-semanal.md) | Qué se hizo cada semana y qué se rompió |

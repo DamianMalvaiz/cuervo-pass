@@ -83,7 +83,7 @@ const interactuar = async (fn: () => void) => { await act(async () => { fn(); })
 
 /** Monta y espera a que termine la carga inicial. */
 async function montar() {
-  const utilidades = render(<ConversacionScreen />);
+  const utilidades = await render(<ConversacionScreen />);
   await waitFor(() => expect(screen.queryByText('CONSULTANDO EL HILO')).toBeNull());
   return utilidades;
 }
