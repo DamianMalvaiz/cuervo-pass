@@ -81,7 +81,7 @@ Nivel 2 corre en un modelo local y no depende de ninguna API de pago.
 
 Deliberadamente, para no dar una falsa sensación de cobertura:
 
-- **Las policies de RLS.** Eso es `supabase test db` — 21 aserciones en
+- **Las policies de RLS.** Eso es `supabase test db` — las aserciones de pgTAP en
   `supabase/tests/rls.test.sql`, y corre en CI.
 - **Que la app compile.** Eso es `npx tsc --noEmit` y `npx expo lint`.
 - **Que la interfaz se vea bien.** Eso solo se ve en un dispositivo.

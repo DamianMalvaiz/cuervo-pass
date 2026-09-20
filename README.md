@@ -106,7 +106,7 @@ uvicorn main:app --reload     # desde ai-service/, no desde la raíz.
 
 # ── Antes de exponer ───────────────────────────────────
 node scripts/verificar.mjs   # túnel, secrets, vectores, RPCs — ver docs/verificacion-pre-demo.md
-npx supabase test db         # 83 aserciones de RLS (local, contra el esquema reconstruido)
+npx supabase test db         # 86 aserciones de RLS (local, contra el esquema reconstruido)
 node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # 19 barreras, contra PRODUCCIÓN y por HTTP
 npx tsc --noEmit && npx expo lint && npm test -- --coverage   # los umbrales rompen el build si baja
 ```
@@ -146,7 +146,7 @@ que corre en CI y rompe el build si un secreto aparece del lado del cliente.
 - **Retrieval + ranking, en ese orden.** El filtro duro —presupuesto, distancia, mascotas— descarta primero lo inviable; el embedding solo reordena lo que ya se puede pagar y alcanzar. Un departamento carísimo puede tener un vector muy parecido a tu perfil sin que puedas pagarlo.
 - **El teléfono no se lee, se pide.** `publicaciones_publicas` no trae la columna. El número sale de `revelar_contacto()`, que aplica una cuota de 25 revelaciones diarias y deja registro sin duplicar.
 - **Control de acceso en vez de cifrado de campos.** Se cifra en tránsito (HTTPS) y en reposo (disco de Supabase). Cifrar columnas con `pgp_sym_encrypt` no protegía contra la amenaza real —un usuario legítimo leyendo datos de otro— y mandaba la clave dentro de la consulta, donde acaba en los logs.
-- **Las pruebas de RLS son código.** Ochenta y tres aserciones de pgTAP que corren en CI y rompen el build (`supabase/tests/rls.test.sql`). Una captura de pantalla no se vuelve a ejecutar. El número se lee del archivo, no se escribe a mano:
+- **Las pruebas de RLS son código.** Corren en CI y rompen el build (`supabase/tests/rls.test.sql`). Una captura de pantalla no se vuelve a ejecutar. Cuántas hay lo dice el archivo — aquí no se escribe, porque un número escrito envejece y este ya lo hizo dos veces:
 
   ```bash
   grep -oE 'select plan\([0-9]+\)' supabase/tests/rls.test.sql
@@ -187,14 +187,14 @@ Compuertas, todas en CI:
 
 | | |
 |---|---|
-| pgTAP (RLS y funciones) | 83 aserciones |
+| pgTAP (RLS y funciones) | 86 aserciones |
 | Frontend (jest) | 296 pruebas, con umbral de cobertura que solo sube |
 | Microservicio (pytest) | 20 pruebas |
 | Aislamiento entre cuentas | 19 barreras **contra producción** |
 | Contraste, objetivos táctiles y reparto de secretos | scripts propios |
 
 ```bash
-npx supabase test db                                   # 83
+npx supabase test db                                   # 86
 npm test -- --coverage                                 # 296 + umbrales
 node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # 19/19
 node --env-file=.env --env-file=.env.server scripts/verificar.mjs    # antes de exponer
