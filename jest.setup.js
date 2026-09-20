@@ -44,7 +44,19 @@ jest.mock('react-native-reanimated', () => {
     // sistema pide reducir el movimiento — ahi lo que importa es la llamada, no
     // el valor.
     withRepeat: jest.fn((v) => v),
-    Easing: { inOut: (f) => f, ease: (t) => t, linear: (t) => t, bezier: () => (t) => t },
+    // `out` y `cubic` son los del conteo de la cifra (END-37). `out(cubic)` se
+    // devuelve DE VERDAD y no como identidad: la prueba del conteo comprueba que
+    // el numero intermedio va por delante del lineal, que es lo que significa
+    // «arranca rapido y frena al final». Con una identidad esa prueba pasaria
+    // sin comprobar nada.
+    Easing: {
+      inOut: (f) => f,
+      out: (f) => (t) => 1 - f(1 - t),
+      cubic: (t) => t * t * t,
+      ease: (t) => t,
+      linear: (t) => t,
+      bezier: () => (t) => t,
+    },
     useAnimatedScrollHandler: () => () => {},
     interpolate: (x) => x, Extrapolation: { CLAMP: 'clamp' },
     runOnJS: (fn) => fn,

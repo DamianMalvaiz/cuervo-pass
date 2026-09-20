@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -69,13 +70,9 @@ export function FilaPublicacion({
   const distancia = distanciaKm != null && Number.isFinite(distanciaKm) ? `${distanciaKm.toFixed(1)} km` : '—';
 
   return (
-    <Pressable
+    <Pulsable
       onPress={onPress}
-      style={({ pressed }) => [
-        estilos.fila,
-        { borderColor: theme.filete, backgroundColor: theme.background },
-        pressed && estilos.presionada,
-      ]}
+      style={[estilos.fila, { borderColor: theme.filete, backgroundColor: theme.background }]}
       accessibilityRole="button"
       accessibilityLabel={`${titulo}. Ajuste ${ajuste} de 10, renta ${renta}, distancia ${distancia}.`}
     >
@@ -113,7 +110,7 @@ export function FilaPublicacion({
           </ThemedText>
         )}
       </View>
-    </Pressable>
+    </Pulsable>
   );
 }
 
@@ -150,7 +147,6 @@ const estilos = StyleSheet.create({
     borderBottomWidth: Filete.fino,
     alignItems: 'center',
   },
-  presionada: { opacity: 0.7 },
   foto: {
     width: 96,
     height: 96,

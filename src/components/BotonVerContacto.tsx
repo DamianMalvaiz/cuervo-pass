@@ -5,6 +5,7 @@ import { ActivityIndicator, Linking, Pressable, StyleSheet } from 'react-native'
 import { AppColors, Radios, Spacing, Texto } from '@/constants/theme';
 import { ThemedText } from './themed-text';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
+import { sello } from '@/lib/tacto';
 
 interface Props {
   publicacionId: string;
@@ -34,6 +35,11 @@ export function BotonVerContacto({ publicacionId, titulo, score, onRevelar, onEr
     setCargando(true);
     try {
       const whatsapp = await onRevelar(publicacionId, score);
+      // END-37 · EL SELLO, y va aquí y no en el `onPress`. Se estampa cuando la
+      // revelación ya ocurrió: quedó una fila en `contactos` y se gastó cuota.
+      // Vibrar al tocar habría confirmado el toque, no el hecho — y si la
+      // llamada falla, habría confirmado algo que no pasó.
+      sello();
       const mensaje = encodeURIComponent(
         `Hola, vi tu publicación "${titulo}" en Cuervo Pass y me interesa.`
       );

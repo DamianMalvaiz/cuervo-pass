@@ -69,7 +69,12 @@ export function DesgloseCalificacion({
         accessibilityLabel={abierto ? 'Ocultar cómo se calculó la afinidad' : 'Ver cómo se calculó la afinidad'}
         accessibilityState={{ expanded: abierto }}
       >
-        <Calificacion score={score} tamano="ficha" />
+        {/* END-37 · `animada` SOLO aquí. Esta es la única calificación de toda
+            la app que se acaba de calcular para quien la está mirando: el
+            servidor resolvió su afinidad con ESTA publicación al abrirla. En una
+            lista serían treinta cifras bailando, y sugerirían treinta cálculos
+            que no están ocurriendo. */}
+        <Calificacion score={score} tamano="ficha" animada />
         {hayDesglose && (
           <View style={estilos.pista}>
             <ThemedText type="small" themeColor="acento">

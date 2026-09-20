@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
 import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -40,7 +41,7 @@ export function FichaCompacta({
   const hayDistancia = distanciaKm != null;
 
   return (
-    <Pressable
+    <Pulsable
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={[
@@ -49,7 +50,7 @@ export function FichaCompacta({
         `${precioTexto} al mes`,
         hayDistancia ? `a ${distanciaKm!.toFixed(1)} kilómetros` : 'sin distancia',
       ].join('. ')}
-      style={({ pressed }) => [estilos.tarjeta, pressed && estilos.presionada]}
+      style={estilos.tarjeta}
     >
       {fotoUrl ? (
         <Image
@@ -80,7 +81,7 @@ export function FichaCompacta({
           {hayDistancia ? `A ${distanciaKm!.toFixed(1)} KM` : 'SIN DISTANCIA'}
         </ThemedText>
       </View>
-    </Pressable>
+    </Pulsable>
   );
 }
 
@@ -88,7 +89,6 @@ export const ANCHO_FICHA_COMPACTA = 176;
 
 const estilos = StyleSheet.create({
   tarjeta: { width: ANCHO_FICHA_COMPACTA, gap: Spacing.two },
-  presionada: { opacity: 0.7 },
   // 1:1 como Airbnb en sus carruseles: en horizontal, el cuadrado deja ver más
   // fotografías por pantalla que el 3:2 de la ficha grande.
   foto: { width: '100%', aspectRatio: 1, borderRadius: Radios.control, borderWidth: Filete.fino },

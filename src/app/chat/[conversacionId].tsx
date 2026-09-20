@@ -31,6 +31,7 @@ import { obtenerPerfilPublico } from '@/services/usuarios.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { MENSAJES_VACIO, useChatStore } from '@/store/useChatStore';
 import type { Conversacion } from '@/types/database.types';
+import { toque } from '@/lib/tacto';
 import { aviso } from '@/lib/registro';
 import { type MensajeLocal } from '@/store/useChatStore';
 
@@ -183,6 +184,11 @@ export default function ConversacionScreen() {
     setError(null);
     const idTemporal = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     agregarOptimista(conversacionId, { id: idTemporal, contenido, remitenteId: miId });
+    // END-37 · Toque ligero, no sello. El mensaje aparece en pantalla al
+    // instante (C.4, envío optimista) pero TODAVÍA NO está entregado: puede
+    // fallar y pintarse en rojo. Confirmar con la vibración de «hecho» algo que
+    // aún puede deshacerse sería prometer de más con el cuerpo.
+    toque();
     void enviarContenido(contenido, idTemporal);
   }, [texto, miId, conversacionId, agregarOptimista, enviarContenido]);
 

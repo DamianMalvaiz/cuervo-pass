@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ANCHO_FICHA_COMPACTA, FichaCompacta } from '@/components/FichaCompacta';
@@ -14,8 +15,10 @@ import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
+import { useMovimientoReducido } from '@/hooks/use-movimiento-reducido';
 import { useTheme } from '@/hooks/use-theme';
 import { fechaHoraDeSello } from '@/lib/folio';
+import { toque } from '@/lib/tacto';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import type {
@@ -65,6 +68,10 @@ const TIPOS: { valor: TipoPublicacion | null; etiqueta: string }[] = [
 /** Por debajo de tres, el carrusel no se pinta: un carril con dos elementos es
  *  un hueco con título, y encima invita a deslizar algo que no se mueve. */
 const MINIMO_CARRUSEL = 3;
+
+/** Ocho filas es aproximadamente lo que cabe en una pantalla. Escalonar más allá
+ *  de lo visible no escalona: retrasa. */
+const TOPE_ESCALONADO = 8;
 
 const ORDENES: { valor: OrdenSugerencias; etiqueta: string }[] = [
   { valor: 'ajuste', etiqueta: 'Ajuste' },
@@ -227,6 +234,7 @@ export default function InicioScreen() {
   const [orden, setOrden] = useState<OrdenSugerencias>('ajuste');
   const theme = useTheme();
   const margenSuperior = useMargenSuperior();
+  const reducido = useMovimientoReducido();
 
   // END-18 · Toda la carga vive en el hook: caché, deduplicación, reintento con
   // backoff y el estado de error. Lo que había antes eran seis `useState` y un
@@ -329,7 +337,18 @@ export default function InicioScreen() {
               <ResumenFiltros />
             </View>
 
-            <ChipsTipo valor={tipo} onCambiar={setTipo} />
+            {/* El tacto va en el MANEJADOR y no dentro de los componentes:
+                así los dos controles de esta pantalla responden igual, y
+                `ChipsTipo` y `ControlOrden` siguen sin saber nada de tacto —
+                que es lo que permite reutilizarlos sin arrastrar la vibración
+                a sitios donde no toca. */}
+            <ChipsTipo
+              valor={tipo}
+              onCambiar={(v) => {
+                toque();
+                setTipo(v);
+              }}
+            />
 
             {/* §27: un refresh fallido CON resultados en memoria mostraba datos
                 viejos y ningún aviso. Silencioso es la peor forma de fallar. */}
@@ -360,7 +379,13 @@ export default function InicioScreen() {
                 <ThemedText type="subtitle">
                   {conAfinidad > 0 ? 'Todas, por afinidad y filtros' : 'Todas, por filtros'}
                 </ThemedText>
-                <ControlOrden valor={orden} onCambiar={setOrden} />
+                <ControlOrden
+                  valor={orden}
+                  onCambiar={(v) => {
+                    toque();
+                    setOrden(v);
+                  }}
+                />
                 <View style={[estilos.fileteLista, { backgroundColor: theme.filete }]} />
               </View>
             )}
@@ -372,8 +397,22 @@ export default function InicioScreen() {
         // ver varias opciones a la vez. `FichaPublicacion` se conserva para
         // «Mis publicaciones», donde la pregunta es «cómo va la mía» y no
         // «cuál de estas».
-        renderItem={({ item }) => (
-          <View style={estilos.margen}>
+        renderItem={({ item, index }) => (
+          // END-37 · Entrada escalonada, con TOPE. Sin él, la fila treinta
+          // esperaría 900 ms y la lista parecería cargar en cascada eterna; con
+          // tope de ocho, lo último entra a 210 ms y el escalonado se percibe
+          // igual. Ocho es aproximadamente lo que cabe en pantalla: escalonar lo
+          // que nadie está viendo no escalona nada, solo retrasa.
+          //
+          // `reducido !== false` cubre el «todavía no sé» (D.8).
+          <Animated.View
+            style={estilos.margen}
+            entering={
+              reducido !== false
+                ? undefined
+                : FadeInDown.delay(Math.min(index, TOPE_ESCALONADO - 1) * 30).duration(220)
+            }
+          >
             <FilaPublicacion
               titulo={item.titulo}
               precio={item.precio_renta}
@@ -383,7 +422,7 @@ export default function InicioScreen() {
               similitud={item.similitud}
               onPress={() => irADetalle(item)}
             />
-          </View>
+          </Animated.View>
         )}
         // Sin separador: la fila ya trae su filete inferior, y dos líneas
         // juntas se leen como un error de impresión.

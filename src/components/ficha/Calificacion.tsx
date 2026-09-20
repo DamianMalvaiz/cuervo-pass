@@ -1,4 +1,8 @@
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { Easing } from 'react-native-reanimated';
+
+import { useMovimientoReducido } from '@/hooks/use-movimiento-reducido';
 
 import { ThemedText } from '@/components/themed-text';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
@@ -26,11 +30,21 @@ export function Calificacion({
   score,
   tamano = 'lista',
   etiqueta = 'AJUSTE',
+  animada = false,
 }: {
   /** El score del motor, en [0,1]. Se presenta como calificación sobre 10. */
   score: number | null | undefined;
   tamano?: 'compacta' | 'lista' | 'ficha';
   etiqueta?: string;
+  /** END-37 · Cuenta desde cero al aparecer. SOLO en la ficha de detalle.
+   *
+   *  Una cifra que sube se lee como un resultado que se está calculando, y eso
+   *  es verdad exactamente una vez: cuando abres una publicación y el servidor
+   *  acaba de resolver tu afinidad con ella. En una lista de treinta filas sería
+   *  treinta números bailando a la vez y ninguno legible — y, peor, sugeriría
+   *  treinta cálculos que no están ocurriendo. Por eso es opcional y por defecto
+   *  no. */
+  animada?: boolean;
 }) {
   const theme = useTheme();
   const esFicha = tamano === 'ficha';
@@ -60,6 +74,11 @@ export function Calificacion({
   // precisión inventada.
   const valor = hay ? Math.round(Math.min(10, Math.max(0, score * 10)) * 2) / 2 : null;
 
+  // El número que se PINTA. Sin animación es el valor final; con ella sube desde
+  // cero en 400 ms. El destino no cambia nunca: si alguien lee la pantalla a
+  // mitad del conteo ve un número menor, no un número distinto.
+  const mostrado = useConteo(valor, animada);
+
   return (
     <View
       style={[
@@ -68,6 +87,9 @@ export function Calificacion({
         esFicha && estilos.casillaFicha,
         esCompacta && estilos.casillaCompacta,
       ]}
+      // La etiqueta accesible lleva el valor FINAL, no el del conteo. Un lector
+      // de pantalla que recitara veinticuatro números en 400 ms no informaría de
+      // nada; y el dato que importa es al que llega, no el camino.
       accessibilityLabel={hay ? `${etiqueta.toLowerCase()} ${valor!.toFixed(1)} de 10` : `sin ${etiqueta.toLowerCase()}`}
     >
       <ThemedText type="etiqueta" themeColor="textSecondary">
@@ -80,10 +102,52 @@ export function Calificacion({
         themeColor={hay ? 'text' : 'textSecondary'}
         style={esFicha || esCompacta ? undefined : estilos.cifraLista}
       >
-        {valor != null ? valor.toFixed(1) : '—'}
+        {mostrado != null ? mostrado.toFixed(1) : '—'}
       </ThemedText>
     </View>
   );
+}
+
+const DURACION_CONTEO_MS = 400;
+const SUAVIZADO = Easing.out(Easing.cubic);
+
+/**
+ * Cuenta desde cero hasta `destino`.
+ *
+ * Va en JavaScript y no en un worklet de Reanimated a propósito: lo que cambia
+ * aquí es el TEXTO de un nodo, no un estilo, y animar texto en el hilo de UI
+ * exige `useAnimatedProps` sobre un TextInput disfrazado. Son veinticuatro
+ * cuadros para un solo elemento que aparece una vez por pantalla; el coste de
+ * hacerlo bien por el camino difícil no lo paga nadie.
+ *
+ * `Easing.out(Easing.cubic)` arranca rápido y frena al final, que es lo que hace
+ * que el número parezca ASENTARSE en su valor en vez de detenerse de golpe.
+ */
+function useConteo(destino: number | null, activo: boolean) {
+  const reducido = useMovimientoReducido();
+
+  // `reducido !== false` cubre también el «todavía no sé» (D.8): sin esto, el
+  // conteo arrancaría y se cortaría a mitad para quien pidió no ver movimiento.
+  const animar = activo && destino != null && reducido === false;
+
+  // El estado guarda el PROGRESO, no el valor, y el valor se deriva. Escrito al
+  // revés —estado con el número y `setValor(destino)` en la rama de «no animes»—
+  // hay un setState síncrono dentro del efecto, que es una cascada de renders y
+  // que el linter marca como error. Derivar no puede tener ese problema.
+  const [progreso, setProgreso] = useState(0);
+
+  useEffect(() => {
+    if (!animar) return;
+    const inicio = Date.now();
+    let cuadro = requestAnimationFrame(function paso() {
+      const t = Math.min(1, (Date.now() - inicio) / DURACION_CONTEO_MS);
+      setProgreso(t);
+      if (t < 1) cuadro = requestAnimationFrame(paso);
+    });
+    return () => cancelAnimationFrame(cuadro);
+  }, [animar, destino]);
+
+  return animar ? destino * SUAVIZADO(progreso) : destino;
 }
 
 const estilos = StyleSheet.create({

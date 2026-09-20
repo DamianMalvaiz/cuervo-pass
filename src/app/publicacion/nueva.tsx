@@ -14,6 +14,7 @@ import { Filete, Spacing } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { crearPublicacion } from '@/services/publicaciones.service';
+import { sello } from '@/lib/tacto';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export default function NuevaPublicacionScreen() {
@@ -63,6 +64,10 @@ export default function NuevaPublicacionScreen() {
                 whatsapp: datos.whatsapp,
                 fotos: datos.fotos,
               });
+              // Después del insert y antes de navegar: la publicación ya
+              // existe, con su id. Es lo mismo que el sello del contacto —algo
+              // quedó registrado— y por eso es la misma vibración.
+              sello();
               router.replace(`/publicacion/${publicacion.id}`);
             }}
           />
