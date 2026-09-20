@@ -1,6 +1,8 @@
 ---
 name: Cuervo Pass
 description: El expediente del estudiante — cada publicación es una ficha oficial y la afinidad ocupa la casilla de la calificación
+source: src/constants/theme.ts
+verified: npm run verificar:contraste && npm run verificar:toques
 colors:
   tinta: "#12100E"
   papel: "#F5F1EA"
@@ -10,20 +12,20 @@ colors:
   borde-campo-claro: "#8A8177"
   filete-claro: "#C9C0B0"
   acento-claro: "#8A5606"
-  lavado-sello-claro: "#FBF0DC"
-  borde-lavado-claro: "#E3CFA4"
+  lavado-sello-claro: "#F1CC88"
+  borde-lavado-claro: "#A58133"
   error-claro: "#A81E12"
   error-texto-claro: "#FFFFFF"
   exito-claro: "#146B3E"
-  lampara-fondo: "#12100E"
-  lampara-elemento: "#1C1916"
-  lampara-seleccionado: "#262119"
+  fondo-oscuro: "#12100E"
+  elemento-oscuro: "#1C1916"
+  seleccionado-oscuro: "#302A1F"
   tinta-secundaria-oscuro: "#A39A8C"
   borde-campo-oscuro: "#726960"
   filete-oscuro: "#322D27"
   acento-oscuro: "#E8A33D"
-  lavado-sello-oscuro: "#241B0F"
-  borde-lavado-oscuro: "#4A3616"
+  lavado-sello-oscuro: "#382A17"
+  borde-lavado-oscuro: "#8A6529"
   error-oscuro: "#F08074"
   error-texto-oscuro: "#12100E"
   exito-oscuro: "#4FBF85"
@@ -34,61 +36,85 @@ typography:
   calificacion:
     fontFamily: "Archivo_900Black"
     fontSize: "56px"
-    fontWeight: 900
     lineHeight: "56px"
     letterSpacing: "-1.8px"
     fontFeature: "tabular-nums"
+  cifra-lista:
+    fontFamily: "Archivo_900Black"
+    fontSize: "40px"
+    lineHeight: "44px"
+    letterSpacing: "-1.2px"
+    fontFeature: "tabular-nums"
+  cifra-compacta:
+    fontFamily: "Archivo_900Black"
+    fontSize: "18px"
+    lineHeight: "24px"
+    letterSpacing: "-0.5px"
+    fontFeature: "tabular-nums"
+  titulo-hoja:
+    fontFamily: "Archivo_700Bold"
+    fontSize: "32px"
+    lineHeight: "36px"
+    letterSpacing: "-0.6px"
   title:
     fontFamily: "Archivo_700Bold"
     fontSize: "26px"
-    fontWeight: 700
     lineHeight: "30px"
     letterSpacing: "-0.4px"
+  titulo-medio:
+    fontFamily: "Archivo_700Bold"
+    fontSize: "24px"
+    lineHeight: "30px"
+    letterSpacing: "-0.3px"
+  titulo-seccion:
+    fontFamily: "Archivo_600SemiBold"
+    fontSize: "22px"
+    lineHeight: "28px"
   subtitle:
     fontFamily: "Archivo_600SemiBold"
     fontSize: "20px"
-    fontWeight: 600
     lineHeight: "26px"
     letterSpacing: "-0.2px"
   cifra:
     fontFamily: "Archivo_700Bold"
     fontSize: "17px"
-    fontWeight: 700
     lineHeight: "22px"
     fontFeature: "tabular-nums"
   default:
     fontFamily: "Archivo_400Regular"
     fontSize: "16px"
-    fontWeight: 400
     lineHeight: "24px"
+  sello-texto:
+    fontFamily: "Archivo_700Bold"
+    fontSize: "15px"
+    letterSpacing: "0.4px"
   small:
     fontFamily: "Archivo_400Regular"
     fontSize: "14px"
-    fontWeight: 400
     lineHeight: "20px"
   smallBold:
     fontFamily: "Archivo_600SemiBold"
     fontSize: "14px"
-    fontWeight: 600
     lineHeight: "20px"
   link:
     fontFamily: "Archivo_500Medium"
     fontSize: "14px"
-    fontWeight: 500
     lineHeight: "20px"
   etiqueta:
     fontFamily: "Archivo_600SemiBold"
     fontSize: "11px"
-    fontWeight: 600
     lineHeight: "14px"
     letterSpacing: "0.9px"
   folio:
     fontFamily: "Archivo_500Medium"
     fontSize: "11px"
-    fontWeight: 500
     lineHeight: "14px"
     letterSpacing: "0.6px"
     fontFeature: "tabular-nums"
+  micro:
+    fontFamily: "Archivo_400Regular"
+    fontSize: "11px"
+    lineHeight: "14px"
 rounded:
   casilla: "8px"
   control: "12px"
@@ -102,6 +128,13 @@ spacing:
   four: "24px"
   five: "32px"
   six: "64px"
+tramas:
+  solido: "borderStyle: solid"
+  rayado: "borderStyle: dashed"
+  punteado: "borderStyle: dotted"
+anchos:
+  formulario: "480px"
+  lista: "800px"
 components:
   sello-relleno:
     backgroundColor: "{colors.sello}"
@@ -128,7 +161,7 @@ components:
   casilla-calificacion:
     backgroundColor: "{colors.papel-elemento}"
     textColor: "{colors.tinta}"
-    typography: "{typography.cifra}"
+    typography: "{typography.cifra-lista}"
     rounded: "{rounded.casilla}"
     padding: "4px 8px"
     width: "96px"
@@ -139,6 +172,17 @@ components:
     rounded: "{rounded.casilla}"
     padding: "8px 16px"
     width: "128px"
+  casilla-calificacion-compacta:
+    backgroundColor: "{colors.papel-elemento}"
+    textColor: "{colors.tinta}"
+    typography: "{typography.cifra-compacta}"
+    rounded: "{rounded.casilla}"
+    padding: "2px 4px"
+    width: "56px"
+  fila-publicacion:
+    minHeight: "132px"
+    photo: "96x96"
+    columns: "3 x 86px"
   hoja-ficha:
     backgroundColor: "{colors.papel}"
     rounded: "{rounded.hoja}"
@@ -148,13 +192,17 @@ components:
     textColor: "{colors.tinta}"
     rounded: "{rounded.hoja}"
     padding: "16px"
-  pastilla-orden:
-    backgroundColor: "{colors.papel-elemento}"
+  sello-tipo:
+    backgroundColor: "{colors.papel}"
     textColor: "{colors.tinta}"
-    typography: "{typography.smallBold}"
-    rounded: "{rounded.full}"
-    padding: "0 16px"
-    height: "38px"
+    typography: "{typography.etiqueta}"
+    borderWidth: "2px"
+    rounded: "0"
+  control-orden:
+    textColor: "{colors.tinta}"
+    typography: "{typography.small}"
+    height: "44px"
+    marker: "filete 2px bajo la opción activa"
   barra-pestanas:
     backgroundColor: "{colors.papel}"
     textColor: "{colors.tinta-secundaria-claro}"
@@ -164,190 +212,290 @@ components:
 
 # Design System: Cuervo Pass
 
+> Este archivo se reescribió el 19/09/2026 **desde el código construido**, no
+> desde la intención. Cada cifra de contraste de aquí abajo sale de
+> `npm run verificar:contraste`, que corre en CI; ninguna está escrita a mano.
+> Cada componente cita su archivo. Lo que el sistema todavía no resuelve tiene
+> su propia sección al final, y no está disimulado entre los aciertos.
+
 ## Overview
 
 **Creative North Star: "La Ficha" — el kardex y el comprobante de inscripción de la universidad pública mexicana.**
 
 El mundo es un documento oficial: ruleado, con sus campos etiquetados, su folio, su fecha de emisión y un sello que lo valida. Nada de esto es metáfora decorativa; es una decisión de legibilidad. La afinidad que calcula el motor de dos etapas ocupa la casilla donde un kardex pone la calificación, porque un "9.4" en una casilla enmarcada se lee sin que nadie lo explique, y quien usa esta app tiene dieciocho años, está en otro estado y muchas veces tiene a un padre leyendo por encima del hombro.
 
-La categoría entrega siempre una rejilla de fotos con corazón. Eso ordena por deseo. Este producto ordena por ajuste y tiene que poder justificarlo, así que la fotografía va integrada dentro del documento —pegada entre el folio y los campos, a 3:2, con filete arriba y abajo— y no coronando una tarjeta. La foto atrae; los campos deciden.
+La categoría entrega siempre una rejilla de fotos con corazón. Eso ordena por deseo. Este producto ordena por ajuste y tiene que poder justificarlo, así que la fotografía va integrada dentro del documento y no coronando una tarjeta. La foto atrae; los campos deciden.
 
-Claro y oscuro son AMBOS canónicos, no uno el invertido del otro: el claro es el papel (`#F5F1EA`) y el oscuro es el mismo papel bajo la lámpara del escritorio a las once de la noche (`#12100E`), que es la hora a la que de verdad se usa esto. Todos los contrastes del sistema están medidos y esos números viven en `src/constants/theme.ts`: tinta/papel 16.9:1, secundario/papel 6.5:1, acento/papel 5.5:1, tinta/sello 8.8:1, borde de campo 3.4:1 claro y 3.5:1 oscuro.
+**Los dos modos son dos superficies distintas, no una invertida.** El claro es papel (`#F5F1EA`). El oscuro es tinta (`#12100E`): un negro cálido, no papel iluminado. Aquí se decía que el oscuro era «el mismo papel bajo la lámpara del escritorio a las once de la noche», y esa frase describía algo que el código nunca hizo — bajo una lámpara el papel sigue siendo claro. La imagen era bonita y llevaba a decisiones equivocadas: invita a pensar el modo oscuro como una versión atenuada del claro, cuando lo que hay es una superficie con su propia paleta medida. El oscuro no atenúa: tiene su propio `acento` (8.80 contra 5.46) y su propio `errorTexto`, porque los umbrales cambian cuando el fondo cambia de lado.
 
 **Key Characteristics:**
-- El ámbar es tinta de sello: aparece en ocho sitios del código, todos ellos acciones que comprometen o validan. Todo lo demás va en tinta.
+- El ámbar es tinta de sello: aparece solo en acciones que comprometen o validan. Todo lo demás va en tinta.
 - Cero sombras y cero `elevation` en toda la app: la separación es filete, color plano y lavado.
-- Tipografía propia (Archivo, Omnibus-Type) con cinco cortes cargados y cifras tabulares en todo lo que forma columna.
+- Tipografía propia (Archivo, Omnibus-Type) con cinco cortes y cifras tabulares en todo lo que forma columna.
 - La jerarquía está invertida a propósito: la calificación (56px) es más grande que el título de pantalla (26px).
 - Pares etiqueta/valor como unidad de composición; no existe texto suelto ni placeholder haciendo de etiqueta.
-- Tres radios (8/12/16) que crecen con la superficie.
+- Tres radios (8/12/16) que crecen con la superficie — y **una excepción documentada**: el sello de tipo no lleva radio, porque en Android el radio destruye el `borderStyle` de guiones y puntos.
 
 ## Colors
 
-La paleta es la de un impreso: dos papeles canónicos, una tinta, un secundario, y una sola tinta de color reservada al sello.
+### Cómo se verifican estos números
+
+```bash
+npm run verificar:contraste
+```
+
+El script mide **cada par declarado** en los dos modos y falla el build si alguno baja de su mínimo: 4.5 para texto (WCAG AA), 3.0 para bordes de control (1.4.11), y 1.2 para **superficie contra superficie**. Ese tercer umbral no es de WCAG y por eso existe: es el que faltaba cuando `tintedSurface` daba **1.00** contra el papel —misma luminancia, cambio de matiz puro— y el bloque «destacado» no destacaba bajo el sol, en escala de grises, ni para alguien con daltonismo.
+
+Valores medidos hoy (los números viven en el script, no aquí; esta tabla es un resumen que puede quedarse atrás y por eso lleva el comando encima):
+
+| Par | Claro | Oscuro | Mínimo |
+|---|---|---|---|
+| `text` / `background` | 16.86 | 16.86 | 4.5 |
+| `textSecondary` / `background` | 6.53 | 6.83 | 4.5 |
+| `acento` / `background` | 5.46 | 8.80 | 4.5 |
+| `errorTexto` / `error` | 7.34 | 7.27 | 4.5 |
+| `border` / `background` | 3.40 | 3.53 | 3.0 |
+| `tintedSurface` / `background` | 1.36 | 1.37 | 1.2 |
+| `backgroundElement` / `background` | 1.12 | 1.08 | 1.2 · rescatado por `border` |
+
+Esa última fila es honesta a propósito: el par **no llega** a 1.2 por sí solo, y pasa porque el elemento siempre va delineado con `border` (3.40 / 3.53). El script lo dice con esas palabras en vez de aprobarlo callando.
 
 ### Primary
-- **Tinta de sello / Ámbar** (`#E8A33D`): es un RELLENO, nunca un texto. Va en el botón "Ver contacto", en el botón de envío de los formularios, en la casilla de consentimiento marcada, en la insignia de cámara sobre la foto de perfil, en el botón de chat de un perfil ajeno y en el de enviar mensaje. Su texto encima es tinta (`#12100E`), 8.8:1.
-- **Acento por modo** (`#8A5606` claro / `#E8A33D` oscuro): el ámbar cuando tiene que ser TEXTO — enlaces, "¿Por qué esta calificación?", el contorno del sello secundario. Tiene un valor distinto por modo precisamente porque el ámbar del relleno da 1.9:1 como texto sobre papel y reprobaría.
+- **Tinta de sello / Ámbar** (`#E8A33D`): es un RELLENO, nunca un texto. Su texto encima es tinta (`selloTexto`).
+- **Acento por modo** (`#8A5606` claro / `#E8A33D` oscuro): el ámbar cuando tiene que ser TEXTO — enlaces, «¿Por qué esta calificación?», el contorno del sello secundario. Tiene un valor distinto por modo porque el ámbar del relleno reprobaría como texto sobre papel.
 
 ### Secondary
 - **Verde de WhatsApp** (`#25D366`): existe como token de marca del destino, pero el build NO lo usa como color visible. El glifo de WhatsApp dentro del botón de contacto va en tinta, porque verde sobre ámbar mide 1.09:1. La pista del destino la da la forma del logotipo, no su color.
 
 ### Tertiary
-- **Rojo de error** (`#A81E12` claro / `#F08074` oscuro) con su propio color de texto (`errorTexto`: blanco en claro, tinta en oscuro).
-- **Verde de confirmación** (`#146B3E` claro, medido 4.8:1 / `#4FBF85` oscuro): señales positivas de compatibilidad.
-- **Lavado del sello** (`tintedSurface` `#FBF0DC` / `#241B0F`, con `tintedBorder` `#E3CFA4` / `#4A3616`): el bloque que la hoja quiere destacar sin gastar sello — el bloque de IA del cuestionario, la tarjeta de compatibilidad de un perfil, la opción elegida de una lista.
+- **Rojo de error** (`#A81E12` / `#F08074`) con su propio color de texto: blanco en claro, tinta en oscuro.
+- **Verde de confirmación** (`#146B3E` / `#4FBF85`).
+- **Lavado del sello** (`tintedSurface` `#F1CC88` / `#382A17`, con `tintedBorder` `#A58133` / `#8A6529`): el bloque que la hoja quiere destacar sin gastar sello.
 
 ### Neutral
-- **Papel / Lámpara** (`#F5F1EA` / `#12100E`): el fondo de la app y el de la hoja de una ficha.
-- **Elemento** (`#EAE4D9` / `#1C1916`): el relleno de una casilla enmarcada — la de la calificación, la foto ausente, el selector de orden.
-- **Seleccionado** (`#DED6C8` / `#262119`): la fila elegida de un desplegable.
+- **Papel / Tinta** (`#F5F1EA` / `#12100E`): el fondo de la app.
+- **Elemento** (`#EAE4D9` / `#1C1916`): el relleno de una casilla enmarcada.
+- **Seleccionado** (`#DED6C8` / `#302A1F`): la fila elegida.
 - **Tinta secundaria** (`#5C554B` / `#A39A8C`): toda etiqueta, todo metadato, todo valor ausente.
-- **Borde de campo** (`#8A8177` / `#726960`): delimita controles. Cumple 3:1 porque es un componente de interfaz.
-- **Filete** (`#C9C0B0` / `#322D27`): separa renglones y bloques. Es decorativo y no le aplica el 3:1.
+- **Borde de campo** (`#8A8177` / `#726960`): delimita controles. Cumple 3:1.
+- **Filete** (`#C9C0B0` / `#322D27`): separa renglones. Es decorativo y no le aplica el 3:1.
 
 ### Named Rules
-**La Regla del Sello.** El ámbar aparece SOLO sobre lo que compromete o valida —revelar un contacto, crear la cuenta, guardar, consentir, enviar— y en ningún otro lugar. Un segundo ámbar en la misma pantalla es un error, no una variante. Consecuencia observable y deliberada: Inicio no tiene ni un pixel de ámbar, porque ahí no hay ninguna acción que comprometa; el Nivel 2 del motor se distingue por icono, texto y contraste, no por color de sello.
+**La Regla del Sello.** El ámbar aparece SOLO sobre lo que compromete o valida —revelar un contacto, crear la cuenta, guardar, consentir, enviar— y en ningún otro lugar. Un segundo ámbar en la misma pantalla es un error, no una variante. Consecuencia observable y deliberada: Inicio no tiene ni un pixel de ámbar, porque ahí no hay ninguna acción que comprometa.
 
-**La Regla del Relleno con su Propio Texto.** Todo relleno de color trae su color de texto declarado junto a él (`selloTexto`, `errorTexto`), nunca "blanco por defecto". Blanco sobre ámbar da 1.98:1 y blanco sobre el rojo claro del modo oscuro da 2.61:1: los dos reprueban. El par relleno+texto viaja siempre junto.
+**La Regla del Relleno con su Propio Texto.** Todo relleno de color trae su color de texto declarado junto a él (`selloTexto`, `errorTexto`), nunca «blanco por defecto». Blanco sobre ámbar da 1.98:1 y blanco sobre el rojo del modo oscuro da 2.61:1: los dos reprueban.
 
-**La Regla de las Dos Líneas.** Filete decorativo y borde de campo son tokens DISTINTOS y nunca se sustituyen uno por otro. WCAG 1.4.11 exige 3:1 al segundo y no al primero; usar `filete` para delimitar un control lo vuelve inaccesible, y usar `border` para separar renglones convierte el documento en una reja.
+**La Regla de las Dos Líneas.** `filete` y `border` son tokens DISTINTOS y nunca se sustituyen. WCAG 1.4.11 exige 3:1 al segundo y no al primero; usar `filete` para delimitar un control lo vuelve inaccesible, y usar `border` para separar renglones convierte el documento en una reja.
 
-**La Regla de la Segunda Señal.** Ningún estado se codifica solo con color. La pestaña activa lleva barra superior, icono relleno y contraste pleno; el Nivel 2 lleva icono, texto y contraste; la opción elegida lleva lavado, paloma y peso semibold; el requisito de contraseña cumplido lleva paloma, peso y color. Siempre tres señales, o al menos dos.
+**La Regla de la Segunda Señal.** Ningún estado se codifica solo con color. La pestaña activa lleva barra superior, icono relleno y contraste pleno; el Nivel 2 lleva icono, texto y conteo; **el tipo de publicación lleva trama Y palabra** (D.11). Un patrón sin leyenda falla para la misma gente que un color sin etiqueta.
 
 ## Typography
 
-**Display / Body / Label Font:** Archivo (Omnibus-Type), cargada con `@expo-google-fonts/archivo` en cinco cortes: `Archivo_400Regular`, `Archivo_500Medium`, `Archivo_600SemiBold`, `Archivo_700Bold`, `Archivo_900Black`. Una sola familia para todo; no hay segunda voz.
-
-**Character:** Grotesca de impresos, latinoamericana, con cifras que alinean en columna. Se eligió por dos exigencias del mundo, no por el nombre: `fontVariant: ['tabular-nums']` en todo lo que forma columna al recorrer una lista, y un corte Black que aguanta una calificación a 56px sin deshacerse. La pantalla de arranque se sostiene hasta que Archivo está en memoria, para que no haya un fotograma con la tipografía del sistema.
+**Una sola familia:** Archivo (Omnibus-Type), en `Archivo_400Regular`, `_500Medium`, `_600SemiBold`, `_700Bold`, `_900Black`. La pantalla de arranque se sostiene hasta que Archivo está en memoria, para que no haya un fotograma con la tipografía del sistema.
 
 ### Hierarchy
-- **Calificación** (Black 900, 56px/56px, tracking -1.8, cifras tabulares): la afinidad dentro de su casilla, en la ficha de detalle. Una por pantalla, nunca dos. En la lista la misma casilla baja a 40px/44px con tracking -1.2.
-- **Title** (Bold 700, 26px/30px, tracking -0.4): encabezado de pantalla. Modesto a propósito.
-- **Subtitle** (SemiBold 600, 20px/26px, tracking -0.2): el título de una publicación dentro de su ficha.
-- **Cifra** (Bold 700, 17px/22px, cifras tabulares): renta, distancia, recámaras, cada valor del desglose.
-- **Default** (Regular 400, 16px/24px): prosa, descripción, valor de un campo de texto.
-- **Small / SmallBold** (Regular 400 y SemiBold 600, 14px/20px): dirección, ayuda, atributos, errores.
-- **Link / LinkPrimary** (Medium 500 y SemiBold 600, 14px/20px): enlaces; el color sale del tema (`acento`), nunca de un literal.
-- **Etiqueta** (SemiBold 600, 11px/14px, tracking 0.9px, MAYÚSCULAS en el llamador): versalita que nombra cada casilla.
-- **Folio** (Medium 500, 11px/14px, tracking 0.6px, cifras tabulares): folio, fecha de emisión, foja.
+Cinco cuerpos de cifra, porque la misma casilla vive en tres densidades:
+- **calificacion** 56/56 (-1.8) — la ficha de detalle. Una por pantalla.
+- **cifraLista** 40/44 (-1.2) — la casilla dentro de un renglón de lista.
+- **cifraCompacta** 18/24 (-0.5) — la casilla dentro del carrusel.
+- **cifra** 17/22 — renta, distancia, recámaras, cada valor del desglose.
+- **folio** 11/14 (+0.6) — folio, fecha de emisión, foja.
+
+Y la escala de texto: `tituloHoja` 32/36 · `titulo` 26/30 · `tituloMedio` 24/30 · `tituloSeccion` 22/28 · `subtitulo` 20/26 · `cuerpo` 16/24 · `sello` 15 · `pequeno`/`pequenoFuerte` 14/20 · `enlace`/`enlaceFuerte` 14/20 · `etiqueta` 11/14 (+0.9) · `micro` 11/14.
+
+**Modificadores de peso** (`pesoMedio`, `pesoFuerte`, `pesoNegrita`): cambian el corte sin tocar el tamaño. Existen porque escribir `fontFamily: Tipografia.semibold` suelto en un estilo es lo que el invariante 7 prohíbe; son tokens, no excepciones.
 
 ### Named Rules
-**La Regla del Dato que Manda.** En un kardex el encabezado es modesto y el dato manda. Por eso `calificacion` (56px) es más grande que `title` (26px), al revés de lo que hace cualquier app. Si un título de pantalla vuelve a crecer por encima del dato que la pantalla existe para mostrar, el mundo se rompió.
+**La Regla del Dato que Manda.** En un kardex el encabezado es modesto y el dato manda. `calificacion` (56px) es más grande que `title` (26px), al revés de lo que hace cualquier app.
 
-**La Regla del Par.** Un documento oficial no tiene texto suelto: tiene pares de etiqueta y valor. Toda cifra y todo dato llevan su versalita encima. "1.2 km" no significa nada sin "DISTANCIA" arriba, y la prosa dentro de una tarjeta no se puede escanear ni alinear.
+**La Regla del Par.** Un documento oficial no tiene texto suelto: tiene pares de etiqueta y valor. «1.2 km» no significa nada sin «DISTANCIA» arriba.
 
-**La Regla de la Familia Apuntada.** Con tipografía propia, `fontWeight` NO sintetiza el corte: hay que apuntar a la familia (`fontFamily: Tipografia.bold`). Un `fontWeight: '700'` sobre Archivo Regular deja el texto en regular en Android y en falso negrita en iOS.
+**La Regla de la Familia Apuntada.** Con tipografía propia, `fontWeight` NO sintetiza el corte: hay que apuntar a la familia. Un `fontWeight: '700'` sobre Archivo Regular deja el texto en regular en Android y en falso negrita en iOS.
 
-**La Regla de la Columna.** Todo lo que se compara entre una ficha y la siguiente lleva `fontVariant: ['tabular-nums']` y ancho mínimo fijo (la casilla de la calificación: 96px en lista, 128px en ficha). Un documento impreso nunca tambalea sus columnas.
+**La Regla de la Columna.** Todo lo que se compara entre una ficha y la siguiente lleva `fontVariant: ['tabular-nums']` y ancho fijo. Un documento impreso nunca tambalea sus columnas.
+
+**La Regla del Tope por Tipo.** El texto escala con el sistema hasta un tope que depende de QUÉ es (`themed-text.tsx`): 1.4 para prosa, 1.2 para títulos, **1.0 para cifras y etiquetas de casilla**. Las cifras no escalan porque viven en casillas de ancho fijo con `adjustsFontSizeToFit`: al escalar no caben, se encogen, y la calificación acaba más pequeña que el texto de al lado — la jerarquía se invierte justo para quien subió el tamaño porque le costaba leer. Nada lleva `allowFontScaling={false}`: apagar el escalado es romper la promesa, no cumplirla a medias.
 
 ## Layout
 
-Una sola columna, siempre. El ritmo sale de una escala de siete pasos (2/4/8/16/24/32/64): 16px es el respiro estándar dentro de una hoja y entre fichas de la lista, 8px separa renglones dentro de un bloque, 4px separa un icono de su cifra, 2px separa una etiqueta de su valor, y 64px es el colchón inferior que deja la lista para que el último elemento no quede bajo la barra de pestañas.
+Una sola columna, siempre. El ritmo sale de una escala de siete pasos (2/4/8/16/24/32/64).
 
-La adaptación es **por clase de tamaño, nunca por modelo de dispositivo** (`use-tamano-pantalla.ts`): `compacta` cuando el ancho baja de 360 o el alto de 700 (teléfono chico o teclado abierto), `normal` el teléfono típico, `amplia` a partir de 700px de ancho. En `amplia` la columna NO se estira: se acota a 480px y se centra, porque una línea de sesenta caracteres es legible y una de ciento veinte no. En `compacta` el display baja al 84% (`escalaTitulo`) y lo decorativo se recorta (`altoApretado`), para que el formulario quepa sin que el usuario persiga el botón.
+La adaptación es **por clase de tamaño, nunca por modelo** (`src/hooks/use-tamano-pantalla.ts`): `compacta` bajo 360 de ancho o 700 de alto, `normal` el teléfono típico, `amplia` desde 700 de ancho.
 
-Toda área táctil llega al mínimo de 44pt (WCAG 2.2 SC 2.5.8): el sello mide 48 de alto, los campos 52, las filas de menú y los botones de icono 44, con `hitSlop` donde el glifo mide menos.
+**Dos anchos máximos, y son números distintos a propósito:**
+- `anchoContenido` = **480** para FORMULARIOS. Una línea de sesenta caracteres es legible; una de ciento veinte no.
+- `anchoLista` = **800** (`MaxContentWidth`) para LISTAS y fichas. Un renglón con foto de 96 y tres columnas de 86 necesita más sitio que un párrafo; acotarlo a la medida del formulario dejaría las columnas apretadas justo donde sobra espacio.
+
+Hay una prueba que fija que son distintos (`use-tamano-pantalla.test.ts`), porque unificarlos es la simplificación tentadora que rompe una de las dos cosas.
+
+Toda área táctil llega a 44pt (WCAG 2.2 SC 2.5.8), **y lo comprueba `npm run verificar:toques`** en CI. Cuando el área real llega a 44 gracias a `hitSlop`, se escribe la exención con su motivo:
+
+```ts
+// toque-ok: hitSlop de 12 a cada lado lo lleva a 20 + 24 = 44
+```
 
 ### Named Rules
-**La Regla de la Clase, no del Modelo.** Preguntar por el modelo del teléfono es la forma garantizada de equivocarse: un plegable abierto, una tableta en pantalla dividida y un horizontal entregan anchos que ningún catálogo predice. Se pregunta cuánto espacio hay AHORA.
+**La Regla de la Clase, no del Modelo.** Un plegable abierto, una tableta en pantalla dividida y un horizontal entregan anchos que ningún catálogo predice. Se pregunta cuánto espacio hay AHORA.
+
+**La Regla del Piso, no la Altura.** Las alturas de bloques con texto son `minHeight`, no `height`. Con altura fija, el título recorta en cuanto el sistema escala la letra: la fila sigue midiendo 132 y el contenido no cabe. Con un piso, la tabla mantiene su ritmo en el caso normal y CEDE cuando alguien necesita letra más grande.
 
 ## Elevation & Depth
 
-**Cero sombras. Cero `shadowColor`. Cero `elevation`.** No hay una sola sombra en la app y no es omisión: `elevation: 0` está puesto explícitamente en la barra de pestañas y `headerShadowVisible: false` en cada encabezado, porque Android pinta `elevation` como una sombra gris que no pertenece a esta hoja e ignora `shadowColor` por completo. Un intento previo de glow de color se revirtió por eso mismo.
+**Cero sombras. Cero `shadowColor`. Cero `elevation`.** `elevation: 0` está puesto explícitamente en la barra de pestañas y `headerShadowVisible: false` en cada encabezado, porque Android pinta `elevation` como una sombra gris que no pertenece a esta hoja e ignora `shadowColor`.
 
-La profundidad se construye con tres materiales planos, en este orden: **filete** (1px para separar renglones y bloques, 2px para el filete principal bajo el encabezado del expediente y para la marca de pestaña activa), **color plano** (papel → elemento → seleccionado) y **lavado del sello** (`tintedSurface` + `tintedBorder`) cuando un bloque tiene que destacar de verdad. Un desplegable flotante se sostiene con borde de campo y `zIndex`, no con sombra.
+La profundidad se construye con tres materiales planos: **filete** (1px para separar, 2px para el filete principal y la marca de pestaña activa), **color plano** (papel → elemento → seleccionado) y **lavado del sello** cuando un bloque tiene que destacar de verdad.
 
-El grosor del filete es 1px físico, no `hairlineWidth`: en un teléfono de 3x, `hairlineWidth` es ~0.33px y a esa escala el filete desaparece. 1px es lo que imprime una láser.
+El grosor es 1px físico, no `hairlineWidth`: en un teléfono de 3x, `hairlineWidth` es ~0.33px y el filete desaparece.
 
 ### Named Rules
-**La Regla de la Hoja Plana.** Si un bloque necesita despegarse, se le pone filete o lavado, jamás sombra. Cualquier `shadow*` o `elevation` distinto de 0 que aparezca en este código es una regresión, no una variante.
+**La Regla de la Hoja Plana.** Si un bloque necesita despegarse, se le pone filete o lavado, jamás sombra.
 
 ## Shapes
 
-Tres radios y uno circular, y la escala **crece con la superficie**: `casilla` 8px para lo pequeño y enmarcado (la calificación, la foja, insignias), `control` 12px para todo lo que se toca (sello, campos de texto, desplegables, bloques de aviso), `hoja` 16px para superficies grandes (la ficha completa, su fotografía, el desglose, los bloques de estado), `full` 9999 para pastillas de una línea (el selector de orden, los atajos de distancia).
+`casilla` 8 · `control` 12 · `hoja` 16 · `full` 9999. La escala **crece con la superficie**.
 
-La primera versión de este mundo usó 2–3px con el argumento de que un impreso tiene esquinas vivas. Era cierto y se veía duro, y para alguien de dieciocho años eligiendo dónde va a vivir, duro es lo contrario de lo que ayuda. Lo que sostiene el mundo documento no son las esquinas: son los filetes y los pares etiqueta/valor. Eso queda intacto; lo que se ablandó es todo lo que se toca.
+La fotografía es 3:2 y va al ras de la hoja, con filete arriba y abajo, porque una foto engomada llega hasta la regla del formulario.
 
-La fotografía es siempre 3:2 —la proporción de una fotografía impresa— y va al ras de la hoja, con filete arriba y abajo, porque una foto engomada llega hasta la regla del formulario.
+**Tramas** (`Tramas` en `theme.ts`): `solido`, `rayado`, `punteado` — tres tratamientos de filete con la misma tinta, para codificar sin gastar color.
 
 ### Named Rules
-**La Regla de la Escala por Superficie.** Una casilla de 24px con radio 16 se ve deforme y una hoja de 360px con radio 8 se ve tacaña. El radio se elige por el tamaño de la superficie, no por gusto.
+**La Regla de la Escala por Superficie.** Una casilla de 24px con radio 16 se ve deforme y una hoja de 360px con radio 8 se ve tacaña.
+
+**La Regla del Rectángulo Tramado.** Lo que lleve trama de guiones o puntos va SIN `borderRadius`. En Android, `borderStyle` se degrada a línea continua en cuanto hay radio: las tres tramas se volverían una sola y nada fallaría. No es una preferencia estética, es la condición para que la trama exista.
 
 ## Components
 
-### Sello (botón)
-El componente que carga la doctrina del color. Carácter: una firma, no un botón de app.
-- **Forma:** radio 12px (`control`), alto mínimo 48, padding horizontal 24, contenido centrado con icono opcional a 18px y 8px de separación.
-- **Relleno (`sello`):** fondo ámbar `#E8A33D`, texto e icono en tinta `#12100E` (8.8:1), tipografía Bold 15px con tracking 0.4. Reservado a la acción que compromete.
-- **Contorno (`contorno`):** fondo transparente, borde de 2px y texto en `theme.acento`. Cada variante toma su color del fondo que de verdad tiene detrás: la tinta del relleno sobre fondo de app daba 1.00:1 en oscuro y el botón desaparecía.
-- **Estados:** presionado = opacidad 0.75; inactivo o cargando = opacidad 0.45 con `ActivityIndicator` del color del texto. No hay hover; no hay escala; no hay sombra.
+Cada uno con su archivo. Si el archivo y esta descripción se contradicen, gana el archivo — y hay que corregir esta línea.
 
-### Campo (entrada de texto)
-- **Estructura:** etiqueta persistente en versalita arriba, entrada abajo, error como renglón debajo.
-- **Estilo:** borde de campo 1px, radio 12px, fondo del papel, alto mínimo 52, padding 16/8, texto Regular 16.
-- **Error:** el borde NO se recolorea. Aparece un renglón `small` en el rojo del modo con `accessibilityLiveRegion="polite"`, para que el mensaje se pueda leer y anunciar en vez de depender de un color que mucha gente no distingue.
-- **Contraseña:** misma envoltura, con botón de ojo de 44×44 a la derecha; anuncia su ACCIÓN ("Mostrar la contraseña") y expone `accessibilityState.selected`.
+### Sello (botón) · `src/components/ficha/Sello.tsx`
+Una firma, no un botón de app.
+- **Forma:** radio `control`, alto mínimo 48, padding horizontal 24, icono opcional a 18px.
+- **Relleno:** fondo ámbar, texto e icono en tinta, `Texto.sello` (Bold 15, tracking 0.4).
+- **Contorno:** transparente, borde de 2px y texto en `theme.acento`. Cada variante toma su color del fondo que de verdad tiene detrás: la tinta del relleno sobre fondo de app daba 1.00:1 en oscuro y el botón desaparecía.
+- **Estados:** presionado 0.75; inactivo o cargando 0.45 con indicador del color del texto.
 
-### Casilla de calificación
-La pieza que define el mundo. Recuadro con borde de campo, fondo de elemento, radio 8, etiqueta en versalita arriba y la cifra debajo, alineada a la izquierda y con ancho mínimo fijo (96px en lista, 128px en ficha) para que forme columna. **No lleva lavado ámbar**: una calificación informa, no compromete, y veinte fichas en pantalla ponían veinte manchas de sello donde no se podía actuar. Sin score se muestra un guion largo en tinta secundaria: el campo existe aunque el dato no.
+### Botón de contacto · `src/components/BotonVerContacto.tsx`
+El único ámbar de su pantalla. Glifo de WhatsApp en `selloTexto`, no en verde. Al completarse la revelación dispara `sello()` (tacto), **después** de que la fila quedó registrada y la cuota se cobró: vibrar al tocar confirmaría el toque, no el hecho.
 
-### Ficha de publicación (hoja)
-Borde de filete 1px, radio 16, `overflow: hidden`. Orden fijo de arriba abajo: tira de folio (tipo de inmueble en versalita a la izquierda, FOLIO a la derecha), fotografía 3:2 al ras con filete arriba y abajo, y cuerpo con 16px de padding: título (subtitle), dirección (small secundario), la fila de calificación + renta + distancia, y si hay atributos, un filete y la fila de atributos con icono a 14px. Presionada = opacidad 0.7. Sin foto no se pinta un rectángulo gris: se pinta un campo que dice "SIN FOTOGRAFÍA".
+### Campo · `src/components/Campo.tsx`, `CampoContrasena.tsx`
+Etiqueta persistente en versalita arriba, entrada abajo, error como renglón debajo. Borde de campo 1px, radio `control`, alto mínimo 52. **El borde NO se recolorea en error:** aparece un renglón `small` en el rojo del modo con `accessibilityLiveRegion="polite"`.
 
-### Desglose de calificación
-El componente firma del producto: tocar la calificación abre la caja negra y muestra la fórmula real (0.6 · filtros ponderados + 0.4 · afinidad semántica) con los números que devolvió Postgres, en filas de etiqueta / valor tabular alineado a la derecha / peso. Bloque con borde de campo y radio 16. Si no hubo Nivel 2, lo DICE en vez de esconder la mitad de la fórmula.
+### Casilla de calificación · `src/components/ficha/Calificacion.tsx`
+La pieza que define el mundo. Tres tamaños reales: `compacta` (56px de ancho, carrusel), `lista` (96px) y `ficha` (128px). Etiqueta en versalita arriba, cifra debajo, ancho mínimo fijo para que forme columna.
+- **No lleva lavado ámbar:** una calificación informa, no compromete.
+- **Medios puntos, no décimas:** el número es `0.6·score + 0.4·similitud`, una mezcla de heurísticas normalizadas a mano. No tiene un decimal de resolución. Veintiún valores posibles en vez de ciento uno.
+- **`animada` solo en la ficha de detalle:** cuenta desde cero en 400 ms con `Easing.out(Easing.cubic)`. Es la única calificación que se acaba de calcular para quien la mira. En una lista serían treinta números bailando y sugerirían treinta cálculos que no ocurren.
+- Sin score se muestra un guion largo en tinta secundaria: el campo existe aunque el dato no.
 
-### Sección
-Versalita, filete, contenido. Tres bloques de dos campos se leen; seis campos seguidos no. La acción del bloque va en la misma línea del título, porque ahí es donde se busca.
+### Renglón de publicación · `src/components/FilaPublicacion.tsx`
+**El componente de la lista.** Piso de 132px, foto de 96, y tres columnas de ancho fijo 86 (`AJUSTE · RENTA · DISTANCIA`) con cifras tabulares. La afinidad va como NOTA bajo las cifras, no como cuarta columna: no todas las filas la tienen, y una columna medio vacía se lee como dato perdido en vez de como dato ausente.
+
+Sustituyó a la ficha grande en la lista porque `FichaPublicacion` mide 420–450px —una y media por pantalla— y este producto ordena por ajuste: el ajuste se evalúa comparando, y comparar exige ver varias opciones a la vez. Comprobado en dispositivo: caben cuatro.
+
+### Sello de tipo · `src/components/ficha/SelloTipo.tsx`
+Rectángulo estampado en la esquina inferior izquierda de la foto, en el renglón y en la ficha del carrusel. Fondo opaco (va sobre una fotografía cualquiera), borde de 2px con la trama del tipo, y **la palabra**: `DEPA` continuo, `CUARTO` de guiones, `CASA` de puntos. Queda fuera del árbol de accesibilidad porque el tipo ya viaja en la etiqueta de la fila entera, en frase y no en versalitas — un lector de pantalla deletrea «DEPA» como D-E-P-A.
+
+### Ficha de publicación (hoja) · `src/components/FichaPublicacion.tsx`
+Se conserva para **Mis publicaciones**, donde la pregunta es «cómo va la mía» y no «cuál de estas». Borde de filete, radio `hoja`, `overflow: hidden`. Tira de folio, fotografía 3:2 al ras, cuerpo con título, dirección y la fila de calificación + renta + distancia. Sin foto no se pinta un rectángulo gris: se pinta un campo que dice «SIN FOTOGRAFÍA».
+
+### Ficha compacta · `src/components/FichaCompacta.tsx`
+176px de ancho, para el carrusel. Calificación `compacta` + precio en la primera fila, título a dos renglones, distancia en `folio`.
+
+### Desglose de calificación · `src/components/ficha/DesgloseCalificacion.tsx`
+El componente firma del producto: tocar la calificación abre la caja negra y muestra la fórmula real (`0.6 · filtros + 0.4 · afinidad`) con los números que devolvió Postgres. Si no hubo Nivel 2, lo DICE en vez de esconder la mitad de la fórmula.
+
+### Esqueleto · `src/components/ficha/FichaEsqueleto.tsx`
+Cuatro formas que espejan las reales: `fila` (132/96/86), `renglon` (avatar 44, chat), `hoja` (con o sin foto 3:2). **Las etiquetas van de verdad** —«AJUSTE», «RENTA», «DISTANCIA» no dependen de la respuesta—, y solo se pinta en gris lo que de verdad falta. El pulso vive en la fila, no en cada bloque: una fila entera respirando se lee como un objeto; doce bloques latiendo por su cuenta, como ruido. Contenido fuera del árbol de accesibilidad, contenedor anunciado una vez como «Cargando».
+
+### Pulsable · `src/components/ficha/Pulsable.tsx`
+Sustituye el `opacity: 0.7` de fábrica. Hunde a 0.97 de escala y 0.9 de opacidad, 90 ms de ida y **140 de vuelta** — el dedo se levanta de golpe y la ficha vuelve con algo de peso. `opacity: 0.7` decía que al tocar la ficha se DESVANECE; en un mundo de papel, apretar un documento no lo vuelve transparente.
+
+### Control de orden · `src/app/(tabs)/inicio.tsx`
+`ORDENAR POR` + tres opciones (Ajuste · Cercanía · Renta), 44pt de alto, con la activa marcada por **peso de letra y filete debajo** — como un documento marca la columna por la que está ordenado.
+
+**No son pastillas como los chips de tipo, a propósito:** el tipo FILTRA —cambia qué hay— y el orden solo reordena. Dos controles con el mismo peso visual harían creer que hacen lo mismo. (La «pastilla de orden» que este archivo describía antes ya no existe: era un desplegable que se retiró y volvió con otra forma.)
+
+### Carrusel · `src/components/ficha/Carrusel.tsx`
+**Uno solo**, y trae lo que la lista no tiene: lo reciente. Había tres, y el primero era `slice(0, 8)` de la lista que empezaba veinticuatro fichas más abajo. Por debajo de tres elementos no se renderiza: un carril con dos es un hueco con título.
 
 ### Navegación
-- **Barra de pestañas:** alto 64, fondo del papel, filete superior de 1px en color de borde, `elevation: 0`. Etiqueta en SemiBold 10px con tracking 0.6. La pestaña activa lleva tres señales: barra de 18×2px encima (como la pestaña levantada de un folder), icono relleno en vez de contorno, y color de tinta plena frente al secundario. La barra ocupa su espacio siempre, activa o no, para que el icono no brinque dos píxeles en cada cambio.
-- **Encabezados:** fondo del papel, título SemiBold 16, sin sombra. El tema de NAVEGACIÓN de React Navigation está declarado aparte en `_layout.tsx` (fondo, tarjeta, borde = filete, y los cuatro cortes de Archivo), porque lo que React Navigation pinta por su cuenta se queda en el gris de fábrica si no se le dice.
+- **Barra de pestañas:** alto 64, filete superior de 1px, `elevation: 0`. La activa lleva tres señales: barra de 18×2 encima, icono relleno y tinta plena. La barra ocupa su espacio siempre para que el icono no brinque.
+- **Encabezados:** el tema de React Navigation está declarado aparte en `_layout.tsx`, porque lo que React Navigation pinta por su cuenta se queda en el gris de fábrica.
 
-### Selector de orden
-Pastilla `full` con borde de campo, fondo de elemento, alto 38, icono 14 + texto SemiBold + chevrón. Abierto, despliega un panel con borde de campo y radio 16, filas de 44 de alto separadas por filete, la elegida con fondo seleccionado, tinta plena y paloma. Roles `combobox` / `menu` / `menuitem`, no "button" genérico.
+### Movimiento y tacto
+Cuatro movimientos, y **todos** respetan «Reducir movimiento» del sistema (`src/hooks/use-movimiento-reducido.ts`):
+1. `FadeIn` plano (200–250 ms) para lo que entra.
+2. **Escalonado** `FadeInDown.delay(index · 30)` **con tope de 8** en la lista de sugerencias. Sin tope, la fila treinta esperaría 900 ms.
+3. El hundido de `Pulsable`.
+4. El conteo de la calificación en la ficha.
 
-### Movimiento
-Un solo `FadeIn` plano (200–250ms) para lo que entra, y `LayoutAnimation` de 160ms `easeInEaseOut` sobre opacidad para lo que se despliega. Las fotografías entran con `transition: 160`. Nada más.
+El tacto (`src/lib/tacto.ts`) son **dos** funciones: `sello()` para lo que quedó registrado y no se deshace, `toque()` para lo que respondió. El tacto se gasta: una app que vibra en cada toque enseña a ignorarla.
 
 ### Named Rules
-**La Regla de la Transición Única.** Toda aparición es un `FadeIn` corto y plano. El despliegue del desglose es altura, no rebote. Sin resorte, sin escalonado entre hermanos, sin cascada. Se probó una entrada con spring y cascada y se revirtió: era la única animación con rebote de toda la app y leía como inconsistencia, no como confianza.
+**La Regla del Tercer Estado.** `useMovimientoReducido` devuelve `null` mientras no se sabe. `AccessibilityInfo.isReduceMotionEnabled()` es una promesa: empezando en `false`, el primer render arranca la animación y el segundo la apaga, y quien pidió no ver movimiento ve un destello de movimiento. Nada se anima hasta que la preferencia se conoce.
+
+**La Regla del Tacto que no se Gasta.** Dos vibraciones en toda la app, en cuatro sitios. El tacto NO sigue el ajuste de reducir movimiento: son dos ajustes distintos, y para algunas personas que se marean con el movimiento la vibración es justo el canal que sí toleran. El sistema ya tiene su propio interruptor y `expo-haptics` lo obedece.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** reservar el ámbar `#E8A33D` para la acción que compromete o valida, y darle siempre `selloTexto` encima. Si una pantalla nueva no tiene una acción de ese tipo, esa pantalla no lleva ámbar.
-- **Do** escribir toda cifra y todo dato como par etiqueta/valor, con la versalita `etiqueta` en MAYÚSCULAS encima.
-- **Do** usar `Filete.fino` con `theme.filete` para separar y `theme.border` para delimitar un control; son decisiones distintas con umbrales de contraste distintos.
-- **Do** apuntar a la familia (`Tipografia.bold`) en vez de a `fontWeight` cuando necesites un corte más pesado.
-- **Do** poner `fontVariant: ['tabular-nums']` y un ancho mínimo a cualquier cifra que se compare entre elementos de una lista.
-- **Do** elegir el radio por el tamaño de la superficie: 8 casilla, 12 control, 16 hoja, `full` pastilla.
-- **Do** adaptar por clase de tamaño (`useTamanoPantalla`) y acotar la columna a 480px en pantallas amplias.
-- **Do** dar a todo estado una segunda y tercera señal además del color: forma, icono, peso o paloma.
-- **Do** mostrar el error como renglón debajo del campo, con `accessibilityLiveRegion`, sin recolorear el borde.
+- **Do** reservar el ámbar para la acción que compromete, y darle siempre `selloTexto` encima.
+- **Do** escribir toda cifra como par etiqueta/valor, con la versalita en MAYÚSCULAS encima.
+- **Do** usar `theme.filete` para separar y `theme.border` para delimitar un control.
+- **Do** apuntar a la familia (`Tipografia.bold`) en vez de a `fontWeight`.
+- **Do** poner `fontVariant: ['tabular-nums']` y ancho fijo a cualquier cifra que se compare en una lista.
+- **Do** elegir el radio por el tamaño de la superficie.
+- **Do** acotar a 480 los formularios y a 800 las listas.
+- **Do** dar a todo estado una segunda señal además del color.
+- **Do** usar `minHeight` y no `height` en cualquier bloque con texto dentro.
+- **Do** correr `npm run verificar:contraste` y `npm run verificar:toques` antes de dar por bueno un cambio visual.
 
 ### Don't:
-- **Don't** usar el ámbar `#E8A33D` como TEXTO: da 1.9:1 sobre papel. Para texto existe `theme.acento`, con un valor por modo.
-- **Don't** asumir que el texto sobre un relleno de color es blanco. En modo oscuro el rojo es claro y el blanco da 2.61:1.
-- **Don't** añadir `shadowColor`, `elevation` distinto de 0, gradiente ni glow. Este mundo separa con filete, color plano y lavado.
-- **Don't** añadir resorte, rebote, escalonado ni entradas en cascada.
-- **Don't** usar un `placeholder` como etiqueta de un campo: desaparece en cuanto se escribe.
-- **Don't** escribir `borderWidth: 1` ni `borderRadius: Spacing.two` a mano; usa `Filete.fino` y `Radios.*`, que es lo que hace localizable un cambio de sistema.
-- **Don't** dejar que un título de pantalla compita en tamaño con el dato que la pantalla existe para mostrar.
+- **Don't** usar el ámbar `#E8A33D` como TEXTO: reprueba sobre papel. Para texto existe `theme.acento`.
+- **Don't** asumir que el texto sobre un relleno de color es blanco.
+- **Don't** añadir `shadowColor`, `elevation` distinto de 0, gradiente ni glow.
+- **Don't** poner `borderRadius` a algo que lleve trama de guiones o puntos.
+- **Don't** usar un `placeholder` como etiqueta de un campo.
+- **Don't** escribir `borderWidth: 1` ni `borderRadius: 8` a mano; usa `Filete.*` y `Radios.*`.
+- **Don't** dejar que un título compita en tamaño con el dato que la pantalla existe para mostrar.
 - **Don't** pintar un rectángulo gris para un dato ausente: pinta el campo y di que está vacío.
+- **Don't** escribir aquí un número de contraste a mano. Cita el script.
+
+## Lo que este sistema NO resuelve todavía
+
+Esta sección existe porque la versión anterior de este archivo describía un sistema más terminado que el construido, y ese ha sido el defecto más caro del repositorio.
+
+**1. Nunca se ha verificado el escalado de fuente al 200 % en un dispositivo.** Los topes por tipo están implementados y probados en jest; el procedimiento está escrito en `docs/prueba-escalado.md` y dice «Estado: sin ejecutar». Hasta que alguien lo corra, el compromiso de accesibilidad de `PRODUCT.md` está **implementado y sin cumplir**, que no es lo mismo.
+
+**2. Ninguna prueba dice si algo se VE bien.** Hay 244 pruebas en verde y ninguna juzga una composición. El contraste se mide, los toques se miden, la estructura se afirma — la proporción, el ritmo y el color percibido, no.
+
+**3. Ningún par de contraste se ha muestreado sobre el render.** Los valores salen de los tokens declarados, no de píxeles capturados de la pantalla. Un color que llegue por encima —una foto detrás, una capa de sistema— no lo ve el script.
+
+**4. Las tres tramas no se han comparado en Android.** `borderStyle` de guiones y puntos es donde Android más se desvía. La regla del rectángulo existe para protegerlas, pero que se DISTINGAN entre sí a 11px solo se sabe con el teléfono en la mano.
+
+**5. El mapa de Google se pinta con su tema claro de fábrica** dentro de una hoja en modo oscuro (`publicacion/[id].tsx`). Es el único rectángulo de la app que no pertenece a este mundo.
+
+**6. Dos títulos fuera del ramp.** `login` (34px) y `registro` (30px) sobreescriben `title` (26) con literales en línea. Es una desviación, no un paso nuevo de la escala: si aparece una tercera, hay que promoverlo a token.
+
+**7. Tokens sin consumidor.** `Texto.codigo` (monoespaciada del sistema, 12px) y los alias `serif`/`rounded`/`mono` de `Fonts` no los usa nadie. `MaxContentWidth` dejó de estar en esta lista el 19/09/2026, cuando `anchoLista` empezó a consumirlo.
+
+**8. El tacto no se ha sentido.** `expo-haptics` está integrado y probado contra su propio fallo, pero es un módulo nativo: hasta que se reconstruya el cliente de desarrollo, en el teléfono no vibra nada.
 
 ## Estado de la implementación
 
-**El sistema está aplicado a toda la app.** Las quince pantallas y todos los componentes compartidos pasaron por composición, no solo por herencia de tema: `(tabs)/inicio`, `(tabs)/publicaciones`, `(tabs)/roomies`, `(tabs)/chats`, `(tabs)/perfil`, `publicacion/[id]`, `publicacion/nueva`, `publicacion/editar/[id]`, `perfil/[usuarioId]`, `perfil/preferencias`, `chat/[conversacionId]`, `aviso-privacidad`, `(auth)/login`, `(auth)/registro`, `(auth)/cuestionario-inicial` y `(auth)/recuperar-contrasena`; más `ficha/*`, `FichaPublicacion`, `TarjetaRoomie`, `Campo`, `CampoContrasena`, `RequisitosPassword`, `BotonVerContacto`, `BurbujaMensaje`, `Casilla`, `FormularioCuestionario`, `FormularioPublicacion` y los dos `_layout`.
+El sistema está aplicado a las **17 pantallas** de `src/app` y a los **29
+componentes** de `src/components`. Los dos números se cuentan, no se recuerdan:
 
-Cuando una pantalla contradiga este archivo, manda este archivo: es el registro del sistema, no la descripción de un archivo en particular.
+```bash
+find src/app -name '*.tsx' ! -path '*__tests__*' ! -name '_layout.tsx' | wc -l
+find src/components -name '*.tsx' ! -path '*__tests__*' | wc -l
+```
 
-**Deuda conocida, registrada sin canonizar:**
-- *(Saldada el 19/09/2026)* No queda ningún `borderWidth: 1` ni radio literal fuera de la escala en toda la app. Los únicos números crudos que sobreviven son los radios de círculo —avatares e insignias, que usan la mitad de su lado— y eso es la convención del sistema, no una desviación.
-- Los títulos de `login` (34px) y `registro` (30px) sobreescriben `title` (26px) con literales en línea, escalados por `escalaTitulo` en pantallas compactas. Es una desviación del ramp, no un paso nuevo de la escala: si se repite en una tercera pantalla, hay que promoverlo a token.
-- El mapa de Google en `publicacion/[id]` se pinta con su tema claro de fábrica dentro de una hoja en modo oscuro. Es el único rectángulo de la app que no pertenece a este mundo.
-- `MaxContentWidth` (800) y el estilo tipográfico `code` (monoespaciada del sistema, 12px) están declarados en el tema y no los consume nadie. `Fonts` expone alias `serif`/`rounded`/`mono` del sistema que este mundo tampoco usa.
-- **Verificación parcial en dispositivo.** El modo OSCURO se revisó en un teléfono real el 19/09/2026 y se confirmó legible: los filetes se distinguen del fondo y las fichas no se funden con la página, que era el riesgo concreto que la medición no podía resolver. Sigue sin haber capturas guardadas ni revisión del modo CLARO en dispositivo, y ningún par de contraste se ha muestreado sobre el render: los valores del ramp son legibles por medición, y el oscuro además por observación.
+**Verificación en dispositivo, al día de hoy:**
+- Modo OSCURO revisado en teléfono real (19/09/2026): filetes distinguibles, fichas que no se funden con la página.
+- Densidad de la lista comprobada en teléfono (19/09/2026): caben cuatro renglones.
+- Modo CLARO: **sin revisar en dispositivo**.
+- Escalado al 200 %: **sin ejecutar**.
+- Sin capturas guardadas de ninguna de las dos pasadas.
 
-**Procedencia de las fotografías de demostración:** las 87 imágenes del catálogo de demo son de Unsplash, bajo Licencia de Unsplash, atribuidas una por una en `docs/fotos-de-demo.md`. No corresponden a los departamentos reales de esas direcciones y ninguna la tomó el equipo.
+**Procedencia de las fotografías de demostración:** el catálogo de demo reutiliza **27 fotografías** de Unsplash, bajo Licencia de Unsplash, atribuidas una por una en `docs/fotos-de-demo.md`. Se reparten entre las 114 publicaciones, así que una misma imagen aparece en varias. No corresponden a los departamentos reales de esas direcciones y ninguna la tomó el equipo. *(Este archivo decía «87 imágenes»; son 27 — el 87 era el número de candidatas descargadas en una corrida, no el de acreditadas.)*

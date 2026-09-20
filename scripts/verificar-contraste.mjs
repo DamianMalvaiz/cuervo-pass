@@ -99,7 +99,7 @@ export function verificar() {
   console.log('\nContraste del sistema visual\n');
 
   for (const [modo, colores] of Object.entries(tema)) {
-    console.log(`  ── ${modo === 'light' ? 'papel (claro)' : 'lámpara (oscuro)'} ──`);
+    console.log(`  ── ${modo === 'light' ? 'papel (claro)' : 'tinta (oscuro)'} ──`);
     for (const [clase, frente, fondo] of PARES) {
       if (!colores[frente] || !colores[fondo]) continue;
       const r = razon(colores[frente], colores[fondo]);

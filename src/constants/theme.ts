@@ -8,9 +8,13 @@ import type { TextStyle } from 'react-native';
  * un sello que valida. La afinidad ocupa la casilla donde ese documento pone la
  * calificación, porque un "9.4" se lee sin que nadie lo explique.
  *
- * Claro y oscuro son AMBOS canónicos, no uno el invertido del otro: el claro es
- * el papel, y el oscuro es el mismo papel bajo la lámpara del escritorio a las
- * once de la noche — que es la hora a la que de verdad se usa esto.
+ * Claro y oscuro son AMBOS canónicos y son DOS SUPERFICIES DISTINTAS, no una la
+ * invertida de la otra: el claro es papel y el oscuro es tinta. Aquí decía que
+ * el oscuro era «el mismo papel bajo la lámpara del escritorio a las once de la
+ * noche»; se retiró (D.12) porque bajo una lámpara el papel sigue siendo claro y
+ * `#12100E` es un negro cálido. La frase invitaba a tratar el oscuro como una
+ * versión atenuada del claro, y no lo es: cada modo trae sus propios valores
+ * medidos porque los umbrales cambian cuando el fondo cambia de lado.
  *
  * El ámbar es TINTA DE SELLO. En un documento oficial el sello es lo único con
  * color en toda la hoja; aquí igual. Solo aparece sobre lo que valida o
@@ -67,7 +71,17 @@ export const Colors = {
     /** Confirmación. Medido: 4.8:1 sobre papel. El #1a9d5c anterior daba 3.10. */
     exito: '#146B3E',
   },
-  /** La lámpara. */
+  /**
+   * La tinta.
+   *
+   * NO es «el papel bajo una lámpara», que es como este proyecto lo describió
+   * durante meses. Bajo una lámpara el papel sigue siendo claro; `#12100E` es un
+   * negro cálido. La imagen era bonita y llevaba a decisiones equivocadas:
+   * invita a tratar el oscuro como una versión atenuada del claro, cuando es una
+   * superficie con su propia paleta medida. No atenúa nada — tiene su propio
+   * `acento` (8.80 contra 5.46) y su propio `errorTexto`, porque los umbrales
+   * cambian cuando el fondo cambia de lado.
+   */
   dark: {
     text: '#F5F1EA',
     background: '#12100E',

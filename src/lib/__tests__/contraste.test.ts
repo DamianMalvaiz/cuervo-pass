@@ -26,7 +26,7 @@ test('el tema actual cumple todos los mínimos declarados', () => {
 test('mide los dos modos, no solo el claro', () => {
   const { salida } = correr();
   expect(salida).toContain('papel (claro)');
-  expect(salida).toContain('lámpara (oscuro)');
+  expect(salida).toContain('tinta (oscuro)');
 });
 
 // El par que delató END-29. Que siga apareciendo en la salida es lo que impide
