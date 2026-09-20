@@ -1025,6 +1025,168 @@ script aborta en vez de repetir la misma imagen ocho veces, que es lo correcto.
 `verificar.mjs` gana el aviso que lo dice: descubrirlo durante la exposición no
 tiene arreglo y resolverlo antes es un comando.
 
+### El bloque D, el bloque E, y el final del documento (20/09/2026)
+
+- **Logrado:** D.5, D.8, D.9, D.10, D.11, D.12, E.1, E.3, E.5 y E.6. Con esto
+  **el documento de endurecimiento queda cerrado**: los 38 hallazgos, atendidos.
+- **Atorado:** nada. Tres veces el trabajo destapó que una compuerta llevaba
+  tiempo midiendo otra cosa, y esa es la línea que une toda la tanda.
+- **Decisión:** en tres órdenes me aparté de la letra del documento y lo digo en
+  cada caso, porque seguirlo al pie habría reintroducido un defecto que la orden
+  anterior acababa de quitar.
+- **Horas:** — / —
+
+| Compuerta | Antes | Ahora |
+|---|---|---|
+| Frontend | 219 | **296** |
+| Microservicio (pytest) | 16 | **20** |
+| pgTAP | 82 | 82 |
+| Cobertura, medida honestamente | *no existía* | **51 % con trinquete en CI** |
+| `expo-doctor` | 8 paquetes desalineados | **21/21** |
+
+#### Lo que une la tanda: tres compuertas que medían otra cosa
+
+No estaban rotas. Estaban midiendo algo distinto de lo que su nombre decía, que
+es peor, porque una compuerta rota se nota.
+
+- **La cobertura decía 66.9 % y era 45.8 %.** Jest solo instrumenta los archivos
+  que ALGÚN test importa: lo que no tiene pruebas no baja el porcentaje,
+  desaparece del cálculo. Tres de los cuatro servicios no figuraban en el
+  informe. **El número mejoraba al no escribir pruebas.**
+- **El microservicio llevaba horas sirviendo código viejo.** Respondía, el modelo
+  estaba cargado, `/listo` decía «ok». Se midió ese proceso y se concluyó que un
+  fallo ya corregido seguía abierto: verificar produjo una conclusión falsa.
+- **`revoke ... from public` no revocaba** —esto fue en la tanda anterior, pero
+  es el mismo patrón— y lo destapó la primera aserción que COMPROBABA un revoke
+  en vez de escribirlo.
+
+El denominador común: en los tres casos el indicador decía «ok» y el sistema no
+lo estaba. Lo que los destapó no fue leer el código, fue **preguntarle al sistema
+en vez de al archivo**.
+
+#### D.5 · El carrusel que mentía, y por qué el orden se fue al servidor
+
+Tres carruseles y una lista sobre el mismo conjunto. El primero era
+`filtradas.slice(0, 8)`: un prefijo LITERAL de la lista que empezaba veinticuatro
+fichas más abajo.
+
+La orden pedía «un control de orden que reordene la lista **en el sitio**». Se
+puso en el SERVIDOR, contra la letra, porque «Las de menor renta» ordenaba por
+precio el top-30 **ya truncado por encaje**: enseñaba las más baratas de las
+treinta que mejor encajan, no las más baratas. Es END-17 con otro disfraz — el
+defecto que B.3 acababa de quitar de los chips—, y hacerlo en el cliente lo
+habría reintroducido un día después.
+
+Medido contra producción: **seis de las treinta** publicaciones que salen
+ordenando por renta NO están en el top-30 por ajuste. Si el orden se aplicara en
+el cliente ese número sería exactamente 0.
+
+#### D.8 · Un spinner que borraba la pantalla, y un membrete que adivinaba
+
+En `inicio` el indicador de carga era un `return` temprano que borraba
+encabezado, filtros y chips. Al sustituirlo por esqueletos, el membrete quedó al
+descubierto **declarando «NIVEL 1 · FILTROS PONDERADOS» y «0 REGISTROS» antes de
+haber preguntado** — y corrigiéndose solo delante de quien lo estuviera leyendo.
+Un esqueleto honesto no puede llevar encima un encabezado que adivina.
+
+Las etiquetas del esqueleto van de verdad: «AJUSTE», «RENTA» y «DISTANCIA» no
+dependen de la respuesta, se saben antes de preguntar.
+
+#### D.9 · El pulso que arrancaba para quien pidió que no hubiera movimiento
+
+`AccessibilityInfo.isReduceMotionEnabled()` es una promesa. Empezando en `false`,
+el primer render arrancaba la animación y el segundo la apagaba: **un destello de
+movimiento para justo la persona a la que el ajuste sirve.**
+
+Lo atrapó una prueba que **cuenta las llamadas a `withRepeat`** — eran tres antes
+de conocerse la preferencia. Mirar solo el estado final habría dado verde. De ahí
+salió un tercer estado, `null` («todavía no sé»), que después reutilizaron el
+conteo de la cifra y el hundido de `Pulsable`.
+
+Segunda desviación deliberada: la orden pedía que «todo» respetara reducir
+movimiento. El movimiento sí; **el tacto no**. Son dos ajustes distintos y para
+algunas personas que se marean con el movimiento la vibración es justo el canal
+que sí toleran.
+
+#### D.11 · Una clave sin leyenda
+
+La orden pedía codificar el tipo de publicación con una trama. El tipo **no
+aparecía en la lista**: solo en la ficha de detalle. Con los chips de B.3 se
+podía filtrar por algo que la lista nunca decía.
+
+Una trama sola habría sido una clave que nadie tiene. Va la trama Y la palabra:
+codificar información solo con un tratamiento visual falla para la misma gente
+que codificarla solo con color.
+
+Y un detalle que parece estético y no lo es: el sello **no lleva radio**. En
+Android, `borderStyle` de guiones y puntos se degrada a línea continua en cuanto
+hay `borderRadius`, y las tres tramas se volverían una sola sin que nada fallara.
+
+#### D.12 · El documento describía un sistema que ya no existe
+
+`DESIGN.md` llevaba los colores ANTERIORES a D.1 —los que daban 1.00 de
+contraste—, describía un selector de orden retirado, declaraba «sin escalonado
+entre hermanos» cuando D.9 lo acababa de añadir, y decía «las 87 imágenes» de un
+catálogo que acredita **27**.
+
+Se retiró la metáfora de la lámpara: bajo una lámpara el papel sigue siendo
+claro, y `#12100E` es un negro cálido. La imagen invitaba a tratar el oscuro como
+una versión atenuada del claro, cuando es una superficie con su propia paleta.
+
+**Estaba viva en cuatro sitios**, y el cuarto lo encontró una prueba que fijaba
+el texto de la salida del verificador de contraste — que es exactamente para lo
+que sirve fijar el texto de una salida.
+
+Ahora ninguna cifra de contraste se escribe a mano: la tabla lleva encima el
+comando que la genera. Y se admite lo que antes se callaba: el par
+`backgroundElement / background` **no llega** a su mínimo por sí solo y pasa
+porque el elemento va delineado.
+
+#### E.1 · El primer fotograma de la app era del sistema visual anterior
+
+Además de lo que pedía la orden —`bundleIdentifier`, clave de Maps,
+`runtimeVersion`—, apareció esto: el splash era azul `#208AEF` y el icono de
+Android es azul `#0C7BE4` sobre `#E6F4FE`. La paleta que «La Ficha» reemplazó.
+
+El splash se corrigió (su logotipo es BLANCO: sobre papel desaparecería, sobre la
+tinta da 18.6:1). **El icono no se arregla con un hexadecimal**, hay que
+redibujarlo, y queda en la lista de deuda de `DESIGN.md`.
+
+`verificar-env.mjs` rechazó la clave nueva, correctamente. Va a la lista de
+públicas por diseño **con su motivo escrito**, y de paso las otras dos entradas
+ganaron el suyo: una lista de exenciones sin motivos es donde acaba escondiéndose
+la que sí era un secreto.
+
+#### E.5 · Migrar la API de imágenes no era cambiar un nombre
+
+La forma vieja devolvía un archivo; la nueva devuelve un contexto que retiene un
+BITMAP nativo. La documentación de `release()` nombra este caso exacto como uno
+de los pocos en que liberar a mano se justifica. Subir cinco fotos de 4 MB son
+cinco bitmaps vivos a la vez si nadie los suelta.
+
+Se liberan en `finally`. La prueba que lo protege es «libera también cuando
+guardar falla»: si alguien los mueve después del `return` —que es lo natural al
+escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
+
+#### Dos pruebas mías que estaban mal, y cómo se supo
+
+- **«Animada, arranca en cero»** daba verde solo porque ningún cuadro había
+  corrido antes de la aserción. Al actualizar React corrieron dos y leyó «3.7».
+  No fallaba el conteo: fallaba la prueba. Ahora congela `Date.now`, y se añadió
+  la que faltaba — que el conteo TERMINE en el valor final.
+- **`tsc` atrapó un estado de roomie inventado** (`'buscando'`) que el dominio no
+  tiene. Jest pasaba: el doble no valida tipos.
+
+#### Lo que no se pudo verificar, y queda dicho
+
+- En la primera corrida con cobertura fallaron 2 pruebas. **No se reprodujo en
+  seis intentos** (cinco en caliente, uno con caché limpia). Queda anotado como
+  visto una vez y sin reproducir, no como resuelto.
+- El tacto está integrado y probado contra su propio fallo, pero `expo-haptics`
+  es un módulo NATIVO: hasta reconstruir el cliente de desarrollo, no vibra nada.
+- Las tres tramas no se han comparado en un Android real, que es donde
+  `borderStyle` más se desvía.
+
 ### Pendientes abiertos
 
 Actualizado el 19/09/2026 por la noche. El plan completo, con sus órdenes
@@ -1075,6 +1237,15 @@ ejecutables y su secuencia, está en
 - [x] **Privilegios de ejecución cerrados por defecto** (`0036`). Dos agujeros
       explotables cerrados, seis funciones de servicio protegidas, y una lista
       blanca en pgTAP para que no vuelva a pasar en silencio.
+- [x] **Bloque D completo** — D.5 y D.8 a D.12. Un carrusel con contenido propio
+      y el orden en el servidor, esqueletos con forma de ficha, movimiento y
+      tacto, responsive donde importa, el tipo codificado con trama y palabra, y
+      `DESIGN.md` reescrito desde lo construido.
+- [x] **Bloque E completo** — E.1 a E.6. `app.config.js` con la clave de Maps y
+      ruta de reversión OTA, la suite estabilizada, cobertura honesta con
+      trinquete en CI, dieciséis acciones pineadas, la API de imágenes migrada, y
+      el microservicio diciendo con qué commit arrancó.
+- [x] **El documento de endurecimiento, cerrado.** Los 38 hallazgos atendidos.
 
 **Tuyos — nadie más puede hacerlos**
 
@@ -1085,10 +1256,16 @@ ejecutables y su secuencia, está en
       que la `0026` da por supuesto. Ojo: a partir de ahí registrarse exige
       correo `.edu.mx` y confirmar un buzón, así que **no registres una cuenta
       en vivo delante del evaluador**.
-- [ ] **Google Maps** (orden E.1): sin la clave el mapa de la ficha sale gris en
-      Android. Alternativa evaluada: una imagen estática de Mapbox, cuyo token
-      ya existe, evita crear cuenta con tarjeta y evita un módulo nativo — a
-      cambio de que el mapa no sea interactivo. Es decisión de producto.
+- [ ] **Conseguir la clave de Google Maps.** E.1 dejó todo cableado:
+      `app.config.js` la lee de `EXPO_PUBLIC_GOOGLE_MAPS_KEY`, y la ausencia hace
+      ruido en tres sitios —`expo config` al compilar, `verificar.mjs` antes de
+      exponer, y `.env.example` junto a la variable—. Falta la clave. Las
+      instrucciones para restringirla por paquete + huella SHA-1 están en
+      `.env.example`, con los dos comandos para obtener la huella.
+
+      Alternativa que sigue sobre la mesa: una imagen estática de Mapbox, cuyo
+      token ya existe, evita crear cuenta con tarjeta y evita un módulo nativo —
+      a cambio de que el mapa no sea interactivo. Es decisión de producto.
 - [x] Que caben cuatro filas por pantalla (D.4) y que el contraste corregido se
       ve bien: **comprobado en dispositivo el 19/09/2026**.
 - [ ] **Verificar en dispositivo el escalado de fuente al 200 %** (D.6). Es lo
@@ -1102,29 +1279,29 @@ ejecutables y su secuencia, está en
 
 **Abiertos, del plan de endurecimiento**
 
-- [ ] **Sembrar las fotos de las diez casas nuevas** cuando Unsplash deje de
-      responder 429. Es un comando:
-      `node --env-file=.env --env-file=.env.server scripts/sembrar-fotos.mjs`.
-      Solo toca las que no tienen, así que es seguro repetirlo.
-- [ ] **D.5, D.8 a D.12** — un carrusel o ninguno, esqueletos con forma de
-      ficha, movimiento y tacto, responsive donde importa, capa semántica de
-      color, y reescribir `DESIGN.md` desde lo construido.
-- [ ] **E.1, E.3, E.5, E.6** — plataforma: `app.json`, umbrales de cobertura,
-      la API deprecada de imágenes, e higiene de operación del túnel.
-- [ ] **Fusionar `endurecimiento` a `main`.** Además de traer veinte órdenes y
-      quince migraciones, es lo que cierra el agujero del `.gitignore` descrito
-      arriba: `.env.server` NO está ignorado en `main`, y ese archivo tiene la
-      service role key. Comprobado que nunca se commiteó; hasta la fusión, no
-      hacer `git add -A` desde `main`.
+- [ ] **Reconstruir el cliente de desarrollo.** `expo-haptics` es un módulo
+      nativo: con el APK actual la app corre igual y no vibra. Es lo único de
+      D.9 que no se puede comprobar sin volver a compilar.
+- [ ] **Redibujar el icono de Android.** Es azul `#0C7BE4` sobre `#E6F4FE`, del
+      sistema visual anterior. Lo primero que se ve de la app no pertenece a su
+      propio mundo, y no se arregla cambiando un hexadecimal.
+- [ ] **Fusionar `endurecimiento` a `main`.** Medido el 20/09/2026: **55
+      commits** y **16 migraciones** de diferencia (main está en 21, la rama en
+      37). Además de traer el documento de endurecimiento entero, es lo que
+      cierra el agujero del `.gitignore` descrito arriba: `.env.server` NO está
+      ignorado en `main`, y ese archivo tiene la service role key. Comprobado
+      que nunca se commiteó; hasta la fusión, **no hacer `git add -A` desde
+      `main`**.
 - [ ] Retirar la vista de compatibilidad `roomings` (migración 0011) cuando ya
       no quede ningún APK viejo instalado. Sigue viva con 30 filas.
 - [ ] `README.md` tiene la sección de capturas de pantalla vacía.
 
 **Abiertos, de calidad**
 
-- [ ] La cobertura sigue lejos del 70 % que pide la compuerta de la Fase 2 para
-      `src/services` y `src/store`, aunque ambos dejaron el 0 %.
-- [ ] **Ninguna prueba dice si algo se VE bien.** 219 en verde no es eso, y
+- [ ] **`src/services` está al 64.6 % de sentencias y al 72.7 % de líneas.** Las
+      líneas ya pasan el 70 % que pedía la compuerta; las sentencias no. Los
+      umbrales son un trinquete y solo suben (`jest.config.js`).
+- [ ] **Ninguna prueba dice si algo se VE bien.** 296 en verde no es eso, y
       conviene no confundirlo nunca.
 - [ ] El reparto de las pruebas de envío de `FormularioPublicacion` en su propio
       archivo contiene un síntoma cuya causa ya se explicó —`unmount()` envenena
