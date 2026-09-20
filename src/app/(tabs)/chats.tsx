@@ -11,6 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { formateadorHora } from '@/lib/formatoHora';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -21,6 +22,7 @@ import { useConversaciones } from '@/hooks/queries/useChat';
 // aparte y armaba los hilos agrupando todos los mensajes del usuario.
 export default function ChatsScreen() {
   const theme = useTheme();
+  const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
   const session = useAuthStore((s) => s.session);
   // END-18 · La suscripción de Realtime, el guardia de respuestas fuera de orden
@@ -52,7 +54,7 @@ export default function ChatsScreen() {
         <FlatList
           data={conversaciones}
           keyExtractor={(item) => item.conversacionId}
-          contentContainerStyle={estilos.lista}
+          contentContainerStyle={[estilos.lista, estilos.columna, { maxWidth: anchoLista }]}
           showsVerticalScrollIndicator={false}
           // Filete entre renglones, como un registro impreso. Sin él, una lista
           // de nombres sobre fondo plano se lee como un bloque continuo.
@@ -133,6 +135,7 @@ export default function ChatsScreen() {
 }
 
 const estilos = StyleSheet.create({
+  columna: { width: '100%', alignSelf: 'center' },
   pantalla: { flex: 1 },
   encabezado: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: Spacing.one },
   lista: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.six },

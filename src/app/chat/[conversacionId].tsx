@@ -17,6 +17,7 @@ import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AppColors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import {
@@ -43,6 +44,7 @@ import { type MensajeLocal } from '@/store/useChatStore';
 // (el par de ids) que no correspondía a ninguna fila.
 export default function ConversacionScreen() {
   const theme = useTheme();
+  const { anchoLista } = useTamanoPantalla();
   const { conversacionId } = useLocalSearchParams<{ conversacionId: string }>();
   const session = useAuthStore((s) => s.session);
   const miId = session?.user.id;
@@ -217,7 +219,7 @@ export default function ConversacionScreen() {
             ref={listaRef}
             data={mensajes}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.lista}
+            contentContainerStyle={[styles.lista, styles.columna, { maxWidth: anchoLista }]}
             renderItem={({ item }) => (
               <BurbujaMensaje
                 mensaje={item}
@@ -303,6 +305,7 @@ export default function ConversacionScreen() {
 }
 
 const styles = StyleSheet.create({
+  columna: { width: '100%', alignSelf: 'center' },
   lista: { padding: Spacing.three, flexGrow: 1, justifyContent: 'flex-end', gap: Spacing.half },
   cargando: { marginTop: Spacing.five, alignItems: 'center', gap: Spacing.two },
   errorBloque: {

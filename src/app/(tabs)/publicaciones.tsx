@@ -13,6 +13,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { folioDe } from '@/lib/folio';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -23,6 +24,7 @@ import { CP, esCodigo } from '@/lib/erroresPostgres';
 // Documento maestro v5 · §25 y §27.
 export default function PublicacionesScreen() {
   const theme = useTheme();
+  const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
   const miId = useAuthStore((s) => s.session?.user.id);
   // END-18 · La carga, el reintento y la caché viven en el hook. Lo que había
@@ -100,7 +102,7 @@ export default function PublicacionesScreen() {
         <FlatList
           data={publicaciones}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={estilos.lista}
+          contentContainerStyle={[estilos.lista, estilos.columna, { maxWidth: anchoLista }]}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => {
             const recibidos = contactos.get(item.id) ?? 0;
@@ -202,6 +204,7 @@ export default function PublicacionesScreen() {
 }
 
 const estilos = StyleSheet.create({
+  columna: { width: '100%', alignSelf: 'center' },
   pantalla: { flex: 1 },
   encabezado: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: Spacing.two },
   lista: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.six },

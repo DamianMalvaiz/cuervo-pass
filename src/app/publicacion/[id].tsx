@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   View,
-  useWindowDimensions,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
@@ -23,6 +22,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { calcularDistanciaKm } from '@/lib/distancia';
 import { fechaDeSello, folioDe } from '@/lib/folio';
@@ -62,7 +62,16 @@ export default function DetallePublicacionScreen() {
   // capturado arriba, el carrusel paginado quedaba desalineado tras rotar el
   // teléfono o en pantalla dividida. PRODUCT.md declara la plataforma
   // `adaptive`, así que eso no es un caso raro.
-  const { width: ancho } = useWindowDimensions();
+  // END-36 · El ancho de la foto es `Math.min(pantalla, MaxContentWidth)`, que
+  // es lo que devuelve `anchoLista`. En una tableta de 1200 px, una fotografía
+  // 3:2 a pantalla completa mide 800 px de alto: hay que desplazar para ver que
+  // debajo hay una ficha. Acotarla a 800 la deja en 533 y el documento cabe.
+  //
+  // El paginado sigue cuadrando porque la HOJA se acota al mismo ancho y se
+  // centra: el carrusel mide exactamente lo que mide cada foto. Acotar solo la
+  // foto habría dejado un carril más ancho que sus páginas y el `pagingEnabled`
+  // se habría desalineado un poco en cada deslizamiento.
+  const { anchoLista } = useTamanoPantalla();
 
   // END-11 · TRES estados, no dos, y END-18: la consulta vive en el hook.
   //
@@ -119,7 +128,7 @@ export default function DetallePublicacionScreen() {
     // lo que necesita es ver que está apareciendo, no que se está esperando.
     return (
       <ThemedView style={estilos.esqueletoPantalla}>
-        <ScrollView contentContainerStyle={estilos.esqueleto}>
+        <ScrollView contentContainerStyle={[estilos.esqueleto, estilos.columna, { maxWidth: anchoLista }]}>
           <ListaEsqueleto
             variante="hoja"
             filas={1}
@@ -181,11 +190,15 @@ export default function DetallePublicacionScreen() {
   const etiquetaTipo = ETIQUETA_TIPO[publicacion.tipo] ?? String(publicacion.tipo).toUpperCase();
 
   const alDesplazar = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setFoja(Math.round(e.nativeEvent.contentOffset.x / ancho));
+    // Divide por el ancho ACOTADO, el mismo con el que se pintan las fotos. Con
+    // el ancho de pantalla, en una tableta la foja habría contado páginas de 1200
+    // px sobre un carril hecho de páginas de 800: el número de foja se habría
+    // quedado atrás y el membrete diría «1 de 5» estando en la tercera.
+    setFoja(Math.round(e.nativeEvent.contentOffset.x / anchoLista));
   };
 
   return (
-    <ScrollView contentContainerStyle={estilos.hoja} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={[estilos.hoja, estilos.columna, { maxWidth: anchoLista }]} showsVerticalScrollIndicator={false}>
       {/* Membrete: qué documento es y cuál. */}
       <View style={[estilos.membrete, { borderBottomColor: theme.filete }]}>
         <ThemedText type="etiqueta" themeColor="textSecondary">
@@ -212,14 +225,14 @@ export default function DetallePublicacionScreen() {
                 <Image
                   key={ruta}
                   source={{ uri: url }}
-                  style={[estilos.foto, { width: ancho }]}
+                  style={[estilos.foto, { width: anchoLista }]}
                   contentFit="cover"
                   transition={160}
                 />
               ) : (
                 <View
                   key={ruta}
-                  style={[estilos.foto, { width: ancho, backgroundColor: theme.backgroundElement }]}
+                  style={[estilos.foto, { width: anchoLista, backgroundColor: theme.backgroundElement }]}
                 >
                   {/* END-25 · Un recuadro gris sin texto es indistinguible de
                       «todavía cargando». Si Storage falló hay que decirlo: si
@@ -249,7 +262,7 @@ export default function DetallePublicacionScreen() {
           )}
         </View>
       ) : (
-        <View style={[estilos.foto, estilos.sinFoto, { width: ancho, backgroundColor: theme.backgroundElement }]}>
+        <View style={[estilos.foto, estilos.sinFoto, { width: anchoLista, backgroundColor: theme.backgroundElement }]}>
           <Ionicons name="image-outline" size={24} color={theme.textSecondary} />
           <ThemedText type="etiqueta" themeColor="textSecondary">
             SIN FOTOGRAFÍA
@@ -412,6 +425,7 @@ export default function DetallePublicacionScreen() {
 }
 
 const estilos = StyleSheet.create({
+  columna: { width: '100%', alignSelf: 'center' },
   esqueletoPantalla: { flex: 1 },
   esqueleto: { padding: Spacing.three },
   descargoAjuste: { marginTop: Spacing.one, lineHeight: 16 },

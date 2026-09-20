@@ -16,6 +16,7 @@ import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useMovimientoReducido } from '@/hooks/use-movimiento-reducido';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { fechaHoraDeSello } from '@/lib/folio';
 import { toque } from '@/lib/tacto';
@@ -233,6 +234,7 @@ export default function InicioScreen() {
   const [tipo, setTipo] = useState<TipoPublicacion | null>(null);
   const [orden, setOrden] = useState<OrdenSugerencias>('ajuste');
   const theme = useTheme();
+  const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
   const reducido = useMovimientoReducido();
 
@@ -294,7 +296,15 @@ export default function InicioScreen() {
       <FlatList
         data={filtradas}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[estilos.lista, { paddingTop: margenSuperior }]}
+        // END-36 · La columna se ACOTA y se centra en pantallas amplias, no se
+        // estira. `useTamanoPantalla` vivía en ocho formularios y en ninguna
+        // pantalla de contenido, y `MaxContentWidth` tenía cero usos en todo el
+        // código: un token muerto en el corazón del sistema visual.
+        //
+        // `width: '100%'` junto al `maxWidth` no sobra: sin él, un
+        // contentContainer con `alignSelf: center` se encoge al ancho de su
+        // contenido y la lista deja de ocupar el teléfono.
+        contentContainerStyle={[estilos.lista, estilos.columna, { paddingTop: margenSuperior, maxWidth: anchoLista }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -461,6 +471,7 @@ export default function InicioScreen() {
 }
 
 const estilos = StyleSheet.create({
+  columna: { width: '100%', alignSelf: 'center' },
   pantalla: { flex: 1 },
   lista: { paddingBottom: Spacing.six },
   // El margen va POR BLOQUE, no en el contenedor: los carruseles tienen que

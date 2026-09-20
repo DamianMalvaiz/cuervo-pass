@@ -13,6 +13,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuthStore } from '@/store/useAuthStore';
 import { aviso } from '@/lib/registro';
@@ -26,6 +27,7 @@ import { useGuardarMiRoomie, useMiRoomie, useRoomiesSugeridos } from '@/hooks/qu
 // cerca de la misma universidad— así que el orden es directamente la similitud.
 export default function RoomiesScreen() {
   const theme = useTheme();
+  const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
   const session = useAuthStore((s) => s.session);
   const [descripcion, setDescripcion] = useState('');
@@ -93,7 +95,15 @@ export default function RoomiesScreen() {
       <FlatList
         data={roomies}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[estilos.lista, { paddingTop: margenSuperior }]}
+        // END-36 · La columna se ACOTA y se centra en pantallas amplias, no se
+        // estira. `useTamanoPantalla` vivía en ocho formularios y en ninguna
+        // pantalla de contenido, y `MaxContentWidth` tenía cero usos en todo el
+        // código: un token muerto en el corazón del sistema visual.
+        //
+        // `width: '100%'` junto al `maxWidth` no sobra: sin él, un
+        // contentContainer con `alignSelf: center` se encoge al ancho de su
+        // contenido y la lista deja de ocupar el teléfono.
+        contentContainerStyle={[estilos.lista, estilos.columna, { paddingTop: margenSuperior, maxWidth: anchoLista }]}
         showsVerticalScrollIndicator={false}
         // La ficha propia va como encabezado de la lista, no fija arriba: así se
         // puede recorrer la lista completa sin que ocupe un tercio de la pantalla
@@ -193,6 +203,7 @@ export default function RoomiesScreen() {
 }
 
 const estilos = StyleSheet.create({
+  columna: { width: '100%', alignSelf: 'center' },
   pantalla: { flex: 1 },
   lista: { padding: Spacing.three, gap: Spacing.three, paddingBottom: Spacing.six },
   encabezado: { gap: Spacing.three, paddingBottom: Spacing.one },
