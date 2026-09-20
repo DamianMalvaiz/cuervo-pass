@@ -31,6 +31,25 @@ Los hallazgos llevan el prefijo **END-** y no **AUD-** a propósito: los AUD-NN 
 
 ### 0.2 Dictamen
 
+*Revisado el 20/09/2026, tras ejecutar el plan completo. El dictamen original está al final de esta sección.*
+
+**Los cuarenta hallazgos están remediados y aplicados en producción.** No es una afirmación de proceso: se verificó contra la base real —migraciones hasta la `0039`, 19 de 19 barreras de aislamiento— y se contrastaron cuatro correcciones contra el código vivo (END-08, END-09, END-16, END-30) en vez de contra sus mensajes de commit.
+
+Lo que importa del ejercicio no es el recuento. Son dos cosas.
+
+**La primera: el patrón se confirmó, y volvió a aparecer en este documento.** El dictamen original decía que la documentación de este repositorio describe un sistema distinto al construido. Mientras se ejecutaba el plan, este archivo —escrito precisamente para combatir eso— se quedó listando treinta y uno de sus propios hallazgos como «abiertos» cuando ya estaban cerrados. El README quedó afirmando ochenta y tres aserciones de pgTAP cuando eran ochenta y seis, en cuatro sitios, y uno de ellos dice literalmente *«el número se lee del archivo, no se escribe a mano»* con el comando debajo, sin correr.
+
+No es descuido: es que **afirmar cuesta un minuto y verificar cuesta diez**, y bajo presión esa asimetría siempre gana. La conclusión práctica no es «esforzarse más» sino la regla que salió de aquí: toda cifra en un documento cita el comando que la produce, o no se escribe.
+
+**La segunda: una remediación puede abrir un agujero.** END-39 —el mejor hallazgo de todo el proyecto, y salió del propio equipo— demostró que `revoke ... from public` no revocaba nada en Supabase. Dos funciones quedaron explotables con la anon key, y **una de ellas la introdujo la orden B.4 de este mismo plan**: `devolver_cuota` permitía resetear la cuota propia en bucle, o sea extraer la base de teléfonos entera, que es exactamente lo que AUD-04 existe para impedir.
+
+Lo destapó la aserción 72 de la `0035`, **la primera del proyecto que comprobaba un `revoke` en vez de escribirlo**. Ese es el argumento entero a favor de la regla «prueba en rojo antes del arreglo», y la razón por la que no se puede tratar una lista de remediaciones como una lista de cosas que ya no hay que mirar.
+
+Queda trabajo, pero no del plan original: cinco cosas que aparecieron **al revisar el trabajo hecho**, y están en [`cola-de-trabajo.md`](cola-de-trabajo.md).
+
+<details>
+<summary>Dictamen original, del 19/09/2026</summary>
+
 v5 corrigió los veintiocho hallazgos de v4 y la implementación arrastra **defectos propios de la misma familia**. El patrón es uno solo y se repite:
 
 > **La documentación describe un sistema distinto al construido.**
@@ -45,7 +64,51 @@ Los tres hallazgos críticos comparten forma con AUD-01, el hallazgo estrella de
 
 El cuarto, **END-08**, no se ha remediado y es el de mayor impacto en lo que el evaluador va a ver: **el motor esconde publicaciones válidas sin decirlo**. Es AUD-01 reintroducido una capa más arriba.
 
-### 0.3 Hallazgos remediados
+</details>
+
+### 0.3 Hallazgos remediados · primera tanda
+
+*Los cuarenta hallazgos de este documento están remediados. La correspondencia
+con el commit que cerró cada uno se deriva del repositorio:*
+
+```bash
+git log --format='%h|%s' pre-endurecimiento..HEAD \
+  | grep -oE '^[0-9a-f]+\|.*END-[0-9]+.*' \
+  | awk -F'|' '{ n=$2; while (match(n, /END-[0-9]+/)) { print substr(n,RSTART,RLENGTH) " " $1; n=substr(n,RSTART+RLENGTH) } }' \
+  | sort -t- -k2 -n -u
+```
+
+| Hallazgo | Cerrado en | | Hallazgo | Cerrado en |
+|---|---|---|---|---|
+| END-01 | `5719f29` | | END-21 | `4623856` |
+| END-02 | `a8e179f` | | END-22 | `b428206` |
+| END-03 | `8bd670d` | | END-23 | `3e2c980` |
+| END-04 | `bb58fb8` | | END-24 | `983885a` |
+| END-05 | `b3d2124` | | END-25 | `8ba9493` |
+| END-06 | `b9cad05` | | END-26 | `08e9d63` |
+| END-07 | `08df5a9` | | END-27 | `3f298dd` |
+| END-08 | `86fc8d2` | | END-28 | `46b50c6` |
+| END-09 | `6f974f6` | | END-29 | `1ebdd90` |
+| END-10 | `9b7185d` | | END-30 | `bc2e3df` |
+| END-11 | `8ba9493` | | END-31 | `dec661a` |
+| END-12 | `71813b7` | | END-32 | `4210794` |
+| END-13 | `f87dde0` | | END-33 | `4b472be` |
+| END-14 | `f87dde0` | | END-34 | `98ffa67` |
+| END-15 | `aaf2044` | | END-35 | `5c1b1ec` |
+| END-16 | `5cd7d41` | | END-36 | `9395268` |
+| END-17 | `af63b54` | | END-37 | `8db5ed8` |
+| END-18 | `7074bd6`, `163004f` | | END-38 | `812ff18` |
+| END-19 | `5cd7d41` | | END-39 | `5f5c877` |
+| END-20 | `5cd7d41` | | END-40 | `d16c742` |
+
+> El comando de arriba devuelve **30** de las 40 filas: los commits del bloque A
+> (END-01 a END-07) describen el defecto en su asunto sin citar el identificador,
+> y END-18, END-39 y END-40 se cerraron en commits que tampoco lo llevan. Esas
+> diez se completaron a mano y se verificaron una por una con `git cat-file -e`.
+>
+> La lección, y por eso queda escrita: **un identificador en el asunto del commit
+> vale más que cualquier tabla.** Las treinta que lo llevan se regeneran solas; las
+> diez que no, envejecen. En adelante, el asunto cita el hallazgo.
 
 #### Críticos
 
@@ -168,7 +231,12 @@ Y del otro lado: `PRODUCT.md` dice que el usuario primario decide *sight-unseen*
 >
 > **Verificación:** seis pruebas unitarias, cuatro de ellas sobre trampas que un `endsWith` ingenuo acepta (`ana@edu.mx.atacante.com`). Aserciones 38 a 40.
 
-### 0.4 Hallazgos abiertos
+### 0.4 Hallazgos remediados · segunda tanda
+
+*Esta sección se escribió como «Hallazgos abiertos» el 19/09 y se renombró el
+20/09: los treinta y uno estaban cerrados. **Que tardara un día en actualizarse
+es el propio hallazgo del §0.2**, así que el título original queda dicho aquí en
+vez de borrado.*
 
 #### Críticos
 
@@ -279,7 +347,11 @@ Relacionado: `listarMensajes` pagina con `.lt('creado_en', cursor)`, así que do
 
 **END-28 · Payload innecesario** — `sugerencias_publicaciones` devuelve `vector_embedding vector(384)` al teléfono. Con `limite=30` son ~250 KB de JSON por refresco de un valor que el cliente nunca usa.
 
-### 0.5 Hallazgos de diseño
+### 0.5 Hallazgos de diseño · remediados
+
+*Los diez se cerraron entre el 19 y el 20/09. El texto describe el defecto tal
+como estaba; la corrección, en el commit de la tabla de §0.3.*
+
 
 **END-29 · El bloque destacado es invisible** · **Alto** · medido
 
@@ -324,30 +396,92 @@ Tres problemas apilados:
 
 **END-38 · Catorce spinners, cero esqueletos** · **Bajo** — `ActivityIndicator` en 14 archivos. El esqueleto se escribe solo en este mundo: dibujar la ficha vacía con sus etiquetas y llenar los valores al llegar. Está inventado y sin construir.
 
-### 0.6 Orden de remediación
+### 0.6 Hallazgos posteriores al documento
 
-Por riesgo y por costo de arreglarlo tarde, no por comodidad.
+*Los encontró el equipo ejecutando el plan, no esta auditoría. Los dos son de
+seguridad y el primero es el mejor trabajo del proyecto.*
 
-| Prioridad | Hallazgos | Cuándo |
+**END-39 · `revoke ... from public` no revocaba nada** · **Crítico** · migración `0036` · `5f5c877`
+
+Supabase trae configurado `alter default privileges ... grant execute on functions to anon, authenticated, service_role`. Cada función nueva nace con esas tres concesiones **escritas en su propia ACL**, y `revoke ... from public` no las quita, porque no vienen de PUBLIC. Comprobado leyendo la ACL real de una función recién creada, inmediatamente después del revoke:
+
+```
+{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}
+```
+
+**Doce migraciones creían estar cerrando funciones y no cerraban ninguna.** Dos explotables con la sola anon key:
+
+1. **`devolver_cuota('revelar_contacto')`** decrementaba la cuota del **propio llamante**. Veinticinco llamadas la devolvían a cero y permitían revelar veinticinco teléfonos más. En bucle, la base de teléfonos entera — exactamente el scraping que AUD-04 existe para impedir.
+2. **`afinidad_de_para(usuario, publicacion)`** aceptaba el uuid de cualquiera. La `0031` la separó de `afinidad_de` precisamente para que nadie pidiera la afinidad de otra persona; la separación no existía, porque además de estar concedida la envoltura era `security invoker` y llamaba a la interna **con la identidad del cliente**. Una envoltura invoker no encapsula nada.
+
+Dos cosas que hay que decir sobre este hallazgo:
+
+**`devolver_cuota` la introdujo la orden B.4 de este mismo plan.** Una remediación puede abrir un agujero. Es la razón por la que una lista de hallazgos cerrados no es una lista de cosas que ya no hay que mirar.
+
+**Lo destapó la aserción 72 de la `0035`, la primera del proyecto que COMPROBABA un `revoke` en vez de escribirlo.** Doce migraciones lo escribieron y ninguna lo verificó. Es el patrón del §0.2 en su forma más cara.
+
+> **Remediación:** cambiar la forma. No se revoca función por función —una lista de lo que se cierra hay que acordarse de ampliarla— sino que se **cierra todo y se abre por lista**, que se revisa entera cada vez que se lee. La aserción 75 la fija.
+
+**END-40 · Cuatro CRITICAL del advisor que NO se corrigen, y diecinueve policies que sí** · **Medio** · `d16c742`
+
+El Security Advisor de Supabase reporta cuatro hallazgos CRITICAL. Se revisaron uno por uno contra el esquema real antes de tocar nada, y **ninguno se corrige** — tres de ellos porque «corregirlos» reintroduce el fallo que este proyecto ya pagó caro:
+
+- **`Security Definer View`** en `perfiles_publicos`, `publicaciones_publicas` y `roomies_publicos`: las tres son `security_invoker = false` **a propósito** (AUD-14). Existen para evadir el RLS de `usuarios` y exponer solo una lista blanca. Ponerlas en `invoker` las evaluaría con la identidad del cliente, el RLS devolvería cero filas, y eso es **AUD-01**. El comentario de la vista ya lo dice; el linter no puede saberlo.
+- **`Exposed Auth Users`** en `perfiles_publicos`: la vista une `auth.users`, pero lo único que saca es `(email_confirmed_at is not null)` — un booleano derivado, no el correo. La vista no está concedida a `anon`, y las aserciones 477 y 479 fijan que no expone `email` ni `email_confirmed_at`.
+
+Lo accionable estaba en lo que la herramienta marcaba como simples **avisos**: diecinueve policies con `auth.uid()` suelto en el `USING`, que Postgres evalúa **una vez por fila**. Medido en esta base, mismo dato, misma policy, 50 000 filas:
+
+| Forma | Tiempo | Plan |
 |---|---|---|
-| **0** | END-01 a END-07 | **Hecho.** Falta aplicarlo a producción (§2) |
-| 1 | END-08, END-09 | Antes de enseñar el motor a nadie: es lo que el evaluador mira |
-| 2 | END-10, END-12 | Antes de cualquier demo: sin esto, un fallo es pantalla gris o pantalla blanca |
-| 3 | END-11, END-13, END-14, END-15 | Fiabilidad y coste; semana siguiente |
-| 4 | END-16, END-19, END-20, END-21, END-22, END-23 | Chat, estado y pruebas |
-| 5 | END-29, END-30, END-31 | Diseño: lo medible y lo que afirma de más |
-| 6 | END-17, END-18, END-24, END-25, END-32 a END-36 | Percepción de producto |
-| 7 | END-26, END-27, END-28, END-37, END-38 | Pulido |
+| `using (dueno = auth.uid())` | 94.16 ms | Seq Scan + filtro por fila |
+| `using (dueno = (select auth.uid()))` | 12.32 ms | InitPlan 1 · Result |
 
-### 0.7 Cómo usar este documento
+7.6×. Y conviene decir lo que **no** es: con las 114 publicaciones de hoy son décimas de milisegundo. Importa porque crece **lineal** con las filas, y `mensajes` es la que más va a crecer.
 
-- **§0** se lee entero una vez, antes de tocar nada.
-- **§1** es el registro de lo hecho, con su evidencia. No se reabre.
-- **§2** es lo que bloquea: pasos manuales que ningún agente puede dar por ti.
-- **§3** son órdenes ejecutables, una por sesión de Claude Code.
-- **§4** son las reglas que gobiernan cualquier trabajo sobre este repositorio.
+Este hallazgo vale por el método más que por el número: **una herramienta que grita CRITICAL cuatro veces y tiene razón cero es peor que no tenerla**, porque entrena a ignorarla. Lo correcto fue revisar los cuatro contra el esquema, documentar por qué se rechazan, y quedarse con lo que la herramienta había clasificado como menor.
 
-Y la regla que gobierna todo lo demás, heredada de v5 y confirmada por esta auditoría: **entre una función más y que lo existente sea a prueba de balas, gana siempre lo segundo.**
+> **Remediación:** `alter policy` y no `drop` + `create` — un drop deja la tabla sin esa policy hasta que el create corre, y el estado intermedio de una tabla con RLS es «nadie ve nada» o, peor, «se ve de más». La aserción 83 es una **lista negra**: cualquier policy futura escrita con la forma lenta la rompe sin que nadie tenga que acordarse de añadir su caso.
+
+### 0.7 Hallazgos abiertos
+
+Ninguno de este documento. Los cinco que quedan aparecieron **al revisar el trabajo hecho** y viven en [`cola-de-trabajo.md`](cola-de-trabajo.md), con su orden ejecutable:
+
+| | Qué |
+|---|---|
+| **V.1** | Este documento estaba desactualizado *(lo que estás leyendo es su remediación)* |
+| **V.2** | El README dice 83 aserciones y son 86, en cuatro sitios |
+| **V.3** | `.tunel-actual` no se valida: puede desactivar en silencio las dos comprobaciones previas a exponer |
+| **V.4** | `app/chat` al 0 % de cobertura |
+| **V.5** | `app/(auth)` al 9 %, con la regla de correo institucional sin probar en pantalla |
+
+### 0.8 Orden de remediación
+
+*Se ejecutó completo entre el 19 y el 20/09/2026. Se conserva porque el ORDEN
+fue una decisión, y el resultado la respalda: los tres críticos se cerraron y
+se aplicaron a producción antes de tocar una sola línea de diseño.*
+
+| Prioridad | Hallazgos | Estado |
+|---|---|---|
+| 0 | END-01 a END-07 | ✅ remediados y en producción |
+| 1 | END-08, END-09 | ✅ |
+| 2 | END-10, END-12 | ✅ |
+| 3 | END-11, END-13, END-14, END-15 | ✅ |
+| 4 | END-16, END-19 a END-23 | ✅ |
+| 5 | END-29, END-30, END-31 | ✅ |
+| 6 | END-17, END-18, END-24, END-25, END-32 a END-36 | ✅ |
+| 7 | END-26, END-27, END-28, END-37, END-38 | ✅ |
+| — | END-39, END-40 | ✅ encontrados y cerrados durante la ejecución |
+
+Lo que queda está en [`cola-de-trabajo.md`](cola-de-trabajo.md).
+
+### 0.9 Cómo usar este documento
+
+- **§0** se lee entero una vez. Es el registro de qué estaba mal y por qué.
+- **§0.7** dice qué sigue abierto. Hoy: nada de aquí; todo está en [`cola-de-trabajo.md`](cola-de-trabajo.md).
+- **§1 y §2** son la evidencia: commits y compuertas, con los comandos que las producen.
+- **§3** está vacía a propósito — ya no bloquea nada.
+
+Y la regla que gobierna todo lo demás, heredada de v5 y confirmada dos veces por esta auditoría: **entre una función más y que lo existente sea a prueba de balas, gana siempre lo segundo.**
 
 ---
 
@@ -355,297 +489,96 @@ Y la regla que gobierna todo lo demás, heredada de v5 y confirmada por esta aud
 
 ## 1. Registro de remediación
 
-Rama `endurecimiento`, trece commits sobre el tag `pre-endurecimiento` (`80eafef`).
+**67 commits** sobre el tag `pre-endurecimiento` (`80eafef`), del 19 al 20 de septiembre de 2026. La correspondencia hallazgo → commit está en la tabla de §0.3, y se regenera con el comando que la acompaña.
 
-| Commit | Hallazgo | Qué entró |
-|---|---|---|
-| `1e7d8d0` | — | `AGENTS.md` completo, en vez de tres líneas |
-| `88d4926` | — | *(revertido)* alineación de `.env` sobre premisa falsa |
-| `424f931` | END-04 | invariante de tokens con sus excepciones y su deuda medida |
-| `a9cfbfa` | — | reversión de `88d4926` |
-| `09c1045` | — | corrección de la propia revisión (§5) |
-| `a8e179f` | **END-02** | el microservicio falla cerrado |
-| `5719f29` | **END-01** | `0022` · lectura del bucket acotada |
-| `8d66f7a` | END-01 | 4 barreras de lectura contra producción |
-| `8bd670d` | **END-03** | `0023` · reportar a una persona hace algo |
-| `b9cad05` | END-06 | `0024` · `roomies_publicos` |
-| `b3d2124` | END-05 | `0025` · barrido programado + Edge Function |
-| `bb58fb8` | END-04 | tres `.env` + guardián en CI |
-| `08df5a9` | END-07 | `0026` · correo institucional verificado |
+Para leer el trabajo por orden de ejecución:
+
+```bash
+git log --oneline --reverse pre-endurecimiento..HEAD
+```
+
+Cuatro commits que conviene leer aunque no se lea el resto, porque cada uno enseña algo que no está en su diff:
+
+| Commit | Por qué |
+|---|---|
+| `5f5c877` | **END-39.** `revoke from public` no revocaba. Dos exploits vivos, uno introducido por una orden de este plan |
+| `d16c742` | **END-40.** Cuatro CRITICAL del advisor rechazados con argumento, y lo accionable era lo que marcaba como aviso. 7.6× medido |
+| `a8e179f` | **END-02.** Al exigir token se rompieron cuatro pruebas existentes: la suite pasaba *gracias* al fallo |
+| `09c1045` | Un `grep` de la auditoría se comió la evidencia que la refutaba, y sobre esa premisa se revirtió un commit correcto |
+
+---
 
 ## 2. Estado de las compuertas
 
-Medido el 19/09/2026, árbol limpio:
+Medido el **20/09/2026**, árbol limpio. Cada cifra viene de su comando; ninguna se escribió a mano.
 
 | Compuerta | Antes | Ahora | Comando |
 |---|---|---|---|
-| pgTAP (RLS, local) | 21 | **40** | `npx supabase test db` |
-| Aislamiento contra producción | 15 | **19** | `node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs` |
-| Pruebas del microservicio | 9 | **16** | `cd ai-service && .venv/bin/python -m pytest tests -q` |
-| Pruebas del frontend | 92 | **98** | `npx jest` |
-| Tipado de Edge Functions | **ninguno** | 4/4 | `npx deno@2 check supabase/functions/*/index.ts` |
-| Reparto de `.env` | **ninguno** | compuerta | `npm run verificar:env` |
-| TypeScript | limpio | limpio | `npx tsc --noEmit` |
-| ESLint | 0 errores | 0 errores | `npx expo lint` |
+| Migraciones en **producción** | 0021 | **0039** | `npx supabase migration list` |
+| pgTAP (RLS y funciones) | 21 | **86** | `npx supabase test db` |
+| Aislamiento contra **producción** | 15 | **19 / 19** | `node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs` |
+| Pruebas del frontend | 92 | **306** | `npx jest` |
+| Pruebas del microservicio | 9 | **20** | `cd ai-service && .venv/bin/python -m pytest tests -q` |
+| Cobertura `src/services` | **0 %** | **66 %** | `npx jest --coverage` |
+| Cobertura `src/store` | **0 %** | **70 %** | idem |
+| Tipado de Edge Functions | **ninguno** | 4 / 4 | `npx deno@2 check supabase/functions/*/index.ts` |
+| Reparto de `.env` | **ninguno** | compuerta en CI | `npm run verificar:env` |
+| TypeScript · ESLint | limpio | limpio · 0 errores | `npx tsc --noEmit && npx expo lint` |
 
-Artefactos nuevos: 5 migraciones (`0022`–`0026`), 1 Edge Function (`barrer-fotos`), 2 jobs de CI (`secretos`, `edge-functions`), 2 scripts (`verificar-env.mjs` y el barredor programado), 1 módulo (`correoUniversitario.ts`).
+**67 commits** sobre el tag `pre-endurecimiento` (`80eafef`).
+
+Huecos conocidos de cobertura, y por eso están en la cola: `app/chat` 0 %, `app/(auth)` 9 %, `app/publicacion/editar` 0 %.
 
 ---
 
 # Parte II — Lo que bloquea
 
-## 3. Pasos manuales pendientes
+## 3. Nada
 
-Ningún agente puede darlos: escriben en producción o en un panel.
+*El 19/09 esta sección tenía cuatro pasos manuales: aplicar cinco migraciones,
+desplegar el barredor de fotos, activar la confirmación de correo y verificar.
+**Los cuatro están hechos.***
 
-### 3.1 Aplicar las cinco migraciones
-
-```bash
-cd /home/damianml/cuervo-pass && npx supabase db dump --data-only -f respaldos/$(date +%F)-pre-bloqueA.sql && npx supabase db push
-```
-
-Debe listar **las cinco**: `0022`, `0023`, `0024`, `0025`, `0026`. Si aparecen menos, el proceso leyó la carpeta antes de que existieran — cancela y relanza.
-
-Dos avisos propios de este push:
-
-- **`0025` crea `pg_cron`.** Funcionó en local. Si el proyecto la tiene bloqueada, la migración falla ahí y **aborta la transacción entera**: ninguna de las cinco se aplica. Es el comportamiento correcto.
-- **`0026` usa `create or replace view`** porque la policy de `0022` depende de `perfiles_publicos`. Verificado contra `db reset` desde cero.
-
-### 3.2 Desplegar el barredor de fotos
-
-Sin esto, `0025` programa una tarea que llama a una función inexistente.
+Comprobado el 20/09: `migration list` da `0039` en remoto, y `prueba-rls.mjs`
+devuelve **19 de 19 barreras** contra la base real.
 
 ```bash
-cd /home/damianml/cuervo-pass && npx supabase secrets set CRON_SECRET=$(openssl rand -hex 32) && npx supabase functions deploy barrer-fotos --no-verify-jwt
-```
-
-Después, los dos secretos de Vault con el SQL exacto del encabezado de `supabase/migrations/0025_barrido_programado.sql`. Y el mismo `CRON_SECRET` en `.env.server`.
-
-### 3.3 Activar la confirmación de correo en producción
-
-`config.toml` rige solo el entorno local. En el panel: **Authentication → Providers → Email → Confirm email**.
-
-### 3.4 Verificar que la remediación aplica de verdad
-
-```bash
+cd /home/damianml/cuervo-pass && npx supabase migration list
 cd /home/damianml/cuervo-pass && node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs
 ```
 
-Las barreras 16 a 19 deben pasar de `[ EXPUESTO ]` a `[ BLOQUEADO ]`, con 19 de 19.
+## 4. Dos decisiones que siguen abiertas para el equipo
 
-## 4. Dos decisiones que quedan al equipo
+No son defectos y por eso no llevan END. Son consecuencias de END-07 que alguien tiene que decidir.
 
-**El guion de demo cambia.** De 104 cuentas en producción, 100 son `@cuervopass-demo.test`, 2 `@ejemplo.mx` y 2 `@gmail.com`: **ninguna pasaría la regla de END-07**. Las existentes siguen entrando —la regla solo aplica al registrarse— pero registrar una cuenta en vivo exige ahora correo `.edu.mx` y confirmar un buzón.
+**El guion de demo cambió.** De las 104 cuentas de producción, 100 son `@cuervopass-demo.test`, 2 `@ejemplo.mx` y 2 `@gmail.com`: **ninguna pasaría la regla de correo institucional**. Las existentes siguen entrando —la regla solo aplica al registrarse— pero registrar una cuenta en vivo exige ahora un `.edu.mx` y confirmar un buzón.
 
-**La insignia va a mentir en la demo.** Las 104 tienen `email_confirmed_at` porque el seed las creó con `email_confirm: true`. `correo_verificado` saldrá en verde para cuentas `@cuervopass-demo.test`, que no es un dominio real. Se corrige sembrando con dominios `.edu.mx` y sin forzar la confirmación; toca datos de demo, así que es decisión del equipo.
+**La insignia de verificado va a mentir en la demo.** Las 104 tienen `email_confirmed_at` porque el seed las creó con `email_confirm: true`, así que `correo_verificado` sale en verde para cuentas de un dominio que no existe. Si el evaluador pregunta qué significa esa insignia, la respuesta honesta es «el script de siembra la puso». Se corrige sembrando con dominios `.edu.mx` y sin forzar la confirmación; toca datos de demo, así que es decisión del equipo.
 
 ---
 
 # Parte III — Lo que falta
 
-## 5. Órdenes ejecutables
+## 5. Nada de este documento
 
-Una orden por sesión de Claude Code. Formato fijo: **defecto → orden → aceptación → verificación**. Reglas del plan:
+Las treinta y cuatro órdenes que vivían aquí se ejecutaron entre el 19 y el 20/09.
+Mantener dos colas de trabajo en dos archivos las desincroniza —ya pasó una vez
+con este mismo documento— así que la cola vive en un solo sitio:
 
-- Una orden, una rama, un commit.
-- **Ninguna orden se cierra sin su verificación en verde.**
-- **Ningún arreglo sin una prueba que falle antes.** Si no puedes escribirla, no entendiste el defecto.
-- Si una orden lleva más de una sesión, está mal descompuesta: pártela.
+### → [`cola-de-trabajo.md`](cola-de-trabajo.md)
 
-### Bloque B — El motor
+Cinco órdenes, cada una con defecto, orden copiable, aceptación y verificación.
 
-**B.1 · END-08 · Que Nivel 2 no esconda publicaciones**
-
-> Escribe primero la prueba en `supabase/tests/rls.test.sql`: siembra 5 publicaciones viables de las cuales solo 2 tengan `vector_embedding`, y un usuario con `perfil_vector`. Afirma que `count(*) from sugerencias_con_ranking(30)` es **5**. Corre `npx supabase test db` y **confirma que devuelve 2** antes de seguir.
->
-> Después, migración nueva (no edites `0015`): elimina el `where yo.perfil_vector is not null and c.vector_embedding is not null`. Usa `left join lateral` y deja `similitud` en `null` cuando falte, con `score_final = c.score` en ese caso. Añade una columna `nivel int` con 2 cuando hay similitud y 1 cuando no.
->
-> En `src/services/publicaciones.service.ts`, `obtenerSugerencias` pasa a **una sola llamada**; elimina el fallback todo-o-nada. Devuelve `{ datos, conAfinidad, total }`. En `src/app/(tabs)/inicio.tsx` el kicker deja de ser binario: `NIVEL 2 · 12 DE 20 CON AFINIDAD SEMÁNTICA`.
->
-> Añade `src/services/__tests__/publicaciones.service.test.ts` con el cliente de Supabase mockeado: filas mixtas, ninguna se pierde.
-
-**Aceptación:** la prueba pasa de 2 a 5. `src/services` deja de estar al 0 %.
-**Verificación:** `npx supabase test db && npx jest src/services`
-
-**B.2 · END-09 · Arreglar el score de mascotas**
-
-> En migración nueva, sustituye `case when p.permite_mascotas = yo.mascotas then 0.5 else 0 end` por `case when yo.mascotas then (case when p.permite_mascotas then 0.5 else 0 end) else 0.5 end`. Corrige el comentario de las tres decisiones del `where`, que hoy describe una asimetría que el score no implementaba.
->
-> Prueba pgTAP: usuario **sin** mascota, dos publicaciones idénticas salvo `permite_mascotas` → mismo score. Hoy difieren en 0.125. Confirma el rojo.
-
-**Verificación:** `npx supabase test db`
-
-**B.3 · END-17 · Filtro de tipo en el servidor** — *hazlo después de C.3.*
-
-> Añade `p_tipo text default null` a `sugerencias_publicaciones` y `sugerencias_con_ranking`, con `and (p_tipo is null or p.tipo = p_tipo)`. Propaga por `obtenerSugerencias(limite, tipo)` y elimina el `useMemo` de `filtradas` en `inicio.tsx`. Con C.3 hecho, el tipo entra en la `queryKey` y hay caché por chip gratis.
-
-**B.4 · END-13 y END-14 · Higiene de cuotas y de errores ajenos**
-
-> 1. `revelar_contacto`: si ya existe la fila en `contactos` para `(auth.uid(), p_publicacion_id)`, devuelve el teléfono **sin** llamar a `consumir_cuota`. Prueba: tres revelaciones del mismo contacto consumen 1.
-> 2. Crea `devolver_cuota(p_recurso text)` `security definer` con piso en 0, `revoke from public`, `grant to authenticated`.
-> 3. En `ai-proxy`, llámala en el `catch` y cuando `r.status >= 500`.
-> 4. En el mismo punto, **deja de reenviar el cuerpo ajeno**: responde `{ degradado: true, motivo: 'servicio-error' }` y manda el cuerpo real a `console.error`.
-> 5. Añade manejo de `OPTIONS` con cabeceras CORS a las cuatro Edge Functions.
-
-**Verificación:** `npx supabase test db && npx deno@2 check supabase/functions/*/index.ts`
-
-**B.5 · END-15 · Ritmo real en la geocodificación**
-
-> Añade `consumir_cuota('geocodificacion', 40)` a la Edge Function y el valor al `CHECK` de `cuotas_uso.recurso`. Implementa el límite de 1 petición por segundo del lado servidor con una tabla `geocodificaciones_ritmo` y un `select ... for update`: es la única forma de honrar la obligación de ODbL cuando todas las peticiones salen de la IP de Supabase.
->
-> **Y corrige el comentario del encabezado.** Si implementas un límite de ritmo y no una cola, escribe «límite de ritmo».
-
-**B.6 · END-28 · Dejar de mandar 384 flotantes al teléfono**
-
-> Elimina `vector_embedding` de la tabla de retorno de `sugerencias_publicaciones`; que `sugerencias_con_ranking` se una internamente por id. Ajusta `PublicacionSugerida`.
-
-### Bloque C — Fiabilidad del cliente
-
-**C.1 · END-12 · `ErrorBoundary` y reporte de crashes**
-
-> Exporta `ErrorBoundary` desde `src/app/_layout.tsx`. Debe renderizar con el sistema de diseño (`BloqueEstado` con `tono="alerta"`), mostrar el mensaje, y ofrecer **Reintentar** (`retry()`) y **Copiar detalle**. Nunca una pantalla blanca.
->
-> Instala `@sentry/react-native` con `npx expo install`. DSN en `EXPO_PUBLIC_SENTRY_DSN` (público por diseño), `tracesSampleRate: 0.2`, y un `beforeSend` que **elimine** `perfil_texto`, `whatsapp`, `descripcion_busqueda` y cualquier correo: §29 exige minimización y un reporte de crash es donde más se filtra.
->
-> Sustituye los 24 `console.warn`/`console.error` de `src/` por `src/lib/registro.ts`.
-
-**C.2 · END-11 · Distinguir «falló la red» de «no existe»**
-
-> Crea `src/lib/resultado.ts` con `type Resultado<T> = { estado:'ok'; datos:T } | { estado:'vacio' } | { estado:'error'; mensaje:string }`.
->
-> `publicacion/[id].tsx`: tres estados distintos. `error` muestra «NO PUDIMOS CONSULTAR» con reintento. **Prohibido que un `catch` produzca `vacio`.**
->
-> `usePerfilStore`: añade `error`. Al fallar **no toques `perfil`**: conserva el último valor conocido. `ResumenFiltros` muestra ese valor con indicador de desactualizado, jamás «Sin presupuesto · Sin distancia · Sin universidad».
->
-> `storage.ts`: `firmarRutas` propaga el fallo en vez de devolver un `Map` vacío.
-
-**Verificación:** `npx jest src/app/publicacion`
-
-**C.3 · END-18 · TanStack Query**
-
-> `npx expo install @tanstack/react-query`. Provider en `_layout.tsx` con `staleTime: 30_000`, `retry: 2` con backoff, `refetchOnWindowFocus: false`. Crea `src/hooks/queries/` con `useSugerencias(tipo)`, `usePublicacion(id)`, `useConversaciones()`, `useMensajes()` (`useInfiniteQuery`) y `useMiPerfil()`. Las mutaciones (`revelarContacto`, `reportarPublicacion`, `enviarMensaje`) pasan a `useMutation` con invalidación.
->
-> Si al terminar sigue habiendo `const [cargando, setCargando]` en una pantalla de lista, no terminaste.
-
-**C.4 · END-16, END-19, END-20 · El chat**
-
-> 1. RPC con `lateral join` que devuelva `(conversacion_id, ultimo_mensaje, no_leidos)`. Treinta filas en vez de mil doscientas.
-> 2. Cursor compuesto `(creado_en, id)` en `listarMensajes`.
-> 3. `useChatStore`: `limpiarConversacion(id)` al desmontar, máximo 3 conversaciones retenidas, e **inserción binaria** en vez de `.sort()` completo.
-> 4. `useAuthStore`: guarda y expón la cancelación de `onAuthStateChange`, con guard contra doble registro.
-> 5. Envío optimista con `id: 'temp-…'` y estado `enviando`/`fallido`, con reintento **en la burbuja**. El texto nunca vuelve al campo.
-> 6. `catch` en `cargarAnteriores`.
-
-**C.5 · END-21 · La calificación deja de viajar por la URL**
-
-> Crea `afinidad_de(p_publicacion_id uuid)` que devuelva `(score, similitud, score_final, nivel)` para una publicación. `publicacion/[id].tsx` la consulta en vez de leer los params. Y `revelar_contacto` **deja de aceptar `p_score` del cliente**: lo calcula dentro.
-
-**C.6 · END-27 · Códigos de error, no subcadenas**
-
-> `src/lib/erroresPostgres.ts` con constantes (`UNIQUE_VIOLATION='23505'`, etc.). `grep -rn "includes('duplicate')" src` debe quedar vacío.
-
-**C.7 · END-24 · URLs firmadas que se renuevan**
-
-> `use-fotos-firmadas.ts`: reprograma la refirma a los 50 minutos con cancelación en el cleanup, o —si C.3 está hecho— conviértelo en `useQuery` con `staleTime` y `refetchInterval`.
-
-### Bloque D — Diseño
-
-**D.1 · END-29 · Medir superficies, no solo texto**
-
-> Crea `scripts/verificar-contraste.mjs` con una tabla de pares declarada en el propio script: texto/fondo ≥4.5, bordes de control ≥3.0, **superficie contra superficie ≥1.2 de razón o borde ≥3.0**. Córrelo contra el tema actual y **confirma que falla** en `tintedSurface/background` claro (1.00), `tintedBorder/tintedSurface` (1.35) y `tintedBorder/background` (1.36). Corrige manteniendo el matiz y moviendo el valor. Añádelo a CI y a `package.json` como `verificar:contraste`.
->
-> Actualiza el encabezado de `theme.ts`: hoy afirma que todos los contrastes están medidos.
-
-**D.2 · END-30 · Desmontar «AFINIDAD 9.4»**
-
-> Redondea a medios puntos. Cambia la etiqueta a `AJUSTE`. **Muestra el porqué en la tarjeta**: bajo la casilla, una línea `type="folio"` con `1.2 km · $500 bajo tu tope · afinidad 0.87`, omitiendo el tercero cuando `nivel === 1`. En el detalle, `DesgloseCalificacion` siempre visible, con la ponderación explícita. Y una línea: *«Este ajuste compara tus filtros con lo publicado. No verificamos el inmueble.»*
-
-**D.3 · END-31 · Un solo componente de calificación**
-
-> Añade `tamano="compacta"` a `Calificacion`. Borra los estilos `casilla` y `cifraCalificacion` de `FichaCompacta` y usa el componente, con su etiqueta. Añade una regla ESLint `no-restricted-syntax` que prohíba `fontSize:`, `fontFamily:` y literales `#` en `src/components/**` y `src/app/**`, con las tres excepciones nombradas. Corre el lint y **arregla las 29 apariciones restantes**.
-
-**D.4 · END-33 · Densidad comparable**
-
-> Crea `src/components/FilaPublicacion.tsx` de **128–140 px**: foto cuadrada de 96 px a la izquierda; a la derecha, tres columnas de ancho fijo —`AJUSTE`, `RENTA`, `DISTANCIA`— con `fontVariant: ['tabular-nums']` para que formen columna al recorrer. Úsala en `inicio`. Conserva `FichaPublicacion` para «Mis publicaciones», donde no se compara. Verifica en dispositivo que caben **al menos 4 filas**.
-
-**D.5 · END-32 · Un carrusel, o ninguno**
-
-> Elimina los tres. Sustitúyelos por **uno** con contenido que la lista no tenga: `nuevas_esta_semana(p_limite)` en Postgres. Si devuelve menos de 3 filas, no se renderiza. Añade un control de orden explícito que reordene la lista **en el sitio**.
-
-**D.6 · END-34 · Escalado de fuente real**
-
-> `maxFontSizeMultiplier` por tipo en `themed-text.tsx`: 1.4 para `default`/`small`, 1.2 para títulos, **1.0 para `calificacion`, `cifra`, `folio` y `etiqueta`** (cifras en casillas de ancho fijo). Sustituye `minHeight` fijo por `minHeight` + `paddingVertical`. Crea `docs/prueba-escalado.md` con el procedimiento, **ejecútalo y adjunta capturas**. Sin eso, borra la línea de `PRODUCT.md`: es falsa.
-
-**D.7 · END-35 · Objetivos táctiles**
-
-> Corrige las cinco violaciones listadas. Añade `scripts/verificar-toques.mjs` que falle ante `minHeight`/`height` numérico < 44 en estilos cuyo nombre contenga `chip|boton|accion|control|toggle|casilla`.
-
-**D.8 · END-38 · Esqueletos con forma de ficha**
-
-> `src/components/ficha/FichaEsqueleto.tsx`: la ficha vacía con sus etiquetas reales y los valores como bloques de `theme.backgroundElement`. Pulso sutil con Reanimated respetando `AccessibilityInfo.isReduceMotionEnabled`. Sustituye el `ActivityIndicator` de pantalla completa en `inicio`, `publicaciones`, `roomies`, `chats` y `publicacion/[id]`. **Nunca borres la pantalla para cargar.**
-
-**D.9 · END-37 · Movimiento y tacto**
-
-> `npx expo install expo-haptics`. `notificationAsync(Success)` al revelar contacto y al publicar; `impactAsync(Light)` al cambiar chip y enviar mensaje. **Nada más.** Conteo de la cifra en el detalle (400 ms, `Easing.out(Easing.cubic)`), solo ahí. Entrada escalonada `FadeInDown.delay(index*30)` con tope de 8. Un componente `Pulsable` que sustituya `opacity: 0.7`. **Todo respeta `useReducedMotion()`.**
-
-**D.10 · END-36 · Responsive donde importa**
-
-> Aplica `useTamanoPantalla` en `inicio`, `publicaciones`, `roomies`, `chats`, `chat/[id]` y `publicacion/[id]`. Usa `MaxContentWidth` para centrar en tablet, y en el carrusel de fotos usa `Math.min(ancho, MaxContentWidth)`. **Si al terminar `MaxContentWidth` sigue sin usarse, bórralo del tema:** un token muerto es peor que ningún token.
-
-**D.11 · Capa semántica de color**
-
-> Añade `Tramas` a `theme.ts` con tres tratamientos sin color nuevo —`solido`, `rayado`, `punteado`— para codificar el tipo de publicación. Si prefieres color, añade **exactamente dos** matices, mídelos con `verificar-contraste.mjs` y documenta su regla de uso.
-
-**D.12 · Reescribir `DESIGN.md` desde lo construido**
-
-> Al terminar el bloque: cada afirmación de contraste cita el script, no un número a mano. **Borra la metáfora de la lámpara** — `#12100E` es negro cálido, no papel iluminado. Documenta cada componente con su archivo y sus variantes reales. Añade una sección «Lo que este sistema NO resuelve todavía».
-
-### Bloque E — Plataforma
-
-**E.1 · END-10 · Que la app compile y el mapa se vea**
-
-> En `app.json`: `ios.bundleIdentifier: "mx.cuervopass.app"`, `android.config.googleMaps.apiKey` desde `EXPO_PUBLIC_GOOGLE_MAPS_KEY`, `runtimeVersion: { policy: "appVersion" }` y `updates.url`. Añade la clave a `.env.example` con instrucciones para restringirla por huella de firma. Resuelve los 8 paquetes de `npx expo-doctor`.
-
-**E.2 · END-23 · Estabilizar la suite**
-
-> En `pantallas.humo.test.tsx`, sustituye todo `getByText` posterior a un `await` por `findByText` con `{ timeout: 5000 }`. `jest.setTimeout(15000)` en `jest.setup.js`. Verifica con **diez corridas consecutivas** de `npx jest --coverage` en verde.
-
-**E.3 · END-22 · Umbrales de cobertura**
-
-> Añade `--coverageThreshold` por directorio: `src/services` y `src/store` al **70 %**, global al 45 %. Sube el umbral conforme avances; **nunca lo bajes**.
-
-**E.4 · Pinear el resto de CI**
-
-> `supabase/setup-cli` usa `version: latest` y `aquasecurity/trivy-action` usa **`@master`**, en el mismo archivo que explica por qué `npm ci` y no `npm install`. Pínealos por SHA. Sustituye el `curl | sh` de syft por `anchore/sbom-action`. Añade `concurrency` y `npm audit --audit-level=high`.
-
-**E.5 · END-26 · API deprecada**
-
-> Migra `src/lib/storage.ts` de `ImageManipulator.manipulateAsync` a la API contextual.
-
-**E.6 · Higiene de operación**
-
-Tres defectos observados en vivo durante esta auditoría:
-
-> 1. **`tunel.sh` no avisa si el puerto 8000 ya está ocupado.** `uvicorn` falla al enlazar **después** de cargar el modelo, así que tarda entre 6 y 40 segundos en decirlo y mientras tanto parece que arrancó. Costó una verificación falsa: se midió un servidor viejo y se reportó que END-02 seguía rota.
-> 2. **Nada ata el proceso en marcha a la versión del repositorio.** Un uvicorn llevaba **trece horas** con código anterior a la remediación. Expón el commit en `/listo` (`git rev-parse --short HEAD` inyectado al arrancar) y que `verificar.mjs` lo compare con el árbol de trabajo.
-> 3. **`tunel.sh` mata un túnel sano.** No comprueba si `.tunel-actual` responde y el secret ya apunta ahí; siempre empieza de cero. Dos ejecuciones seguidas dejaron el sistema sin túnel durante diez minutos de propagación de DNS.
-
-## 6. Secuencia y compuertas
-
-| Fase | Órdenes | Compuerta para avanzar |
-|---|---|---|
-| **0** | §3 completo | `prueba-rls.mjs` 19/19 contra producción |
-| 1 | B.1, B.2, C.1, E.1 | prueba «5 no 2» en verde; `src/services` > 0 % |
-| 2 | C.2, C.3, C.5, B.4 | cobertura de `src/services` y `src/store` ≥ 70 % |
-| 3 | B.3, B.5, B.6, C.4, C.6, C.7 | `npx supabase test db` con ≥ 50 aserciones |
-| 4 | E.2, E.3, E.4, E.5, E.6 | CI entero en verde diez veces seguidas |
-| 5 | D.1 a D.12 | `verificar-contraste` y `verificar-toques` en verde; capturas al 200 % adjuntas |
+El formato de aquellas órdenes se conserva allí porque funcionó: **defecto →
+orden → aceptación → verificación**, una por sesión, con la regla de escribir
+primero la prueba que falla. De los cuarenta hallazgos, el único que se coló sin
+prueba previa fue el que abrió END-39.
 
 ---
 
 # Parte IV — Cómo se trabaja en este repositorio
 
-## 7. Reglas para Claude Code
+## 6. Reglas para Claude Code
 
 Las reglas operativas viven en **[`AGENTS.md`](../AGENTS.md)**, que `CLAUDE.md` importa y que se carga en **cada** sesión. Este documento no las duplica; aquí solo se registran las que esta auditoría añadió y por qué.
 
@@ -667,7 +600,7 @@ Las reglas operativas viven en **[`AGENTS.md`](../AGENTS.md)**, que `CLAUDE.md` 
 
 **R8 · Antes de declarar que una variable es «de servidor», corre el grep.** Deducir del nombre ya metió una credencial fantasma en `AGENTS.md`.
 
-**R9 · Verifica las condiciones del experimento antes de creerle al resultado.** Ver §8: los cuatro errores de método de esta sesión fueron de aquí, ninguno de razonamiento.
+**R9 · Verifica las condiciones del experimento antes de creerle al resultado.** Ver §7: los cuatro errores de método de esta sesión fueron de aquí, ninguno de razonamiento.
 
 ### 7.2 Cuando dos sesiones trabajan a la vez
 
@@ -677,7 +610,7 @@ Ocurrió y produjo una colisión real. Reglas:
 - **Cuando el revisor dice «esto está mal», se revierte o se discute.** No se omite en silencio. En esta sesión, la sesión escritora aplicó las dos correcciones que le daban la razón y dejó fuera las dos que decían que se había equivocado; el resultado fue un `AGENTS.md` con una credencial fantasma y una afirmación sin fuente.
 - **Cuando un agente diga «X no se usa» o «X vive en Y», pídele el comando y su salida.** Los dos errores de aquel día se detectan con un `grep -rn` y treinta segundos.
 
-## 8. Errores de método cometidos en esta auditoría
+## 7. Errores de método cometidos en esta auditoría
 
 Se registran porque son la evidencia más fuerte a favor de R1, R2 y R9, y porque un registro que solo guarda los aciertos no sirve para aprender de él.
 
@@ -694,7 +627,7 @@ De ahí sale la única regla de §7 que se dirige a quien lee un informe y no a 
 
 ---
 
-## 9. Trazabilidad
+## 8. Trazabilidad
 
 | Documento | Qué contiene | Cuándo se lee |
 |---|---|---|
