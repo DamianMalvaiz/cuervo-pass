@@ -1292,6 +1292,13 @@ ejecutables y su secuencia, está en
       ignorado en `main`, y ese archivo tiene la service role key. Comprobado
       que nunca se commiteó; hasta la fusión, **no hacer `git add -A` desde
       `main`**.
+- [ ] **Retirar `usuarios.busca_roomie`** (migración 0003). No lo lee NADIE: lo
+      escriben el cuestionario y Preferencias, y lo que de verdad te mete en la
+      lista de roomies es una fila en `roomies` con `estado = 'activo'`. El
+      perfil lo pintaba como si fuera el interruptor real —«BUSCA ROOMIE: Sí»
+      mientras no aparecías en la lista de nadie—; eso ya se corrigió en la
+      pantalla el 20/09/2026, pero la columna sigue ahí y los dos formularios la
+      siguen escribiendo. Retirarla es una migración y tocar dos formularios.
 - [ ] Retirar la vista de compatibilidad `roomings` (migración 0011) cuando ya
       no quede ningún APK viejo instalado. Sigue viva con 30 filas.
 - [ ] `README.md` tiene la sección de capturas de pantalla vacía.

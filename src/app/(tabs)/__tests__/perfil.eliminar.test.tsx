@@ -46,6 +46,8 @@ jest.mock('@/store/usePerfilStore', () => ({
   }),
 }));
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
 import PerfilScreen from '../perfil';
 
 beforeEach(() => {
@@ -53,8 +55,19 @@ beforeEach(() => {
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 });
 
+// La pantalla usa react-query desde que el campo «BUSCA ROOMIE» pasó a leer la
+// ficha REAL en vez del booleano muerto del cuestionario. Se le da el mismo
+// contexto que le da la app: sin `QueryClientProvider`, el hook lanza «No
+// QueryClient set» al montar y ninguna de estas cinco pruebas llega a su
+// aserción.
+const envolver = ({ children }: { children: React.ReactNode }) => (
+  <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    {children}
+  </QueryClientProvider>
+);
+
 const abrirDialogo = async () => {
-  await render(<PerfilScreen />);
+  await render(<PerfilScreen />, { wrapper: envolver });
   fireEvent.press(await screen.findByLabelText('Eliminar mi cuenta', {}, { timeout: 5000 }));
   await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
   return (Alert.alert as jest.Mock).mock.calls[0];

@@ -8,7 +8,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Share,
   StyleSheet,
@@ -17,7 +16,9 @@ import {
 
 import { Campo } from '@/components/Campo';
 import { CampoFicha, FileteHoja } from '@/components/ficha/CampoFicha';
+import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { FilaAjuste } from '@/components/ficha/FilaAjuste';
+import { Pulsable } from '@/components/ficha/Pulsable';
 import { Seccion } from '@/components/ficha/Seccion';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
@@ -29,6 +30,7 @@ import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
 import { subirFotoPerfil } from '@/lib/storage';
 import { eliminarMiCuenta, exportarMisDatos } from '@/services/usuarios.service';
+import { useMiRoomie } from '@/hooks/queries/useRoomies';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 
@@ -40,6 +42,11 @@ export default function PerfilScreen() {
   const session = useAuthStore((s) => s.session);
   const cerrarSesion = useAuthStore((s) => s.cerrarSesion);
   const { perfil, cargando, cargarPerfil, actualizarPerfil } = usePerfilStore();
+  // La ficha de roomie, para poder decir la VERDAD sobre si apareces en esa
+  // lista. Es una consulta más y va con su propia clave: si falla, el resto del
+  // perfil se pinta igual y el campo cae a «No», que es lo que se ve desde
+  // fuera cuando no hay ficha.
+  const { miRoomie } = useMiRoomie(session?.user.id);
 
   const [biografia, setBiografia] = useState('');
   const [subiendoFoto, setSubiendoFoto] = useState(false);
@@ -154,17 +161,35 @@ export default function PerfilScreen() {
   };
 
   if (cargando) {
+    // END-38 · La forma de lo que viene, no un punto girando. Aquí el esqueleto
+    // lleva las etiquetas reales de la ficha de búsqueda: se saben antes de
+    // preguntar, y pintarlas en gris haría la espera más pobre sin ganar nada.
     return (
-      <ThemedView style={[estilos.centrado, { paddingTop: margenSuperior }]}>
-        <ActivityIndicator color={theme.acento} />
-        <ThemedText type="etiqueta" themeColor="textSecondary">
-          CONSULTANDO EXPEDIENTE
-        </ThemedText>
+      <ThemedView style={estilos.pantalla}>
+        <ScrollView
+          contentContainerStyle={[
+            estilos.desplazable,
+            { paddingTop: margenSuperior },
+            clase === 'amplia' && estilos.centradoAmplio,
+          ]}
+        >
+          <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
+            <ListaEsqueleto
+              variante="hoja"
+              filas={1}
+              conFoto={false}
+              etiquetas={['PRESUPUESTO MENSUAL', 'DISTANCIA MÁXIMA']}
+            />
+          </View>
+        </ScrollView>
       </ThemedView>
     );
   }
 
   const folio = (perfil?.id ?? '').replace(/-/g, '').slice(0, 4).toUpperCase();
+  // La verdad sobre si apareces en la lista de roomies: la fila de `roomies`,
+  // no el booleano del cuestionario.
+  const apareceEnRoomies = miRoomie?.estado === 'activo';
   const biografiaCambiada = biografia !== (perfil?.biografia ?? '');
   const presupuesto =
     perfil?.presupuesto_min != null && perfil?.presupuesto_max != null
@@ -186,13 +211,13 @@ export default function PerfilScreen() {
           <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
             {/* ── Identidad ────────────────────────────────────────────── */}
             <View style={estilos.identidad}>
-              <Pressable
+              <Pulsable
                 onPress={onCambiarFoto}
                 disabled={subiendoFoto}
                 accessibilityRole="button"
                 accessibilityLabel={urlFoto ? 'Cambiar tu foto de perfil' : 'Agregar una foto de perfil'}
                 accessibilityState={{ busy: subiendoFoto }}
-                style={({ pressed }) => [estilos.envolturaFoto, pressed && estilos.presionado]}
+                style={estilos.envolturaFoto}
               >
                 {urlFoto ? (
                   <Image source={{ uri: urlFoto }} style={[estilos.foto, { borderColor: theme.filete }]} />
@@ -216,7 +241,7 @@ export default function PerfilScreen() {
                     <Ionicons name="camera" size={16} color={AppColors.selloTexto} />
                   )}
                 </View>
-              </Pressable>
+              </Pulsable>
 
               <View style={estilos.datosIdentidad}>
                 <ThemedText type="folio" themeColor="textSecondary">
@@ -262,7 +287,7 @@ export default function PerfilScreen() {
             <Seccion
               titulo="TU FICHA DE BÚSQUEDA"
               accion={
-                <Pressable
+                <Pulsable
                   onPress={() => router.push('/perfil/preferencias')}
                   style={estilos.accionSeccion}
                   accessibilityRole="button"
@@ -273,7 +298,7 @@ export default function PerfilScreen() {
                     Editar
                   </ThemedText>
                   <Ionicons name="chevron-forward" size={14} color={theme.acento} />
-                </Pressable>
+                </Pulsable>
               }
             >
               <View style={estilos.rejilla}>
@@ -307,11 +332,25 @@ export default function PerfilScreen() {
                   ancho={1}
                   tono={perfil?.nivel_ruido ? 'normal' : 'atenuado'}
                 />
+                {/* Este campo leía `usuarios.busca_roomie`, y ESE booleano no
+                    hace nada. Lo escribe el cuestionario, lo escribe
+                    Preferencias, se pintaba aquí… y no lo lee nadie más: lo que
+                    te mete en la lista de roomies es una fila en `roomies` con
+                    `estado = 'activo'`, que se enciende con el interruptor de
+                    la pestaña Roomies.
+
+                    O sea: contestabas «sí busco roomie», tu propio perfil te lo
+                    confirmaba, y no aparecías en la lista de nadie. Dos
+                    interruptores que parecen el mismo y no lo son.
+
+                    Ahora el campo reporta el ESTADO REAL, y cuando está en no,
+                    dice dónde se cambia. Un documento informa de lo que es, no
+                    de lo que alguien contestó una vez. */}
                 <CampoFicha
                   etiqueta="BUSCA ROOMIE"
-                  valor={perfil?.busca_roomie ? 'Sí' : 'No'}
+                  valor={apareceEnRoomies ? 'Sí, tu ficha está activa' : 'No · actívala en Roomies'}
                   ancho={1}
-                  tono={perfil?.busca_roomie ? 'normal' : 'atenuado'}
+                  tono={apareceEnRoomies ? 'normal' : 'atenuado'}
                 />
               </View>
             </Seccion>
@@ -432,20 +471,16 @@ export default function PerfilScreen() {
                 Se borran tu perfil, tus publicaciones, tus fotografías y tus mensajes. Es
                 irreversible y no conservamos copia.
               </ThemedText>
-              <Pressable
+              <Pulsable
                 onPress={onEliminarCuenta}
-                style={({ pressed }) => [
-                  estilos.botonPeligro,
-                  { backgroundColor: theme.error },
-                  pressed && estilos.presionado,
-                ]}
+                style={[estilos.botonPeligro, { backgroundColor: theme.error }]}
                 accessibilityRole="button"
                 accessibilityLabel="Eliminar mi cuenta"
               >
                 <ThemedText style={[estilos.textoPeligro, { color: theme.errorTexto }]}>
                   Eliminar mi cuenta
                 </ThemedText>
-              </Pressable>
+              </Pulsable>
             </View>
           </View>
         </ScrollView>
@@ -461,7 +496,6 @@ const estilos = StyleSheet.create({
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.four },
   flexible: { flex: 1 },
-  presionado: { opacity: 0.7 },
 
   identidad: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingTop: Spacing.two },
   envolturaFoto: { width: 88, height: 88 },
