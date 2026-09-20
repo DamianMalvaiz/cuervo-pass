@@ -97,6 +97,36 @@ async function revisarTunel() {
     // DECISIÓN pendiente. Sin ella /parsear-perfil devuelve valores neutros y
     // horario_predominante nunca se infiere — un campo del perfil público, que
     // ya degrada a "Variable". No toca el ranking ni el embedding.
+    // E.6 · CON QUE CODIGO esta corriendo el proceso que acaba de responder.
+    //
+    // Durante la auditoria, un uvicorn llevaba TRECE HORAS sirviendo codigo
+    // anterior a una correccion ya aplicada. Nada lo delataba: respondia, el
+    // modelo estaba cargado y /listo decia «ok». Se midio ese servidor viejo y
+    // se reporto que el fallo seguia sin arreglar.
+    //
+    // Es FALLO y no aviso. Un microservicio desfasado no da un error: da una
+    // respuesta plausible de una version que ya no existe, y eso convierte cada
+    // medicion posterior en ruido — incluidas las de este mismo script.
+    let enArbol = '';
+    try {
+      enArbol = execFileSync('git', ['rev-parse', '--short', 'HEAD'],
+        { encoding: 'utf8', timeout: 5_000 }).trim();
+    } catch {
+      // Sin git no se puede comparar. No es un fallo del sistema verificado.
+    }
+    if (!salud.commit) {
+      anotar('Version del microservicio', 'aviso',
+        '/listo no reporta commit: el microservicio es anterior a E.6 y hay que reiniciarlo');
+    } else if (salud.commit === 'desconocido') {
+      anotar('Version del microservicio', 'aviso',
+        'el proceso no pudo leer su commit (¿contenedor sin git?): pon CUERVO_COMMIT al arrancarlo');
+    } else if (enArbol && salud.commit !== enArbol) {
+      anotar('Version del microservicio', 'fallo',
+        `sirve ${salud.commit} y el arbol esta en ${enArbol} — reinicia uvicorn o mediras codigo viejo`);
+    } else {
+      anotar('Version del microservicio', 'ok', `${salud.commit}, el mismo del arbol`);
+    }
+
     if (salud.api_llm_configurada === true) {
       anotar('Análisis con LLM (Anthropic)', 'ok', `clave presente · modelo ${salud.modelo_llm ?? 'por omisión'}`);
     } else {

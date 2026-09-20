@@ -171,6 +171,11 @@ def listo_para_servir():
         "api_llm_configurada": bool(config.ANTHROPIC_API_KEY),
         "modelo_embeddings": nombre_modelo(),
         "modelo_cargado": True,
+        # E.6 · Con qué código arrancó ESTE proceso. Un uvicorn llevó trece horas
+        # sirviendo una versión anterior a una corrección ya aplicada, y nada lo
+        # delataba: respondía, el modelo estaba cargado y esto decía «ok».
+        # `verificar.mjs` lo compara contra el árbol de trabajo.
+        "commit": config.COMMIT,
     }
 
 

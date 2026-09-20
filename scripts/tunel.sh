@@ -12,9 +12,13 @@
 # Correr esto ANTES de cada exposición, y otra vez si el Nivel 2 desaparece a
 # media demo.
 #
-#   ./scripts/tunel.sh
+#   ./scripts/tunel.sh            # reutiliza el túnel si sigue sano
+#   ./scripts/tunel.sh --forzar   # levanta uno nuevo pase lo que pase
 #
 set -euo pipefail
+
+FORZAR=0
+[ "${1:-}" = "--forzar" ] && FORZAR=1
 
 cd "$(dirname "$0")/.."
 
@@ -37,7 +41,8 @@ fi
 #    puerto muerto se conecta igual y devuelve 502, que es más difícil de
 #    diagnosticar que un fallo de conexión limpio.
 echo "→ Comprobando el microservicio en 127.0.0.1:8000…"
-if ! curl -sf -m 5 http://127.0.0.1:8000/listo >/dev/null; then
+LOCAL="$(curl -sf -m 5 http://127.0.0.1:8000/listo || true)"
+if [ -z "$LOCAL" ]; then
   echo "   El microservicio NO responde. Levántalo primero:" >&2
   # Ya no hace falta `set -a && . ../.env`: config.py carga ai-service/.env
   # por su cuenta. Las tres rutas de arranque (esta, docker compose y el
@@ -48,7 +53,57 @@ if ! curl -sf -m 5 http://127.0.0.1:8000/listo >/dev/null; then
 fi
 echo "   responde."
 
-# 2. Matar cualquier túnel anterior, incluido el que está atorado reintentando.
+# 1.b · E.6 · ¿QUE CODIGO está sirviendo ese proceso?
+#
+# Que el puerto 8000 responda no significa que responda lo que acabas de
+# escribir. Durante la auditoría, un uvicorn llevaba TRECE HORAS con código
+# anterior a una corrección ya aplicada: respondía, el modelo estaba cargado,
+# `/listo` decía «ok», y se midió ese servidor viejo dando por hecho que era el
+# nuevo. `uvicorn` además tarda entre 6 y 40 s en fallar al enlazar el puerto
+# —falla DESPUÉS de cargar el modelo—, así que durante ese rato parece que
+# arrancó y en realidad el que contesta es el de antes.
+#
+# Esto no lo adivina: lo pregunta.
+COMMIT_ARBOL="$(git rev-parse --short HEAD 2>/dev/null || true)"
+COMMIT_VIVO="$(printf '%s' "$LOCAL" | grep -oE '"commit"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -E 's/.*"([^"]*)"$/\1/' || true)"
+
+if [ -z "$COMMIT_VIVO" ]; then
+  echo "   ⚠  el microservicio no reporta su commit: arrancó con código anterior a E.6."
+  echo "      Reinícialo para que este aviso pueda decirte algo útil."
+elif [ -n "$COMMIT_ARBOL" ] && [ "$COMMIT_VIVO" != "$COMMIT_ARBOL" ]; then
+  echo "   ✗  sirve $COMMIT_VIVO y el árbol está en $COMMIT_ARBOL." >&2
+  echo "      Lo que midas a partir de aquí será de una versión que ya no existe." >&2
+  echo "      Reinícialo y vuelve a correr esto:" >&2
+  echo "        pkill -f 'uvicorn main:app' && cd ai-service && .venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000" >&2
+  exit 1
+else
+  echo "   sirviendo $COMMIT_VIVO, el mismo del árbol."
+fi
+
+# 2. E.6 · Un túnel SANO no se mata.
+#
+# Este script empezaba siempre de cero. Dos ejecuciones seguidas dejaron el
+# sistema sin túnel durante diez minutos de propagación de DNS — por precaución,
+# se destruía lo único que funcionaba.
+#
+# La inferencia sobre el secret: `.tunel-actual` se escribe JUSTO DESPUÉS de
+# `supabase secrets set`, en este mismo script, así que si el dominio de ese
+# archivo responde, el secret apunta ahí. Deja de valer si alguien cambió el
+# secret a mano; para ese caso está `--forzar`.
+if [ "$FORZAR" -eq 0 ] && [ -f .tunel-actual ]; then
+  ANTERIOR="$(cat .tunel-actual)"
+  echo "→ Probando el túnel anterior ($ANTERIOR)…"
+  if curl -sf -m 8 "$ANTERIOR/listo" >/dev/null 2>&1; then
+    echo "   sigue vivo. No se toca."
+    echo
+    echo "Túnel arriba: $ANTERIOR"
+    echo "(usa --forzar si necesitas uno nuevo de todas formas)"
+    exit 0
+  fi
+  echo "   no responde; se levanta uno nuevo."
+fi
+
+# 2.b Matar cualquier túnel anterior, incluido el que está atorado reintentando.
 if pgrep -f "cloudflared tunnel --url" >/dev/null; then
   echo "→ Cerrando el túnel anterior…"
   pkill -f "cloudflared tunnel --url" || true

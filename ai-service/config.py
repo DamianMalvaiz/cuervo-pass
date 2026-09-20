@@ -44,6 +44,36 @@ ENV_CARGADO = load_dotenv(RAIZ / ".env", override=False)
 #
 # Mismas 384 dimensiones, así que el esquema no cambia. Cuesta ~470 MB en disco
 # en vez de ~90 MB, irrelevante a esta escala.
+# E.6 · Qué versión del código está corriendo AHORA.
+#
+# Durante la auditoría, un uvicorn llevaba TRECE HORAS sirviendo código anterior
+# a una corrección ya aplicada. Nada lo delataba: el proceso respondía, el modelo
+# estaba cargado y `/listo` decía «ok». Se midió un servidor viejo y se reportó
+# que el fallo seguía sin arreglar.
+#
+# El commit se lee del árbol al arrancar y se congela en esta constante. Leerlo
+# en cada petición diría la versión del REPOSITORIO, no la del proceso — que es
+# justo la confusión que esto viene a deshacer: lo que importa es con qué código
+# arrancó, no lo que hay en disco ahora.
+def _commit_del_arbol() -> str:
+    try:
+        import subprocess
+
+        return subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=RAIZ,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        ).stdout.strip()
+    except Exception:
+        # Sin git —en un contenedor, por ejemplo— la variable de entorno es el
+        # camino. Se devuelve una marca explícita y no una cadena vacía: «no sé»
+        # tiene que poder distinguirse de «todavía no lo he mirado».
+        return "desconocido"
+
+
 MODELO_EMBEDDINGS = os.getenv("MODELO_EMBEDDINGS", "paraphrase-multilingual-MiniLM-L12-v2")
 MODELO_LLM = os.getenv("MODELO_LLM", "claude-haiku-4-5-20251001")
 
@@ -57,5 +87,7 @@ TIMEOUT_LLM = float(os.getenv("TIMEOUT_LLM", "8"))
 # Token compartido con la Edge Function `ai-proxy`. Se acepta un segundo token
 # durante la ventana de rotación (§24, AUD-12): una rotación que exige apagar el
 # servicio es una rotación que nunca se hace.
+COMMIT = os.getenv("CUERVO_COMMIT") or _commit_del_arbol()
+
 AI_SHARED_TOKEN = os.getenv("AI_SHARED_TOKEN")
 AI_SHARED_TOKEN_SIGUIENTE = os.getenv("AI_SHARED_TOKEN_SIGUIENTE")

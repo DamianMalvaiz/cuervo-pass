@@ -191,3 +191,78 @@ def test_config_carga_el_env_del_microservicio():
     assert config.ENV_CARGADO, (
         "ai-service/.env no se cargó. Corre: cd ai-service && cp .env.example .env"
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# E.6 · Qué versión está corriendo
+# ═══════════════════════════════════════════════════════════════════════════
+# Durante la auditoría un uvicorn llevaba TRECE HORAS sirviendo código anterior
+# a una corrección ya aplicada. Nada lo delataba: respondía, el modelo estaba
+# cargado y /listo decía «ok». Se midió ese servidor viejo y se reportó que el
+# fallo seguía sin arreglar — o sea que el proceso de verificación produjo una
+# conclusión falsa sobre el estado del sistema.
+
+
+def test_listo_reporta_el_commit():
+    """Sin este campo, `verificar.mjs` y `tunel.sh` no pueden distinguir un
+    microservicio al día de uno de hace trece horas."""
+    with TestClient(app) as c:
+        cuerpo = c.get("/listo").json()
+    assert "commit" in cuerpo
+    assert cuerpo["commit"]
+
+
+def test_el_commit_se_congela_al_arrancar():
+    """Se lee UNA vez, en el import de config, y no en cada petición.
+
+    Leerlo por petición reportaría la versión del REPOSITORIO —lo que hay en
+    disco ahora— y no la del PROCESO. Justo la confusión que esto viene a
+    deshacer: importa con qué código arrancó, no lo que alguien acaba de
+    escribir en el árbol.
+    """
+    import config
+
+    with TestClient(app) as c:
+        primero = c.get("/listo").json()["commit"]
+        segundo = c.get("/listo").json()["commit"]
+
+    assert primero == segundo == config.COMMIT
+
+
+def test_sin_git_el_commit_dice_desconocido(monkeypatch):
+    """«No sé» tiene que poder distinguirse de «todavía no lo he mirado».
+
+    En un contenedor sin git no hay commit que leer. Devolver cadena vacía
+    haría que el verificador no supiera si el campo falta o si el proceso no
+    pudo averiguarlo, y son dos arreglos distintos: uno es reiniciar, el otro
+    es pasar CUERVO_COMMIT al construir la imagen.
+    """
+    import subprocess
+
+    import config
+
+    def revienta(*_a, **_k):
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(subprocess, "run", revienta)
+    assert config._commit_del_arbol() == "desconocido"
+
+
+def test_la_variable_de_entorno_gana_sobre_el_arbol(monkeypatch):
+    """En una imagen de Docker el código no viene con su historial de git.
+
+    `CUERVO_COMMIT` se inyecta al construir, y tiene que MANDAR: si el árbol
+    ganara, un contenedor desplegado reportaría el commit de la máquina que lo
+    construyó, o «desconocido», y en los dos casos mentiría sobre sí mismo.
+    """
+    import importlib
+
+    import config
+
+    monkeypatch.setenv("CUERVO_COMMIT", "deadbee")
+    recargado = importlib.reload(config)
+    try:
+        assert recargado.COMMIT == "deadbee"
+    finally:
+        monkeypatch.delenv("CUERVO_COMMIT", raising=False)
+        importlib.reload(config)
