@@ -31,6 +31,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { subirFotoPerfil } from '@/lib/storage';
 import { eliminarMiCuenta, exportarMisDatos } from '@/services/usuarios.service';
 import { useMiRoomie } from '@/hooks/queries/useRoomies';
+import { useMisPublicaciones } from '@/hooks/queries/usePublicaciones';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 
@@ -47,6 +48,9 @@ export default function PerfilScreen() {
   // perfil se pinta igual y el campo cae a «No», que es lo que se ve desde
   // fuera cuando no hay ficha.
   const { miRoomie } = useMiRoomie(session?.user.id);
+  // Solo para el conteo del acceso a «Mis publicaciones». La consulta ya está
+  // cacheada por react-query: la pestaña de publicaciones usa la misma clave.
+  const { datos: misPublicaciones, cargando: cargandoPublicaciones } = useMisPublicaciones(session?.user.id);
 
   const [biografia, setBiografia] = useState('');
   const [subiendoFoto, setSubiendoFoto] = useState(false);
@@ -190,6 +194,15 @@ export default function PerfilScreen() {
   // La verdad sobre si apareces en la lista de roomies: la fila de `roomies`,
   // no el booleano del cuestionario.
   const apareceEnRoomies = miRoomie?.estado === 'activo';
+  // Se dice cuántas y cuántas ACTIVAS: publicar y estar visible no es lo
+  // mismo, y una desactivada que uno cree publicada es de las cosas que se
+  // descubren tarde.
+  const activas = misPublicaciones.filter((p) => p.activa).length;
+  const descripcionPublicaciones = cargandoPublicaciones
+    ? 'Consultando…'
+    : misPublicaciones.length === 0
+      ? 'Todavía no has publicado ninguna.'
+      : `${misPublicaciones.length} publicada${misPublicaciones.length === 1 ? '' : 's'} · ${activas} activa${activas === 1 ? '' : 's'}`;
   const biografiaCambiada = biografia !== (perfil?.biografia ?? '');
   const presupuesto =
     perfil?.presupuesto_min != null && perfil?.presupuesto_max != null
@@ -418,7 +431,63 @@ export default function PerfilScreen() {
               )}
             </Seccion>
 
-            {/* ── Derechos ARCO ────────────────────────────────────────── */}
+            {/* ── Tu expediente público ───────────────────────────────── */}
+            {/*
+                De la pantalla de perfil de Airbnb se toma UNA cosa, y no son
+                sus tarjetas ilustradas —este mundo no tiene ilustraciones ni
+                sombras—: es que el perfil sea la puerta a lo tuyo, y sobre
+                todo el renglón «Consulta el perfil».
+
+                Ese hueco era real. `perfil/[usuarioId]` existe desde la 0026 y
+                NADA en la app enlazaba al propio: se podía ver la ficha de
+                cualquiera menos la de uno mismo. En un producto cuyo
+                PRODUCT.md dice que la confianza para quien decide sin visitar
+                pesa tanto como el matching, no poder comprobar qué proyectas
+                es el hueco más caro de esta pantalla.
+
+                Y ahora hay más razón: desde END-07 tu ficha pública muestra si
+                tu correo está verificado. Un dato sobre ti que no puedes ver.
+
+                Los tres renglones dicen su ESTADO en la descripción, no en una
+                insignia al margen. En un documento, un dato va junto a su
+                etiqueta; una pastilla con un número al borde derecho es de otro
+                mundo.
+            */}
+            <Seccion titulo="TU EXPEDIENTE PÚBLICO">
+              <View style={estilos.lista}>
+                <FilaAjuste
+                  icono="eye-outline"
+                  etiqueta="Ver mi perfil público"
+                  descripcion="Lo que ve otra persona cuando entra a tu ficha."
+                  onPress={
+                    session?.user.id
+                      ? () => router.push({ pathname: '/perfil/[usuarioId]', params: { usuarioId: session.user.id } })
+                      : undefined
+                  }
+                />
+                <FileteHoja />
+                <FilaAjuste
+                  icono="documents-outline"
+                  etiqueta="Mis publicaciones"
+                  descripcion={descripcionPublicaciones}
+                  onPress={() => router.push('/(tabs)/publicaciones')}
+                />
+                <FileteHoja />
+                <FilaAjuste
+                  icono="people-outline"
+                  etiqueta="Mi anuncio de roomie"
+                  descripcion={
+                    apareceEnRoomies
+                      ? 'Activo: apareces en la lista de roomies.'
+                      : miRoomie
+                        ? 'Pausado: no apareces en la lista.'
+                        : 'Sin crear. Nadie te encuentra como roomie.'
+                  }
+                  onPress={() => router.push('/(tabs)/roomies')}
+                />
+              </View>
+            </Seccion>
+
             {/* ── Cuenta ───────────────────────────────────────────────── */}
             {/* Lista de navegación con chevron: cada renglón dice "esto lleva a
                 otro lado" sin que nadie lo explique. Antes esto eran botones
@@ -446,10 +515,28 @@ export default function PerfilScreen() {
                   }
                   onPress={exportando ? undefined : onDescargarMisDatos}
                 />
-                <FileteHoja />
+              </View>
+
+              {/*
+                  Dos grupos, no una lista plana — la segunda cosa que se toma
+                  de las capturas de Airbnb, que separa «Configuración /
+                  Privacidad» de «Invita / Legal / Cerrar sesión» con aire y un
+                  filete.
+
+                  Aquí la división tiene un motivo propio y no es imitación:
+                  arriba están tus DERECHOS sobre tus datos —consultarlos y
+                  llevártelos, que el aviso de privacidad promete por la
+                  LFPDPPP—; abajo, salir. Meterlos en la misma lista pone un
+                  derecho ARCO al mismo peso que un botón de sesión.
+
+                  La separación es aire más filete, no una tarjeta nueva: este
+                  mundo separa con regla, no apilando superficies.
+              */}
+              <View style={[estilos.grupoAparte, { borderTopColor: theme.filete }]}>
                 <FilaAjuste
                   icono="log-out-outline"
                   etiqueta="Cerrar sesión"
+                  descripcion="Tus datos y tus publicaciones se quedan como están."
                   onPress={onCerrarSesion}
                 />
               </View>
@@ -498,6 +585,9 @@ const estilos = StyleSheet.create({
   flexible: { flex: 1 },
 
   identidad: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingTop: Spacing.two },
+  // El aire de arriba es mayor que el de abajo: un grupo empieza donde acaba
+  // el espacio, no donde empieza el filete.
+  grupoAparte: { marginTop: Spacing.four, paddingTop: Spacing.three, borderTopWidth: Filete.fino },
   envolturaFoto: { width: 88, height: 88 },
   foto: { width: 88, height: 88, borderRadius: 44, borderWidth: Filete.fino },
   sinFoto: { alignItems: 'center', justifyContent: 'center' },
