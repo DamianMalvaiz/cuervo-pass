@@ -69,3 +69,4 @@ supabase/.temp/
 
 # Dominio del túnel en curso: cambia en cada arranque.
 .tunel-actual
+coverage/

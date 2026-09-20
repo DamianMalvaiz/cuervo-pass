@@ -96,7 +96,18 @@ jobs:
       # porque una regla que solo está escrita depende de que alguien la
       # recuerde al teclear cada estilo.
       - run: npm run verificar:toques
-      - run: npm test -- --watchAll=false --passWithNoTests
+      # END-22 · Con `--coverage`, y no es lo mismo que `npm test`.
+      #
+      # `--passWithNoTests` se retira a proposito: existia para que el job no
+      # fallara cuando no habia pruebas, y hoy hay 288. Dejarlo significa que si
+      # un cambio rompe el descubrimiento de tests —un `testMatch` mal escrito,
+      # un `modulePathIgnorePatterns` de mas— el job saldria VERDE sin ejecutar
+      # ninguna. Ese es el peor verde posible.
+      #
+      # Los umbrales viven en jest.config.js y solo suben. Si este paso falla
+      # por cobertura, la respuesta es escribir la prueba que falta, nunca bajar
+      # el numero.
+      - run: npm test -- --watchAll=false --coverage
 
   servicio-ia:
     runs-on: ubuntu-latest
