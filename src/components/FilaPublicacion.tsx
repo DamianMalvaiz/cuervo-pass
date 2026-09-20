@@ -3,9 +3,11 @@ import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
 import { Pulsable } from '@/components/ficha/Pulsable';
+import { SelloTipo } from '@/components/ficha/SelloTipo';
 import { ThemedText } from '@/components/themed-text';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import type { TipoPublicacion } from '@/types/database.types';
 
 /**
  * Un renglón de tabla, no una tarjeta · END-33
@@ -42,8 +44,17 @@ export const ALTO_FILA = 132;
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 
+/** En frase, no en versalitas: un lector de pantalla deletrea «DEPA» como
+ *  «D-E-P-A» si lo recibe en mayúsculas sostenidas. */
+const PALABRA_ACCESIBLE: Record<TipoPublicacion, string> = {
+  depa: 'Departamento',
+  cuarto: 'Cuarto',
+  casa_compartida: 'Casa compartida',
+};
+
 export function FilaPublicacion({
   titulo,
+  tipo,
   precio,
   fotoUrl,
   distanciaKm,
@@ -52,6 +63,9 @@ export function FilaPublicacion({
   onPress,
 }: {
   titulo: string;
+  /** D.11 · El tipo no aparecía en la lista, solo en la ficha. Con los chips de
+   *  B.3 se podía filtrar por algo que la lista nunca decía. */
+  tipo?: TipoPublicacion;
   precio: number;
   fotoUrl?: string | null;
   distanciaKm?: number | null;
@@ -74,18 +88,35 @@ export function FilaPublicacion({
       onPress={onPress}
       style={[estilos.fila, { borderColor: theme.filete, backgroundColor: theme.background }]}
       accessibilityRole="button"
-      accessibilityLabel={`${titulo}. Ajuste ${ajuste} de 10, renta ${renta}, distancia ${distancia}.`}
+      // El tipo va PRIMERO en la etiqueta: quien recorre la lista con un lector
+      // de pantalla lo necesita para decidir si le interesa, igual que quien la
+      // recorre con la vista lo ve en el sello. La trama no se anuncia: es el
+      // mismo dato, dicho para otro sentido.
+      accessibilityLabel={
+        `${tipo ? PALABRA_ACCESIBLE[tipo] + '. ' : ''}${titulo}. ` +
+        `Ajuste ${ajuste} de 10, renta ${renta}, distancia ${distancia}.`
+      }
     >
-      {fotoUrl ? (
-        <Image source={{ uri: fotoUrl }} style={[estilos.foto, { borderColor: theme.filete }]} contentFit="cover" transition={160} />
-      ) : (
-        <View
-          style={[estilos.foto, estilos.sinFoto, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}
-          accessibilityLabel="Sin fotografía"
-        >
-          <Ionicons name="image-outline" size={20} color={theme.textSecondary} />
-        </View>
-      )}
+      <View>
+        {fotoUrl ? (
+          <Image source={{ uri: fotoUrl }} style={[estilos.foto, { borderColor: theme.filete }]} contentFit="cover" transition={160} />
+        ) : (
+          <View
+            style={[estilos.foto, estilos.sinFoto, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}
+            accessibilityLabel="Sin fotografía"
+          >
+            <Ionicons name="image-outline" size={20} color={theme.textSecondary} />
+          </View>
+        )}
+        {/* Estampado sobre la foto, como el sello de un archivo sobre una
+            fotografía pegada a un expediente. Ahí no compite con las columnas
+            de cifras ni le roba un renglón al título. */}
+        {tipo && (
+          <View style={estilos.selloTipo}>
+            <SelloTipo tipo={tipo} />
+          </View>
+        )}
+      </View>
 
       <View style={estilos.derecha}>
         <ThemedText type="small" numberOfLines={2} style={estilos.titulo}>
@@ -154,6 +185,9 @@ const estilos = StyleSheet.create({
     borderWidth: Filete.fino,
   },
   sinFoto: { alignItems: 'center', justifyContent: 'center' },
+  // Al ras de la esquina inferior izquierda de la foto, como un sello puesto
+  // sobre el papel y no junto a él.
+  selloTipo: { position: 'absolute', left: 4, bottom: 4 },
   derecha: { flex: 1, justifyContent: 'space-between', minHeight: 96, gap: Spacing.half },
   titulo: { lineHeight: 18 },
   columnas: { flexDirection: 'row', gap: Spacing.two },

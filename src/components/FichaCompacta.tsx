@@ -6,7 +6,9 @@ import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
 import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import type { TipoPublicacion } from '@/types/database.types';
 import { Calificacion } from '@/components/ficha/Calificacion';
+import { SelloTipo } from '@/components/ficha/SelloTipo';
 
 /**
  * La ficha en formato carrusel.
@@ -21,6 +23,7 @@ import { Calificacion } from '@/components/ficha/Calificacion';
  */
 export function FichaCompacta({
   titulo,
+  tipo,
   precio,
   fotoUrl,
   distanciaKm,
@@ -28,6 +31,7 @@ export function FichaCompacta({
   onPress,
 }: {
   titulo: string;
+  tipo?: TipoPublicacion;
   precio: number;
   fotoUrl?: string | null;
   distanciaKm?: number | null;
@@ -45,25 +49,38 @@ export function FichaCompacta({
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={[
+        tipo ? PALABRA_ACCESIBLE[tipo] : null,
         titulo,
         calificacion ? `afinidad ${calificacion} de 10` : 'sin calificación',
         `${precioTexto} al mes`,
         hayDistancia ? `a ${distanciaKm!.toFixed(1)} kilómetros` : 'sin distancia',
-      ].join('. ')}
+      ]
+        .filter(Boolean)
+        .join('. ')}
       style={estilos.tarjeta}
     >
-      {fotoUrl ? (
-        <Image
-          source={{ uri: fotoUrl }}
-          style={[estilos.foto, { borderColor: theme.filete }]}
-          contentFit="cover"
-          transition={160}
-        />
-      ) : (
-        <View style={[estilos.foto, estilos.sinFoto, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
-          <Ionicons name="image-outline" size={18} color={theme.textSecondary} />
-        </View>
-      )}
+      <View>
+        {fotoUrl ? (
+          <Image
+            source={{ uri: fotoUrl }}
+            style={[estilos.foto, { borderColor: theme.filete }]}
+            contentFit="cover"
+            transition={160}
+          />
+        ) : (
+          <View style={[estilos.foto, estilos.sinFoto, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+            <Ionicons name="image-outline" size={18} color={theme.textSecondary} />
+          </View>
+        )}
+        {/* El mismo sello que en la fila. Que la marca sea idéntica en los dos
+            sitios es lo que la vuelve legible sin explicación: una convención
+            que cambia de forma según dónde aparezca no es una convención. */}
+        {tipo && (
+          <View style={estilos.selloTipo}>
+            <SelloTipo tipo={tipo} />
+          </View>
+        )}
+      </View>
 
       <View style={estilos.datos}>
         {/* La calificación primero, igual que en la ficha grande: es la tesis. */}
@@ -85,6 +102,13 @@ export function FichaCompacta({
   );
 }
 
+/** En frase y no en versalitas: un lector de pantalla deletrea «DEPA». */
+const PALABRA_ACCESIBLE: Record<TipoPublicacion, string> = {
+  depa: 'Departamento',
+  cuarto: 'Cuarto',
+  casa_compartida: 'Casa compartida',
+};
+
 export const ANCHO_FICHA_COMPACTA = 176;
 
 const estilos = StyleSheet.create({
@@ -93,6 +117,7 @@ const estilos = StyleSheet.create({
   // fotografías por pantalla que el 3:2 de la ficha grande.
   foto: { width: '100%', aspectRatio: 1, borderRadius: Radios.control, borderWidth: Filete.fino },
   sinFoto: { alignItems: 'center', justifyContent: 'center' },
+  selloTipo: { position: 'absolute', left: 4, bottom: 4 },
   datos: { gap: Spacing.half },
   filaCifras: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   precio: { flexShrink: 1 },

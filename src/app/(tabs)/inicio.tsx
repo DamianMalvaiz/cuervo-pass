@@ -281,6 +281,7 @@ export default function InicioScreen() {
     (item: PublicacionNueva) => (
       <FichaCompacta
         titulo={item.titulo}
+        tipo={item.tipo}
         precio={item.precio_renta}
         fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
         distanciaKm={item.distancia}
@@ -425,6 +426,7 @@ export default function InicioScreen() {
           >
             <FilaPublicacion
               titulo={item.titulo}
+              tipo={item.tipo}
               precio={item.precio_renta}
               fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
               distanciaKm={item.distancia}

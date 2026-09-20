@@ -297,5 +297,35 @@ export const Filete = {
   grueso: 2,
 } as const;
 
+/**
+ * Tramas · D.11 — codificar sin gastar color.
+ *
+ * Este sistema reserva el ámbar para EL SELLO: la única acción que compromete
+ * algo. Meter dos matices más para distinguir departamento de cuarto gastaría en
+ * taxonomía el recurso que está guardado para la acción, y encima añadiría dos
+ * pares de contraste que mantener.
+ *
+ * Aquí la distinción la hace el TRATAMIENTO DEL FILETE, que es exactamente como
+ * un formulario impreso distingue secciones: línea continua, línea de guiones,
+ * línea de puntos. Misma tinta, tres lecturas.
+ *
+ * Y la trama NUNCA va sola. Un patrón sin su leyenda es una clave que nadie
+ * tiene: en la lista, el tipo va escrito ADEMÁS de tramado. La trama sirve para
+ * recorrer con la vista; la palabra, para saber qué es. Codificar información
+ * SOLO con un tratamiento visual es lo mismo que codificarla solo con color, y
+ * falla para la misma gente.
+ *
+ * `borderStyle` de guiones y puntos en Android se degrada a línea continua
+ * cuando hay `borderRadius`. Por eso el sello de tipo es un RECTÁNGULO: no es
+ * una preferencia estética, es la condición para que la trama exista en Android.
+ */
+export const Tramas = {
+  solido: { borderStyle: 'solid' },
+  rayado: { borderStyle: 'dashed' },
+  punteado: { borderStyle: 'dotted' },
+} as const satisfies Record<string, { borderStyle: 'solid' | 'dashed' | 'dotted' }>;
+
+export type NombreTrama = keyof typeof Tramas;
+
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
