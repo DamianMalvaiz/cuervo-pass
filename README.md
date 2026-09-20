@@ -2,7 +2,7 @@
 
 App móvil para que alumnos universitarios encuentren departamento y compañeros de vivienda compatibles, usando un motor de sugerencias que combina filtros duros con matching semántico por embeddings.
 
-Construida contra el **documento maestro v5**, que audita el diseño anterior y corrige veintiocho hallazgos. Los comentarios del código citan las secciones (`§17`) y los hallazgos (`AUD-01`) de ese documento.
+Construida contra el **documento maestro v5**, que audita el diseño anterior y corrige veintiocho hallazgos (`AUD-01`), y endurecida después contra [`docs/endurecimiento-v6.md`](docs/endurecimiento-v6.md), que auditó el sistema **en ejecución** y encontró treinta y ocho más (`END-01`). Los comentarios del código citan las secciones (`§17`) y los hallazgos de los dos documentos, con el número al lado del arreglo.
 
 ## El problema
 
@@ -81,6 +81,7 @@ npx supabase test db          # pruebas de RLS con pgTAP (necesita Docker)
 npx supabase functions deploy ai-proxy
 npx supabase functions deploy geocodificar
 npx supabase functions deploy eliminar-cuenta
+npx supabase functions deploy barrer-fotos   # la llama pg_cron cada hora (0025)
 npx supabase secrets set AI_SERVICE_URL=... AI_SHARED_TOKEN=$(openssl rand -hex 32)
 
 # ── Microservicio de IA ────────────────────────────────
@@ -105,9 +106,9 @@ uvicorn main:app --reload     # desde ai-service/, no desde la raíz.
 
 # ── Antes de exponer ───────────────────────────────────
 node scripts/verificar.mjs   # túnel, secrets, vectores, RPCs — ver docs/verificacion-pre-demo.md
-npx supabase test db         # 37 aserciones de RLS (local, contra el esquema reconstruido)
+npx supabase test db         # 83 aserciones de RLS (local, contra el esquema reconstruido)
 node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # 19 barreras, contra PRODUCCIÓN y por HTTP
-npx tsc --noEmit && npx expo lint && npx jest
+npx tsc --noEmit && npx expo lint && npm test -- --coverage   # los umbrales rompen el build si baja
 ```
 
 Los dos `.env` son **dos archivos separados a propósito**: el de la raíz es del cliente y todo lo que lleva `EXPO_PUBLIC_` se compila dentro del bundle; el de `ai-service/` nunca se lee desde la app. Ninguno de los dos se versiona.
@@ -120,10 +121,20 @@ Son **tres** archivos, con tres destinos, y ninguno se versiona:
 | `.env.server` | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_PASSWORD`, `AI_SERVICE_URL`, `CRON_SECRET` | los scripts y el CLI |
 | `ai-service/.env` | `ANTHROPIC_API_KEY`, `AI_SHARED_TOKEN`, modelos, timeouts | `ai-service/config.py`, y `env_file` de Docker |
 
-Los scripts cargan los dos primeros:
+Los scripts cargan los dos primeros **a mano**, con una excepción:
 
 ```bash
 node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs
+node scripts/verificar.mjs        # este se los carga solo (process.loadEnvFile)
+```
+
+Y uno necesita **tres**: `backfill-embeddings.mjs` lee `AI_SHARED_TOKEN`, que
+vive solo en `ai-service/.env`. Sin él la petición sale sin autenticar y el
+microservicio responde **401 sin decir por qué**:
+
+```bash
+node --env-file=.env --env-file=.env.server --env-file=ai-service/.env \
+     scripts/backfill-embeddings.mjs
 ```
 
 El reparto no es una advertencia escrita: lo comprueba `npm run verificar:env`,
@@ -135,7 +146,11 @@ que corre en CI y rompe el build si un secreto aparece del lado del cliente.
 - **Retrieval + ranking, en ese orden.** El filtro duro —presupuesto, distancia, mascotas— descarta primero lo inviable; el embedding solo reordena lo que ya se puede pagar y alcanzar. Un departamento carísimo puede tener un vector muy parecido a tu perfil sin que puedas pagarlo.
 - **El teléfono no se lee, se pide.** `publicaciones_publicas` no trae la columna. El número sale de `revelar_contacto()`, que aplica una cuota de 25 revelaciones diarias y deja registro sin duplicar.
 - **Control de acceso en vez de cifrado de campos.** Se cifra en tránsito (HTTPS) y en reposo (disco de Supabase). Cifrar columnas con `pgp_sym_encrypt` no protegía contra la amenaza real —un usuario legítimo leyendo datos de otro— y mandaba la clave dentro de la consulta, donde acaba en los logs.
-- **Las pruebas de RLS son código.** Treinta y siete aserciones de pgTAP que corren en CI y rompen el build (`supabase/tests/rls.test.sql`). Una captura de pantalla no se vuelve a ejecutar.
+- **Las pruebas de RLS son código.** Ochenta y tres aserciones de pgTAP que corren en CI y rompen el build (`supabase/tests/rls.test.sql`). Una captura de pantalla no se vuelve a ejecutar. El número se lee del archivo, no se escribe a mano:
+
+  ```bash
+  grep -oE 'select plan\([0-9]+\)' supabase/tests/rls.test.sql
+  ```
 - **Sin índice vectorial.** Con unos cientos de filas, un recorrido secuencial sobre `vector(384)` es instantáneo y **exacto**; un índice aproximado solo puede empeorar el resultado. Cuando haga falta será HNSW, no IVFFlat.
 - **Degradación visible.** Si el microservicio se cae, la app pasa a Nivel 1 y lo dice en pantalla. Se puede demostrar en vivo apagando el contenedor.
 
@@ -143,7 +158,8 @@ que corre en CI y rompe el build si un secreto aparece del lado del cliente.
 
 - **No se verifican identidades.** Alguien puede publicar un departamento que no es suyo.
 - **Solo México**: `^[0-9]{10}$` y `wa.me/52`. Es una decisión declarada, no un descuido.
-- Bloqueo entre usuarios, notificaciones push y despliegue en Kubernetes están en el roadmap posterior a la entrega.
+- **Bloqueo entre usuarios** y despliegue en Kubernetes están en el roadmap posterior a la entrega. Lo que sí hay hoy contra el abuso es reportar —a una persona y a una publicación— con ocultamiento automático por umbral de reportes.
+- Las **notificaciones push** salieron del roadmap: están implementadas (`src/lib/pushNotifications.ts`, tabla `push_tokens`, `enviar_notificacion_push` disparada por el trigger de mensaje nuevo).
 
 ## Privacidad
 
@@ -160,18 +176,55 @@ Datos de geocodificación © OpenStreetMap contributors, bajo licencia ODbL.
 
 Bitácora semanal: [`docs/bitacora-semanal.md`](docs/bitacora-semanal.md).
 
-**Endurecimiento en curso.** El documento maestro v5 se auditó *sobre el
-artefacto escrito, sin ejecutar el sistema*. Ya ejecutado, aparecieron treinta y
-ocho hallazgos propios, tres de ellos críticos. Siete están remediados y el
-resto tiene orden de trabajo escrita:
-[`docs/endurecimiento-v6.md`](docs/endurecimiento-v6.md).
+**Endurecimiento cerrado (20/09/2026).** El documento maestro v5 se auditó
+*sobre el artefacto escrito, sin ejecutar el sistema*. Ya ejecutado, aparecieron
+treinta y ocho hallazgos propios, tres de ellos críticos
+([`docs/endurecimiento-v6.md`](docs/endurecimiento-v6.md)). **Los treinta y ocho
+están remediados y aplicados a producción**, cada uno con su prueba en rojo antes
+del arreglo.
 
-Lo que falta aplicar a producción está en su §3.
+Compuertas, todas en CI:
+
+| | |
+|---|---|
+| pgTAP (RLS y funciones) | 83 aserciones |
+| Frontend (jest) | 296 pruebas, con umbral de cobertura que solo sube |
+| Microservicio (pytest) | 20 pruebas |
+| Aislamiento entre cuentas | 19 barreras **contra producción** |
+| Contraste, objetivos táctiles y reparto de secretos | scripts propios |
+
+```bash
+npx supabase test db                                   # 83
+npm test -- --coverage                                 # 296 + umbrales
+node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # 19/19
+node --env-file=.env --env-file=.env.server scripts/verificar.mjs    # antes de exponer
+```
+
+**Lo que sigue abierto está enumerado, no disimulado**, en
+[`docs/bitacora-semanal.md`](docs/bitacora-semanal.md) §«Pendientes abiertos», y
+lo que el sistema visual todavía no resuelve, en [`DESIGN.md`](DESIGN.md) §«Lo
+que este sistema NO resuelve todavía». Lo más importante de esas dos listas: el
+escalado de fuente al 200 % está **implementado y sin verificar en dispositivo**,
+y ninguna de las 296 pruebas dice si algo se VE bien.
 
 ## Capturas de pantalla
 
-[agrega aquí conforme haya UI que mostrar]
+**Pendiente.** Lo que conviene capturar, en claro y en oscuro, con el catálogo de
+demo cargado (114 publicaciones, todas con foto y con vector):
+
+| Pantalla | Qué demuestra |
+|---|---|
+| Inicio | Cuatro renglones por pantalla, el sello de tipo sobre la foto, y el membrete diciendo «NIVEL 2 · N DE M CON AFINIDAD SEMÁNTICA» |
+| Inicio, con «Renta» activo | Que el control de orden cambia el CONTENIDO y no solo el orden |
+| Ficha de publicación | La calificación en su casilla y la línea del porqué |
+| Desglose de calificación, abierto | La fórmula real con los números que devolvió Postgres |
+| Chat | Envío optimista: la burbuja aparece antes de la confirmación |
+| Cuestionario | La casilla de consentimiento de IA, sin premarcar |
+
+Las imágenes van en `docs/capturas/`.
 
 ## Equipo
 
-[nombres y responsabilidades]
+**Pendiente de llenar antes de la entrega.** Va aquí: nombre completo de cada
+integrante y de qué respondió. Es lo primero que busca quien evalúa y ahora mismo
+este archivo no lo dice.
