@@ -54,5 +54,8 @@ module.exports = {
     global: { statements: 49, branches: 41, functions: 44, lines: 50 },
     './src/services/': { statements: 64, branches: 52, functions: 66, lines: 72 },
     './src/store/': { statements: 66, branches: 52, functions: 67, lines: 68 },
+    // V.4 · La pantalla de chat estaba al 0 %. El umbral va justo por debajo de
+    // lo conseguido, como los otros dos: es un trinquete, solo sube.
+    './src/app/chat/': { statements: 80, branches: 66, functions: 80, lines: 86 },
   },
 };
