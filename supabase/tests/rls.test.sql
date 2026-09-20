@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(82);
+select plan(83);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1198,6 +1198,38 @@ select is(
   (select count(*)::int from nuevas_esta_semana(20, 'cuarto') where tipo <> 'cuarto'),
   0,
   'nuevas_esta_semana respeta el filtro de tipo' );
+
+-- ══════════ 83 · ninguna policy reevalua auth.uid() por fila ══════════
+-- El linter de Supabase lo llama «Auth RLS Initialization Plan». Con
+-- `auth.uid()` suelto en el USING, Postgres lo evalua UNA VEZ POR FILA; envuelto
+-- en `(select auth.uid())` se convierte en un InitPlan que corre una sola vez.
+--
+-- Medido aqui mismo, 50 000 filas, misma policy y mismo dato:
+--   auth.uid() suelto ......... 94.16 ms
+--   (select auth.uid()) ....... 12.32 ms
+-- 7.6x. A los volumenes de hoy —114 publicaciones— la diferencia es de decimas
+-- de milisegundo; lo que importa es que crece LINEAL con las filas, y `mensajes`
+-- es la tabla que mas va a crecer.
+--
+-- Esta asercion es una LISTA NEGRA y no una comprobacion por policy: cualquier
+-- policy futura escrita con la forma lenta la rompe, sin que nadie tenga que
+-- acordarse de anadir su caso. Es la misma forma que la 75.
+select actuar_como_servicio();
+
+select is(
+  (select coalesce(array_agg(tablename || '.' || policyname order by tablename, policyname), '{}')
+     from pg_policies
+    where schemaname = 'public'
+      -- `!~*`, insensible a mayusculas. Postgres ALMACENA la expresion
+      -- normalizada —`( SELECT auth.uid() AS uid)`, con SELECT en mayuscula y
+      -- un alias que nadie escribio—, asi que un patron en minuscula con `!~`
+      -- no casa nunca y la asercion daria roja con las policies ya corregidas.
+      -- Paso de verdad al escribir esto: la migracion habia aplicado bien y la
+      -- prueba seguia en rojo por la forma del patron, no por el estado.
+      and ( (qual ~* 'auth\.uid\(\)' and qual !~* '\(\s*select\s+auth\.uid\(\)')
+         or (with_check ~* 'auth\.uid\(\)' and with_check !~* '\(\s*select\s+auth\.uid\(\)') )),
+  '{}'::text[],
+  'ninguna policy reevalua auth.uid() por fila' );
 
 select * from finish();
 rollback;
