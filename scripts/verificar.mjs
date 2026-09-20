@@ -169,6 +169,21 @@ async function revisarDatos() {
     anotar('Fotos de publicaciones', 'ok', `${pub.length}/${pub.length} activas con foto`);
   }
 
+  // END-10 · Sin clave de Maps, el `MapView` de la ficha pinta un rectangulo
+  // GRIS en Android: sin error, sin mensaje, sin nada que diga por que. Es lo
+  // unico de la app que falla EN SILENCIO y en pantalla, asi que se comprueba
+  // antes de exponerla y no cuando el evaluador abre una publicacion.
+  //
+  // Es AVISO y no fallo: la app funciona entera sin mapa, y la alternativa
+  // —imagen estatica de Mapbox— sigue sobre la mesa. Lo que no puede pasar es
+  // que la ausencia se descubra en vivo.
+  if (process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY) {
+    anotar('Clave de Google Maps', 'ok', 'presente; el mapa de la ficha se pintara');
+  } else {
+    anotar('Clave de Google Maps', 'aviso',
+      'sin EXPO_PUBLIC_GOOGLE_MAPS_KEY: el mapa saldra GRIS en Android, sin mensaje. Ver .env.example');
+  }
+
   // La cola de la 0021. Mientras tenga filas hay archivos que alguien creyo
   // borrados y siguen ocupando espacio que se paga.
   const { count: enCola, error: e3 } = await admin

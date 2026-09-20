@@ -479,7 +479,17 @@ Esta sección existe porque la versión anterior de este archivo describía un s
 
 **7. Tokens sin consumidor.** `Texto.codigo` (monoespaciada del sistema, 12px) y los alias `serif`/`rounded`/`mono` de `Fonts` no los usa nadie. `MaxContentWidth` dejó de estar en esta lista el 19/09/2026, cuando `anchoLista` empezó a consumirlo.
 
-**8. El tacto no se ha sentido.** `expo-haptics` está integrado y probado contra su propio fallo, pero es un módulo nativo: hasta que se reconstruya el cliente de desarrollo, en el teléfono no vibra nada.
+**8. El ICONO de la app sigue siendo del sistema visual anterior.** Medido el
+19/09/2026: `android-icon-foreground.png` es azul `#0C7BE4` sobre un fondo
+`#E6F4FE`, los dos de la paleta que «La Ficha» reemplazó. Lo primero que ve
+cualquiera —el icono en el cajón de apps— no pertenece a este mundo, y no se
+arregla cambiando un hexadecimal: hace falta volver a dibujarlo.
+
+Lo que sí se corrigió en E.1: el splash pasó de azul `#208AEF` a la tinta
+`#12100E`, porque su logotipo es BLANCO —sobre papel habría desaparecido y sobre
+tinta da 18.6:1—, y el color de notificación pasó al acento del sistema.
+
+**9. El tacto no se ha sentido.** `expo-haptics` está integrado y probado contra su propio fallo, pero es un módulo nativo: hasta que se reconstruya el cliente de desarrollo, en el teléfono no vibra nada.
 
 ## Estado de la implementación
 

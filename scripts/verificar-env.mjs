@@ -32,8 +32,24 @@ const REGLAS = {
 // Palabras que delatan una credencial. No es exhaustivo y no pretende serlo:
 // la regla dura es el prefijo; esto solo atrapa el caso obvio antes.
 const SOSPECHOSAS = /(SECRET|SERVICE_ROLE|PASSWORD|PRIVATE|_KEY$|API_KEY|TOKEN)/i;
-// El token `pk.` de Mapbox y la anon key de Supabase son públicos por diseño.
-const PUBLICAS_POR_DISENO = new Set(['EXPO_PUBLIC_SUPABASE_ANON_KEY', 'EXPO_PUBLIC_MAPBOX_TOKEN']);
+// Públicas POR DISEÑO. Cada una lleva su motivo escrito: una lista de exenciones
+// sin motivos se convierte en el sitio donde acaba escondiéndose la que sí era
+// un secreto.
+//
+//   EXPO_PUBLIC_SUPABASE_ANON_KEY — la anon key existe para estar en el cliente;
+//     lo que protege las filas es RLS, no que la clave sea secreta.
+//   EXPO_PUBLIC_MAPBOX_TOKEN — token `pk.`, restringido por URL.
+//   EXPO_PUBLIC_GOOGLE_MAPS_KEY — las claves de Maps para Android van DENTRO del
+//     APK por diseño de Google, que no las protege con secreto sino con
+//     restricción por nombre de paquete + huella SHA-1 de la firma. Extraerla del
+//     APK no sirve de nada si está restringida; y si no lo está, el problema es
+//     la restricción que falta, no el prefijo. Las instrucciones para
+//     restringirla están en .env.example, junto a la variable.
+const PUBLICAS_POR_DISENO = new Set([
+  'EXPO_PUBLIC_SUPABASE_ANON_KEY',
+  'EXPO_PUBLIC_MAPBOX_TOKEN',
+  'EXPO_PUBLIC_GOOGLE_MAPS_KEY',
+]);
 
 const archivos = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(REGLAS);
 const problemas = [];

@@ -24,9 +24,33 @@ test('sin animar, la cifra aparece ya en su valor', async () => {
 // Con `animada`, el primer cuadro es cero: de ahi sube. Si esta asercion
 // empezara a ver «8.5» significaria que el conteo dejo de contar, que es un
 // fallo invisible a simple vista en un dispositivo rapido.
+//
+// EL RELOJ SE CONGELA. La primera version de esta prueba solo comprobaba el
+// texto tras `render` y daba verde porque ningun cuadro habia corrido todavia:
+// al actualizar React empezaron a correr dos o tres y la prueba leyo «3.7».
+// No fallaba el conteo, fallaba la prueba — dependia de cuantos cuadros cupieran
+// antes de la asercion, que es justo el tipo de fragilidad que E.2 vino a quitar
+// de esta suite. Con `Date.now` fijo, el progreso es 0 pase lo que pase.
 test('animada, arranca en cero', async () => {
-  await render(<Calificacion score={0.87} tamano="ficha" animada />);
+  const t0 = 1_000_000;
+  const reloj = jest.spyOn(Date, 'now').mockReturnValue(t0);
+  const vista = await render(<Calificacion score={0.87} tamano="ficha" animada />);
   expect(screen.getByText('0.0')).toBeTruthy();
+  vista.unmount();
+  reloj.mockRestore();
+});
+
+// Y llega. Un conteo que arranca en cero y se queda a medias miente sobre el
+// resultado, que es peor que no contar. Se adelanta el reloj mas alla de la
+// duracion y se espera al cuadro siguiente.
+test('animada, termina en el valor final', async () => {
+  const t0 = 2_000_000;
+  const reloj = jest.spyOn(Date, 'now').mockReturnValue(t0);
+  const vista = await render(<Calificacion score={0.87} tamano="ficha" animada />);
+  reloj.mockReturnValue(t0 + 5_000);
+  expect(await screen.findByText('8.5')).toBeTruthy();
+  vista.unmount();
+  reloj.mockRestore();
 });
 
 // Quien pidio no ver movimiento ve el numero final desde el primer cuadro. No
