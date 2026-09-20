@@ -282,16 +282,114 @@ No vale la pena reescribir el historial de un repositorio que se entrega en sema
 
 ---
 
+# V.7 · La suite deja un proceso sin cerrar
+
+*Añadida el 20/09/2026, al terminar V.5.*
+
+### Defecto
+
+Al correr la suite completa, Jest emite:
+
+```
+A worker process has failed to exit gracefully and has been force exited.
+This is likely caused by tests leaking due to improper teardown.
+```
+
+**No lo introdujo V.4 ni V.5**: aparece sin esas pruebas y no aparece con ellas solas. Lo que sí se acotó:
+
+| Qué se corrió | Resultado |
+|---|---|
+| `src/lib`, `src/services`, `src/store`, `src/components`, `src/hooks` | limpio |
+| `src/app` completo, en paralelo | **avisa** |
+| Cada archivo de `src/app` por separado (`--runTestsByPath`, los 8) | **todos limpios** |
+| `src/app` con `--runInBand` | **limpio** |
+| Suite **completa** con `--runInBand` | **limpio** |
+
+Los dos últimos son lo interesante: **ningún archivo lo reproduce solo, y en serie no ocurre.** No es «una prueba que gotea»: es un manejador o un temporizador que sobrevive al desmontaje de una suite y solo se nota cuando el worker se reutiliza para la siguiente.
+
+Por qué importa y no es cosmético: Jest **fuerza** la salida del worker. Si eso ocurre mientras otra suite escribe su cobertura, el informe puede salir incompleto — y las compuertas de `coverageThreshold` dependen de ese informe. Un umbral que se evalúa sobre datos parciales falla o pasa por el motivo equivocado.
+
+### Orden
+
+> **No adivines cuál es.** Ya se descartó archivo por archivo. Corre el diagnóstico que Jest ofrece para esto:
+>
+> ```bash
+> cd /home/damianml/cuervo-pass && npx jest src/app --detectOpenHandles 2>&1 | tail -40
+> ```
+>
+> Sospechosos por orden de probabilidad, y todos se confirman o descartan leyendo la salida de arriba, no razonando:
+>
+> 1. **Una suscripción de Realtime sin cancelar.** `suscribirseAConversacion` devuelve su función de limpieza; comprueba que todas las pruebas que la mockean la ejecuten al desmontar.
+> 2. **Un temporizador de `use-fotos-firmadas`** (C.7 programó la refirma a los 50 minutos). Si una prueba monta el hook y no desmonta, el `setTimeout` queda vivo. La corrección no es `jest.useFakeTimers()` a ciegas: es comprobar que el `clearTimeout` del cleanup corre.
+> 3. **El cliente de react-query.** Cada suite crea el suyo con `crearClienteConsultas()`; si tiene reintentos con backoff, un `queryClient.clear()` en `afterEach` cierra los que queden en vuelo.
+>
+> Cuando lo encuentres, **la prueba es que el aviso desaparece con el worker pool**, no con `--runInBand`: en serie ya está limpio hoy, así que verificarlo así no probaría nada.
+
+### Verificación
+
+```bash
+cd /home/damianml/cuervo-pass && npx jest --silent 2>&1 | grep -q "worker process" && echo "✗ sigue avisando" || echo "✓ la suite cierra limpia"
+```
+
+---
+
+# V.8 · Tres capas siguen sin una sola prueba
+
+*Añadida el 20/09/2026, al terminar V.5.*
+
+### Defecto
+
+Medido hoy con `npx jest --coverage`:
+
+| Capa | Sentencias | Líneas |
+|---|---|---|
+| `app/publicacion/editar` | **0 %** | **0 %** |
+| `components/ui` | **0 %** | **0 %** |
+| `app/(tabs)` | 34.87 % | 35.34 % |
+| `app/(auth)` | 39.81 % | 41.58 % |
+
+`app/(auth)` subió a 40 % en V.5, pero eso es **solo `registro.tsx`**: login, recuperar contraseña y cuestionario inicial siguen sin cubrir. Y `app/(tabs)` es la pantalla de inicio, publicaciones, roomies y chats — el producto entero.
+
+Lo de `publicacion/editar` es lo que más preocupa de los cuatro: editar una publicación es donde se juntan el formulario, la subida de fotos con `upsert`, el regeneramiento del embedding y el reintento de geocodificación. Es la ruta con más piezas y la única sin red.
+
+### Orden
+
+> **No cubras las cuatro de golpe.** Una capa por sesión, con su umbral, en este orden:
+>
+> **1. `app/publicacion/editar`.** Cuatro casos: que el formulario llegue precargado con los valores de la publicación (fue un fallo real, `9aed935`); que al guardar con el microservicio caído la publicación se guarde igual y el vector anterior NO se borre (§27 y `perfilVector.ts`); que reemplazar la foto de una posición ya ocupada funcione (es el `upsert` que arregló la `0019`); y que un fallo al guardar se diga en vez de navegar como si hubiera ido bien.
+>
+> **2. `app/(auth)`, el resto.** Login con credenciales malas muestra el motivo; recuperar contraseña con un correo que no existe **no** revela que no existe; el cuestionario inicial no deja avanzar sin universidad ni presupuesto.
+>
+> **3. `app/(tabs)`.** Empieza por `inicio.tsx`: que el kicker diga `NIVEL 1` cuando ninguna publicación tiene afinidad y `NIVEL 2 · N DE M` cuando alguna sí — es END-08, el peor hallazgo del proyecto, y hoy solo lo prueba pgTAP del lado del servidor.
+>
+> **4. `components/ui`.** Es lo de menos: un `collapsible`. Si sigue sin usarse en ninguna pantalla, **bórralo** en vez de probarlo.
+>
+> Cada una con su umbral en `jest.config.js`, justo por debajo de lo conseguido. Y **comprueba que el umbral se aplica**, subiéndolo a un valor imposible y viendo fallar el build: la ruta de `(auth)` lleva paréntesis y podría ignorarse en silencio. Se comprobó en V.5 y funciona, pero cada ruta nueva se comprueba igual.
+
+### Verificación
+
+```bash
+cd /home/damianml/cuervo-pass && npx jest --coverage --coverageReporters=text --silent 2>/dev/null | grep -E "^ (app/publicacion/editar|components/ui|app/\(tabs\)|app/\(auth\))"
+```
+
+---
+
 ## Orden de ejecución
 
-| | Orden | Por qué ahí |
+| | Orden | Estado |
 |---|---|---|
-| 1 | **V.1** | Es el mapa. Trabajar con él desactualizado es cómo se llega aquí |
-| 2 | **V.3** | Desactiva silenciosamente las dos comprobaciones previas a exponer |
-| 3 | **V.2** | Media hora, y quita la causa además del síntoma |
-| 4 | **V.4** | La lógica más frágil del producto, sin red |
-| 5 | **V.5** | Regla nueva sin prueba de integración |
-| — | V.6 | Nada que hacer |
+| 1 | **V.1** · el mapa desactualizado | ✅ `3955c6e` |
+| 2 | **V.3** · `.tunel-actual` sin validar | ✅ `d14f399` |
+| 3 | **V.2** · el README decía 83 | ✅ `9e4e9ac` |
+| 4 | **V.4** · `app/chat` al 0 % | ✅ `1928dd2` · ahora 83 % |
+| 5 | **V.5** · `app/(auth)` al 9 % | ✅ `8dd8c65` · ahora 40 % |
+| — | V.6 · `coverage/` en el historial | nada que hacer |
+| 6 | **V.7** · la suite no cierra limpia | pendiente |
+| 7 | **V.8** · tres capas sin pruebas | pendiente · una capa por sesión |
+
+V.7 va antes que V.8 a propósito: el aviso de worker puede dejar el informe de
+cobertura incompleto, y V.8 consiste precisamente en poner umbrales que se
+evalúan sobre ese informe.
 
 ## Cuando termines
 
