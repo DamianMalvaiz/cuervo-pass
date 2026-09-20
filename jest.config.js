@@ -51,7 +51,7 @@ module.exports = {
   // 51 %— sino el de todo MENOS services y store. Poner aqui el numero de la
   // suite entera hace que el build falle sin que nadie entienda por que.
   coverageThreshold: {
-    global: { statements: 48, branches: 41, functions: 43, lines: 49 },
+    global: { statements: 49, branches: 41, functions: 44, lines: 50 },
     './src/services/': { statements: 64, branches: 52, functions: 66, lines: 72 },
     './src/store/': { statements: 66, branches: 52, functions: 67, lines: 68 },
   },

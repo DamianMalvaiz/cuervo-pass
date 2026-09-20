@@ -7,7 +7,7 @@
 // Lo que se guarda en la base es la RUTA dentro del bucket, no una URL: una URL
 // firmada caduca, y guardarla sería guardar un enlace roto con fecha.
 
-import * as ImageManipulator from 'expo-image-manipulator';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
 import { supabase } from '@/lib/supabase';
 import { aviso } from '@/lib/registro';
@@ -19,13 +19,37 @@ export const CADUCIDAD_SEGUNDOS = 60 * 60;   // una hora: sobra para una sesión
 // Comprime/redimensiona antes de subir — nunca mandamos el archivo original de
 // la cámara. Una foto de celular ronda los 4 MB; diez publicaciones con cinco
 // fotos llenan medio gigabyte por nada.
+//
+// END-26 · API CONTEXTUAL. `manipulateAsync` está marcada `@deprecated` en la
+// versión instalada. No es solo cambiar de nombre: la forma vieja recibía un
+// arreglo de acciones y devolvía un archivo; la nueva devuelve un CONTEXTO
+// encadenable que programa las transformaciones en un hilo de fondo, y solo
+// materializa la imagen cuando se le pide.
+//
+// Eso trae una obligación que la API vieja no tenía: `ImageManipulatorContext` e
+// `ImageRef` son objetos NATIVOS —un `Drawable` en Android, un `UIImage` en
+// iOS— que retienen el bitmap. La documentación de `release()` nombra este caso
+// exacto como uno de los pocos en que la liberación manual se justifica: «el
+// objeto nativo retiene memoria nativa en exclusiva (datos binarios o un bitmap
+// de imagen)».
+//
+// Subir cinco fotos de 4 MB son cinco bitmaps descomprimidos vivos a la vez si
+// nadie los suelta. Se liberan en `finally` para que también ocurra cuando la
+// compresión falla, que es justo cuando peor viene acumular memoria.
 async function comprimirImagen(uriLocal: string, anchoMax: number): Promise<string> {
-  const resultado = await ImageManipulator.manipulateAsync(
-    uriLocal,
-    [{ resize: { width: anchoMax } }],
-    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-  );
-  return resultado.uri;
+  const contexto = ImageManipulator.manipulate(uriLocal);
+  let imagen: Awaited<ReturnType<typeof contexto.renderAsync>> | null = null;
+  try {
+    // Solo `width`: la altura se calcula sola conservando la proporción. Fijar
+    // las dos deformaría las fotos verticales, que en un teléfono son la mayoría.
+    contexto.resize({ width: anchoMax });
+    imagen = await contexto.renderAsync();
+    const { uri } = await imagen.saveAsync({ compress: 0.7, format: SaveFormat.JPEG });
+    return uri;
+  } finally {
+    imagen?.release();
+    contexto.release();
+  }
 }
 
 /** Sube y devuelve la RUTA dentro del bucket (no una URL). */
