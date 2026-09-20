@@ -318,6 +318,14 @@ export interface Database {
         Args: { p_limite?: number; p_tipo?: TipoPublicacion | null };
         Returns: PublicacionNueva[];
       };
+      // La afinidad con una PERSONA. Devuelve una fila siempre, con `similitud`
+      // en null cuando no hay con qué comparar — el `left join` de la 0039
+      // existe justo para que la pantalla no tenga que distinguir «no hay
+      // afinidad» de «la consulta no devolvió nada».
+      afinidad_roomie_de: {
+        Args: { p_usuario_id: string };
+        Returns: { similitud: number | null; nivel: 1 | 2 }[];
+      };
       sugerencias_roomies: {
         Args: { p_limite?: number };
         Returns: RoomieSugerido[];

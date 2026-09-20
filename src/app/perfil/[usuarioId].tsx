@@ -2,20 +2,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
+import { Calificacion } from '@/components/ficha/Calificacion';
 import { CampoFicha } from '@/components/ficha/CampoFicha';
+import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
+import { Pulsable } from '@/components/ficha/Pulsable';
 import { Seccion } from '@/components/ficha/Seccion';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Spacing } from '@/constants/theme';
+import { useMovimientoReducido } from '@/hooks/use-movimiento-reducido';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { folioDe } from '@/lib/folio';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { abrirConversacion } from '@/services/mensajes.service';
-import { obtenerPerfilPublico, reportarUsuario } from '@/services/usuarios.service';
+import { obtenerAfinidadRoomie, obtenerPerfilPublico, reportarUsuario } from '@/services/usuarios.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { PerfilPublico } from '@/types/database.types';
 import { aviso } from '@/lib/registro';
@@ -41,13 +46,19 @@ const ETIQUETA_HORARIO: Record<string, string> = {
 // no columnas. Ahora esos campos no llegan al cliente, punto.
 //
 // Sección 9: "esta pantalla es la que le da confianza a alguien como Karla,
-// que no puede visitar antes de mudarse". El tratamiento visual se apoya en
-// UN solo acento (el azul de marca, sección "The One Accent Rule" de
-// DESIGN.md) usado como fondo tintado de la tarjeta de compatibilidad — no en
-// sombras ni rebotes, que no existen en ningún otro lado de la app y aquí se
-// verían fuera de lugar. Un único fundido de entrada (mismo patrón que
-// Collapsible.tsx: FadeIn simple, sin cascada ni spring) y presión con opacio
-// -dad, igual que el resto de los Pressable de la app.
+// que no puede visitar antes de mudarse".
+//
+// Este comentario describía «el azul de marca» y una sección «The One Accent
+// Rule» de DESIGN.md. Las dos son del sistema visual que «La Ficha» reemplazó:
+// hoy no hay azul en ninguna parte y el único acento es el ámbar del SELLO,
+// reservado a lo que compromete. Aquí compromete una sola cosa —iniciar el
+// chat— y es lo único ámbar de la pantalla.
+//
+// LA AFINIDAD · Hasta hoy esta pantalla no la mostraba. `sugerencias_roomies`
+// ordena la lista por afinidad semántica y `TarjetaRoomie` la enseña; al tocar
+// esa tarjeta, el número desaparecía. La pantalla donde de verdad se decide si
+// escribirle a alguien era la única sin el dato por el que esa persona salió en
+// la lista — el mismo defecto que END-21 cerró para publicaciones.
 export default function PerfilRoomieScreen() {
   const theme = useTheme();
   const { usuarioId } = useLocalSearchParams<{ usuarioId: string }>();
@@ -55,6 +66,9 @@ export default function PerfilRoomieScreen() {
   const [usuario, setUsuario] = useState<PerfilPublico | null>(null);
   const [cargando, setCargando] = useState(true);
   const [abriendoChat, setAbriendoChat] = useState(false);
+  const [afinidad, setAfinidad] = useState<{ similitud: number | null; nivel: 1 | 2 } | null>(null);
+  const { anchoLista } = useTamanoPantalla();
+  const reducido = useMovimientoReducido();
 
   useEffect(() => {
     if (!usuarioId) return;
@@ -62,6 +76,22 @@ export default function PerfilRoomieScreen() {
       .then(setUsuario)
       .catch(() => setUsuario(null))
       .finally(() => setCargando(false));
+  }, [usuarioId]);
+
+  // La afinidad va en SU PROPIA petición y su propio estado. Colgarla del mismo
+  // `then` haría que un fallo al calcularla dejara la pantalla entera sin
+  // perfil: el dato accesorio tumbando al principal. Si esta falla, la ficha se
+  // pinta igual y la casilla dice que no se pudo calcular.
+  useEffect(() => {
+    if (!usuarioId) return;
+    let vivo = true;
+    obtenerAfinidadRoomie(usuarioId)
+      .then((r) => { if (vivo) setAfinidad(r); })
+      .catch((e) => {
+        aviso('afinidad_roomie_de falló', undefined, e);
+        if (vivo) setAfinidad(null);
+      });
+    return () => { vivo = false; };
   }, [usuarioId]);
 
   const { urls: urlsFirmadas } = useFotosFirmadas([usuario?.foto_url]);
@@ -115,9 +145,14 @@ export default function PerfilRoomieScreen() {
   };
 
   if (cargando) {
+    // END-38 · Un punto girando en medio de la nada no dice nada. Esta hoja se
+    // abre desde un toque, así que quien llega ya sabe a quién pidió: lo que
+    // necesita ver es que está apareciendo.
     return (
-      <ThemedView style={estilos.centrado}>
-        <ActivityIndicator />
+      <ThemedView style={estilos.pantalla}>
+        <ScrollView contentContainerStyle={[estilos.hoja, estilos.contenido, estilos.columna, { maxWidth: anchoLista }]}>
+          <ListaEsqueleto variante="hoja" filas={1} conFoto={false} etiquetas={['AFINIDAD', 'CONVIVENCIA']} />
+        </ScrollView>
       </ThemedView>
     );
   }
@@ -132,14 +167,22 @@ export default function PerfilRoomieScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={estilos.hoja} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={[estilos.hoja, estilos.columna, { maxWidth: anchoLista }]}
+      showsVerticalScrollIndicator={false}
+    >
       <Stack.Screen options={{ title: usuario.nombre_completo }} />
 
       {/* Un solo FadeIn plano, la única gramática de movimiento del proyecto.
           Aquí se intentó una vez un resorte escalonado con sombras de color y se
           revirtió: Android ignora `shadowColor` y el rebote era el único de la
-          app. */}
-      <Animated.View entering={FadeIn.duration(250)} style={estilos.contenido}>
+          app.
+          `reducido !== false` cubre el «todavía no sé» de D.9: sin eso, quien
+          pidió no ver movimiento vería el fundido arrancar y cortarse. */}
+      <Animated.View
+        entering={reducido !== false ? undefined : FadeIn.duration(250)}
+        style={estilos.contenido}
+      >
         <View style={estilos.identidad}>
           {usuario.foto_url && urlsFirmadas.get(usuario.foto_url) ? (
             <Image
@@ -172,6 +215,29 @@ export default function PerfilRoomieScreen() {
         </View>
 
         <View style={[estilos.filetePrincipal, { backgroundColor: theme.text }]} />
+
+        {/* La casilla, en la misma posición y con el mismo peso que en la ficha
+            de una publicación: alta, antes de los campos. Es la respuesta a la
+            pregunta con la que se entra aquí.
+
+            `animada` por la misma razón que allí — es la única afinidad de la
+            app que el servidor acaba de calcular para quien la está mirando—, y
+            la etiqueta dice AFINIDAD y no AJUSTE porque eso es: coseno puro,
+            sin filtros duros que ponderar. Entre personas no hay presupuesto ni
+            distancia que filtrar. */}
+        <View style={estilos.afinidad}>
+          <Calificacion
+            score={afinidad?.similitud ?? null}
+            tamano="ficha"
+            etiqueta="AFINIDAD"
+            animada
+          />
+          <ThemedText type="folio" themeColor="textSecondary" style={estilos.porQue}>
+            {afinidad?.similitud != null
+              ? 'entre lo que escribiste de ti y lo que esta persona busca'
+              : 'esta persona no tiene ficha de roomie activa, así que no hay con qué comparar'}
+          </ThemedText>
+        </View>
 
         {/* Antes esto era una tarjeta con lavado ámbar e iconos ámbar. Saber si
             alguien fuma no compromete nada, así que no gasta sello: son campos
@@ -227,9 +293,9 @@ export default function PerfilRoomieScreen() {
           Iniciar chat
         </Sello>
 
-        <Pressable
+        <Pulsable
           onPress={onReportar}
-          style={({ pressed }) => [estilos.reportar, pressed && estilos.presionado]}
+          style={estilos.reportar}
           accessibilityRole="button"
           accessibilityLabel="Reportar usuario"
           hitSlop={8}
@@ -238,14 +304,18 @@ export default function PerfilRoomieScreen() {
           <ThemedText type="small" themeColor="error">
             Reportar usuario
           </ThemedText>
-        </Pressable>
+        </Pulsable>
       </Animated.View>
     </ScrollView>
   );
 }
 
 const estilos = StyleSheet.create({
+  pantalla: { flex: 1 },
   hoja: { paddingBottom: Spacing.six },
+  columna: { width: '100%', alignSelf: 'center' },
+  afinidad: { gap: Spacing.one },
+  porQue: { lineHeight: 16 },
   contenido: { padding: Spacing.three, gap: Spacing.four },
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four, gap: Spacing.two },
   identidad: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingTop: Spacing.two },
@@ -262,5 +332,4 @@ const estilos = StyleSheet.create({
     gap: Spacing.one,
     minHeight: 48,
   },
-  presionado: { opacity: 0.6 },
 });

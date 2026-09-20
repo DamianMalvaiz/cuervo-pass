@@ -21,6 +21,7 @@ jest.mock('@/lib/supabase', () => ({
 
 import {
   eliminarMiCuenta,
+  obtenerAfinidadRoomie,
   exportarMisDatos,
   obtenerPerfilPublico,
   obtenerPerfilesPublicos,
@@ -119,4 +120,47 @@ test('si el borrado falla NO se cierra la sesion', async () => {
   mockInvocar.mockResolvedValue({ error: { message: 'boom' } });
   await expect(eliminarMiCuenta()).rejects.toMatchObject({ message: 'boom' });
   expect(mockCerrarSesion).not.toHaveBeenCalled();
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// La afinidad de una PERSONA · el mismo numero que ordeno la lista
+// ═══════════════════════════════════════════════════════════════════════════
+
+test('la afinidad se pide por el id de la otra persona, sin pasar el mio', async () => {
+  mockRpc.mockResolvedValue({ data: [{ similitud: 0.87, nivel: 2 }], error: null });
+  await obtenerAfinidadRoomie('u2');
+  expect(mockRpc).toHaveBeenCalledWith('afinidad_roomie_de', { p_usuario_id: 'u2' });
+});
+
+// `auth.uid()` se fija DENTRO de la funcion (migracion 0039). Si la firma
+// aceptara un «yo», cualquiera podria pedir la afinidad entre otras dos
+// personas — que es el agujero que la 0036 encontro en `afinidad_de_para`.
+test('la llamada no lleva un parametro de «yo»', async () => {
+  mockRpc.mockResolvedValue({ data: [], error: null });
+  await obtenerAfinidadRoomie('u2');
+  const [, argumentos] = mockRpc.mock.calls[0];
+  expect(Object.keys(argumentos)).toEqual(['p_usuario_id']);
+});
+
+test('devuelve la primera fila, que es la unica que la funcion produce', async () => {
+  mockRpc.mockResolvedValue({ data: [{ similitud: 0.5, nivel: 2 }], error: null });
+  await expect(obtenerAfinidadRoomie('u2')).resolves.toEqual({ similitud: 0.5, nivel: 2 });
+});
+
+// Null y no cero: cero seria una afinidad MEDIDA —dos vectores ortogonales— y
+// esto es su ausencia. Confundirlas pintaria un 0.0 donde no hay dato.
+test('sin vector, la similitud es null y el nivel 1', async () => {
+  mockRpc.mockResolvedValue({ data: [{ similitud: null, nivel: 1 }], error: null });
+  await expect(obtenerAfinidadRoomie('u2')).resolves.toEqual({ similitud: null, nivel: 1 });
+});
+
+test('una respuesta sin filas devuelve null, no revienta', async () => {
+  mockRpc.mockResolvedValue({ data: null, error: null });
+  await expect(obtenerAfinidadRoomie('u2')).resolves.toBeNull();
+});
+
+test('un error se propaga: la pantalla lo distingue de «no hay afinidad»', async () => {
+  mockRpc.mockResolvedValue({ data: null, error: { message: 'sin red' } });
+  await expect(obtenerAfinidadRoomie('u2')).rejects.toMatchObject({ message: 'sin red' });
 });

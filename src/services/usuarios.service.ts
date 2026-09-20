@@ -33,6 +33,28 @@ export async function obtenerPerfilesPublicos(usuarioIds: string[]): Promise<Per
   return (data ?? []) as PerfilPublico[];
 }
 
+/**
+ * La afinidad con ESTA persona · el mismo número que ordenó la lista.
+ *
+ * `sugerencias_roomies` ordena por afinidad semántica y la tarjeta la enseña;
+ * al abrir el perfil, el número desaparecía. La pantalla donde de verdad se
+ * decide si escribirle a alguien era la única sin el dato por el que esa
+ * persona salió en la lista — el mismo defecto que END-21 cerró para
+ * publicaciones.
+ *
+ * `similitud` es null cuando la otra persona no tiene ficha de roomie activa, o
+ * cuando alguno de los dos no consintió el análisis. Null y no cero: cero sería
+ * una afinidad MEDIDA, y esto es su ausencia (END-08).
+ */
+export async function obtenerAfinidadRoomie(
+  usuarioId: string
+): Promise<{ similitud: number | null; nivel: 1 | 2 } | null> {
+  const { data, error } = await supabase.rpc('afinidad_roomie_de', { p_usuario_id: usuarioId });
+  if (error) throw error;
+  const fila = (data ?? [])[0];
+  return fila ? { similitud: fila.similitud, nivel: fila.nivel } : null;
+}
+
 export async function reportarUsuario(reportadoPor: string, usuarioReportadoId: string, motivo: string) {
   const { error } = await supabase
     .from('reportes')

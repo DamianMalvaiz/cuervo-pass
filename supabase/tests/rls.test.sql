@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(83);
+select plan(86);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1078,6 +1078,7 @@ select is(
   array[
     'abrir_conversacion',
     'afinidad_de',
+    'afinidad_roomie_de',
     'consumir_cuota',
     'contactos_de_mis_publicaciones',
     'distancia_km',
@@ -1230,6 +1231,55 @@ select is(
          or (with_check ~* 'auth\.uid\(\)' and with_check !~* '\(\s*select\s+auth\.uid\(\)') )),
   '{}'::text[],
   'ninguna policy reevalua auth.uid() por fila' );
+
+-- ══════════ 84 a 86 · la afinidad de una PERSONA ══════════
+-- `sugerencias_roomies` ordena la lista por afinidad semantica y la tarjeta la
+-- enseña. Al abrir el perfil de esa misma persona, el numero DESAPARECIA: la
+-- pantalla donde de verdad se decide si contactar a alguien era la unica sin el
+-- dato por el que esa persona salio en la lista.
+--
+-- Es el mismo defecto que END-21 cerro para publicaciones —el desglose se
+-- esfumaba segun por donde entraras— y seguia vivo para personas.
+select actuar_como_servicio();
+
+update usuarios set perfil_vector = array_fill(0.1, array[384])::vector
+ where id = '00000000-0000-0000-0000-0000000000a1';
+
+insert into roomies (usuario_id, descripcion_busqueda, estado, vector_busqueda)
+values ('00000000-0000-0000-0000-0000000000b2', 'busco lugar tranquilo para estudiar',
+        'activo', array_fill(0.1, array[384])::vector)
+on conflict (usuario_id) do update
+  set vector_busqueda = excluded.vector_busqueda, estado = 'activo';
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+select cmp_ok(
+  (select similitud from afinidad_roomie_de('00000000-0000-0000-0000-0000000000b2')),
+  '>', 0.9::numeric,
+  'con los dos vectores, la afinidad de una persona sale un numero' );
+
+-- LA asercion. Si el perfil mostrara un numero DISTINTO del que ordeno la lista,
+-- seria peor que no mostrar ninguno: tocar una tarjeta cambiaria el dato por el
+-- que la tocaste. Son dos decisiones correctas por separado que se contradicen
+-- al correr juntas, que es el patron que este proyecto lleva toda la auditoria
+-- encontrando.
+select is(
+  (select similitud from afinidad_roomie_de('00000000-0000-0000-0000-0000000000b2')),
+  (select similitud from sugerencias_roomies(30)
+    where usuario_id = '00000000-0000-0000-0000-0000000000b2'),
+  'el perfil muestra EL MISMO numero que ordeno la lista' );
+
+-- Sin ficha de roomie no hay con que comparar. Null y no cero: cero seria una
+-- afinidad medida, y esto es su ausencia (la misma regla de END-08).
+select actuar_como_servicio();
+update roomies set vector_busqueda = null
+ where usuario_id = '00000000-0000-0000-0000-0000000000b2';
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+select is(
+  (select similitud from afinidad_roomie_de('00000000-0000-0000-0000-0000000000b2')),
+  null::numeric,
+  'sin vector de busqueda, la afinidad es null y no cero' );
 
 select * from finish();
 rollback;

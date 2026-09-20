@@ -70,6 +70,11 @@ jest.mock('@/services/mensajes.service', () => ({
 }));
 jest.mock('@/services/usuarios.service', () => ({
   obtenerPerfilPublico: jest.fn().mockResolvedValue(null),
+  // Si falta una exportacion, el doble no «devuelve undefined»: la pantalla
+  // llama a algo que no es una funcion y revienta al montar. Al anadir una
+  // funcion al servicio hay que anadirla AQUI, y esta prueba de humo es
+  // justamente lo que lo dice a tiempo.
+  obtenerAfinidadRoomie: jest.fn().mockResolvedValue(null),
   reportarUsuario: jest.fn(),
   eliminarMiCuenta: jest.fn(),
   exportarMisDatos: jest.fn(),
