@@ -3,13 +3,11 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
-  useWindowDimensions,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
@@ -19,22 +17,25 @@ import { BotonVerContacto } from '@/components/BotonVerContacto';
 import { CampoFicha } from '@/components/ficha/CampoFicha';
 import { DesgloseCalificacion } from '@/components/ficha/DesgloseCalificacion';
 import { Seccion } from '@/components/ficha/Seccion';
+import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { calcularDistanciaKm } from '@/lib/distancia';
 import { fechaDeSello, folioDe } from '@/lib/folio';
 import { ATRIBUCION_MAPA } from '@/lib/geocoding';
 import {
-  obtenerPublicacionPublica,
   reportarPublicacion,
   revelarContacto,
 } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
-import type { PublicacionPublica } from '@/types/database.types';
+import { Sello } from '@/components/ficha/Sello';
+import { usePublicacion , useAfinidad } from '@/hooks/queries/usePublicaciones';
+import { SQL, esCodigo } from '@/lib/erroresPostgres';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 const ETIQUETA_TIPO: Record<string, string> = {
@@ -44,45 +45,52 @@ const ETIQUETA_TIPO: Record<string, string> = {
   casa_compartida: 'CASA COMPARTIDA',
 };
 
-function aNumero(v: string | undefined): number | null {
-  if (v == null) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
 
 export default function DetallePublicacionScreen() {
   const theme = useTheme();
-  const { id, score, base, sim } = useLocalSearchParams<{
-    id: string;
-    score?: string;
-    base?: string;
-    sim?: string;
-  }>();
+  // END-21 · Solo el id. El score, la base y la similitud llegaban como
+  // PARÁMETROS DE RUTA, así que un enlace directo a una ficha no los traía y el
+  // desglose —la tesis del producto— desaparecía según por dónde entraras. Y
+  // peor: ese valor acababa en `contactos.score_mostrado`, o sea que la métrica
+  // la suministraba el cliente. Ahora se consulta al servidor.
+  const { id } = useLocalSearchParams<{ id: string }>();
   const session = useAuthStore((s) => s.session);
   const { perfil, cargarPerfil } = usePerfilStore();
-  const [publicacion, setPublicacion] = useState<PublicacionPublica | null>(null);
-  const [cargando, setCargando] = useState(true);
   const [foja, setFoja] = useState(0);
+
   // El ancho se lee en cada render, no al importar el módulo: con `Dimensions`
   // capturado arriba, el carrusel paginado quedaba desalineado tras rotar el
   // teléfono o en pantalla dividida. PRODUCT.md declara la plataforma
   // `adaptive`, así que eso no es un caso raro.
-  const { width: ancho } = useWindowDimensions();
+  // END-36 · El ancho de la foto es `Math.min(pantalla, MaxContentWidth)`, que
+  // es lo que devuelve `anchoLista`. En una tableta de 1200 px, una fotografía
+  // 3:2 a pantalla completa mide 800 px de alto: hay que desplazar para ver que
+  // debajo hay una ficha. Acotarla a 800 la deja en 533 y el documento cabe.
+  //
+  // El paginado sigue cuadrando porque la HOJA se acota al mismo ancho y se
+  // centra: el carrusel mide exactamente lo que mide cada foto. Acotar solo la
+  // foto habría dejado un carril más ancho que sus páginas y el `pagingEnabled`
+  // se habría desalineado un poco en cada deslizamiento.
+  const { anchoLista } = useTamanoPantalla();
 
-  useEffect(() => {
-    if (!id) return;
-    obtenerPublicacionPublica(id)
-      .then((p) => setPublicacion(p as PublicacionPublica | null))
-      .catch((e) => console.warn('obtenerPublicacionPublica falló:', e))
-      .finally(() => setCargando(false));
-  }, [id]);
+  // END-11 · TRES estados, no dos, y END-18: la consulta vive en el hook.
+  //
+  // `fallo` es una caída de lectura; `publicacion === null` es que de verdad no
+  // está. Mientras compartieron un mismo `null`, la pantalla elegía la
+  // interpretación más grave y acusaba de reportes a un anuncio ajeno por un
+  // fallo de red.
+  //
+  // El contador de intentos y la cancelación al desmontar que hacía falta
+  // sostener a mano desaparecen: react-query los trae, y además reintenta dos
+  // veces con backoff antes de rendirse.
+  const { publicacion, cargando, fallo, reintentar } = usePublicacion(id);
+  const afinidad = useAfinidad(id);
 
   useEffect(() => {
     if (session?.user.id) cargarPerfil(session.user.id);
   }, [session?.user.id, cargarPerfil]);
 
-  const urlsFirmadas = useFotosFirmadas(publicacion?.fotos ?? []);
+  const { urls: urlsFirmadas, fallo: falloFotos } = useFotosFirmadas(publicacion?.fotos ?? []);
 
   const onReportar = () => {
     if (!session?.user.id || !publicacion) return;
@@ -95,10 +103,12 @@ export default function DetallePublicacionScreen() {
         // (migración 0013), y el dueño recibe una notificación.
         Alert.alert('Gracias', 'Reportamos esta publicación para revisión.');
       } catch (e) {
-        const mensaje = e instanceof Error ? e.message : '';
+        // END-27 · 23505 es el código estándar de violación de unicidad, el
+        // mismo en cualquier versión y cualquier locale. El texto «duplicate
+        // key value» no lo es.
         Alert.alert(
           'No se pudo enviar el reporte',
-          mensaje.includes('duplicate') || mensaje.includes('unique')
+          esCodigo(e, SQL.UNIQUE_VIOLATION)
             ? 'Ya habías reportado esta publicación.'
             : 'Intenta de nuevo en un momento.'
         );
@@ -112,12 +122,39 @@ export default function DetallePublicacionScreen() {
   };
 
   if (cargando) {
+    // END-38 · Una hoja con la forma de la ficha, no un punto girando en medio
+    // de la nada. Aquí el esqueleto vale MÁS que en una lista: esta pantalla se
+    // abre desde un toque, así que quien llega ya sabe qué publicación pidió y
+    // lo que necesita es ver que está apareciendo, no que se está esperando.
+    return (
+      <ThemedView style={estilos.esqueletoPantalla}>
+        <ScrollView contentContainerStyle={[estilos.esqueleto, estilos.columna, { maxWidth: anchoLista }]}>
+          <ListaEsqueleto
+            variante="hoja"
+            filas={1}
+            etiquetas={['RENTA MENSUAL', 'DISTANCIA']}
+          />
+        </ScrollView>
+      </ThemedView>
+    );
+  }
+
+  // El fallo de lectura va PRIMERO y no comparte pantalla con el vacío: decir
+  // «pudo ocultarse tras varios reportes» porque se cayó el wifi es acusar al
+  // anuncio de otra persona de algo que nadie denunció.
+  if (fallo) {
     return (
       <ThemedView style={estilos.centrado}>
-        <ActivityIndicator color={theme.acento} />
-        <ThemedText type="etiqueta" themeColor="textSecondary">
-          CONSULTANDO FICHA
+        <Ionicons name="cloud-offline-outline" size={28} color={theme.error} />
+        <ThemedText type="etiqueta" themeColor="error">
+          NO PUDIMOS CONSULTAR
         </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" style={estilos.textoCentrado}>
+          No pudimos consultar esta ficha. Revisa tu conexión y reintenta.
+        </ThemedText>
+        <Sello onPress={() => void reintentar()} icono="refresh" accessibilityLabel="Reintentar">
+          Reintentar
+        </Sello>
       </ThemedView>
     );
   }
@@ -153,11 +190,15 @@ export default function DetallePublicacionScreen() {
   const etiquetaTipo = ETIQUETA_TIPO[publicacion.tipo] ?? String(publicacion.tipo).toUpperCase();
 
   const alDesplazar = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setFoja(Math.round(e.nativeEvent.contentOffset.x / ancho));
+    // Divide por el ancho ACOTADO, el mismo con el que se pintan las fotos. Con
+    // el ancho de pantalla, en una tableta la foja habría contado páginas de 1200
+    // px sobre un carril hecho de páginas de 800: el número de foja se habría
+    // quedado atrás y el membrete diría «1 de 5» estando en la tercera.
+    setFoja(Math.round(e.nativeEvent.contentOffset.x / anchoLista));
   };
 
   return (
-    <ScrollView contentContainerStyle={estilos.hoja} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={[estilos.hoja, estilos.columna, { maxWidth: anchoLista }]} showsVerticalScrollIndicator={false}>
       {/* Membrete: qué documento es y cuál. */}
       <View style={[estilos.membrete, { borderBottomColor: theme.filete }]}>
         <ThemedText type="etiqueta" themeColor="textSecondary">
@@ -184,12 +225,28 @@ export default function DetallePublicacionScreen() {
                 <Image
                   key={ruta}
                   source={{ uri: url }}
-                  style={[estilos.foto, { width: ancho }]}
+                  style={[estilos.foto, { width: anchoLista }]}
                   contentFit="cover"
                   transition={160}
                 />
               ) : (
-                <View key={ruta} style={[estilos.foto, { width: ancho, backgroundColor: theme.backgroundElement }]} />
+                <View
+                  key={ruta}
+                  style={[estilos.foto, { width: anchoLista, backgroundColor: theme.backgroundElement }]}
+                >
+                  {/* END-25 · Un recuadro gris sin texto es indistinguible de
+                      «todavía cargando». Si Storage falló hay que decirlo: si
+                      no, la persona espera indefinidamente algo que no va a
+                      llegar. */}
+                  {falloFotos && (
+                    <View style={estilos.fotoFallida}>
+                      <Ionicons name="image-outline" size={22} color={theme.textSecondary} />
+                      <ThemedText type="folio" themeColor="textSecondary">
+                        FOTOGRAFÍA NO DISPONIBLE
+                      </ThemedText>
+                    </View>
+                  )}
+                </View>
               );
             })}
           </ScrollView>
@@ -205,7 +262,7 @@ export default function DetallePublicacionScreen() {
           )}
         </View>
       ) : (
-        <View style={[estilos.foto, estilos.sinFoto, { width: ancho, backgroundColor: theme.backgroundElement }]}>
+        <View style={[estilos.foto, estilos.sinFoto, { width: anchoLista, backgroundColor: theme.backgroundElement }]}>
           <Ionicons name="image-outline" size={24} color={theme.textSecondary} />
           <ThemedText type="etiqueta" themeColor="textSecondary">
             SIN FOTOGRAFÍA
@@ -224,8 +281,26 @@ export default function DetallePublicacionScreen() {
             publicaciones" no hay score —no existe afinidad contigo mismo— y
             pintar la casilla vacía con "¿Por qué esta calificación?" debajo
             dejaba una afordancia muerta. */}
-        {aNumero(score) != null && (
-          <DesgloseCalificacion score={aNumero(score)} base={aNumero(base)} similitud={aNumero(sim)} />
+        {afinidad?.scoreFinal != null && (
+          <>
+            <DesgloseCalificacion
+              score={afinidad.scoreFinal}
+              base={afinidad.score}
+              similitud={afinidad.similitud}
+            />
+            {/* END-30 · El descargo, junto al número y no en un aviso legal que
+                nadie abre.
+                
+                Una casilla con forma de kardex presta autoridad: una
+                calificación de kardex es un número ganado y auditable, y éste
+                es una mezcla ponderada de cuatro heurísticas. Decir en voz alta
+                qué compara —y qué NO— es lo que evita que la metáfora prometa
+                por su cuenta, a alguien que está eligiendo dónde va a vivir sin
+                haber visto el lugar. */}
+            <ThemedText type="folio" themeColor="textSecondary" style={estilos.descargoAjuste}>
+              Este ajuste compara tus filtros con lo publicado. No verificamos el inmueble.
+            </ThemedText>
+          </>
         )}
 
         <Seccion titulo="DATOS DE LA PUBLICACIÓN">
@@ -317,7 +392,7 @@ export default function DetallePublicacionScreen() {
           <BotonVerContacto
             publicacionId={publicacion.id}
             titulo={publicacion.titulo}
-            score={aNumero(score)}
+            score={afinidad?.scoreFinal ?? null}
             onRevelar={revelarContacto}
             onError={(mensaje) => Alert.alert('No se pudo abrir el contacto', mensaje)}
           />
@@ -350,6 +425,11 @@ export default function DetallePublicacionScreen() {
 }
 
 const estilos = StyleSheet.create({
+  columna: { width: '100%', alignSelf: 'center' },
+  esqueletoPantalla: { flex: 1 },
+  esqueleto: { padding: Spacing.three },
+  descargoAjuste: { marginTop: Spacing.one, lineHeight: 16 },
+  fotoFallida: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.one },
   hoja: { paddingBottom: Spacing.six },
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four, gap: Spacing.two },
   textoCentrado: { textAlign: 'center', lineHeight: 22 },

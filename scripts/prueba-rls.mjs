@@ -52,7 +52,7 @@ async function crearCuenta(etiqueta) {
   return { id: data.user.id, correo, cliente };
 }
 
-let A = null, B = null;
+let A = null, B = null, D = null;
 try {
   A = await crearCuenta('a');
   B = await crearCuenta('b');
@@ -157,11 +157,107 @@ try {
   comprobar('A no puede sobrescribir la foto de perfil de B',
     !!ePerfilAjeno, ePerfilAjeno ? ePerfilAjeno.message.slice(0, 58) : 'SE SUBIÓ — la policy de UPDATE no filtra por dueño');
 
+  // ── 9 · Storage: LEER lo ajeno · migración 0022 ──────────────────────
+  //
+  // La sección 8 prueba ESCRITURA, que es la dirección que nunca estuvo rota.
+  // La lectura no se probaba, y era justo la que estaba abierta: la 0016 dejó
+  //
+  //   create policy "leer fotos con sesion" on storage.objects
+  //     for select to authenticated using (bucket_id = 'fotos');
+  //
+  // sin ninguna restricción de ruta. Cualquier cuenta leía cualquier foto,
+  // incluidas las de publicaciones ocultas por reportes y las de cuentas
+  // desactivadas. Las URLs firmadas no protegían: quien tiene sesión pide la
+  // firma él mismo.
+  //
+  // Se usa `download` y no `createSignedUrl` a propósito: firmar puede
+  // resolverse antes de tocar el objeto, y lo que hay que demostrar es que los
+  // BYTES no salen. Cada par comprueba las dos direcciones — cerrar de más
+  // rompe la app en silencio, que es el mismo tipo de fallo que AUD-01.
+  const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
+
+  // ── El detalle que hacía mentir a estas cuatro barreras ──
+  //
+  // La primera versión pedía la MISMA ruta antes y después de ocultar el
+  // objeto. Storage sirve la segunda petición desde caché, así que nunca llega
+  // a evaluarse la policy, y las dos barreras negativas reportaban
+  // «[ EXPUESTO ] SE DESCARGÓ» con la 0022 aplicada y funcionando.
+  //
+  // Comprobado por separado: publicación desactivada, misma ruta ya pedida →
+  // descarga; ruta hermana nunca pedida → bloqueada. La policy filtraba bien
+  // desde el principio; lo que medía la prueba era una respuesta guardada.
+  //
+  // Por eso cada barrera NEGATIVA usa una ruta FRÍA, jamás pedida mientras el
+  // objeto era visible. Es la misma regla que §8 del documento de endurecimiento
+  // se aplica a sí mismo: verifica las condiciones del experimento antes de
+  // creerle al resultado. Una prueba de seguridad que grita sin motivo acaba
+  // ignorada, que es peor que no tenerla.
+  const rutaVisible = `publicaciones/${B.id}/${pubB.id}/0.jpg`;
+  const rutaFria = `publicaciones/${B.id}/${pubB.id}/1.jpg`;
+  await B.cliente.storage.from('fotos').upload(rutaVisible, jpg, { contentType: 'image/jpeg', upsert: true });
+  await B.cliente.storage.from('fotos').upload(rutaFria, jpg, { contentType: 'image/jpeg', upsert: true });
+
+  const visible = await A.cliente.storage.from('fotos').download(rutaVisible);
+  comprobar('A SÍ lee la foto de una publicación VISIBLE de B',
+    !!visible.data && !visible.error,
+    visible.error ? `cerró de más: ${visible.error.message.slice(0, 48)}` : 'bytes recibidos');
+
+  await B.cliente.from('publicaciones').update({ activa: false }).eq('id', pubB.id);
+  const noVisible = await A.cliente.storage.from('fotos').download(rutaFria);
+  comprobar('A no lee la foto de una publicación DESACTIVADA de B',
+    !noVisible.data || !!noVisible.error,
+    noVisible.data ? 'SE DESCARGÓ — la lectura del bucket no filtra por visibilidad' : 'bloqueado');
+
+  // La foto de perfil vive en una ruta fija por persona —`perfiles/<uid>.jpg`—,
+  // así que aquí no hay ruta hermana que pedir: la ruta fría tiene que ser la de
+  // OTRA cuenta. C nace desactivada a efectos de esta comprobación y su foto no
+  // se pide nunca mientras es visible.
+  const rutaPerfilB = `perfiles/${B.id}.jpg`;
+  await B.cliente.storage.from('fotos').upload(rutaPerfilB, jpg, { contentType: 'image/jpeg', upsert: true });
+
+  const perfilActivo = await A.cliente.storage.from('fotos').download(rutaPerfilB);
+  comprobar('A SÍ lee la foto de perfil de una cuenta ACTIVA',
+    !!perfilActivo.data && !perfilActivo.error,
+    perfilActivo.error ? `cerró de más: ${perfilActivo.error.message.slice(0, 48)}` : 'bytes recibidos');
+
+  D = await crearCuenta('d');
+  const rutaPerfilD = `perfiles/${D.id}.jpg`;
+  await D.cliente.storage.from('fotos').upload(rutaPerfilD, jpg, { contentType: 'image/jpeg', upsert: true });
+  await D.cliente.from('usuarios').update({ activo: false }).eq('id', D.id);
+  const perfilInactivo = await A.cliente.storage.from('fotos').download(rutaPerfilD);
+  comprobar('A no lee la foto de perfil de una cuenta DESACTIVADA',
+    !perfilInactivo.data || !!perfilInactivo.error,
+    perfilInactivo.data ? 'SE DESCARGÓ — un usuario dado de baja sigue expuesto' : 'bloqueado');
+
 } catch (e) {
   comprobar('La prueba se completó', false, e.message);
 } finally {
+  // Las fotos que sube la sección 9 NO las alcanza ninguna cascada: el trigger
+  // trg_limpiar_fotos solo ENCOLA las de publicaciones (0021), y la de perfil
+  // no la toca nadie. Sin esto, cada corrida dejaría basura en el Storage de
+  // producción — una prueba que ensucia lo que audita no sirve.
+  if (B) {
+    const rutas = [`perfiles/${B.id}.jpg`];
+    const { data: pubsB } = await admin.from('publicaciones').select('fotos').eq('usuario_id', B.id);
+    for (const p of pubsB ?? []) for (const r of (p.fotos ?? [])) if (!r.startsWith('http')) rutas.push(r);
+    // Rutas de la seccion 9, por si la publicacion ya no tuviera el arreglo.
+    const { data: objs } = await admin.storage.from('fotos').list(`publicaciones/${B.id}`, { limit: 100 });
+    for (const carpeta of objs ?? []) {
+      const { data: hijos } = await admin.storage.from('fotos').list(`publicaciones/${B.id}/${carpeta.name}`, { limit: 100 });
+      for (const h of hijos ?? []) rutas.push(`publicaciones/${B.id}/${carpeta.name}/${h.name}`);
+    }
+    // try/catch y no .catch(): el constructor de PostgREST es *thenable*, no
+    // una Promesa, y no expone .catch. Un fallo aquí no debe tumbar la prueba.
+    const unicas = [...new Set(rutas)];
+    try { await admin.storage.from('fotos').remove(unicas); } catch { /* sin efecto */ }
+    try { await admin.from('fotos_huerfanas').delete().in('ruta', unicas); } catch { /* sin efecto */ }
+  }
+  if (D) {
+    try { await admin.storage.from('fotos').remove([`perfiles/${D.id}.jpg`]); } catch { /* sin efecto */ }
+  }
   if (A) await admin.auth.admin.deleteUser(A.id).catch(() => {});
   if (B) await admin.auth.admin.deleteUser(B.id).catch(() => {});
+  if (D) await admin.auth.admin.deleteUser(D.id).catch(() => {});
 }
 
 console.log('\nPrueba de aislamiento entre cuentas · contra producción, por HTTP\n');

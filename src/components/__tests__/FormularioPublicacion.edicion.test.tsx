@@ -68,8 +68,8 @@ test('al editar, los ocho campos de direccion nacen llenos', async () => {
   );
   // Calle y Colonia son desplegables: pintan texto, no son TextInput con
   // `value`, asi que se comprueban por lo que se ve.
-  expect(screen.getByText('Calle Zapata')).toBeTruthy();
-  expect(screen.getByText('Guadalupe')).toBeTruthy();
+  expect(await screen.findByText('Calle Zapata', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('Guadalupe', {}, { timeout: 5000 })).toBeTruthy();
   expect(valorDe('Número exterior')).toBe('224');
   expect(valorDe('Código postal')).toBe('52104');
   expect(valorDe('Localidad')).toBe('San Mateo Atenco');
@@ -97,8 +97,8 @@ test('una direccion ilegible se avisa en vez de inventar campos', async () => {
       valoresIniciales={{ ...INICIALES, direccion: 'Emiliano zapata 2838382' }}
     />
   );
-  expect(screen.getByText(/No pudimos separar la dirección/)).toBeTruthy();
-  expect(screen.getByText('Emiliano zapata 2838382')).toBeTruthy();
+  expect(await screen.findByText(/No pudimos separar la dirección/, {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('Emiliano zapata 2838382', {}, { timeout: 5000 })).toBeTruthy();
   // Ninguno de los campos se rellena a la fuerza: el de estado queda vacio.
   expect(valorDe('Estado') ?? '').toBe('');
 });
@@ -114,6 +114,6 @@ test('las fotos existentes se muestran al editar', async () => {
       fotosIniciales={['publicaciones/u1/p1/0.jpg', 'publicaciones/u1/p1/1.jpg']}
     />
   );
-  expect(screen.getByLabelText('Quitar foto 1')).toBeTruthy();
-  expect(screen.getByLabelText('Quitar foto 2')).toBeTruthy();
+  expect(await screen.findByLabelText('Quitar foto 1', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByLabelText('Quitar foto 2', {}, { timeout: 5000 })).toBeTruthy();
 });

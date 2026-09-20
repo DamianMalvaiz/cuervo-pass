@@ -1,24 +1,34 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ANCHO_FICHA_COMPACTA, FichaCompacta } from '@/components/FichaCompacta';
-import { FichaPublicacion } from '@/components/FichaPublicacion';
+import { FilaPublicacion } from '@/components/FilaPublicacion';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { Carrusel } from '@/components/ficha/Carrusel';
+import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { Encabezado } from '@/components/ficha/Encabezado';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
+import { useMovimientoReducido } from '@/hooks/use-movimiento-reducido';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
-import { fechaHoraDeSello, folioDe } from '@/lib/folio';
-import { obtenerSugerencias } from '@/services/publicaciones.service';
+import { fechaHoraDeSello } from '@/lib/folio';
+import { toque } from '@/lib/tacto';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
-import type { PublicacionSugerida } from '@/types/database.types';
+import type {
+  OrdenSugerencias,
+  PublicacionNueva,
+  PublicacionSugerida,
+  TipoPublicacion,
+} from '@/types/database.types';
+import { useNuevas, useSugerencias } from '@/hooks/queries/usePublicaciones';
 
 // Documento maestro v5 · §17, §18, §25.
 //
@@ -26,20 +36,49 @@ import type { PublicacionSugerida } from '@/types/database.types';
 // funciones de Postgres, que aplican el filtro DURO (presupuesto, distancia,
 // mascotas) antes de ordenar. Lo que llega aquí ya es viable.
 //
-// La composición sigue el patrón de una pantalla de exploración: resumen de los
-// filtros arriba, chips de categoría, y CARRUSELES que enseñan el mismo conjunto
-// viable bajo tres lentes —afinidad, cercanía, precio— antes de la lista
-// completa. El desplegable de orden que había antes desapareció: obligaba a
-// elegir UNA lente y perder el sitio; ahora se ven las tres a la vez.
+// END-32 · Había TRES carruseles y una lista, los cuatro sobre el mismo
+// conjunto. El primero, «Mejor afinidad contigo», era `filtradas.slice(0, 8)`:
+// un prefijo LITERAL de la lista que empezaba veinticuatro fichas más abajo. Los
+// otros dos eran reordenamientos. Cuatro pinceladas del mismo contenido no son
+// arquitectura de información, son indecisión renderizada.
+//
+// Se defendió aquí que tres lentes simultáneas eran mejores que un desplegable
+// que «obliga a elegir UNA y perder el sitio». El argumento tenía un agujero:
+// «Las de menor renta» ordenaba por precio el top-30 YA TRUNCADO por encaje, así
+// que enseñaba las más baratas de las treinta que mejor encajan — no las más
+// baratas. Una lente que miente no es una lente.
+//
+// Queda UN carrusel, con lo único que la lista no dice: lo reciente. Y un
+// control de orden que reordena la lista en su sitio, aplicado en POSTGRES por
+// la misma razón por la que el filtro de tipo se fue allí en B.3.
 
-const TIPOS: { valor: string | null; etiqueta: string }[] = [
+// El tipo del arreglo NO es `string | null`, y ese es el arreglo de fondo.
+// Escrito como `string`, este chip decía `'casa'` —un valor que no existe en
+// ninguna otra parte del proyecto: el formulario, el enum de zod, la ficha y el
+// CHECK de la migración 0010 dicen todos `'casa_compartida'`— y nada se quejó
+// nunca. Mientras el filtro corría en el cliente, el chip simplemente no
+// coincidía con nada; al mandarlo al servidor habría devuelto vacío para
+// siempre. Con `TipoPublicacion` el compilador lo atrapa.
+const TIPOS: { valor: TipoPublicacion | null; etiqueta: string }[] = [
   { valor: null, etiqueta: 'Todo' },
   { valor: 'depa', etiqueta: 'Departamento' },
-  { valor: 'casa', etiqueta: 'Casa' },
+  { valor: 'casa_compartida', etiqueta: 'Casa compartida' },
   { valor: 'cuarto', etiqueta: 'Cuarto' },
 ];
 
-const POR_CARRUSEL = 8;
+/** Por debajo de tres, el carrusel no se pinta: un carril con dos elementos es
+ *  un hueco con título, y encima invita a deslizar algo que no se mueve. */
+const MINIMO_CARRUSEL = 3;
+
+/** Ocho filas es aproximadamente lo que cabe en una pantalla. Escalonar más allá
+ *  de lo visible no escalona: retrasa. */
+const TOPE_ESCALONADO = 8;
+
+const ORDENES: { valor: OrdenSugerencias; etiqueta: string }[] = [
+  { valor: 'ajuste', etiqueta: 'Ajuste' },
+  { valor: 'cercania', etiqueta: 'Cercanía' },
+  { valor: 'precio', etiqueta: 'Renta' },
+];
 
 /**
  * El resumen de tus filtros, tocable.
@@ -89,7 +128,13 @@ function ResumenFiltros() {
 
 /** Chips de tipo. El estado activo no depende solo del color: cambia el filete,
  *  el fondo y el peso de la letra. */
-function ChipsTipo({ valor, onCambiar }: { valor: string | null; onCambiar: (v: string | null) => void }) {
+function ChipsTipo({
+  valor,
+  onCambiar,
+}: {
+  valor: TipoPublicacion | null;
+  onCambiar: (v: TipoPublicacion | null) => void;
+}) {
   const theme = useTheme();
   return (
     <ScrollView
@@ -126,49 +171,79 @@ function ChipsTipo({ valor, onCambiar }: { valor: string | null; onCambiar: (v: 
   );
 }
 
+/**
+ * El control de orden, pegado a la lista que ordena.
+ *
+ * No son pastillas como los chips de tipo, a propósito: el tipo FILTRA —cambia
+ * qué hay— y el orden solo reordena lo mismo. Dos controles con el mismo peso
+ * visual harían creer que hacen lo mismo. Aquí el estado activo se marca con el
+ * peso de la letra y un filete debajo, que es como un documento marca la columna
+ * por la que está ordenado.
+ */
+function ControlOrden({
+  valor,
+  onCambiar,
+}: {
+  valor: OrdenSugerencias;
+  onCambiar: (v: OrdenSugerencias) => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={estilos.filaOrden} accessibilityRole="tablist">
+      <ThemedText type="etiqueta" themeColor="textSecondary">
+        ORDENAR POR
+      </ThemedText>
+      <View style={estilos.opcionesOrden}>
+        {ORDENES.map((o) => {
+          const activo = valor === o.valor;
+          return (
+            <Pressable
+              key={o.valor}
+              onPress={() => onCambiar(o.valor)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activo }}
+              accessibilityLabel={`Ordenar por ${o.etiqueta}`}
+              style={({ pressed }) => [estilos.opcionOrden, pressed && estilos.presionado]}
+            >
+              <ThemedText
+                type="small"
+                themeColor={activo ? 'text' : 'textSecondary'}
+                style={activo ? estilos.ordenActivo : undefined}
+              >
+                {o.etiqueta}
+              </ThemedText>
+              <View
+                style={[
+                  estilos.fileteOrden,
+                  { backgroundColor: activo ? theme.text : 'transparent' },
+                ]}
+              />
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export default function InicioScreen() {
   const session = useAuthStore((s) => s.session);
   const cargarPerfil = usePerfilStore((s) => s.cargarPerfil);
-  const [sugerencias, setSugerencias] = useState<PublicacionSugerida[]>([]);
-  const [nivel, setNivel] = useState<1 | 2>(1);
-  const [cargando, setCargando] = useState(true);
-  const [refrescando, setRefrescando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [emitido, setEmitido] = useState<Date | null>(null);
-  const [tipo, setTipo] = useState<string | null>(null);
+  // Dos números y no una bandera: en una misma lista conviven publicaciones
+  // ordenadas por afinidad y publicaciones ordenadas solo por filtros (END-08).
+  const [tipo, setTipo] = useState<TipoPublicacion | null>(null);
+  const [orden, setOrden] = useState<OrdenSugerencias>('ajuste');
   const theme = useTheme();
+  const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
+  const reducido = useMovimientoReducido();
 
-  const cargar = useCallback(async () => {
-    // Sin sesión hay que APAGAR los indicadores igual. Un `return` seco antes
-    // del try/finally dejaba `cargando` en true para siempre.
-    if (!session?.user.id) {
-      setCargando(false);
-      setRefrescando(false);
-      return;
-    }
-    setError(null);
-    try {
-      const resultado = await obtenerSugerencias(30);
-      setSugerencias(resultado.datos);
-      setNivel(resultado.nivel);
-      setEmitido(new Date());
-    } catch (e) {
-      // §27: nunca una pantalla en blanco. Se dice qué pasó y se ofrece
-      // reintentar; "algo salió mal" no es un mensaje, es una forma de callar.
-      console.warn('obtenerSugerencias falló:', e);
-      setError('No pudimos consultar el expediente. Revisa tu conexión y desliza hacia abajo para reintentar.');
-    } finally {
-      setCargando(false);
-      setRefrescando(false);
-    }
-  }, [session?.user.id]);
-
-  useFocusEffect(
-    useCallback(() => {
-      cargar();
-    }, [cargar])
-  );
+  // END-18 · Toda la carga vive en el hook: caché, deduplicación, reintento con
+  // backoff y el estado de error. Lo que había antes eran seis `useState` y un
+  // `useFocusEffect` que reconsultaba el motor COMPLETO en cada regreso desde
+  // el detalle, reemplazando el arreglo entero — parpadeo y pérdida del scroll.
+  const { datos: sugerencias, conAfinidad, total, cargando, refrescando, fallo, refrescar, emitido } =
+    useSugerencias(tipo, orden);
 
   // El resumen de filtros necesita el perfil, y esta pantalla es la primera que
   // se abre tras entrar.
@@ -176,81 +251,66 @@ export default function InicioScreen() {
     if (session?.user.id) cargarPerfil(session.user.id);
   }, [session?.user.id, cargarPerfil]);
 
-  const onRefrescar = useCallback(() => {
-    setRefrescando(true);
-    cargar();
-  }, [cargar]);
+  // END-32 · El único carrusel. No depende del orden de la lista: ordena por
+  // fecha, que es lo suyo.
+  const { datos: nuevas } = useNuevas(tipo);
 
-  // AUD-08: una sola petición para todas las miniaturas visibles.
-  const urlsFirmadas = useFotosFirmadas(sugerencias.map((s) => s.fotos?.[0]));
+  // AUD-08: una sola petición para todas las miniaturas visibles, y las del
+  // carrusel VAN INCLUIDAS. Firmarlas en dos llamadas separadas era el defecto
+  // que AUD-08 vino a quitar, y un hook nuevo es justo donde se vuelve a colar.
+  const { urls: urlsFirmadas } = useFotosFirmadas([
+    ...sugerencias.map((s) => s.fotos?.[0]),
+    ...nuevas.map((n) => n.fotos?.[0]),
+  ]);
 
-  const filtradas = useMemo(
-    () => (tipo ? sugerencias.filter((s) => s.tipo === tipo) : sugerencias),
-    [sugerencias, tipo]
-  );
+  // B.3 · El filtro ya corre en Postgres, dentro de la función que trunca a
+  // treinta, así que lo que llega aquí es el top-30 DE ESE TIPO y no lo que
+  // quedó de filtrar el top-30 general. No hay nada que filtrar en el cliente:
+  // el nombre se conserva porque media pantalla lo usa.
+  const filtradas = sugerencias;
 
-  // Tres lentes sobre el MISMO conjunto ya filtrado por el motor. No son
-  // consultas distintas: reordenar en el cliente lo que Postgres ya declaró
-  // viable es correcto, y pedir tres veces lo mismo al servidor no lo sería.
-  const lentes = useMemo(() => {
-    const conDistancia = filtradas.filter((p) => p.distancia != null);
-    return {
-      afinidad: filtradas.slice(0, POR_CARRUSEL),
-      cercanas: [...conDistancia]
-        .sort((a, b) => (a.distancia ?? 0) - (b.distancia ?? 0))
-        .slice(0, POR_CARRUSEL),
-      economicas: [...filtradas].sort((a, b) => a.precio_renta - b.precio_renta).slice(0, POR_CARRUSEL),
-    };
-  }, [filtradas]);
-
+  // END-21 · Solo el id. La calificación viajaba por la URL, así que un enlace
+  // directo a una ficha no la traía y el desglose desaparecía según por dónde
+  // entraras; y ese valor acababa escrito en `contactos.score_mostrado`, o sea
+  // que la métrica la suministraba el cliente. Ahora la ficha la pregunta.
   const irADetalle = useCallback((item: PublicacionSugerida) => {
-    router.push({
-      pathname: '/publicacion/[id]',
-      params: {
-        id: item.id,
-        score: String(item.score_final ?? item.score),
-        base: String(item.score),
-        ...(item.similitud != null ? { sim: String(item.similitud) } : {}),
-      },
-    });
+    router.push({ pathname: '/publicacion/[id]', params: { id: item.id } });
   }, []);
 
   const compacta = useCallback(
-    (item: PublicacionSugerida) => (
+    (item: PublicacionNueva) => (
       <FichaCompacta
         titulo={item.titulo}
+        tipo={item.tipo}
         precio={item.precio_renta}
         fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
         distanciaKm={item.distancia}
-        score={item.score_final ?? item.score}
-        onPress={() => irADetalle(item)}
+        score={item.score}
+        onPress={() => router.push({ pathname: '/publicacion/[id]', params: { id: item.id } })}
       />
     ),
-    [urlsFirmadas, irADetalle]
+    [urlsFirmadas]
   );
-
-  if (cargando) {
-    return (
-      <ThemedView style={[estilos.cargandoPantalla, { paddingTop: margenSuperior }]}>
-        <ActivityIndicator color={theme.textSecondary} />
-        <ThemedText type="etiqueta" themeColor="textSecondary">
-          CONSULTANDO EXPEDIENTE
-        </ThemedText>
-      </ThemedView>
-    );
-  }
 
   return (
     <ThemedView style={estilos.pantalla}>
       <FlatList
         data={filtradas}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[estilos.lista, { paddingTop: margenSuperior }]}
+        // END-36 · La columna se ACOTA y se centra en pantallas amplias, no se
+        // estira. `useTamanoPantalla` vivía en ocho formularios y en ninguna
+        // pantalla de contenido, y `MaxContentWidth` tenía cero usos en todo el
+        // código: un token muerto en el corazón del sistema visual.
+        //
+        // `width: '100%'` junto al `maxWidth` no sobra: sin él, un
+        // contentContainer con `alignSelf: center` se encoge al ancho de su
+        // contenido y la lista deja de ocupar el teléfono.
+        contentContainerStyle={[estilos.lista, estilos.columna, { paddingTop: margenSuperior, maxWidth: anchoLista }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refrescando}
-            onRefresh={onRefrescar}
+            onRefresh={refrescar}
             tintColor={theme.textSecondary}
             colors={[theme.textSecondary]}
           />
@@ -259,21 +319,51 @@ export default function InicioScreen() {
           <View style={estilos.cabecera}>
             <View style={estilos.margen}>
               <Encabezado
-                kicker={nivel === 2 ? 'NIVEL 2 · AFINIDAD SEMÁNTICA' : 'NIVEL 1 · FILTROS PONDERADOS'}
+                kicker={
+                  // END-38 · Mientras carga NO se afirma el nivel. Al quitar el
+                  // `return` temprano, este membrete quedaba visible con
+                  // `conAfinidad = 0` y declaraba «NIVEL 1 · FILTROS
+                  // PONDERADOS» antes de haber preguntado — y si la respuesta
+                  // traía afinidad, se corregía solo, delante de quien lo
+                  // estuviera leyendo. Un esqueleto honesto no puede tener un
+                  // encabezado que adivina.
+                  //
+                  // El conteo prueba que el motor corre y hasta dónde alcanza.
+                  // Una bandera binaria solo lo afirmaba — y mentía cuando una
+                  // sola publicación vectorizada la ponía en 2.
+                  cargando
+                    ? 'CONSULTANDO EXPEDIENTE'
+                    : conAfinidad === 0
+                      ? 'NIVEL 1 · FILTROS PONDERADOS'
+                      : `NIVEL 2 · ${conAfinidad} DE ${total} CON AFINIDAD SEMÁNTICA`
+                }
                 titulo="Sugerencias"
                 meta={
-                  `${filtradas.length === 1 ? '1 REGISTRO' : `${filtradas.length} REGISTROS`}` +
-                  (emitido ? ` · EMITIDO ${fechaHoraDeSello(emitido)}` : '')
+                  cargando
+                    ? ''
+                    : `${filtradas.length === 1 ? '1 REGISTRO' : `${filtradas.length} REGISTROS`}` +
+                      (emitido ? ` · EMITIDO ${fechaHoraDeSello(emitido)}` : '')
                 }
               />
               <ResumenFiltros />
             </View>
 
-            <ChipsTipo valor={tipo} onCambiar={setTipo} />
+            {/* El tacto va en el MANEJADOR y no dentro de los componentes:
+                así los dos controles de esta pantalla responden igual, y
+                `ChipsTipo` y `ControlOrden` siguen sin saber nada de tacto —
+                que es lo que permite reutilizarlos sin arrastrar la vibración
+                a sitios donde no toca. */}
+            <ChipsTipo
+              valor={tipo}
+              onCambiar={(v) => {
+                toque();
+                setTipo(v);
+              }}
+            />
 
             {/* §27: un refresh fallido CON resultados en memoria mostraba datos
                 viejos y ningún aviso. Silencioso es la peor forma de fallar. */}
-            {error && filtradas.length > 0 && (
+            {fallo && filtradas.length > 0 && (
               <View style={[estilos.margen, estilos.avisoError, { borderColor: theme.error }]}>
                 <Ionicons name="cloud-offline-outline" size={16} color={theme.error} />
                 <ThemedText type="small" themeColor="error" style={estilos.textoAviso} accessibilityLiveRegion="polite">
@@ -282,61 +372,85 @@ export default function InicioScreen() {
               </View>
             )}
 
-            {filtradas.length > 0 && (
-              <>
-                <Carrusel
-                  titulo="Mejor afinidad contigo"
-                  descripcion={nivel === 2 ? 'orden del motor' : 'filtros ponderados'}
-                  datos={lentes.afinidad}
-                  claveDe={(p) => `af-${p.id}`}
-                  renderizar={compacta}
-                  anchoItem={ANCHO_FICHA_COMPACTA}
-                />
-                <Carrusel
-                  titulo="Más cerca de tu campus"
-                  datos={lentes.cercanas}
-                  claveDe={(p) => `ce-${p.id}`}
-                  renderizar={compacta}
-                  anchoItem={ANCHO_FICHA_COMPACTA}
-                />
-                <Carrusel
-                  titulo="Las de menor renta"
-                  datos={lentes.economicas}
-                  claveDe={(p) => `ec-${p.id}`}
-                  renderizar={compacta}
-                  anchoItem={ANCHO_FICHA_COMPACTA}
-                />
+            {/* Lo ÚNICO que la lista de abajo no dice. Se pinta solo si hay
+                al menos tres: un carril con dos es un hueco con título. */}
+            {nuevas.length >= MINIMO_CARRUSEL && (
+              <Carrusel
+                titulo="Nuevas esta semana"
+                descripcion="por fecha de publicación"
+                datos={nuevas}
+                claveDe={(p) => `nv-${p.id}`}
+                renderizar={compacta}
+                anchoItem={ANCHO_FICHA_COMPACTA}
+              />
+            )}
 
-                <View style={[estilos.margen, estilos.tituloLista]}>
-                  <ThemedText type="subtitle">Todas, en orden</ThemedText>
-                  <View style={[estilos.fileteLista, { backgroundColor: theme.filete }]} />
-                </View>
-              </>
+            {filtradas.length > 0 && (
+              <View style={[estilos.margen, estilos.tituloLista]}>
+                <ThemedText type="subtitle">
+                  {conAfinidad > 0 ? 'Todas, por afinidad y filtros' : 'Todas, por filtros'}
+                </ThemedText>
+                <ControlOrden
+                  valor={orden}
+                  onCambiar={(v) => {
+                    toque();
+                    setOrden(v);
+                  }}
+                />
+                <View style={[estilos.fileteLista, { backgroundColor: theme.filete }]} />
+              </View>
             )}
           </View>
         }
-        renderItem={({ item }) => (
-          <View style={estilos.margen}>
-            <FichaPublicacion
+        // END-33 · Un renglón de tabla, no una tarjeta. La ficha grande mide
+        // 420–450 px —una y media por pantalla— y PRODUCT.md dice que esto
+        // ordena por AJUSTE. El ajuste se evalúa comparando, y comparar exige
+        // ver varias opciones a la vez. `FichaPublicacion` se conserva para
+        // «Mis publicaciones», donde la pregunta es «cómo va la mía» y no
+        // «cuál de estas».
+        renderItem={({ item, index }) => (
+          // END-37 · Entrada escalonada, con TOPE. Sin él, la fila treinta
+          // esperaría 900 ms y la lista parecería cargar en cascada eterna; con
+          // tope de ocho, lo último entra a 210 ms y el escalonado se percibe
+          // igual. Ocho es aproximadamente lo que cabe en pantalla: escalonar lo
+          // que nadie está viendo no escalona nada, solo retrasa.
+          //
+          // `reducido !== false` cubre el «todavía no sé» (D.8).
+          <Animated.View
+            style={estilos.margen}
+            entering={
+              reducido !== false
+                ? undefined
+                : FadeInDown.delay(Math.min(index, TOPE_ESCALONADO - 1) * 30).duration(220)
+            }
+          >
+            <FilaPublicacion
               titulo={item.titulo}
+              tipo={item.tipo}
               precio={item.precio_renta}
-              direccion={item.direccion}
               fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
               distanciaKm={item.distancia}
               score={item.score_final ?? item.score}
-              tipo={item.tipo}
-              permiteMascotas={item.permite_mascotas}
-              amueblado={item.amueblado}
-              folio={folioDe(item.id)}
+              similitud={item.similitud}
               onPress={() => irADetalle(item)}
             />
-          </View>
+          </Animated.View>
         )}
-        ItemSeparatorComponent={() => <View style={estilos.separador} />}
+        // Sin separador: la fila ya trae su filete inferior, y dos líneas
+        // juntas se leen como un error de impresión.
+        ItemSeparatorComponent={null}
         ListEmptyComponent={
+          // El esqueleto va DENTRO de la lista, no en lugar de la pantalla. El
+          // encabezado, el resumen de filtros y los chips siguen ahí y siguen
+          // siendo tocables: se puede cambiar de tipo mientras carga.
+          cargando ? (
+            <View style={estilos.margen}>
+              <ListaEsqueleto filas={5} />
+            </View>
+          ) : (
           <View style={estilos.margen}>
-            {error ? (
-              <BloqueEstado etiqueta="NO SE PUDO CONSULTAR" mensaje={error} icono="cloud-offline-outline" tono="alerta" />
+            {fallo ? (
+              <BloqueEstado etiqueta="NO SE PUDO CONSULTAR" mensaje={fallo} icono="cloud-offline-outline" tono="alerta" />
             ) : tipo ? (
               <BloqueEstado
                 etiqueta="SIN REGISTROS DE ESE TIPO"
@@ -351,6 +465,7 @@ export default function InicioScreen() {
               />
             )}
           </View>
+          )
         }
       />
     </ThemedView>
@@ -358,8 +473,8 @@ export default function InicioScreen() {
 }
 
 const estilos = StyleSheet.create({
+  columna: { width: '100%', alignSelf: 'center' },
   pantalla: { flex: 1 },
-  cargandoPantalla: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
   lista: { paddingBottom: Spacing.six },
   // El margen va POR BLOQUE, no en el contenedor: los carruseles tienen que
   // poder sangrar hasta el borde de la pantalla para que se vea que siguen.
@@ -384,10 +499,10 @@ const estilos = StyleSheet.create({
     borderWidth: Filete.fino,
     borderRadius: Radios.full,
     paddingHorizontal: Spacing.three,
-    minHeight: 40,
+    minHeight: 44,
     justifyContent: 'center',
   },
-  chipActivo: { fontFamily: Tipografia.semibold },
+  chipActivo: Texto.pesoFuerte,
   avisoError: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -398,5 +513,12 @@ const estilos = StyleSheet.create({
   },
   textoAviso: { flex: 1, lineHeight: 20 },
   tituloLista: { gap: Spacing.two },
+  filaOrden: { gap: Spacing.one },
+  opcionesOrden: { flexDirection: 'row', gap: Spacing.four },
+  // 44 pt de alto contando el filete: el objetivo táctil no se negocia porque el
+  // control sea visualmente ligero (invariante 8).
+  opcionOrden: { minHeight: 44, justifyContent: 'center', gap: Spacing.half },
+  ordenActivo: Texto.pesoFuerte,
+  fileteOrden: { height: Filete.grueso },
   fileteLista: { height: Filete.fino },
 });

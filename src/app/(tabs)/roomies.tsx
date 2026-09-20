@@ -1,21 +1,23 @@
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Switch, View } from 'react-native';
+import { router } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, FlatList, StyleSheet, Switch, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Encabezado } from '@/components/ficha/Encabezado';
 import { TarjetaRoomie } from '@/components/TarjetaRoomie';
+import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
-import { guardarMiRoomie, listarRoomiesSugeridos, obtenerMiRoomie } from '@/services/roomies.service';
 import { useAuthStore } from '@/store/useAuthStore';
-import type { Roomie, RoomieSugerido } from '@/types/database.types';
+import { aviso } from '@/lib/registro';
+import { useGuardarMiRoomie, useMiRoomie, useRoomiesSugeridos } from '@/hooks/queries/useRoomies';
 
 // Documento maestro v5 · §11 (la tabla se llama `roomies`), §18, §25.
 //
@@ -25,42 +27,33 @@ import type { Roomie, RoomieSugerido } from '@/types/database.types';
 // cerca de la misma universidad— así que el orden es directamente la similitud.
 export default function RoomiesScreen() {
   const theme = useTheme();
+  const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
   const session = useAuthStore((s) => s.session);
-  const [roomies, setRoomies] = useState<RoomieSugerido[]>([]);
-  const [miRoomie, setMiRoomie] = useState<Roomie | null>(null);
   const [descripcion, setDescripcion] = useState('');
   const [buscoRoomie, setBuscoRoomie] = useState(false);
-  const [cargando, setCargando] = useState(true);
-  const [guardando, setGuardando] = useState(false);
 
-  const cargar = useCallback(async () => {
-    const miId = session?.user.id;
-    if (!miId) return;
-    setCargando(true);
-    try {
-      const [sugeridos, propio] = await Promise.all([listarRoomiesSugeridos(), obtenerMiRoomie(miId)]);
-      setRoomies(sugeridos);
-      setMiRoomie(propio);
-      setDescripcion(propio?.descripcion_busqueda ?? '');
-      setBuscoRoomie(propio?.estado === 'activo');
-    } catch (e) {
-      // Nunca dejar la pantalla rota por un error de red o una migración
-      // pendiente — se muestra la lista vacía y se sigue.
-      console.warn('No se pudieron cargar los roomies:', e);
-      setRoomies([]);
-    } finally {
-      setCargando(false);
-    }
-  }, [session?.user.id]);
+  // END-18 · Dos consultas separadas en vez de un `Promise.all` dentro de un
+  // `useFocusEffect`. Guardar la ficha propia ya no obliga a volver a pedir la
+  // lista de sugeridos, que es lo caro.
+  const miId = session?.user.id;
+  const { roomies, cargando } = useRoomiesSugeridos(Boolean(miId));
+  const { miRoomie } = useMiRoomie(miId);
+  const guardar = useGuardarMiRoomie(miId);
+  const guardando = guardar.isPending;
 
-  useFocusEffect(
-    useCallback(() => {
-      cargar();
-    }, [cargar])
-  );
+  // Los campos del formulario se siembran desde la ficha guardada la primera
+  // vez que llega, y NO en cada render: si no, escribir en el campo se
+  // sobreescribiría con el valor del servidor en el siguiente refresco.
+  const sembrado = useRef(false);
+  useEffect(() => {
+    if (sembrado.current || !miRoomie) return;
+    sembrado.current = true;
+    setDescripcion(miRoomie.descripcion_busqueda ?? '');
+    setBuscoRoomie(miRoomie.estado === 'activo');
+  }, [miRoomie]);
 
-  const urlsFirmadas = useFotosFirmadas(roomies.map((r) => r.foto_url));
+  const { urls: urlsFirmadas } = useFotosFirmadas(roomies.map((r) => r.foto_url));
 
   const onGuardarMiRoomie = async (nuevoEstado: boolean) => {
     const miId = session?.user.id;
@@ -73,40 +66,26 @@ export default function RoomiesScreen() {
       return;
     }
     setBuscoRoomie(nuevoEstado);
-    setGuardando(true);
     try {
-      const actualizado = await guardarMiRoomie(miId, {
+      await guardar.mutateAsync({
         descripcionBusqueda: descripcion.trim() || 'Busco roomie.',
         estado: nuevoEstado ? 'activo' : 'cerrado',
       });
-      setMiRoomie(actualizado);
     } catch (e) {
       setBuscoRoomie(!nuevoEstado);
       Alert.alert(
         'No se pudo guardar',
         'Revisa tu conexión e intenta de nuevo. Si el problema sigue, puede faltar aplicar una migración de la base de datos.'
       );
-      console.warn('No se pudo guardar el roomie:', e);
-    } finally {
-      setGuardando(false);
+      aviso('No se pudo guardar el roomie', undefined, e);
     }
   };
 
   const onGuardarDescripcion = async () => {
-    const miId = session?.user.id;
     if (!miId || !buscoRoomie || descripcion.trim().length < 10) return;
-    setGuardando(true);
-    try {
-      // Guardar la descripción regenera el vector de búsqueda: si no, la
-      // afinidad seguiría calculándose contra el texto anterior.
-      const actualizado = await guardarMiRoomie(miId, {
-        descripcionBusqueda: descripcion.trim(),
-        estado: 'activo',
-      });
-      setMiRoomie(actualizado);
-    } finally {
-      setGuardando(false);
-    }
+    // Guardar la descripción regenera el vector de búsqueda: si no, la afinidad
+    // seguiría calculándose contra el texto anterior.
+    await guardar.mutateAsync({ descripcionBusqueda: descripcion.trim(), estado: 'activo' });
   };
 
   const descripcionSinGuardar = (miRoomie?.descripcion_busqueda ?? '') !== descripcion;
@@ -116,7 +95,15 @@ export default function RoomiesScreen() {
       <FlatList
         data={roomies}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[estilos.lista, { paddingTop: margenSuperior }]}
+        // END-36 · La columna se ACOTA y se centra en pantallas amplias, no se
+        // estira. `useTamanoPantalla` vivía en ocho formularios y en ninguna
+        // pantalla de contenido, y `MaxContentWidth` tenía cero usos en todo el
+        // código: un token muerto en el corazón del sistema visual.
+        //
+        // `width: '100%'` junto al `maxWidth` no sobra: sin él, un
+        // contentContainer con `alignSelf: center` se encoge al ancho de su
+        // contenido y la lista deja de ocupar el teléfono.
+        contentContainerStyle={[estilos.lista, estilos.columna, { paddingTop: margenSuperior, maxWidth: anchoLista }]}
         showsVerticalScrollIndicator={false}
         // La ficha propia va como encabezado de la lista, no fija arriba: así se
         // puede recorrer la lista completa sin que ocupe un tercio de la pantalla
@@ -197,12 +184,11 @@ export default function RoomiesScreen() {
         )}
         ListEmptyComponent={
           cargando ? (
-            <View style={estilos.cargando}>
-              <ActivityIndicator color={theme.textSecondary} />
-              <ThemedText type="etiqueta" themeColor="textSecondary">
-                CONSULTANDO REGISTRO
-              </ThemedText>
-            </View>
+            // Sin foto: `TarjetaRoomie` lleva avatar, no fotografía de 3:2.
+            // Espejar una foto que no existe crearía justo el salto que el
+            // esqueleto viene a evitar.
+            <ListaEsqueleto variante="hoja" filas={3} conFoto={false}
+                            etiquetas={['APORTACIÓN', 'DISTANCIA']} />
           ) : (
             <BloqueEstado
               etiqueta="SIN REGISTROS"
@@ -217,6 +203,7 @@ export default function RoomiesScreen() {
 }
 
 const estilos = StyleSheet.create({
+  columna: { width: '100%', alignSelf: 'center' },
   pantalla: { flex: 1 },
   lista: { padding: Spacing.three, gap: Spacing.three, paddingBottom: Spacing.six },
   encabezado: { gap: Spacing.three, paddingBottom: Spacing.one },

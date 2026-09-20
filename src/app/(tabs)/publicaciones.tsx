@@ -1,71 +1,40 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
+import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { FichaPublicacion } from '@/components/FichaPublicacion';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Sello } from '@/components/ficha/Sello';
 import { Encabezado } from '@/components/ficha/Encabezado';
+import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { folioDe } from '@/lib/folio';
-import {
-  cambiarEstadoPublicacion,
-  contarContactosRecibidos,
-  listarMisPublicaciones,
-  reintentarGeocodingPendiente,
-} from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
+import { useCambiarEstadoPublicacion, useContactosRecibidos, useMisPublicaciones } from '@/hooks/queries/usePublicaciones';
+import { CP, esCodigo } from '@/lib/erroresPostgres';
 
 // Documento maestro v5 · §25 y §27.
 export default function PublicacionesScreen() {
   const theme = useTheme();
+  const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
   const miId = useAuthStore((s) => s.session?.user.id);
-  const [publicaciones, setPublicaciones] = useState<Publicacion[]>([]);
-  const [contactos, setContactos] = useState<Map<string, number>>(new Map());
-  const [cargando, setCargando] = useState(true);
+  // END-18 · La carga, el reintento y la caché viven en el hook. Lo que había
+  // era tres `useState` y un `useFocusEffect` que recargaba entero cada vez que
+  // la pestaña volvía al foco, aunque no hubiera cambiado nada.
+  const { datos: publicaciones, cargando } = useMisPublicaciones(miId);
+  const contactos = useContactosRecibidos(Boolean(miId));
+  const cambiarEstado = useCambiarEstadoPublicacion(miId);
 
-  const cargar = useCallback(async () => {
-    if (!miId) return;
-    setCargando(true);
-    try {
-      const [mias, recibidos] = await Promise.all([
-        listarMisPublicaciones(miId),
-        contarContactosRecibidos(),
-      ]);
-      setPublicaciones(mias);
-      setContactos(recibidos);
-
-      // §27: v3 prometía un reintento del geocoding "en segundo plano" y no
-      // había nada que lo hiciera. Aquí sí: al abrir esta pantalla, las
-      // publicaciones que se guardaron sin coordenadas se reintentan una vez.
-      const resueltas = await reintentarGeocodingPendiente(mias);
-      if (resueltas > 0) {
-        setPublicaciones(await listarMisPublicaciones(miId));
-      }
-    } catch (e) {
-      console.warn('No se pudieron cargar tus publicaciones:', e);
-    } finally {
-      setCargando(false);
-    }
-  }, [miId]);
-
-  // Recarga cada vez que la pestaña vuelve a estar en foco (ej. tras publicar o editar).
-  useFocusEffect(
-    useCallback(() => {
-      cargar();
-    }, [cargar])
-  );
-
-  const urlsFirmadas = useFotosFirmadas(publicaciones.map((p) => p.fotos?.[0]));
+  const { urls: urlsFirmadas } = useFotosFirmadas(publicaciones.map((p) => p.fotos?.[0]));
 
   const onCambiarEstado = (publicacion: Publicacion) => {
     const activar = !publicacion.activa;
@@ -81,18 +50,23 @@ export default function PublicacionesScreen() {
           style: activar ? 'default' : 'destructive',
           onPress: async () => {
             try {
-              await cambiarEstadoPublicacion(publicacion.id, activar);
+              // La mutación invalida las consultas afectadas por sí sola: sin
+              // eso, la publicación desactivada seguiría en la lista hasta que
+              // venciera el staleTime.
+              await cambiarEstado.mutateAsync({ id: publicacion.id, activa: activar });
             } catch (e) {
               // AUD-26: el límite de 15 activas por cuenta se aplica al
               // reactivar igual que al crear.
               Alert.alert(
                 'No se pudo cambiar el estado',
-                e instanceof Error && e.message.includes('límite')
+                // END-27 · Por código. Con la subcadena, un servidor con
+                // locale distinto nunca entraba en esta rama y la persona leía
+                // «intenta de nuevo» ante un límite que no se mueve solo.
+                esCodigo(e, CP.LIMITE_PUBLICACIONES)
                   ? 'Ya tienes 15 publicaciones activas. Desactiva alguna primero.'
                   : 'Intenta de nuevo en un momento.'
               );
             }
-            cargar();
           },
         },
       ]
@@ -121,17 +95,14 @@ export default function PublicacionesScreen() {
       </View>
 
       {cargando ? (
-        <View style={estilos.cargando}>
-          <ActivityIndicator color={theme.textSecondary} />
-          <ThemedText type="etiqueta" themeColor="textSecondary">
-            CONSULTANDO TUS PUBLICACIONES
-          </ThemedText>
+        <View style={estilos.lista}>
+          <ListaEsqueleto variante="hoja" filas={2} etiquetas={['RENTA MENSUAL', 'DISTANCIA']} />
         </View>
       ) : (
         <FlatList
           data={publicaciones}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={estilos.lista}
+          contentContainerStyle={[estilos.lista, estilos.columna, { maxWidth: anchoLista }]}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => {
             const recibidos = contactos.get(item.id) ?? 0;
@@ -233,6 +204,7 @@ export default function PublicacionesScreen() {
 }
 
 const estilos = StyleSheet.create({
+  columna: { width: '100%', alignSelf: 'center' },
   pantalla: { flex: 1 },
   encabezado: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two, gap: Spacing.two },
   lista: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.six },

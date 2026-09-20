@@ -10,7 +10,14 @@ import { generarEmbedding } from '@/lib/aiService';
 import { geocodificarDireccion } from '@/lib/geocoding';
 import { subirFotoPublicacion } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
-import type { Publicacion, PublicacionSugerida, TipoPublicacion } from '@/types/database.types';
+import type {
+  OrdenSugerencias,
+  Publicacion,
+  PublicacionNueva,
+  PublicacionSugerida,
+  TipoPublicacion,
+} from '@/types/database.types';
+import { aviso } from '@/lib/registro';
 
 // El título y la descripción son lo semánticamente rico ("pet friendly",
 // "silencioso"); si no hay ninguno, cae a algo genérico en vez de fallar (el
@@ -31,7 +38,7 @@ async function generarEmbeddingSeguro(datos: {
   try {
     return await generarEmbedding(textoParaEmbedding(datos));
   } catch (e) {
-    console.warn('generarEmbedding (publicación) falló:', e);
+    aviso('generarEmbedding (publicación) falló', undefined, e);
     return null;
   }
 }
@@ -40,31 +47,76 @@ async function generarEmbeddingSeguro(datos: {
 
 export interface ResultadoSugerencias {
   datos: PublicacionSugerida[];
-  /** 1 = filtros ponderados. 2 = además reordenado por similitud semántica. */
-  nivel: 1 | 2;
+  /** Cuántas de `datos` traen afinidad semántica. */
+  conAfinidad: number;
+  /** Cuántas devolvió el motor en total. */
+  total: number;
 }
 
 /**
  * §18 — degradación real, no una frase en una tabla.
  *
- * Si el perfil o las publicaciones no tienen vector —usuario que no consintió
- * el análisis con IA, microservicio caído al momento de publicar— el Nivel 2
- * devuelve menos filas o ninguna, y se cae al Nivel 1.
+ * Una sola llamada. Antes eran dos, con un respaldo todo-o-nada que escondía
+ * publicaciones válidas (END-08): `sugerencias_con_ranking` descartaba las que
+ * no tenían embedding y el servicio devolvía Nivel 2 con que hubiera UNA fila.
+ * De veinte viables con tres vectorizadas, el usuario veía tres y creía que ese
+ * era el catálogo.
  *
- * El `nivel` se muestra en pantalla durante la demo a propósito: poder decir
- * "esto corre en Nivel 2; si apago el contenedor la app sigue funcionando en
- * Nivel 1" — y demostrarlo en vivo — vale más que cualquier feature extra.
+ * La migración 0027 mueve ese filtro a un `left join`, así que la función ya
+ * devuelve TODAS las viables con `nivel` por fila. No queda nada que
+ * reintentar: si el perfil no tiene vector, todas vuelven con nivel 1, que es
+ * exactamente el Nivel 1 de antes.
+ *
+ * Lo que se enseña en la demo deja de ser una bandera y pasa a ser un conteo
+ * —«12 de 20 con afinidad semántica»—, que prueba que el motor corre y hasta
+ * dónde alcanza en vez de afirmarlo.
  */
-export async function obtenerSugerencias(limite = 20): Promise<ResultadoSugerencias> {
-  const conIA = await supabase.rpc('sugerencias_con_ranking', { p_limite: limite });
-  if (!conIA.error && conIA.data?.length) {
-    return { datos: conIA.data as PublicacionSugerida[], nivel: 2 };
-  }
-  if (conIA.error) console.warn('sugerencias_con_ranking falló:', conIA.error.message);
+export async function obtenerSugerencias(
+  limite = 20,
+  tipo: TipoPublicacion | null = null,
+  orden: OrdenSugerencias = 'ajuste'
+): Promise<ResultadoSugerencias> {
+  // END-17 · El tipo va al SERVIDOR. Filtrarlo aquí, sobre un top-30 que
+  // Postgres ya truncó, es lo que hacía que la app dijera «SIN REGISTROS DE ESE
+  // TIPO» habiendo cincuenta: si en esos treinta no caía ningún cuarto, no los
+  // había para el cliente. El filtro vive en la función interna, así que ahora
+  // se filtra primero y se trunca después.
+  const { data, error } = await supabase.rpc('sugerencias_con_ranking', {
+    p_limite: limite,
+    p_tipo: tipo,
+    p_orden: orden,
+  });
+  if (error) throw error;
 
-  const base = await supabase.rpc('sugerencias_publicaciones', { p_limite: limite });
-  if (base.error) throw base.error;
-  return { datos: (base.data ?? []) as PublicacionSugerida[], nivel: 1 };
+  const datos = (data ?? []) as PublicacionSugerida[];
+  return {
+    datos,
+    conAfinidad: datos.filter((p) => p.similitud != null).length,
+    total: datos.length,
+  };
+}
+
+/**
+ * END-32 · Lo reciente, que es lo único que la lista no dice.
+ *
+ * La pantalla tenía TRES carruseles sobre el mismo conjunto que la lista: el
+ * primero era `slice(0, 8)` de esa misma lista, un prefijo literal. Un carrusel
+ * se justifica por traer otra información, no por presentar la misma con otro
+ * peine.
+ *
+ * Devuelve pocas filas a propósito: si no llegan a tres, la pantalla no lo
+ * pinta. Un carrusel con dos elementos es un hueco con título.
+ */
+export async function obtenerNuevasEstaSemana(
+  limite = 10,
+  tipo: TipoPublicacion | null = null
+): Promise<PublicacionNueva[]> {
+  const { data, error } = await supabase.rpc('nuevas_esta_semana', {
+    p_limite: limite,
+    p_tipo: tipo,
+  });
+  if (error) throw error;
+  return (data ?? []) as PublicacionNueva[];
 }
 
 // ═══════════════════ Lectura ═══════════════════
@@ -74,11 +126,23 @@ export async function obtenerSugerencias(limite = 20): Promise<ResultadoSugerenc
  * teléfono. Leer la tabla directamente devolvería cero filas para cualquiera
  * que no sea el dueño (policy publicaciones_select_propias) — que es
  * exactamente el síntoma de AUD-01, y por eso conviene tenerlo claro aquí.
+ *
+ * END-28 · Las columnas van ENUMERADAS y no `select('*')`. La vista sí expone
+ * `vector_embedding`, porque `sugerencias_con_ranking` lo necesita del lado del
+ * servidor; con el asterisco esos 384 flotantes —4 697 bytes medidos— bajaban al
+ * teléfono en cada apertura de ficha, para una columna que ninguna pantalla lee.
+ * La lista es la misma de `PublicacionPublica` menos el vector, así que al
+ * añadir una columna a la vista hay que tocar los dos lugares: es el precio de
+ * no mandar lo que no se usa.
  */
 export async function obtenerPublicacionPublica(id: string) {
   const { data, error } = await supabase
     .from('publicaciones_publicas')
-    .select('*')
+    // Un LITERAL de una pieza, no una concatenación: supabase-js infiere el tipo
+    // de la fila leyendo esta cadena en tiempo de compilación. Partida en dos con
+    // `+`, deja de poder leerla y `data` degrada a `GenericStringError` — 31
+    // errores de tsc que no mencionan la causa por ningún lado.
+    .select('id, usuario_id, titulo, tipo, direccion, latitud, longitud, precio_renta, descripcion, permite_mascotas, amueblado, servicios_incluidos, recamaras, fotos, creado_en')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
@@ -107,7 +171,7 @@ export async function obtenerMiPublicacion(id: string) {
 export async function contarContactosRecibidos(): Promise<Map<string, number>> {
   const { data, error } = await supabase.rpc('contactos_de_mis_publicaciones');
   if (error) {
-    console.warn('contactos_de_mis_publicaciones falló:', error.message);
+    aviso('contactos_de_mis_publicaciones falló', { detalle: error.message });
     return new Map();
   }
   return new Map((data ?? []).map((f) => [f.publicacion_id, Number(f.total)]));
@@ -238,8 +302,16 @@ export async function cambiarEstadoPublicacion(id: string, activa: boolean) {
 export async function reintentarGeocodingPendiente(publicaciones: Publicacion[]): Promise<number> {
   const pendientes = publicaciones.filter((p) => p.pendiente_geocoding);
   let resueltas = 0;
-  // En serie, no en paralelo: Nominatim admite una petición por segundo y
-  // dispararlas todas juntas es la forma más rápida de que te bloqueen (§9).
+  // En serie y no en paralelo, pero por una razón MENOR de la que decía este
+  // comentario. Afirmaba honrar el límite de una petición por segundo de
+  // Nominatim, y no podía: el bucle no esperaba nada entre vueltas —iba tan
+  // rápido como respondiera cada ida y vuelta— y, aunque hubiera esperado, dos
+  // teléfonos reintentando a la vez habrían duplicado el ritmo igual, porque
+  // Nominatim ve una sola IP: la de Supabase.
+  //
+  // El límite lo aplica ahora el servidor (END-15, migración 0035). Esto sigue
+  // en serie para no disparar diez invocaciones de la Edge Function que acaben
+  // haciendo cola en la base y expirando por el tope de espera.
   for (const p of pendientes) {
     const coords = await geocodificarDireccion(p.direccion);
     if (!coords) continue;
@@ -267,13 +339,34 @@ export async function reintentarGeocodingPendiente(publicaciones: Publicacion[])
  * el contacto sin duplicar. v4 tenía la función pero sin cuota, lo que
  * registraba el scraping en vez de impedirlo.
  */
-export async function revelarContacto(publicacionId: string, score?: number | null): Promise<string> {
+/**
+ * END-21 · Ya no se manda el score.
+ *
+ * Antes iba como argumento, y la app lo había sacado de un parámetro de ruta:
+ * la métrica que el producto presenta la dictaba quien iba a ser medido. Ahora
+ * `revelar_contacto` la calcula dentro, con `afinidad_de`.
+ */
+export async function revelarContacto(publicacionId: string): Promise<string> {
   const { data, error } = await supabase.rpc('revelar_contacto', {
     p_publicacion_id: publicacionId,
-    p_score: score ?? null,
   });
   if (error) throw error;
   return data as string;
+}
+
+/** La afinidad de una publicación, calculada en el servidor (END-21). */
+export async function obtenerAfinidad(publicacionId: string) {
+  const { data, error } = await supabase.rpc('afinidad_de', { p_publicacion_id: publicacionId });
+  if (error) throw error;
+  const fila = (data ?? [])[0];
+  return fila
+    ? {
+        score: fila.score as number | null,
+        similitud: fila.similitud as number | null,
+        scoreFinal: fila.score_final as number | null,
+        nivel: fila.nivel as 1 | 2,
+      }
+    : null;
 }
 
 /** El ocultamiento automático a los 3 reportes lo hace el trigger `al_reportar`

@@ -55,7 +55,7 @@ beforeEach(() => {
 
 const abrirDialogo = async () => {
   await render(<PerfilScreen />);
-  fireEvent.press(screen.getByLabelText('Eliminar mi cuenta'));
+  fireEvent.press(await screen.findByLabelText('Eliminar mi cuenta', {}, { timeout: 5000 }));
   await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
   return (Alert.alert as jest.Mock).mock.calls[0];
 };

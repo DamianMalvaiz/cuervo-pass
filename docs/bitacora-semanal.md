@@ -426,66 +426,891 @@ limpieza no encontró el bug por listeza, sino por chocar con él.
 Estado: 102 usuarios, 104 publicaciones activas, 104/104 con vector,
 geocodificación dentro del rango esperado, cola de huérfanas vacía.
 
+### Endurecimiento: siete hallazgos propios, tres críticos (19/09/2026)
+
+- **Logrado:** auditoría de la implementación —no del documento— ejecutando el
+  sistema. Treinta y ocho hallazgos propios (END-01 a END-38) en
+  [`docs/endurecimiento-v6.md`](endurecimiento-v6.md). Siete remediados en trece
+  commits sobre la rama `endurecimiento`. pgTAP 21 → 40, aislamiento contra
+  producción 15 → 19, pruebas del microservicio 9 → 16, frontend 92 → 98, y las
+  cuatro Edge Functions tipadas **por primera vez**.
+- **Atorado:** las cinco migraciones nuevas (0022–0026) siguen **sin aplicar a
+  producción**, así que ninguna de las remediaciones protege nada todavía. El
+  túnel de Cloudflare estuvo diez minutos sin resolver DNS y quedó abajo.
+- **Decisión:** los hallazgos llevan prefijo **END-** y no AUD-. Reusar la
+  numeración de v5 haría ambiguo cada uno de los comentarios del código que ya
+  la citan.
+- **Horas:** — / —
+
+Los tres críticos comparten forma con AUD-01 —dos decisiones correctas por
+separado que se contradicen al correr juntas— y los tres eran silenciosos:
+
+1. La migración titulada «storage privado» cambió *cualquiera en internet* por
+   *cualquiera con una cuenta*. Comprobado contra producción: una cuenta recién
+   creada **descargó los bytes** de la foto de perfil de un usuario dado de baja.
+2. El microservicio con `ANTHROPIC_API_KEY` dentro, expuesto por un túnel
+   público, **no autenticaba a nadie** en la ruta de arranque del README. Lo
+   delataba la propia suite: cuatro pruebas llamaban sin cabecera y esperaban
+   200, así que pasaba *gracias* al fallo.
+3. «Reportar usuario» insertaba la fila, mostraba «Gracias», y el trigger salía
+   con `return new`. Nunca hizo nada. Es AUD-16 otra vez, en la ruta de
+   seguridad personal.
+
+Lo que esta entrada deja escrito para el futuro, porque es el patrón y no el
+incidente: **la documentación de este repositorio describe un sistema distinto
+al construido**, no por descuido en la prosa sino por una asimetría entre
+afirmar y verificar. `DESIGN.md` tiene 27 KB y la capa de servicios tenía 0 % de
+cobertura. Se midieron doce pares de contraste de texto a mano y ninguna
+superficie contra superficie — la que falla, con razón **1.00**.
+
+Y cuatro errores de método de la propia auditoría quedan registrados en su §8.
+Los cuatro se detectaron ejecutando, ninguno leyendo; tres no fueron de
+razonamiento sino de no validar las condiciones del experimento. El peor: un
+`grep` terminado en `| grep -v ".venv"` se comió la única línea que refutaba una
+afirmación, y sobre esa premisa falsa se revirtió un commit correcto.
+
+### Fase 0 aplicada, y cinco órdenes del plan (19/09/2026 · tarde)
+
+- **Logrado:** las cinco migraciones del bloque crítico aplicadas a producción
+  con respaldo previo, `pg_cron` activo, los dos secretos de Vault puestos y el
+  barredor desplegado y probado de punta a punta. **19 de 19 barreras** contra
+  producción, que es la compuerta que cierra la Fase 0. Después, cinco órdenes
+  del §5: B.1, B.2, B.4, C.1, C.2 y E.2.
+- **Atorado:** dos barreras de seguridad reportaban `[ EXPUESTO ]` con la
+  remediación aplicada y funcionando. Costó media hora descartar policies,
+  vistas y permisos antes de encontrar que el problema era la prueba.
+- **Decisión:** ninguna orden se cerró sin su prueba en rojo primero. Las seis
+  lo tuvieron, y dos de esos rojos —`have: 2 want: 5` y `have: 3 want: 1`— son
+  la evidencia más barata de que el defecto era real y no una interpretación.
+- **Horas:** — / —
+
+**Compuertas antes y después de esta tanda:**
+
+| | Antes | Después |
+|---|---|---|
+| pgTAP | 40 | **51** |
+| Aislamiento contra producción | 15 (4 fallando) | **19 de 19** |
+| Frontend | 98 | **144** |
+| Migraciones en producción | 0021 | **0029** |
+
+#### Las dos barreras que medían la caché, no la policy
+
+El hallazgo más instructivo del día, y va contra una prueba nuestra.
+
+Tras aplicar la `0022`, `prueba-rls.mjs` insistía en que una cuenta cualquiera
+seguía descargando la foto de una publicación desactivada. Se descartó una por
+una: las policies de `storage.objects` son correctas e **idénticas** en local y
+producción, la permisiva de la `0016` ya no existe, `publicaciones_publicas`
+filtra por `activa`, `perfiles_publicos` por `activo`, y el bucket es privado en
+ambos entornos.
+
+El experimento que lo cerró: con la publicación ya desactivada, la ruta hermana
+`1.jpg` —**nunca pedida**— quedó bloqueada, mientras `0.jpg` —pedida cuando era
+visible— seguía descargando. Storage servía la segunda petición desde caché y
+**la policy no llegaba a evaluarse**.
+
+La prueba pedía la misma ruta antes y después de ocultar el objeto. Ahora cada
+barrera negativa usa una ruta fría; para la foto de perfil, cuya ruta es fija
+por persona, la ruta fría es la de una cuarta cuenta.
+
+Es el §8 del documento de endurecimiento aplicado al script que ese documento
+produjo: **verifica las condiciones del experimento antes de creerle al
+resultado**. Y una prueba de seguridad que grita sin motivo acaba ignorada, que
+es peor que no tenerla.
+
+#### Lo que cambió para quien usa la app
+
+- **END-08** · El motor devolvía solo las publicaciones vectorizadas y el
+  servicio daba eso por «Nivel 2» con que hubiera una sola fila. Medido en
+  producción: una cuenta sin vector propio recibía **cero** sugerencias del
+  motor y ahora recibe **diez**, las mismas que siempre pasaron el filtro duro.
+  El error era de granularidad: lo que degrada cuando falta un embedding es el
+  ORDEN de una fila, no la EXISTENCIA de la lista. El kicker deja de ser una
+  bandera y dice «12 DE 20 CON AFINIDAD SEMÁNTICA», que además demuestra en vez
+  de afirmar.
+- **END-09** · El score de mascotas restaba 0.125 a los alojamientos *pet
+  friendly* de quien **no** tiene mascota, al revés de lo que su propio
+  comentario afirmaba treinta líneas más abajo. Afectaba a **62 de 102** cuentas
+  y a las 29 publicaciones que aceptan mascotas.
+- **END-11** · El peor mensaje que tenía la app: un fallo de red hacía que la
+  ficha dijera «pudo desactivarse u ocultarse tras varios reportes». Se caía el
+  wifi y la app **acusaba de abuso** al anuncio de otra persona. Y en el perfil
+  propio, «Sin presupuesto · Sin distancia · Sin universidad» a quien acababa de
+  llenar el cuestionario.
+- **END-12** · Un error de render en release era **pantalla blanca**. Ahora hay
+  `ErrorBoundary` con reintento, y los 21 `console.warn` —invisibles en un build
+  de release— pasan por `src/lib/registro.ts`, que limpia en profundidad lo que
+  §29 no deja salir del teléfono.
+- **END-13** · Reabrir cinco publicaciones cinco veces agotaba las 25 cuotas
+  diarias **usando la app con normalidad**. Verificado en producción: tres
+  revelaciones del mismo contacto consumen **una**.
+
+#### Dos errores propios de esta tanda
+
+Se registran por la misma razón que los cuatro del §8 del documento: un registro
+que solo guarda los aciertos no sirve para aprender de él.
+
+1. **La transformación de E.2 rompió una suite entera y casi pasa
+   desapercibido.** Metió un `await` dentro del callback no-async de un
+   `waitFor` multilínea. `tsc` lo marcó, pero lo que de verdad lo delató fue que
+   el TOTAL DE PRUEBAS bajó de 144 a **137**: esa suite dejó de compilar y la
+   salida seguía diciendo *passed*. **Mirar el color y no el número deja
+   desaparecer siete pruebas sin que nadie lo note.**
+2. **Se contó mal un `plan()` de pgTAP** —cinco aserciones declaradas como
+   cuatro—, que es exactamente el tipo de error que `plan()` existe para
+   atrapar. Lo atrapó.
+
+#### Lo que se decidió no hacer, y por qué
+
+- **Sentry no se instaló.** Es un módulo nativo y obliga a reconstruir el dev
+  client a días de exponer. El gancho queda puesto (`registrarSumidero`): son
+  diez líneas el día que se decida, y cero en los 21 sitios que registran. El
+  `ErrorBoundary` ya elimina el fallo catastrófico; Sentry solo añade telemetría
+  que nadie va a mirar esa tarde.
+- **`expo-clipboard` tampoco**, por lo mismo. El botón «Compartir detalle» usa
+  `Share`, que ya viene en React Native y además permite mandarse el error por
+  WhatsApp.
+- **`barrer-fotos` se quedó sin CORS**, al contrario que las otras tres
+  funciones. La llama `pg_cron` vía `pg_net`, nunca un navegador: abrirla no
+  habilita ningún caso de uso y sí amplía su superficie. Queda escrito en el
+  propio archivo para que nadie «arregle» la inconsistencia.
+- **No se editó el comentario de la `0015`** que la orden B.2 pedía corregir.
+  Editar una migración ya aplicada está prohibido por el invariante 6, y además
+  ese comentario nunca fue falso: describía el filtro duro, que siempre estuvo
+  bien. Lo que estaba mal era el score, que ahora por fin lo obedece.
+
+### La capa de datos, el chat y cuatro órdenes de diseño (19/09/2026 · noche)
+
+- **Logrado:** siete órdenes más — C.3, C.4, D.1, D.2, D.3, D.4 y D.7. La app
+  gana una capa de datos con caché, el chat deja de perder mensajes, y tres
+  reglas de diseño que el repositorio declaraba y violaba pasan a ser
+  compuertas que corren en CI.
+- **Atorado:** nada bloqueó. Lo que costó tiempo fueron dos peleas con el arnés
+  de pruebas, ambas registradas abajo porque se van a repetir.
+- **Decisión:** ninguna orden se cerró sin su prueba en rojo primero, incluidas
+  las de diseño. Un verificador de contraste que solo se comprueba «en verde»
+  pasaría igual si no mirara nada.
+- **Horas:** — / —
+
+| Compuerta | Antes | Ahora |
+|---|---|---|
+| Frontend | 144 | **199** |
+| pgTAP | 51 | **55** |
+| Contraste | **ninguna** | script en CI |
+| Objetivos táctiles | **ninguna** | script en CI |
+| Tokens de diseño | prosa en AGENTS.md | regla de ESLint |
+
+#### El chat perdía mensajes, y eso no es rendimiento
+
+**END-16** · `listarConversaciones` pedía **1200 mensajes** para resolver treinta
+hilos y los plegaba en JavaScript, en el mismo archivo cuyo encabezado acusa a
+v3 de «traerse TODOS los mensajes y agruparlos en JavaScript». Y no era solo
+coste: el orden de esa ventana es global, así que **un chat activo escondía el
+último mensaje de los tranquilos**, que aparecían como si estuvieran vacíos.
+Ahora son dos `left join lateral` en Postgres: treinta hilos, treinta filas.
+
+**END-20** · El cursor de paginación era solo `creado_en`. Dos mensajes con la
+misma marca de tiempo —dos personas escribiendo a la vez— hacían que **uno
+desapareciera** al paginar: el primero cerraba la página y el segundo caía fuera
+del `<`. Un mensaje perdido en un chat no es un fallo de rendimiento: **es la
+app borrando algo que alguien escribió.** El cursor pasa a ser el par
+`(creado_en, id)`, que sí es único.
+
+Y el envío se vuelve optimista. Si falla, **el texto ya no vuelve al campo**: la
+burbuja se queda en su sitio marcada como fallida, con reintento al tocarla.
+Devolverlo al campo se lee como que el mensaje se borró, cuando la persona ya lo
+había mandado.
+
+#### Tres reglas que el repositorio declaraba y violaba
+
+Las tres tenían la misma forma: una afirmación escrita en un documento, sin
+nada que la comprobara.
+
+**END-29 · El bloque destacado era invisible.** `theme.ts` afirmaba que «todos
+los contrastes de este archivo están medidos, no supuestos». Era verdad a
+medias, y la mitad que faltaba era la que fallaba: se midieron doce pares de
+TEXTO sobre fondo y **ninguna superficie contra superficie**. El «lavado del
+sello» daba **1.00** contra el papel — la misma luminancia exacta. Un cambio de
+matiz con cero cambio de valor: desaparece bajo el sol, con reflejo, en escala
+de grises y para alguien con daltonismo.
+
+El umbral de superficie **no existe en WCAG**, y por eso ese par se escapó. WCAG
+cubre texto y bordes de control; nadie mide superficie contra superficie porque
+ninguna norma lo pide.
+
+**END-35 · Objetivos táctiles bajo el propio estándar.** El invariante 8 dice
+«44×44 pt, sin excepciones» y llevaba semanas escrito. Había **cinco controles
+por debajo**: 30, 32, 36, 38 y 40 pt.
+
+**END-31 · Deuda de tokens.** El invariante 7 prohíbe `fontSize` y `fontFamily`
+sueltos, y había 29 apariciones. Al encender la regla de ESLint salió el
+hallazgo de fondo: **la mayoría no eran descuido.** Eran estilos de `TextInput`,
+y a un TextInput no se le puede aplicar `ThemedText` — no tenían alternativa,
+porque la escala tipográfica vivía DENTRO de `themed-text.tsx` y el tema no la
+tenía para ofrecerla. Movida a `Texto` en `theme.ts`, la deuda bajó a **cero** y
+`themed-text` dejó de ser excepción: era la única que existía por una limitación
+del propio sistema y no del entorno, así que era la única que se podía eliminar
+en vez de nombrar.
+
+#### La cifra que afirmaba de más
+
+**END-30** · «AFINIDAD 9.4», en `Archivo_900Black` a 56 px, dentro de una
+casilla que imita un kardex universitario. Tres problemas apilados:
+
+1. **Precisión fabricada.** El número es `0.6 × score + 0.4 × similitud`, una
+   mezcla ponderada de cuatro heurísticas normalizadas a mano. No tiene una
+   décima de resolución: 8.7 y 8.6 son ruido entre sí. Ahora redondea a medios
+   puntos — veintiún valores en vez de ciento uno.
+2. **Significado falso.** Por el término de presupuesto, lo más barato siempre
+   gana: un «9.4» significaba *barato y cerca*, no «excelente departamento». La
+   etiqueta pasa a **AJUSTE**.
+3. **Autoridad prestada.** Una calificación de kardex es un número *ganado y
+   auditable*, y la metáfora le prestaba a este una credibilidad que no tiene, a
+   alguien que elige dónde va a vivir sin haber visto el lugar. Bajo la casilla
+   van ahora sus razones —`1.2 km · $500 bajo tu tope · afinidad 0.87`—, y en el
+   detalle: *«Este ajuste compara tus filtros con lo publicado. No verificamos
+   el inmueble.»*
+
+Una cifra con su desglose al lado se puede **discutir**, y eso es lo que
+distingue una recomendación de una sentencia.
+
+#### La densidad contradecía el posicionamiento
+
+**END-33** · La ficha medía 420–450 px: **una tarjeta y media por pantalla**. Y
+`PRODUCT.md` dice «Airbnb ordena por deseo […] esto ordena por ajuste». El
+ajuste se evalúa comparando, y comparar exige ver varias opciones a la vez. La
+fila nueva mide 132 px y pone las tres cifras en columnas de ancho fijo con
+`tabular-nums`, para que formen columna al recorrer. La ficha grande se conserva
+para «Mis publicaciones», donde la pregunta es «cómo va la mía» y no «cuál de
+estas».
+
+#### Dos peleas con el arnés, registradas porque se repiten
+
+1. **Una prueba que llama a `unmount()` deja sin pintar a todo render posterior
+   del mismo archivo.** Comprobado: aislada pasa, en medio hace fallar a las
+   tres siguientes, movida al final pasan las siete. Esto explica además el
+   misterio de `FormularioPublicacion`, donde hubo que partir las pruebas de
+   envío a otro archivo sin entender por qué: aquel archivo tiene
+   `afterEach(cleanup)`, que es un unmount explícito.
+
+2. **Declarar `transform` en `package.json` REEMPLAZA el del preset de Expo.**
+   Al intentar añadir una entrada para `.mjs`, `.ts` y `.tsx` dejaron de
+   transformarse y cuatro suites fallaron con «Jest failed to parse a file», que
+   no menciona la causa por ningún lado. Spreadear el preset tampoco sirve:
+   rompe sus rutas internas.
+
+#### Tres cosas que el linter encontró y una prueba no habría encontrado
+
+Vale la pena registrarlo porque contradice la intuición de que las pruebas son
+la única red:
+
+- Al migrar la lista a la fila nueva, una variable quedó huérfana — y esa
+  variable era la que alimentaba la línea del «porqué» que D.2 acababa de
+  añadir. **Media orden anterior se deshacía sin que ninguna prueba fallara.**
+- Catorce archivos dejaron de importar `Tipografia` tras D.3, lo que confirmó
+  que ya no tocan las tipografías crudas en absoluto.
+- Un `useState` colocado después de un `return` temprano en `_layout.tsx`
+  —añadido al montar el provider de react-query— es un error de reglas de hooks
+  que ninguna prueba de esta suite habría detectado.
+
+#### Lo que sigue sin poder comprobarse aquí
+
+La orden D.4 pide verificar **en un dispositivo** que caben al menos cuatro
+filas. Está comprobado por aritmética —132 px más 8 de separación sobre 800 px
+útiles dan cinco—, no con un teléfono en la mano. Ningún agente puede hacer eso,
+y confundir una cosa con la otra es exactamente el defecto que §0.2 del
+documento de endurecimiento imputa al proyecto.
+
+### Primera pasada en dispositivo tras el bloque D (19/09/2026 · noche)
+
+- **Logrado:** el rediseño se probó en el teléfono, con el túnel arriba y Nivel 2
+  vivo. Confirmado por quien lo usó: las sugerencias son filas y **caben cuatro
+  por pantalla**, la calificación dice AJUSTE en medios puntos, el desglose
+  aparece al abrir una ficha —sin depender de por dónde entres— y el envío de
+  mensajes pinta la burbuja al instante.
+- **Atorado:** nada. Pero la segunda pasada, con el tamaño de letra del sistema
+  al máximo, **no se hizo**.
+- **Decisión:** D.4 se da por cerrado —su aceptación pedía «al menos 4 filas» y
+  hay cuatro— y **D.6 NO**. `PRODUCT.md` sigue diciendo «implementado, sin
+  verificar en dispositivo» para el escalado de fuente, y
+  `docs/prueba-escalado.md` sigue diciendo «sin ejecutar». Dar por buena una
+  promesa de accesibilidad con un «se ve bien» de la pasada normal sería
+  exactamente el defecto que §0.2 del endurecimiento imputa a este repositorio.
+- **Horas:** — / —
+
+Un apunte de método que costó un susto: al correr `verificar.mjs` para dejar el
+terreno listo, reportó FALLO en `revelar_contacto` sobre una función que estaba
+perfectamente bien. La migración `0031` le había quitado el parámetro `p_score`
+—porque la métrica la dictaba el cliente— y el propio verificador seguía
+llamándola con él. **Cambiar la firma de una RPC obliga a revisar todo lo que la
+llama, y los scripts de verificación son llamadores como cualquier otro.**
+
+De paso, el conteo de aserciones de pgTAP pasó a leerse del archivo de pruebas:
+decía «37» cuando ya eran 59. Un verificador que miente sobre su propia
+cobertura es peor que uno que calla.
+
+### Seis órdenes: el servidor recupera lo que el cliente dictaba (19/09/2026 · madrugada)
+
+- **Logrado:** C.5, C.6, C.7, D.6, E.4 y B.6. Cuatro de las seis quitan una
+  decisión de las manos del cliente y la devuelven al servidor, que es de lo que
+  iba media auditoría sin haberlo dicho así.
+- **Atorado:** nada bloqueó. Lo que sí apareció fue un agujero de secretos en
+  `main` que ninguna de las seis órdenes buscaba; queda abajo.
+- **Decisión:** las dos migraciones —`0032` y `0033`— se escribieron con su
+  prueba pgTAP en rojo primero, y la `0033` se verificó contra **producción**
+  con una medición que podía salir mal, no con una que solo podía confirmar.
+- **Horas:** — / —
+
+| Compuerta | Antes | Ahora |
+|---|---|---|
+| Frontend | 199 | **217** |
+| pgTAP | 55 | **64** |
+| RLS contra producción | 19/19 | 19/19 |
+| Acciones de CI pineadas por SHA | 0 de 16 | **16 de 16** |
+
+#### El hilo común: quién tiene la autoridad
+
+Tres órdenes distintas resultaron ser la misma falla en tres capas:
+
+- **C.5** — la calificación viajaba como parámetro de ruta y se escribía en
+  `contactos.score_mostrado`. La métrica que el producto presenta **la
+  suministraba el medido**: cualquiera con la anon key registraba el número que
+  quisiera. Ahora la fórmula vive en `score_ajuste(...)`, en un solo sitio, y la
+  aserción 56 afirma que `afinidad_de` y `sugerencias_con_ranking` devuelven el
+  mismo valor — si alguien vuelve a copiar la fórmula, esa igualdad se rompe.
+- **C.6** — la app distinguía «llegaste a tu límite» de «falló la red»
+  buscando subcadenas en el mensaje de Postgres. El diagnóstico incómodo no era
+  la pereza sino que **no había código que leer**: las dos excepciones propias
+  usaban `check_violation`, el mismo que devuelve cualquier CHECK de cualquier
+  tabla. La `0032` les da uno (clase `CP`). Con subcadenas, un «no hay cuota de
+  disco en el servidor» habría hecho que la persona leyera que agotó su cupo
+  diario.
+- **B.6** — `sugerencias_publicaciones` devolvía 384 flotantes por fila que
+  ninguna pantalla lee. Medido antes de tocar nada: **4 697 bytes por fila, el
+  85 % del payload**; ~138 KB por refresco a 30 filas.
+
+Las otras dos no son de autoridad sino de tiempo y de personas: **C.7**, las URLs
+firmadas caducaban a la hora y se pedían una sola vez —una app abierta más de
+sesenta minutos se quedaba sin ninguna foto y no se recuperaba nunca—, y **D.6**,
+el escalado de fuente que `PRODUCT.md` prometía y que tenía cero usos en todo el
+código.
+
+#### Tres tipos que no verificaban nada
+
+`PublicacionSugerida` **nunca declaró** `vector_embedding`. La orden B.6 pedía
+«ajusta el tipo» y no había nada que ajustar: el tipo ya mentía por omisión.
+`tsc` dejó pasar 4,7 KB por fila durante meses porque la interfaz lleva
+`[key: string]: unknown`, y ese índice está en casi todas las de
+`database.types.ts`. Es un agujero sistemático, no un caso.
+
+La segunda fuga, que la auditoría no listaba: `obtenerPublicacionPublica` hacía
+`select('*')` sobre `publicaciones_publicas`, y esa vista **sí** expone el
+vector, porque el ranking lo necesita del lado del servidor. Quitarlo de las
+sugerencias y dejar el asterisco habría movido la fuga a la pantalla que más se
+abre. Al enumerar las columnas hay que hacerlo en **un literal de una pieza**:
+partido con `+`, supabase-js no puede leerlo en tiempo de compilación y `data`
+degrada a `GenericStringError` — 31 errores de tsc que no nombran la causa.
+
+#### La verificación que podía salir mal
+
+Para la `0033` no bastaba medir que el payload bajó: eso lo confirma cualquier
+cosa. Lo que había que comprobar es que el `left join lateral` por id trae **la
+fila correcta**, no una cualquiera. Se le copió a una cuenta desechable el vector
+de una publicación real de producción: esa publicación salió con similitud
+**exactamente 1**, ninguna otra la alcanzó, y 30 de 30 filas siguieron en Nivel
+2. La cuenta se borró al terminar.
+
+#### 211 + 9 no da 217
+
+El mensaje del commit de C.6 dice «nueve pruebas». El archivo tiene **seis**
+bloques `it(`, y el total medido pasó de 211 a 217. Los totales son reales —se
+comprobaron corriendo la suite en los dos commits—; el «nueve» era mío y estaba
+mal. Se registra porque es la misma clase de defecto que §0.2 imputa al
+repositorio, esta vez en un mensaje de commit: **un número escrito a mano no es
+una medición, aunque lo escriba quien acaba de medir.**
+
+De paso, el mismo hábito destapó que `AGENTS.md` decía «la siguiente migración es
+la **0022**» cuando la última aplicada era la **0033**. Un contador a mano que
+hay que actualizar en cada migración y que nadie actualizó doce veces seguidas.
+Se sustituyó por el comando que lo consulta.
+
+#### CI dejó de confiar en referencias móviles
+
+`ci.yml` explicaba con detalle por qué `npm ci` y no `npm install`, y dos jobs
+más abajo usaba `aquasecurity/trivy-action@master` **en el job de seguridad** y
+un `curl … install.sh | sh` desde la rama `main` de otro proyecto, con escritura
+en `/usr/local/bin`, dentro del job que produce el inventario de seguridad.
+
+El hallazgo que más sorprende: `supabase/setup-cli@v1` **no es una etiqueta, es
+una rama**. Comprobado con la API de GitHub — `git/ref/tags/v1` devuelve 404 y
+`git/ref/heads/v1` devuelve un SHA. Se veía exactamente igual que una versión
+fijada y no lo era.
+
+Dieciséis acciones pineadas por SHA, cada una anotada con la etiqueta que
+representa: un SHA sin su etiqueta al lado es imposible de auditar de un vistazo.
+Y `npm audit --audit-level=high` en el frontend, porque Trivy miraba la imagen
+del microservicio y **nadie miraba `node_modules`**, que es donde vive la mayor
+parte del código de terceros que acaba en el APK. El umbral es `high` y no
+`moderate` a propósito, y queda escrito por qué: hoy hay 14 moderadas, todas
+transitivas de Expo, que no se corrigen sin salir del SDK 57; con `moderate` el
+job nacería en rojo permanente, y una compuerta siempre roja se acaba apagando.
+
+#### Un agujero de secretos que sigue abierto en `main`
+
+Apareció por accidente, al volver de un `git checkout` para contar pruebas:
+`.env.server` sale como **no ignorado** en `main`. La línea que lo ignora existe
+solo en la rama `endurecimiento`. Ese archivo tiene la `SUPABASE_SERVICE_ROLE_KEY`
+y **el repositorio es público**, así que un `git add -A` hecho desde `main`
+publica la llave que se salta toda la RLS.
+
+Comprobado antes de alarmar:
+
+```bash
+git log --all --oneline -- .env.server     # vacío: nunca se commiteó
+git log --all -S 'SUPABASE_SERVICE_ROLE_KEY='   # solo plantillas vacías
+```
+
+Nunca ocurrió. El riesgo se cierra solo cuando `endurecimiento` se fusione a
+`main`; **hasta entonces, no hacer `git add -A` desde `main`.**
+
+### El filtro que no filtraba, y el revoke que no revocaba (19/09/2026 · madrugada)
+
+- **Logrado:** B.3 y B.5, más una corrección de datos y un arreglo de seguridad
+  que ninguna orden pedía.
+- **Atorado:** nada. Pero las dos órdenes de esta tanda destaparon defectos
+  MAYORES que las órdenes mismas, y las dos veces por el mismo mecanismo: una
+  compuerta que empezó a funcionar enseñó lo que llevaba tapando.
+- **Decisión:** el arreglo de seguridad se hizo de inmediato y antes que
+  cualquier cosa de diseño. Dos agujeros explotables con la anon key y sin
+  herramientas no esperan a que toque su turno en un plan.
+- **Horas:** — / —
+
+| Compuerta | Antes | Ahora |
+|---|---|---|
+| pgTAP | 64 | **78** |
+| Frontend | 217 | **219** |
+| RLS contra producción | 19/19 | 19/19 |
+| Migraciones aplicadas | 0033 | **0036** |
+
+#### B.3 · El chip pedía un tipo que no existe
+
+`inicio.tsx` filtraba por tipo en el CLIENTE, sobre el top-30 que Postgres ya
+había truncado: si en esos treinta no caía ningún cuarto, la app decía «SIN
+REGISTROS DE ESE TIPO» habiendo cincuenta. Es el invariante 5 al revés.
+
+La migración `0034` mete `p_tipo` en la función INTERNA, la que trunca. Ponerlo
+en la envoltura habría seguido truncando antes de filtrar y el defecto habría
+sobrevivido con otra ropa.
+
+Dos cosas vivas que la orden no nombraba:
+
+- **Los chips llevaban sin filtrar nada desde C.3.** Metí el tipo en la
+  `queryKey` y dejé `queryFn: () => obtenerSugerencias(30)` ignorándolo. Cada
+  chip estrenaba su cubo de caché y pedía lo mismo. **Una clave que distingue lo
+  que la consulta no distingue reparte el mismo resultado en cubos distintos y
+  parece que funciona** — por eso pasó la prueba en dispositivo de la noche
+  anterior.
+- **El chip mandaba `'casa'`, y ese valor no existe.** El formulario, el enum de
+  zod, `TipoPublicacion`, la ficha y el CHECK de la `0010` dicen todos
+  `'casa_compartida'`. `inicio.tsx:38` era el único sitio del proyecto que decía
+  otra cosa, y sobrevivió porque el arreglo estaba tipado `string | null`. Al
+  mandarlo al servidor habría devuelto vacío **para siempre**. Ahora es
+  `TipoPublicacion | null` y lo atrapa el compilador.
+
+#### Lo primero que hizo el filtro al funcionar fue enseñar que los datos mentían
+
+Las 104 publicaciones estaban etiquetadas `depa`. No por descuido: la migración
+`0010` añadió la columna `tipo` sobre una tabla que ya tenía filas y las marcó en
+bloque con `set tipo = 'depa' where tipo is null`, que era lo único que podía
+hacer. Pero eso dejó publicaciones cuya propia descripción dice «Cuarto amplio,
+baño compartido» o «Casa con jardín» marcadas como departamento.
+
+Nadie lo vio en un año **porque el filtro corría en el cliente y, desde C.3, no
+corría en absoluto**. Una compuerta que no corre no es que pase: es que no mide.
+
+`scripts/corregir-tipos-demo.mjs` no adivina. Las ocho descripciones de
+producción corresponden 1:1 con las PLANTILLAS de `seed-demo.mjs`, que ya traen
+su tipo escrito, y el script usa ese catálogo como tabla de equivalencias.
+Inferirlo por palabras sueltas sería exactamente lo que el comentario de ese
+archivo condena. Una descripción fuera del catálogo se deja intacta y se
+reporta.
+
+Resultado: `depa 56 · cuarto 41 · casa_compartida 7`, y después de sembrar diez
+casas cerca de la UTVT, `casa_compartida 17`. El chip pasó de **1 fila a 11**.
+
+#### B.5 · El encabezado decía «en cola» y no había ninguna
+
+`geocodificar/index.ts` presentaba la cola como una de las tres obligaciones que
+la ODbL impone a cambio de permitir ALMACENAR coordenadas. No existía: solo
+caché. La única serialización era un `for` del cliente que **ni siquiera
+esperaba entre vueltas**, y aunque hubiera esperado, dos teléfonos a la vez
+duplicaban el ritmo igual — Nominatim ve una sola IP, la de Supabase.
+
+La `0035` reparte turnos con un `update ... returning` atómico. La base **no
+duerme**: devuelve los milisegundos que faltan y espera la Edge Function, que es
+efímera. Un `select ... for update` con `pg_sleep` dentro habría sido más corto
+de leer y habría retenido una conexión del pool por cada espera.
+
+Medido tras desplegar, tres geocodificaciones simultáneas: **1167 / 2616 / 3334
+ms**.
+
+#### El hallazgo de la tanda: `revoke ... from public` no revocaba nada
+
+La aserción 72 de la `0035` fue la primera del proyecto que **comprobaba** un
+revoke en vez de escribirlo, y falló. Supabase concede EXECUTE a `anon` y
+`authenticated` de forma **explícita** en la ACL de cada función nueva, y
+`revoke from public` no las toca porque no vienen de PUBLIC. Doce migraciones
+llevaban ese revoke creyendo que cerraba algo.
+
+Dos cosas explotables **en producción**, con la anon key y sin herramientas:
+
+- **`devolver_cuota('revelar_contacto')` decrementaba la cuota del propio
+  llamante.** Veinticinco llamadas la devolvían a cero y permitían revelar
+  veinticinco teléfonos más. En bucle, la base de teléfonos entera: justo el
+  scraping que AUD-04 existe para impedir. Lo abrió B.4 al concederla a
+  `authenticated`, que la necesitaba porque `ai-proxy` la llamaba con el token
+  del usuario.
+- **`afinidad_de_para` aceptaba el uuid de cualquiera.** El commit de la `0031`
+  dice que separarla de su envoltura «es lo que impide pedir la afinidad de OTRA
+  persona». No impedía nada, y por partida doble: estaba concedida, y
+  `afinidad_de` era `security invoker`, así que llamaba a la interna **con la
+  identidad del cliente** y el cliente NECESITABA poder ejecutarla. **Una
+  envoltura invoker no encapsula nada.**
+
+Menores del mismo origen: `barrer_fotos_programado`, `limpiar_cuotas_antiguas`,
+`enviar_notificacion_push` —destinatario, título y cuerpo arbitrarios— y ocho
+funciones de trigger.
+
+La `0036` cierra TODO con un bucle sobre `pg_proc` y abre por lista blanca. De lo
+que se cierra hay que acordarse de ampliar la lista; lo que se abre se revisa
+entero cada vez que se lee.
+
+#### Y mi propio arreglo estuvo a medias, por la misma razón que el error
+
+Añadí `alter default privileges ... revoke execute from anon, authenticated` y
+la aserción 76 siguió en rojo. PostgreSQL concede además a **PUBLIC** de fábrica,
+y ahí el revoke de default privileges **no funciona**. Medido aislado: con el
+revoke aplicado y el catálogo diciendo `{postgres=X,service_role=X}`, la función
+recién creada seguía naciendo con `{=X/postgres,...}`. Se descartó que hubiera un
+event trigger reconcediendo.
+
+Lo atrapó la prueba, no la lectura. Por eso la garantía no es esa línea sino la
+**aserción 75**: una lista blanca de lo ejecutable por `authenticated` que se
+rompe sola en cuanto aparece una función de más. Los tres auxiliares del propio
+archivo de pruebas se revocan también, para que la lista no tenga excepciones —
+**una lista blanca con excepciones es donde acaban escondiéndose las de verdad.**
+
+#### Tres comandos documentados que no podían funcionar
+
+Aparecieron al correrlos, no al leerlos:
+
+- `backfill-embeddings.mjs` respondía **401**. Lee `AI_SHARED_TOKEN`, que vive
+  solo en `ai-service/.env`, y la invocación documentada carga `.env` y
+  `.env.server`. Sin el token, `...(tokenCompartido ? { Authorization } : {})`
+  omite la cabecera y manda la petición sin autenticar. El servicio la rechaza
+  —falla cerrado del lado correcto— pero el script no dice por qué.
+- `prueba-rls.mjs`, tal como lo documentaba AGENTS.md, **revienta al arrancar**:
+  sin `.env.server` no hay service role key. Y decía «15 barreras» cuando son 19.
+- Con el backfill corriendo se arregló de paso la cuenta **«Mit»**, que consentía
+  análisis de IA y no tenía `perfil_vector`: sus sugerencias salían en Nivel 1.
+
+Los tres están corregidos en AGENTS.md, y esta vez **corridos antes de
+escribirlos**. Es el mismo defecto que §0.2 imputa al repositorio, en el archivo
+que dicta cómo se trabaja aquí.
+
+#### Lo que sigue sin poder comprobarse aquí
+
+Unsplash respondió **429** al sembrar las diez casas y se quedaron sin foto. El
+script aborta en vez de repetir la misma imagen ocho veces, que es lo correcto.
+`verificar.mjs` gana el aviso que lo dice: descubrirlo durante la exposición no
+tiene arreglo y resolverlo antes es un comando.
+
+### El bloque D, el bloque E, y el final del documento (20/09/2026)
+
+- **Logrado:** D.5, D.8, D.9, D.10, D.11, D.12, E.1, E.3, E.5 y E.6. Con esto
+  **el documento de endurecimiento queda cerrado**: los 38 hallazgos, atendidos.
+- **Atorado:** nada. Tres veces el trabajo destapó que una compuerta llevaba
+  tiempo midiendo otra cosa, y esa es la línea que une toda la tanda.
+- **Decisión:** en tres órdenes me aparté de la letra del documento y lo digo en
+  cada caso, porque seguirlo al pie habría reintroducido un defecto que la orden
+  anterior acababa de quitar.
+- **Horas:** — / —
+
+| Compuerta | Antes | Ahora |
+|---|---|---|
+| Frontend | 219 | **296** |
+| Microservicio (pytest) | 16 | **20** |
+| pgTAP | 82 | 82 |
+| Cobertura, medida honestamente | *no existía* | **51 % con trinquete en CI** |
+| `expo-doctor` | 8 paquetes desalineados | **21/21** |
+
+#### Lo que une la tanda: tres compuertas que medían otra cosa
+
+No estaban rotas. Estaban midiendo algo distinto de lo que su nombre decía, que
+es peor, porque una compuerta rota se nota.
+
+- **La cobertura decía 66.9 % y era 45.8 %.** Jest solo instrumenta los archivos
+  que ALGÚN test importa: lo que no tiene pruebas no baja el porcentaje,
+  desaparece del cálculo. Tres de los cuatro servicios no figuraban en el
+  informe. **El número mejoraba al no escribir pruebas.**
+- **El microservicio llevaba horas sirviendo código viejo.** Respondía, el modelo
+  estaba cargado, `/listo` decía «ok». Se midió ese proceso y se concluyó que un
+  fallo ya corregido seguía abierto: verificar produjo una conclusión falsa.
+- **`revoke ... from public` no revocaba** —esto fue en la tanda anterior, pero
+  es el mismo patrón— y lo destapó la primera aserción que COMPROBABA un revoke
+  en vez de escribirlo.
+
+El denominador común: en los tres casos el indicador decía «ok» y el sistema no
+lo estaba. Lo que los destapó no fue leer el código, fue **preguntarle al sistema
+en vez de al archivo**.
+
+#### D.5 · El carrusel que mentía, y por qué el orden se fue al servidor
+
+Tres carruseles y una lista sobre el mismo conjunto. El primero era
+`filtradas.slice(0, 8)`: un prefijo LITERAL de la lista que empezaba veinticuatro
+fichas más abajo.
+
+La orden pedía «un control de orden que reordene la lista **en el sitio**». Se
+puso en el SERVIDOR, contra la letra, porque «Las de menor renta» ordenaba por
+precio el top-30 **ya truncado por encaje**: enseñaba las más baratas de las
+treinta que mejor encajan, no las más baratas. Es END-17 con otro disfraz — el
+defecto que B.3 acababa de quitar de los chips—, y hacerlo en el cliente lo
+habría reintroducido un día después.
+
+Medido contra producción: **seis de las treinta** publicaciones que salen
+ordenando por renta NO están en el top-30 por ajuste. Si el orden se aplicara en
+el cliente ese número sería exactamente 0.
+
+#### D.8 · Un spinner que borraba la pantalla, y un membrete que adivinaba
+
+En `inicio` el indicador de carga era un `return` temprano que borraba
+encabezado, filtros y chips. Al sustituirlo por esqueletos, el membrete quedó al
+descubierto **declarando «NIVEL 1 · FILTROS PONDERADOS» y «0 REGISTROS» antes de
+haber preguntado** — y corrigiéndose solo delante de quien lo estuviera leyendo.
+Un esqueleto honesto no puede llevar encima un encabezado que adivina.
+
+Las etiquetas del esqueleto van de verdad: «AJUSTE», «RENTA» y «DISTANCIA» no
+dependen de la respuesta, se saben antes de preguntar.
+
+#### D.9 · El pulso que arrancaba para quien pidió que no hubiera movimiento
+
+`AccessibilityInfo.isReduceMotionEnabled()` es una promesa. Empezando en `false`,
+el primer render arrancaba la animación y el segundo la apagaba: **un destello de
+movimiento para justo la persona a la que el ajuste sirve.**
+
+Lo atrapó una prueba que **cuenta las llamadas a `withRepeat`** — eran tres antes
+de conocerse la preferencia. Mirar solo el estado final habría dado verde. De ahí
+salió un tercer estado, `null` («todavía no sé»), que después reutilizaron el
+conteo de la cifra y el hundido de `Pulsable`.
+
+Segunda desviación deliberada: la orden pedía que «todo» respetara reducir
+movimiento. El movimiento sí; **el tacto no**. Son dos ajustes distintos y para
+algunas personas que se marean con el movimiento la vibración es justo el canal
+que sí toleran.
+
+#### D.11 · Una clave sin leyenda
+
+La orden pedía codificar el tipo de publicación con una trama. El tipo **no
+aparecía en la lista**: solo en la ficha de detalle. Con los chips de B.3 se
+podía filtrar por algo que la lista nunca decía.
+
+Una trama sola habría sido una clave que nadie tiene. Va la trama Y la palabra:
+codificar información solo con un tratamiento visual falla para la misma gente
+que codificarla solo con color.
+
+Y un detalle que parece estético y no lo es: el sello **no lleva radio**. En
+Android, `borderStyle` de guiones y puntos se degrada a línea continua en cuanto
+hay `borderRadius`, y las tres tramas se volverían una sola sin que nada fallara.
+
+#### D.12 · El documento describía un sistema que ya no existe
+
+`DESIGN.md` llevaba los colores ANTERIORES a D.1 —los que daban 1.00 de
+contraste—, describía un selector de orden retirado, declaraba «sin escalonado
+entre hermanos» cuando D.9 lo acababa de añadir, y decía «las 87 imágenes» de un
+catálogo que acredita **27**.
+
+Se retiró la metáfora de la lámpara: bajo una lámpara el papel sigue siendo
+claro, y `#12100E` es un negro cálido. La imagen invitaba a tratar el oscuro como
+una versión atenuada del claro, cuando es una superficie con su propia paleta.
+
+**Estaba viva en cuatro sitios**, y el cuarto lo encontró una prueba que fijaba
+el texto de la salida del verificador de contraste — que es exactamente para lo
+que sirve fijar el texto de una salida.
+
+Ahora ninguna cifra de contraste se escribe a mano: la tabla lleva encima el
+comando que la genera. Y se admite lo que antes se callaba: el par
+`backgroundElement / background` **no llega** a su mínimo por sí solo y pasa
+porque el elemento va delineado.
+
+#### E.1 · El primer fotograma de la app era del sistema visual anterior
+
+Además de lo que pedía la orden —`bundleIdentifier`, clave de Maps,
+`runtimeVersion`—, apareció esto: el splash era azul `#208AEF` y el icono de
+Android es azul `#0C7BE4` sobre `#E6F4FE`. La paleta que «La Ficha» reemplazó.
+
+El splash se corrigió (su logotipo es BLANCO: sobre papel desaparecería, sobre la
+tinta da 18.6:1). **El icono no se arregla con un hexadecimal**, hay que
+redibujarlo, y queda en la lista de deuda de `DESIGN.md`.
+
+`verificar-env.mjs` rechazó la clave nueva, correctamente. Va a la lista de
+públicas por diseño **con su motivo escrito**, y de paso las otras dos entradas
+ganaron el suyo: una lista de exenciones sin motivos es donde acaba escondiéndose
+la que sí era un secreto.
+
+#### E.5 · Migrar la API de imágenes no era cambiar un nombre
+
+La forma vieja devolvía un archivo; la nueva devuelve un contexto que retiene un
+BITMAP nativo. La documentación de `release()` nombra este caso exacto como uno
+de los pocos en que liberar a mano se justifica. Subir cinco fotos de 4 MB son
+cinco bitmaps vivos a la vez si nadie los suelta.
+
+Se liberan en `finally`. La prueba que lo protege es «libera también cuando
+guardar falla»: si alguien los mueve después del `return` —que es lo natural al
+escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
+
+#### Dos pruebas mías que estaban mal, y cómo se supo
+
+- **«Animada, arranca en cero»** daba verde solo porque ningún cuadro había
+  corrido antes de la aserción. Al actualizar React corrieron dos y leyó «3.7».
+  No fallaba el conteo: fallaba la prueba. Ahora congela `Date.now`, y se añadió
+  la que faltaba — que el conteo TERMINE en el valor final.
+- **`tsc` atrapó un estado de roomie inventado** (`'buscando'`) que el dominio no
+  tiene. Jest pasaba: el doble no valida tipos.
+
+#### Lo que no se pudo verificar, y queda dicho
+
+- En la primera corrida con cobertura fallaron 2 pruebas. **No se reprodujo en
+  seis intentos** (cinco en caliente, uno con caché limpia). Queda anotado como
+  visto una vez y sin reproducir, no como resuelto.
+- El tacto está integrado y probado contra su propio fallo, pero `expo-haptics`
+  es un módulo NATIVO: hasta reconstruir el cliente de desarrollo, no vibra nada.
+- Las tres tramas no se han comparado en un Android real, que es donde
+  `borderStyle` más se desvía.
+
 ### Pendientes abiertos
 
-Actualizado el 19/09/2026. El trabajo **sigue**: esta lista es el estado de un
-proyecto en marcha, no un cierre.
+Actualizado el 19/09/2026 por la noche. El plan completo, con sus órdenes
+ejecutables y su secuencia, está en
+[`docs/endurecimiento-v6.md`](endurecimiento-v6.md) §5 y §6.
 
-**Hechos desde la última revisión**
+**Cerrados**
 
-- [x] Flujo completo en el teléfono: registro → cuestionario → sugerencias →
-      ver contacto → chat. Cerrado el 19/09 tras arreglar `revelar_contacto`.
-- [x] Consentimiento de IA verificado en vivo, con la fila de la base antes y
-      después de cada paso.
-- [x] Prueba de aislamiento entre cuentas, aplazada desde la semana 8:
-      15/15 barreras (`scripts/prueba-rls.mjs`).
-- [x] Separar el `.env` de cliente y el de servidor.
-- [x] Limpieza de las cuentas de prueba y de la publicación mal geocodificada.
+- [x] Flujo completo en el teléfono, consentimiento de IA en vivo, y la prueba
+      de aislamiento entre cuentas aplazada desde la semana 8 — hoy **19/19**
+      contra producción.
+- [x] Separación real de los `.env`, con `npm run verificar:env` en CI.
+- [x] Limpieza de las cuentas de prueba.
+- [x] **Fase 0 completa**: migraciones 0022–0026 aplicadas, `pg_cron`, secretos
+      de Vault, barredor desplegado y verificado de punta a punta.
+- [x] **B.1, B.2, B.4** — el motor deja de esconder publicaciones, el score de
+      mascotas obedece a su propio comentario, y la cuota solo se cobra cuando
+      entrega.
+- [x] **C.1, C.2** — `ErrorBoundary` y registro propio; y «falló la red» deja de
+      presentarse como dato borrado.
+- [x] **C.3, C.4** — capa de datos con caché, y el chat: 1200 mensajes pasan a
+      30 filas, cursor compuesto, envío optimista, desalojo de memoria.
+- [x] **D.1, D.2, D.3, D.4, D.7** — contraste medido, la cifra deja de afirmar
+      de más, un solo componente de calificación con deuda de tokens en cero,
+      densidad comparable, y objetivos táctiles a 44 pt.
+- [x] **E.2** — la suite dejó de fallar al azar. Re-verificada tras cada tanda,
+      no dada por buena.
+- [x] **C.5, C.6** — la calificación sale de la URL y la calcula el servidor; y
+      los errores se distinguen por código (clase `CP`) en vez de por subcadena.
+- [x] **C.7** — las URLs firmadas se refirman a los 50 minutos, con diez de
+      holgura fijada por una aserción y no por dos números que casualmente
+      cuadran.
+- [x] **B.6** — el vector de 384 flotantes deja de bajar al teléfono. Verificado
+      contra producción: 756 bytes por fila y Nivel 2 intacto, 30 de 30.
+- [x] **E.4** — dieciséis acciones de CI pineadas por SHA, `concurrency` con
+      cancelación, y `npm audit` mirando `node_modules` por primera vez.
+- [x] **D.6, implementación** — topes de escalado por tipo y tres alturas fijas
+      convertidas en pisos. **Su verificación en dispositivo sigue abierta**, y
+      está en la lista de abajo: sin ella no está cumplido, solo implementado.
+- [x] **B.3** — el filtro de tipo corre en Postgres, dentro de la función que
+      trunca. De paso: los chips llevaban sin filtrar nada desde C.3, y uno
+      mandaba un valor que no existe en el resto del proyecto.
+- [x] **B.5** — límite de ritmo real para la ODbL, repartido por la base. Tres
+      geocodificaciones simultáneas: 1167 / 2616 / 3334 ms.
+- [x] **Datos de demo coherentes** — las 104 publicaciones dejan de decir que
+      son departamentos cuando su descripción dice otra cosa, y hay diez casas
+      compartidas cerca de la UTVT. Chips: 30 · 24 · 11 · 22, todas nivel 2.
+- [x] **Privilegios de ejecución cerrados por defecto** (`0036`). Dos agujeros
+      explotables cerrados, seis funciones de servicio protegidas, y una lista
+      blanca en pgTAP para que no vuelva a pasar en silencio.
+- [x] **Bloque D completo** — D.5 y D.8 a D.12. Un carrusel con contenido propio
+      y el orden en el servidor, esqueletos con forma de ficha, movimiento y
+      tacto, responsive donde importa, el tipo codificado con trama y palabra, y
+      `DESIGN.md` reescrito desde lo construido.
+- [x] **Bloque E completo** — E.1 a E.6. `app.config.js` con la clave de Maps y
+      ruta de reversión OTA, la suite estabilizada, cobertura honesta con
+      trinquete en CI, dieciséis acciones pineadas, la API de imágenes migrada, y
+      el microservicio diciendo con qué commit arrancó.
+- [x] **El documento de endurecimiento, cerrado.** Los 38 hallazgos atendidos.
 
-**Abiertos, del proyecto**
+**Tuyos — nadie más puede hacerlos**
 
-- [ ] Activar **"Prevent use of leaked passwords"** en el panel
-      (Authentication → Attack Protection). Es la comprobación contra
-      HaveIBeenPwned, corre en el servidor y vale más que cualquier regla de
-      composición. No es configurable desde `config.toml`, así que no puede
-      entrar en una migración ni en `config push`.
-- [ ] `ANTHROPIC_API_KEY` sigue vacía. **Corregido dos veces, y las dos vale la
-      pena dejarlas escritas.** Primero se buscó en los secrets de las Edge
-      Functions, donde nunca va: quien llama al modelo es el microservicio.
-      Después se dijo que iba en `ai-service/.env`, archivo que **no existe** —
-      el microservicio arranca con `. ../.env` y hoy la lee del `.env` de la
-      raíz. Su destino real, según AGENTS.md, es `.env.server`, que también está
-      pendiente de crearse. Se
-      rastreó qué se pierde sin ella: solo `horario_predominante`, un campo del
-      perfil público que ya degrada a "Variable". **No toca el ranking ni el
-      embedding**, porque no aparece ni en el motor de la 0015 ni en
-      `perfilTexto.ts`. El Nivel 2 corre en un modelo local y no depende de
-      ninguna API de pago. Se puede añadir después: poner la variable y
-      reiniciar el microservicio, que la lee con `os.getenv` al importar.
+- [ ] Activar **"Prevent use of leaked passwords"** (Authentication → Attack
+      Protection). Corre en el servidor y vale más que cualquier regla de
+      composición. No es configurable desde `config.toml`.
+- [ ] Activar **Confirm email** (Authentication → Providers → Email), que es lo
+      que la `0026` da por supuesto. Ojo: a partir de ahí registrarse exige
+      correo `.edu.mx` y confirmar un buzón, así que **no registres una cuenta
+      en vivo delante del evaluador**.
+- [ ] **Conseguir la clave de Google Maps.** E.1 dejó todo cableado:
+      `app.config.js` la lee de `EXPO_PUBLIC_GOOGLE_MAPS_KEY`, y la ausencia hace
+      ruido en tres sitios —`expo config` al compilar, `verificar.mjs` antes de
+      exponer, y `.env.example` junto a la variable—. Falta la clave. Las
+      instrucciones para restringirla por paquete + huella SHA-1 están en
+      `.env.example`, con los dos comandos para obtener la huella.
+
+      Alternativa que sigue sobre la mesa: una imagen estática de Mapbox, cuyo
+      token ya existe, evita crear cuenta con tarjeta y evita un módulo nativo —
+      a cambio de que el mapa no sea interactivo. Es decisión de producto.
+- [x] Que caben cuatro filas por pantalla (D.4) y que el contraste corregido se
+      ve bien: **comprobado en dispositivo el 19/09/2026**.
+- [ ] **Verificar en dispositivo el escalado de fuente al 200 %** (D.6). Es lo
+      único de la pasada que quedó sin hacer, y es lo que separa «implementado»
+      de «cumplido» en el compromiso de accesibilidad de `PRODUCT.md`. El
+      procedimiento está en [`docs/prueba-escalado.md`](prueba-escalado.md):
+      siete pantallas, cinco cosas que mirar en cada una. Lo que se busca es una
+      sola: **que ninguna cifra quede más pequeña que el texto que la rodea.**
+- [ ] Decidir sobre `ANTHROPIC_API_KEY` y sobre **Sentry**. Ambas se pueden
+      añadir después sin coste: el gancho de Sentry ya está puesto.
+
+**Abiertos, del plan de endurecimiento**
+
+- [ ] **Reconstruir el cliente de desarrollo.** `expo-haptics` es un módulo
+      nativo: con el APK actual la app corre igual y no vibra. Es lo único de
+      D.9 que no se puede comprobar sin volver a compilar.
+- [ ] **Redibujar el icono de Android.** Es azul `#0C7BE4` sobre `#E6F4FE`, del
+      sistema visual anterior. Lo primero que se ve de la app no pertenece a su
+      propio mundo, y no se arregla cambiando un hexadecimal.
+- [ ] **Fusionar `endurecimiento` a `main`.** Medido el 20/09/2026: **55
+      commits** y **16 migraciones** de diferencia (main está en 21, la rama en
+      37). Además de traer el documento de endurecimiento entero, es lo que
+      cierra el agujero del `.gitignore` descrito arriba: `.env.server` NO está
+      ignorado en `main`, y ese archivo tiene la service role key. Comprobado
+      que nunca se commiteó; hasta la fusión, **no hacer `git add -A` desde
+      `main`**.
 - [ ] Retirar la vista de compatibilidad `roomings` (migración 0011) cuando ya
       no quede ningún APK viejo instalado. Sigue viva con 30 filas.
-- [ ] Las cuentas existentes conservan su contraseña anterior: las reglas nuevas
-      aplican a registros nuevos y a cambios de contraseña.
-- [ ] `README.md` tiene la sección de capturas de pantalla vacía, con la
-      interfaz ya rediseñada.
+- [ ] `README.md` tiene la sección de capturas de pantalla vacía.
 
 **Abiertos, de calidad**
 
-- [ ] Las pruebas de pantalla cubren lo que se tocó estos dos días, no las
-      diecisiete pantallas. Quedan sin cubrir, entre otras, el chat y el detalle
-      de publicación.
-- [ ] Ninguna prueba dice si algo se **ve** bien: ni un botón fuera de pantalla,
-      ni un texto cortado, ni un contraste insuficiente. Eso solo se juzga en un
-      dispositivo, y conviene no confundir 92 pruebas en verde con eso.
-- [ ] El reparto de las pruebas de envío en su propio archivo contiene un
-      síntoma cuya causa no se encontró.
+- [ ] **`src/services` está al 64.6 % de sentencias y al 72.7 % de líneas.** Las
+      líneas ya pasan el 70 % que pedía la compuerta; las sentencias no. Los
+      umbrales son un trinquete y solo suben (`jest.config.js`).
+- [ ] **Ninguna prueba dice si algo se VE bien.** 296 en verde no es eso, y
+      conviene no confundirlo nunca.
+- [ ] El reparto de las pruebas de envío de `FormularioPublicacion` en su propio
+      archivo contiene un síntoma cuya causa ya se explicó —`unmount()` envenena
+      los renders posteriores del archivo— pero no se ha comprobado si quitar
+      su `afterEach(cleanup)` permite volver a juntarlas.
 
 **Riesgo operativo permanente**
 
-- [ ] El túnel de cloudflared es efímero: `*.trycloudflare.com` cambia de
-      dominio en cada arranque y `AI_SERVICE_URL` hay que volver a fijarlo. Peor
-      aún, el proceso **no se muere** cuando su dominio caduca: se queda
-      reintentando, así que nada avisa. Mitigado —no resuelto— por
-      `scripts/tunel.sh`, que fija el secret antes de esperar al DNS, y por
-      `scripts/verificar.mjs`, que pregunta por el dominio público y no por
-      `localhost`. Correr el verificador **antes de cada exposición**.
+- [ ] El túnel de cloudflared es efímero, y el proceso **no se muere** cuando su
+      dominio caduca: se queda reintentando, así que nada avisa. Mitigado —no
+      resuelto— por `scripts/tunel.sh` y `scripts/verificar.mjs`. Correr el
+      verificador **antes de cada exposición**.

@@ -6,7 +6,7 @@
 // y usa un índice que sí existe para ella.
 
 import { supabase } from '@/lib/supabase';
-import type { Conversacion, Mensaje, PerfilPublico } from '@/types/database.types';
+import type { Mensaje, PerfilPublico } from '@/types/database.types';
 
 // AUD-09: v3 no paginaba nada. Una conversación de quinientos mensajes se
 // cargaba completa en memoria cada vez que se abría.
@@ -35,16 +35,54 @@ export async function abrirConversacion(otroUsuarioId: string): Promise<string> 
  *
  * Devuelve del más nuevo al más viejo; la pantalla los invierte para pintar.
  */
-export async function listarMensajes(conversacionId: string, cursor?: string): Promise<Mensaje[]> {
-  const { data, error } = await supabase
+/** Cursor compuesto: la marca de tiempo NO es única, el par con el id sí. */
+export interface CursorMensajes {
+  creadoEn: string;
+  id: string;
+}
+
+/**
+ * END-20 · El cursor era solo `creado_en`, con `.lt(...)`.
+ *
+ * Dos mensajes con la misma marca de tiempo —que ocurre: dos personas escriben
+ * a la vez, o una ráfaga entra en el mismo milisegundo— hacían que uno de los
+ * dos DESAPARECIERA al paginar. El primero cierra la página, el segundo cae
+ * fuera del `<` y nunca se pide. Un mensaje perdido en un chat no es un fallo
+ * de rendimiento: es la app borrando algo que alguien escribió.
+ *
+ * El par `(creado_en, id)` sí es único. La condición «estrictamente anterior»
+ * se escribe a mano porque PostgREST no expone comparación de tuplas:
+ *
+ *     creado_en < X  OR  (creado_en = X AND id < Y)
+ */
+export async function listarMensajes(
+  conversacionId: string,
+  cursor?: CursorMensajes
+): Promise<Mensaje[]> {
+  let consulta = supabase
     .from('mensajes')
     .select('*')
-    .eq('conversacion_id', conversacionId)
-    .lt('creado_en', cursor ?? new Date().toISOString())
+    .eq('conversacion_id', conversacionId);
+
+  if (cursor) {
+    consulta = consulta.or(
+      `creado_en.lt.${cursor.creadoEn},and(creado_en.eq.${cursor.creadoEn},id.lt.${cursor.id})`
+    );
+  }
+
+  const { data, error } = await consulta
+    // El mismo desempate que la condición, o el orden y el corte discrepan.
     .order('creado_en', { ascending: false })
+    .order('id', { ascending: false })
     .limit(PAGINA_MENSAJES);
   if (error) throw error;
   return (data as Mensaje[]).reverse();
+}
+
+/** El cursor para pedir la página anterior a `mensajes`. */
+export function cursorDe(mensajes: Mensaje[]): CursorMensajes | undefined {
+  const primero = mensajes[0];
+  return primero ? { creadoEn: primero.creado_en, id: primero.id } : undefined;
 }
 
 export async function enviarMensaje(conversacionId: string, remitenteId: string, contenido: string) {
@@ -83,56 +121,54 @@ export interface ResumenConversacion {
  * y los perfiles públicos de las contrapartes.
  */
 export async function listarConversaciones(miId: string, limite = 30): Promise<ResumenConversacion[]> {
-  const { data: conversaciones, error } = await supabase
-    .from('conversaciones')
-    .select('*')
-    .order('ultimo_mensaje_en', { ascending: false })
-    .limit(limite);
+  // END-16 · Una llamada al RPC en vez de traer 1200 mensajes y plegarlos aquí.
+  // Treinta hilos son treinta filas. Y el último mensaje sale de CADA hilo, no
+  // de una ventana global que un chat activo se comía entera.
+  const { data, error } = await supabase.rpc('resumen_conversaciones', { p_limite: limite });
   if (error) throw error;
 
-  const filas = (conversaciones ?? []) as Conversacion[];
+  const filas = (data ?? []) as {
+    conversacion_id: string;
+    otro_usuario_id: string;
+    ultimo_contenido: string | null;
+    ultimo_creado_en: string | null;
+    ultimo_remitente_id: string | null;
+    ultimo_leido: boolean | null;
+    no_leidos: number;
+  }[];
   if (filas.length === 0) return [];
 
-  const ids = filas.map((c) => c.id);
-  const otrosIds = filas.map((c) => (c.usuario_a === miId ? c.usuario_b : c.usuario_a));
-
-  const [{ data: mensajes }, { data: perfiles }] = await Promise.all([
-    // Acotado a lo que cabe en pantalla: el último mensaje de cada hilo se
-    // resuelve en el cliente sobre esta ventana, no sobre el historial entero.
-    supabase
-      .from('mensajes')
-      .select('*')
-      .in('conversacion_id', ids)
-      .order('creado_en', { ascending: false })
-      .limit(limite * PAGINA_MENSAJES),
-    supabase.from('perfiles_publicos').select('id, nombre_completo, foto_url').in('id', otrosIds),
-  ]);
-
+  // Los perfiles siguen viniendo aparte: la vista pública es la que decide qué
+  // columnas de otra persona se pueden leer (AUD-14), y meterla en el RPC
+  // duplicaría esa lista blanca en un segundo sitio.
+  const { data: perfiles } = await supabase
+    .from('perfiles_publicos')
+    .select('id, nombre_completo, foto_url')
+    .in('id', filas.map((f) => f.otro_usuario_id));
   const perfilPorId = new Map((perfiles ?? []).map((p) => [p.id as string, p]));
-  const ultimoPorConversacion = new Map<string, Mensaje>();
-  const noLeidosPorConversacion = new Map<string, number>();
 
-  for (const m of (mensajes ?? []) as Mensaje[]) {
-    if (!ultimoPorConversacion.has(m.conversacion_id)) ultimoPorConversacion.set(m.conversacion_id, m);
-    if (m.remitente_id !== miId && !m.leido) {
-      noLeidosPorConversacion.set(m.conversacion_id, (noLeidosPorConversacion.get(m.conversacion_id) ?? 0) + 1);
-    }
-  }
-
-  return filas.map((c) => {
-    const otroId = c.usuario_a === miId ? c.usuario_b : c.usuario_a;
-    const perfil = perfilPorId.get(otroId);
+  return filas.map((f) => {
+    const perfil = perfilPorId.get(f.otro_usuario_id);
     return {
-      conversacionId: c.id,
+      conversacionId: f.conversacion_id,
       otroUsuario: {
-        id: otroId,
+        id: f.otro_usuario_id,
         // §27: si la contraparte eliminó su cuenta, la conversación se queda sin
         // el otro lado. Se dice, no se muestra una tarjeta en blanco.
         nombre_completo: (perfil?.nombre_completo as string) ?? 'Usuario no disponible',
         foto_url: (perfil?.foto_url as string | null) ?? null,
       },
-      ultimoMensaje: ultimoPorConversacion.get(c.id) ?? null,
-      noLeidos: noLeidosPorConversacion.get(c.id) ?? 0,
+      ultimoMensaje: f.ultimo_creado_en
+        ? ({
+            id: `${f.conversacion_id}-ultimo`,
+            conversacion_id: f.conversacion_id,
+            remitente_id: f.ultimo_remitente_id as string,
+            contenido: f.ultimo_contenido as string,
+            creado_en: f.ultimo_creado_en,
+            leido: Boolean(f.ultimo_leido),
+          } as Mensaje)
+        : null,
+      noLeidos: f.no_leidos,
     };
   });
 }

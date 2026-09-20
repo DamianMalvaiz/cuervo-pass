@@ -66,7 +66,16 @@ la prueba que falla, todavía no entiendes el bug.
    - Nunca editar una migración ya aplicada. Su hash vive en
      `supabase_migrations.schema_migrations` y editarla hace que el historial
      deje de describir lo que realmente corrió. Se corrige con una migración
-     nueva. La siguiente es la **0022**.
+     nueva. **El siguiente número se consulta, no se recuerda:**
+
+     ```bash
+     ls supabase/migrations | tail -1
+     ```
+
+     Aquí decía "la siguiente es la 0022" y para el 19/09/2026 la última
+     aplicada era la 0033: un número escrito a mano en un documento que hay que
+     actualizar en cada migración y que nadie actualizó doce veces seguidas. Un
+     dato que se puede consultar no se copia.
    - Nombra explícitamente todo índice. Un `drop index if exists` sobre un nombre
      autogenerado que adivinaste falla en silencio.
    - Antes de cualquier `db push`: `npx supabase db dump --data-only -f respaldos/$(date +%F).sql`.
@@ -78,55 +87,134 @@ la prueba que falla, todavía no entiendes el bug.
    sale de `src/constants/theme.ts`. Si falta un token, se añade al tema; no se
    escribe el valor a mano.
 
-   Dos excepciones, y solo dos:
-   - `src/components/themed-text.tsx` (24 apariciones), donde la escala
-     tipográfica se **define**. Tiene que escribir los valores: es su fuente.
-   - `src/app/_layout.tsx` (5) y `src/app/(tabs)/_layout.tsx` (3), porque el tema
-     de React Navigation exige valores crudos y no acepta tokens.
+   **Lo aplica ESLint**, no la buena voluntad: `no-restricted-syntax` sobre
+   `fontSize` y `fontFamily` en esos dos directorios. Cada aparición nueva es un
+   aviso del linter.
 
-   **Deuda declarada (19/09/2026):** otros 19 archivos incumplen esto con **29**
-   apariciones, para un total de **61**. Se corrigen al tocarlos, no en una
-   pasada aparte. Cero literales `#hex`: eso sí está limpio. Para medirlo:
+   Dos excepciones, y solo dos:
+   - `src/app/_layout.tsx` y `src/app/(tabs)/_layout.tsx`, porque el tema de
+     React Navigation exige valores crudos y no acepta tokens.
+
+   `themed-text.tsx` **dejó de ser excepción** (19/09/2026): la escala
+   tipográfica se movió a `Texto` en `theme.ts` y ese componente es ahora un
+   consumidor más. Era la única excepción que existía por una limitación del
+   propio sistema y no del entorno, así que era la única que se podía eliminar
+   en vez de nombrar.
+
+   **Deuda: cero.** Las 29 apariciones medidas el 19/09/2026 se corrigieron en
+   D.3. La mayoría no eran descuido: eran estilos de `TextInput`, y a un
+   TextInput no se le puede aplicar `ThemedText`. No tenían alternativa hasta
+   que la escala salió del componente y llegó al tema. Para comprobarlo:
 
    ```bash
-   grep -rn 'fontSize:\|fontFamily:' src/components src/app --include=*.tsx \
-     | grep -v __tests__ | wc -l
+   npx expo lint | grep -c 'Invariante 7'   # debe dar 0
    ```
 
-   Ese número solo puede bajar. Si sube, el commit que lo subió está mal.
+8. **Objetivo táctil mínimo 44×44 pt**, contando `hitSlop`.
 
-8. **Objetivo táctil mínimo 44×44 pt**, contando `hitSlop`. Sin excepciones.
+   **Lo comprueba `npm run verificar:toques`**, que corre en CI. Vivía solo aquí
+   y había cinco controles por debajo (30, 32, 36, 38 y 40 pt): una regla que
+   solo está escrita depende de que alguien la recuerde al teclear cada estilo.
 
-9. **Contraste medido, no supuesto** — y eso incluye superficie contra
+   `hitSlop` se declara en el componente y la altura en el estilo, así que el
+   script no puede correlacionarlos. Cuando el área real sí llega a 44, se
+   escribe la exención **con su motivo** en la línea anterior:
+
+   ```ts
+   // toque-ok: hitSlop de 12 a cada lado lo lleva a 20 + 24 = 44
+   ```
+
+   Una exención que obliga a escribir el porqué es una decisión; una que se
+   activa sola es un agujero.
+
+9. **Toda función nueva lleva su `revoke` explícito**, a `public`, `anon` y
+   `authenticated`, y después su `grant` a quien de verdad deba llamarla.
+
+   No basta `revoke ... from public`, que es lo que hacían doce migraciones.
+   Supabase concede EXECUTE a `anon` y `authenticated` de forma **explícita** en
+   la ACL de cada función nueva, y PostgreSQL concede además a **PUBLIC** de
+   fábrica. Son tres concesiones distintas y hay que quitar las tres por nombre.
+
+   `alter default privileges` ayuda con las dos primeras y **no puede** con la de
+   PUBLIC: medido el 19/09/2026, con el revoke aplicado y el catálogo limpio, una
+   función recién creada seguía naciendo con `{=X/postgres,...}`.
+
+   Lo que garantiza que no se olvide es la **aserción 75** de
+   `supabase/tests/rls.test.sql`: compara la lista de funciones ejecutables por
+   `authenticated` contra una lista blanca y se rompe sola en cuanto aparece una
+   de más. Si añades una función que el cliente debe llamar, va a la lista.
+
+   Esto no era teórico. `devolver_cuota` dejaba que cualquiera se reiniciara su
+   propia cuota diaria de revelaciones, en bucle; y `afinidad_de_para` dejaba
+   pedir la afinidad de otra persona pasando su id, que es justo lo que la
+   migración que la creó decía impedir.
+
+10. **Contraste medido, no supuesto** — y eso incluye superficie contra
    superficie, no solo texto sobre fondo.
 
 ---
 
 ## Secretos
 
-Dos archivos, con destinos distintos:
+Tres archivos, con destinos distintos. Los dos primeros **están diseñados,
+documentados e implementados**; el tercero está pendiente de crearse.
 
 - **`.env` (raíz) = CLIENTE.** Todo lo que lleva `EXPO_PUBLIC_` se compila dentro
   del bundle, donde cualquiera con el APK lo lee. Aquí solo van valores públicos
-  por diseño: URL de Supabase, anon key, token `pk.` de Mapbox.
-- **`.env.server` = SERVIDOR.** `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
-  `SUPABASE_DB_PASSWORD`, `AI_SHARED_TOKEN`, `MAPBOX_ACCESS_TOKEN`. Nunca se lee
-  desde la app.
+  por diseño: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`,
+  `EXPO_PUBLIC_MAPBOX_TOKEN` (el `pk.`, con restricción de URL).
+- **`ai-service/.env` = MICROSERVICIO.** `ANTHROPIC_API_KEY`, `AI_SHARED_TOKEN`,
+  `AI_SHARED_TOKEN_SIGUIENTE`, `MODELO_EMBEDDINGS`, `MODELO_LLM`, `TIMEOUT_LLM`.
+  Es el que lee `ai-service/config.py` con `os.getenv` y el que
+  `docker-compose.yml` declara en `env_file`. Plantilla en
+  `ai-service/.env.example`.
+- **`.env.server` = HERRAMIENTAS Y SCRIPTS.** `SUPABASE_SERVICE_ROLE_KEY` (ocho
+  scripts y dos Edge Functions), `SUPABASE_DB_PASSWORD` (lo consume el CLI de
+  Supabase), `AI_SERVICE_URL` (destino del microservicio para
+  `scripts/backfill-embeddings.mjs`) y `CRON_SECRET` (barrido de fotos, 0025).
 
-> **Estado actual (por corregir):** `.env.server` todavía NO existe y las claves
-> de servidor están mezcladas en el `.env` de la raíz; el microservicio arranca
-> con `. ../.env`. Es el mismo defecto que `.env.example` documenta como el peor
-> de v3. Al tocar cualquier script que lea credenciales de servidor, sepáralas en
-> vez de perpetuarlo — y mueve también el arranque del microservicio.
+Los scripts cargan los dos de cliente y servidor:
 
-> **`PERFIL_ENCRYPTION_KEY` está muerta.** Sigue en el `.env` de la raíz y no la
-> usa nadie: no aparece en `ai-service/*.py` ni en ningún `.ts`. Lo único que la
-> menciona es un comentario de la migración 0005, que es el cifrado que §30
-> retiró por no proteger nada. **No la muevas a `.env.server`: bórrala.** Una
-> credencial que nadie usa sigue siendo una credencial que se puede filtrar.
+```bash
+node --env-file=.env --env-file=.env.server scripts/<lo-que-sea>.mjs
+```
+
+> **Excepción: `backfill-embeddings.mjs` necesita TRES.** Lee `AI_SHARED_TOKEN`,
+> que vive en `ai-service/.env` y en ningún otro sitio. Con los dos de arriba, la
+> línea `...(tokenCompartido ? { Authorization } : {})` omite la cabecera y el
+> microservicio responde **401** sin decir por qué:
+>
+> ```bash
+> node --env-file=.env --env-file=.env.server --env-file=ai-service/.env \
+>      scripts/backfill-embeddings.mjs
+> ```
+>
+> Aquí decía que dos bastaban, y el script llevaba roto lo que llevara.
+> **Antes de escribir una invocación en este archivo, córrela.**
+
+> **La separación es un MECANISMO, no un párrafo.** `scripts/verificar-env.mjs`
+> corre en CI sobre los `.example` y rompe el build si un secreto aparece en el
+> archivo del cliente, o si algo con `EXPO_PUBLIC_` aparece en el del servidor.
+> Antes esto era solo una advertencia escrita en `.env.example`, y el proyecto
+> la incumplió durante meses.
+>
+>     npm run verificar:env
+
+> **Dos variables se BORRARON del `.env` por muertas** (`git grep`, cero
+> lectores en `src/`, `scripts/`, `ai-service/` y `supabase/functions/`):
+> - **`PERFIL_ENCRYPTION_KEY`** — las migraciones 0005 y 0009 usan
+>   `current_setting('app.perfil_encryption_key')`, que es un **GUC de
+>   Postgres**: otra cosa con nombre parecido. El cifrado que la justificaba lo
+>   retiró §30.
+> - **`MAPBOX_ACCESS_TOKEN`** — el único Mapbox vivo es
+>   `EXPO_PUBLIC_MAPBOX_TOKEN` en `src/lib/mapboxAutocomplete.ts`. El nombre
+>   sugiere que es su par privado; no lo es.
+>
+> **Antes de declarar que una variable es "de servidor", corre el grep.**
+> Deducir del nombre ya metió una credencial fantasma en este archivo una vez.
 
 Nunca añadas `EXPO_PUBLIC_` a algo que no sea público por diseño. Ninguno de los
-dos archivos se versiona.
+tres archivos se versiona.
 
 ---
 
@@ -157,7 +245,7 @@ Modo claro y modo oscuro.
 
 ```bash
 node scripts/verificar.mjs          # túnel, secrets, vectores, RPCs
-node --env-file=.env scripts/prueba-rls.mjs   # 15 barreras contra PRODUCCIÓN
+node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # 19 barreras contra PRODUCCIÓN
 ```
 
 Ver [docs/verificacion-pre-demo.md](docs/verificacion-pre-demo.md). El túnel de
@@ -187,6 +275,7 @@ antes. Nunca registres una cuenta real delante del evaluador.
 
 | Archivo | Qué es |
 |---|---|
+| [docs/endurecimiento-v6.md](docs/endurecimiento-v6.md) | **Auditoria de la implementacion (END-01..38) y plan de trabajo pendiente.** Lee §3 antes de tocar produccion y §5 para la orden que toque |
 | [PRODUCT.md](PRODUCT.md) | Usuarios, alcance, principios de producto |
 | [DESIGN.md](DESIGN.md) | Sistema visual "La Ficha": color, tipografía, componentes |
 | [docs/bitacora-semanal.md](docs/bitacora-semanal.md) | Qué se hizo cada semana y qué se rompió |

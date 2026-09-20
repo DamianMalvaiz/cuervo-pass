@@ -7,7 +7,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
-import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { buscarPorCodigoPostal } from '@/lib/direccionMx';
 import { buscarCalles } from '@/lib/mapboxAutocomplete';
@@ -843,10 +843,10 @@ const styles = StyleSheet.create({
     borderRadius: Radios.full,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
-    minHeight: 36,
+    minHeight: 44,
     justifyContent: 'center',
   },
-  textoPastillaActiva: { fontFamily: Tipografia.semibold },
+  textoPastillaActiva: { ...Texto.pesoFuerte },
   filaSwitch: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -862,8 +862,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     minHeight: 52,
-    fontFamily: Tipografia.regular,
-    fontSize: 16,
+    ...Texto.cuerpo,
   },
   inputMitad: { flex: 1 },
   filaDos: { flexDirection: 'row', gap: Spacing.three },
@@ -934,6 +933,9 @@ const styles = StyleSheet.create({
     right: -Spacing.half,
     borderRadius: 10,
     width: 20,
+    // toque-ok: la Pressable lleva hitSlop de 12 a cada lado, así que el área
+    // real es 20 + 24 = 44. La insignia se ve pequeña a propósito: más grande
+    // taparía la miniatura que sirve para reconocer la foto.
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',

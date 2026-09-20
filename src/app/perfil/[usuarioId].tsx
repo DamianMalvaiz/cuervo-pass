@@ -18,6 +18,7 @@ import { abrirConversacion } from '@/services/mensajes.service';
 import { obtenerPerfilPublico, reportarUsuario } from '@/services/usuarios.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { PerfilPublico } from '@/types/database.types';
+import { aviso } from '@/lib/registro';
 
 const ETIQUETA_RUIDO: Record<string, string> = {
   bajo: 'Prefiere silencio',
@@ -63,7 +64,7 @@ export default function PerfilRoomieScreen() {
       .finally(() => setCargando(false));
   }, [usuarioId]);
 
-  const urlsFirmadas = useFotosFirmadas([usuario?.foto_url]);
+  const { urls: urlsFirmadas } = useFotosFirmadas([usuario?.foto_url]);
 
   // AUD-07: la conversación la abre una función de Postgres, no un insert desde
   // el cliente. Dos personas tocando el botón a la vez reciben el MISMO
@@ -76,7 +77,7 @@ export default function PerfilRoomieScreen() {
       const conversacionId = await abrirConversacion(usuarioId);
       router.push(`/chat/${conversacionId}`);
     } catch (e) {
-      console.warn('abrirConversacion falló:', e);
+      aviso('abrirConversacion falló', undefined, e);
       Alert.alert('No se pudo abrir el chat', 'Esta persona ya no está disponible.');
     } finally {
       setAbriendoChat(false);
@@ -89,9 +90,21 @@ export default function PerfilRoomieScreen() {
     const enviar = async (motivo: string) => {
       try {
         await reportarUsuario(miId, usuarioId, motivo);
-        Alert.alert('Gracias', 'Reportamos a este usuario para revisión.');
-      } catch {
-        Alert.alert('No se pudo enviar el reporte', 'Intenta de nuevo en un momento.');
+        // Se dice QUÉ pasa, no solo «gracias». Hasta la migración 0023 este
+        // acuse era falso: el trigger salía sin hacer nada para los reportes
+        // de personas, así que la app agradecía por algo que no ocurría.
+        Alert.alert(
+          'Reporte registrado',
+          'Al tercer reporte de cuentas distintas, el perfil se suspende y deja de aparecer en la app. Si corres peligro, no uses solo esta app: avisa a alguien de confianza.'
+        );
+      } catch (e) {
+        // 23505 = ya lo habías reportado. El índice reportes_unico_usuario
+        // existe para que una sola cuenta no pueda empujar el contador.
+        const codigo = (e as { code?: string })?.code;
+        Alert.alert(
+          'No se pudo enviar el reporte',
+          codigo === '23505' ? 'Ya habías reportado a esta persona.' : 'Intenta de nuevo en un momento.'
+        );
       }
     };
     Alert.alert('Reportar usuario', '¿Por qué lo reportas?', [

@@ -18,7 +18,12 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 
-try { process.loadEnvFile('.env'); } catch { /* las variables ya pueden venir del entorno */ }
+// Dos archivos: el de cliente y el de servidor. SUPABASE_SERVICE_ROLE_KEY vive
+// en el segundo desde la ORDEN A.3 — en el primero acababa compilada en el APK
+// si alguien le ponia el prefijo por descuido.
+for (const archivo of ['.env', '.env.server']) {
+  try { process.loadEnvFile(archivo); } catch { /* puede venir del entorno */ }
+}
 
 const URL_SB = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -64,9 +69,10 @@ function revisarSecrets() {
   else anotar('Secrets de Edge Functions', 'ok', `${obligatorios.length} obligatorios presentes`);
 
   // ANTHROPIC_API_KEY NO se comprueba aquí. Una versión anterior la buscaba en
-  // esta lista y avisaba de que faltaba — pero esa clave es del microservicio,
-  // no de las Edge Functions. La comprobación era una falsa alarma por
-  // construcción: habría avisado igual con la clave perfectamente puesta.
+  // esta lista y avisaba de que faltaba — pero esa clave vive en
+  // ai-service/.env, no en los secrets de las Edge Functions, porque quien
+  // llama al modelo es el microservicio. La comprobación era una falsa alarma
+  // por construcción: habría avisado igual con la clave perfectamente puesta.
   // Se pregunta en revisarTunel(), leyendo `api_llm_configurada` de /listo, que
   // es el propio servicio diciendo si la tiene.
 }
@@ -91,11 +97,41 @@ async function revisarTunel() {
     // DECISIÓN pendiente. Sin ella /parsear-perfil devuelve valores neutros y
     // horario_predominante nunca se infiere — un campo del perfil público, que
     // ya degrada a "Variable". No toca el ranking ni el embedding.
+    // E.6 · CON QUE CODIGO esta corriendo el proceso que acaba de responder.
+    //
+    // Durante la auditoria, un uvicorn llevaba TRECE HORAS sirviendo codigo
+    // anterior a una correccion ya aplicada. Nada lo delataba: respondia, el
+    // modelo estaba cargado y /listo decia «ok». Se midio ese servidor viejo y
+    // se reporto que el fallo seguia sin arreglar.
+    //
+    // Es FALLO y no aviso. Un microservicio desfasado no da un error: da una
+    // respuesta plausible de una version que ya no existe, y eso convierte cada
+    // medicion posterior en ruido — incluidas las de este mismo script.
+    let enArbol = '';
+    try {
+      enArbol = execFileSync('git', ['rev-parse', '--short', 'HEAD'],
+        { encoding: 'utf8', timeout: 5_000 }).trim();
+    } catch {
+      // Sin git no se puede comparar. No es un fallo del sistema verificado.
+    }
+    if (!salud.commit) {
+      anotar('Version del microservicio', 'aviso',
+        '/listo no reporta commit: el microservicio es anterior a E.6 y hay que reiniciarlo');
+    } else if (salud.commit === 'desconocido') {
+      anotar('Version del microservicio', 'aviso',
+        'el proceso no pudo leer su commit (¿contenedor sin git?): pon CUERVO_COMMIT al arrancarlo');
+    } else if (enArbol && salud.commit !== enArbol) {
+      anotar('Version del microservicio', 'fallo',
+        `sirve ${salud.commit} y el arbol esta en ${enArbol} — reinicia uvicorn o mediras codigo viejo`);
+    } else {
+      anotar('Version del microservicio', 'ok', `${salud.commit}, el mismo del arbol`);
+    }
+
     if (salud.api_llm_configurada === true) {
       anotar('Análisis con LLM (Anthropic)', 'ok', `clave presente · modelo ${salud.modelo_llm ?? 'por omisión'}`);
     } else {
       anotar('Análisis con LLM (Anthropic)', 'aviso',
-        'sin ANTHROPIC_API_KEY: /parsear-perfil siempre degradado. Su destino es .env.server; hoy el microservicio la lee del .env de la raíz. El Nivel 2 (embeddings) NO depende de esto');
+        'sin ANTHROPIC_API_KEY: /parsear-perfil siempre degradado. Su sitio es ai-service/.env; hoy tunel.sh la carga desde el .env de la raiz. El Nivel 2 (embeddings) NO depende de esto');
     }
   } catch (e) {
     anotar('Túnel a Cloudflare', 'fallo', `${dominio} no responde (${e.message}) · corre scripts/tunel.sh`);
@@ -122,8 +158,26 @@ async function revisarDatos() {
   }
 
   const { data: pub, error: e2 } = await admin
-    .from('publicaciones').select('titulo, activa, vector_embedding, latitud, longitud').eq('activa', true);
+    .from('publicaciones').select('titulo, tipo, activa, fotos, vector_embedding, latitud, longitud').eq('activa', true);
   if (e2) { anotar('Publicaciones activas', 'fallo', e2.message); return; }
+
+  // B.3 · Los chips de tipo filtran en Postgres desde la migracion 0034. Si el
+  // catalogo entero es de un solo tipo, tres de los cuatro chips llevan al
+  // estado vacio y en la demo eso se lee como que el filtro no sirve.
+  //
+  // Paso de verdad: el 19/09/2026 las 104 publicaciones estaban etiquetadas
+  // 'depa' porque la migracion 0010 anadio la columna sobre filas que ya
+  // existian y las marco en bloque. Sus descripciones decian «Cuarto amplio,
+  // bano compartido». Nadie lo vio en un ano porque el filtro corria en el
+  // cliente, y desde C.3 no corria en absoluto.
+  const porTipo = pub.reduce((acc, p) => ({ ...acc, [p.tipo]: (acc[p.tipo] ?? 0) + 1 }), {});
+  const resumenTipos = Object.entries(porTipo).map(([t, n]) => `${t}:${n}`).join(' · ');
+  if (Object.keys(porTipo).length < 2) {
+    anotar('Variedad de tipos', 'fallo',
+      `todas las activas son del mismo tipo (${resumenTipos}) → 3 de los 4 chips caen al estado vacio`);
+  } else {
+    anotar('Variedad de tipos', 'ok', resumenTipos);
+  }
 
   const sinVector = pub.filter((p) => !p.vector_embedding);
   if (sinVector.length) {
@@ -133,16 +187,60 @@ async function revisarDatos() {
     anotar('Vectores de publicaciones', 'ok', `${pub.length}/${pub.length} activas con vector`);
   }
 
+  // Una publicacion sin foto sale con un rectangulo vacio, y este diseno pone la
+  // fotografia al frente. Con `sembrar-fotos.mjs` es un comando; descubrirlo
+  // durante la exposicion no tiene arreglo. Paso de verdad: al sembrar diez
+  // casas el 19/09/2026, Unsplash respondio 429 y las diez quedaron sin foto.
+  const sinFoto = pub.filter((p) => !p.fotos?.length);
+  if (sinFoto.length) {
+    anotar('Fotos de publicaciones', 'aviso',
+      `${sinFoto.length} de ${pub.length} activas sin foto → rectangulo vacio en la lista. Se arregla con scripts/sembrar-fotos.mjs`);
+  } else {
+    anotar('Fotos de publicaciones', 'ok', `${pub.length}/${pub.length} activas con foto`);
+  }
+
+  // END-10 · Sin clave de Maps, el `MapView` de la ficha pinta un rectangulo
+  // GRIS en Android: sin error, sin mensaje, sin nada que diga por que. Es lo
+  // unico de la app que falla EN SILENCIO y en pantalla, asi que se comprueba
+  // antes de exponerla y no cuando el evaluador abre una publicacion.
+  //
+  // Es AVISO y no fallo: la app funciona entera sin mapa, y la alternativa
+  // —imagen estatica de Mapbox— sigue sobre la mesa. Lo que no puede pasar es
+  // que la ausencia se descubra en vivo.
+  if (process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY) {
+    anotar('Clave de Google Maps', 'ok', 'presente; el mapa de la ficha se pintara');
+  } else {
+    anotar('Clave de Google Maps', 'aviso',
+      'sin EXPO_PUBLIC_GOOGLE_MAPS_KEY: el mapa saldra GRIS en Android, sin mensaje. Ver .env.example');
+  }
+
   // La cola de la 0021. Mientras tenga filas hay archivos que alguien creyo
-  // borrados y siguen ocupando espacio que se paga. No es un fallo —el borrado
-  // de la cuenta si funciono— pero es deuda que conviene ver antes que despues.
+  // borrados y siguen ocupando espacio que se paga.
   const { count: enCola, error: e3 } = await admin
     .from('fotos_huerfanas').select('ruta', { count: 'exact', head: true });
+
+  // Desde la 0025 el barrido corre solo cada hora. Eso cambia cómo se lee esta
+  // cola: unas pocas filas recién encoladas son normales; filas VIEJAS
+  // significan que el barrido no está corriendo, y entonces hay archivos que
+  // alguien creyó borrados y siguen ahí. Eso ya no es un aviso, es un fallo:
+  // el aviso de privacidad promete el borrado en la tabla de derechos ARCO.
+  const HORAS_TOLERADAS = 2;
+  const limite = new Date(Date.now() - HORAS_TOLERADAS * 3600_000).toISOString();
+  const { count: viejas } = await admin
+    .from('fotos_huerfanas')
+    .select('ruta', { count: 'exact', head: true })
+    .lt('encolada_en', limite);
+
   if (e3) {
     anotar('Cola de fotos huérfanas', 'fallo', e3.message);
+  } else if (viejas > 0) {
+    anotar('Cola de fotos huérfanas', 'fallo',
+      `${viejas} archivo(s) llevan más de ${HORAS_TOLERADAS} h sin barrer: la tarea `
+      + `programada no está corriendo. Revisa el cron y los secretos de Vault `
+      + `(0025), o vacíala a mano con scripts/limpiar-fotos-huerfanas.mjs`);
   } else if (enCola > 0) {
-    anotar('Cola de fotos huérfanas', 'aviso',
-      `${enCola} archivo(s) pendientes de barrer → node --env-file=.env scripts/limpiar-fotos-huerfanas.mjs`);
+    anotar('Cola de fotos huérfanas', 'ok',
+      `${enCola} recién encolado(s); el barrido programado los recoge en menos de una hora`);
   } else {
     anotar('Cola de fotos huérfanas', 'ok', 'vacía');
   }
@@ -216,8 +314,8 @@ async function revisarFunciones() {
     if (!unaPub) {
       anotar('revelar_contacto', 'aviso', 'no hay publicación activa con whatsapp para probar');
     } else {
-      const r1 = await cli.rpc('revelar_contacto', { p_publicacion_id: unaPub.id, p_score: 0.9 });
-      const r2 = await cli.rpc('revelar_contacto', { p_publicacion_id: unaPub.id, p_score: 0.9 });
+      const r1 = await cli.rpc('revelar_contacto', { p_publicacion_id: unaPub.id });
+      const r2 = await cli.rpc('revelar_contacto', { p_publicacion_id: unaPub.id });
       const { count } = await admin.from('contactos')
         .select('id', { count: 'exact', head: true }).eq('usuario_id', creado);
       if (r1.error) anotar('revelar_contacto', 'fallo', r1.error.message);
@@ -267,7 +365,12 @@ const avisos = resultados.filter((r) => r.estado === 'aviso').length;
 console.log(`\n  ${resultados.length - fallos - avisos} correctos · ${avisos} avisos · ${fallos} fallos`);
 
 // Honestidad sobre el alcance: decir qué NO mira es tan útil como lo que mira.
-console.log('\n  No cubre: las policies de RLS (eso es `supabase test db`, 21 aserciones),');
+// El número se LEE del archivo de pruebas. Anotado a mano iba por 37 cuando
+// ya eran 59, y un verificador que miente sobre su propia cobertura es peor
+// que uno que calla.
+const plan = readFileSync('supabase/tests/rls.test.sql', 'utf8').match(/select plan\((\d+)\)/);
+const aserciones = plan ? plan[1] : '?';
+console.log(`\n  No cubre: las policies de RLS (eso es \`supabase test db\`, ${aserciones} aserciones),`);
 console.log('  ni que la app compile (`npx tsc --noEmit` y `npx expo lint`).\n');
 
 process.exit(fallos > 0 ? 1 : 0);

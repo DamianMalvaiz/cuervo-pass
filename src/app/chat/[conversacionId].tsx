@@ -16,11 +16,13 @@ import { BurbujaMensaje } from '@/components/BurbujaMensaje';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { AppColors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 import {
   enviarMensaje,
+  cursorDe,
   listarMensajes,
   marcarConversacionComoLeida,
   PAGINA_MENSAJES,
@@ -30,6 +32,9 @@ import { obtenerPerfilPublico } from '@/services/usuarios.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { MENSAJES_VACIO, useChatStore } from '@/store/useChatStore';
 import type { Conversacion } from '@/types/database.types';
+import { toque } from '@/lib/tacto';
+import { aviso } from '@/lib/registro';
+import { type MensajeLocal } from '@/store/useChatStore';
 
 // Documento maestro v5 · §15 (realtime y paginación), §26 (la ruta ahora es la
 // conversación, no el otro usuario).
@@ -39,6 +44,7 @@ import type { Conversacion } from '@/types/database.types';
 // (el par de ids) que no correspondía a ninguna fila.
 export default function ConversacionScreen() {
   const theme = useTheme();
+  const { anchoLista } = useTamanoPantalla();
   const { conversacionId } = useLocalSearchParams<{ conversacionId: string }>();
   const session = useAuthStore((s) => s.session);
   const miId = session?.user.id;
@@ -47,13 +53,17 @@ export default function ConversacionScreen() {
   const setMensajes = useChatStore((s) => s.setMensajes);
   const agregarMensaje = useChatStore((s) => s.agregarMensaje);
   const actualizarMensaje = useChatStore((s) => s.actualizarMensaje);
+  const limpiarConversacion = useChatStore((s) => s.limpiarConversacion);
+  const agregarOptimista = useChatStore((s) => s.agregarOptimista);
+  const confirmarOptimista = useChatStore((s) => s.confirmarOptimista);
+  const marcarFallido = useChatStore((s) => s.marcarFallido);
+  const marcarEnviando = useChatStore((s) => s.marcarEnviando);
 
   const [nombreOtro, setNombreOtro] = useState('Conversación');
   const [cargando, setCargando] = useState(true);
   const [cargandoAnteriores, setCargandoAnteriores] = useState(false);
   const [hayMasAntiguos, setHayMasAntiguos] = useState(true);
   const [texto, setTexto] = useState('');
-  const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const listaRef = useRef<FlatList>(null);
 
@@ -87,6 +97,14 @@ export default function ConversacionScreen() {
     };
   }, [miId, conversacionId, setMensajes]);
 
+  // END-19 · Soltar el historial al salir. El store nunca desalojaba nada:
+  // abrir veinte chats en una sesión dejaba veinte historiales en memoria hasta
+  // matar la app. Volver a entrar cuesta una consulta, que además está cacheada.
+  useEffect(() => {
+    if (!conversacionId) return;
+    return () => limpiarConversacion(conversacionId);
+  }, [conversacionId, limpiarConversacion]);
+
   useEffect(() => {
     if (!miId || !conversacionId) return;
     // El filtro va en el servidor (`conversacion_id=eq.…`): antes llegaban TODOS
@@ -113,35 +131,73 @@ export default function ConversacionScreen() {
     if (!conversacionId || cargandoAnteriores || !hayMasAntiguos || mensajes.length === 0) return;
     setCargandoAnteriores(true);
     try {
-      const anteriores = await listarMensajes(conversacionId, mensajes[0].creado_en);
+      // Cursor COMPUESTO. Con solo `creado_en`, dos mensajes del mismo instante
+      // hacían que uno desapareciera al paginar: el primero cerraba la página y
+      // el segundo caía fuera del `<`.
+      const anteriores = await listarMensajes(conversacionId, cursorDe(mensajes));
       if (anteriores.length === 0) {
         setHayMasAntiguos(false);
         return;
       }
       setMensajes(conversacionId, [...anteriores, ...mensajes]);
       setHayMasAntiguos(anteriores.length === PAGINA_MENSAJES);
+    } catch (e) {
+      // END-20 · Antes solo había `finally`. Una página que fallaba no mostraba
+      // NADA, y la persona concluía que no había más historial — la app
+      // afirmando una ausencia que era un fallo de red.
+      aviso('cargarAnteriores falló', undefined, e);
+      setError('No pudimos cargar los mensajes anteriores. Desliza otra vez para reintentar.');
     } finally {
       setCargandoAnteriores(false);
     }
   }, [conversacionId, cargandoAnteriores, hayMasAntiguos, mensajes, setMensajes]);
 
-  const onEnviar = useCallback(async () => {
+  /**
+   * END-20 · Envío optimista.
+   *
+   * La burbuja aparece ANTES del viaje de ida y vuelta. Esperar a que el
+   * servidor confirme para pintar hace que escribir se sienta lento en
+   * cualquier red que no sea la de una oficina.
+   *
+   * Y si falla, el texto NO vuelve al campo. Devolverlo se lee como que el
+   * mensaje se borró: la persona ya lo había «mandado». La burbuja se queda en
+   * su sitio marcada como fallida, con su reintento encima — que es lo que hace
+   * cualquier app de mensajería y lo que la gente espera.
+   */
+  const enviarContenido = useCallback(
+    async (contenido: string, idTemporal: string) => {
+      if (!miId || !conversacionId) return;
+      marcarEnviando(conversacionId, idTemporal);
+      try {
+        const mensaje = await enviarMensaje(conversacionId, miId, contenido);
+        confirmarOptimista(conversacionId, idTemporal, mensaje);
+      } catch (e) {
+        aviso('enviarMensaje falló', undefined, e);
+        marcarFallido(conversacionId, idTemporal);
+      }
+    },
+    [miId, conversacionId, marcarEnviando, confirmarOptimista, marcarFallido]
+  );
+
+  const onEnviar = useCallback(() => {
     const contenido = texto.trim();
-    if (!contenido || !miId || !conversacionId || enviando) return;
+    if (!contenido || !miId || !conversacionId) return;
     setTexto('');
     setError(null);
-    setEnviando(true);
-    try {
-      const mensaje = await enviarMensaje(conversacionId, miId, contenido);
-      agregarMensaje(conversacionId, mensaje);
-    } catch {
-      // Se devuelve el texto al campo en vez de perderlo, y se dice qué pasó.
-      setTexto(contenido);
-      setError('No se pudo enviar. Revisa tu conexión e intenta de nuevo.');
-    } finally {
-      setEnviando(false);
-    }
-  }, [texto, miId, conversacionId, enviando, agregarMensaje]);
+    const idTemporal = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    agregarOptimista(conversacionId, { id: idTemporal, contenido, remitenteId: miId });
+    // END-37 · Toque ligero, no sello. El mensaje aparece en pantalla al
+    // instante (C.4, envío optimista) pero TODAVÍA NO está entregado: puede
+    // fallar y pintarse en rojo. Confirmar con la vibración de «hecho» algo que
+    // aún puede deshacerse sería prometer de más con el cuerpo.
+    toque();
+    void enviarContenido(contenido, idTemporal);
+  }, [texto, miId, conversacionId, agregarOptimista, enviarContenido]);
+
+  const onReintentar = useCallback(
+    (mensaje: MensajeLocal) => void enviarContenido(mensaje.contenido, mensaje.id),
+    [enviarContenido]
+  );
 
   return (
     <ThemedView style={{ flex: 1 }}>
@@ -163,8 +219,14 @@ export default function ConversacionScreen() {
             ref={listaRef}
             data={mensajes}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.lista}
-            renderItem={({ item }) => <BurbujaMensaje mensaje={item} esPropio={item.remitente_id === miId} />}
+            contentContainerStyle={[styles.lista, styles.columna, { maxWidth: anchoLista }]}
+            renderItem={({ item }) => (
+              <BurbujaMensaje
+                mensaje={item}
+                esPropio={item.remitente_id === miId}
+                onReintentar={onReintentar}
+              />
+            )}
             onContentSizeChange={() => listaRef.current?.scrollToEnd({ animated: true })}
             ListHeaderComponent={
               hayMasAntiguos && mensajes.length > 0 ? (
@@ -226,8 +288,8 @@ export default function ConversacionScreen() {
           />
           <Pressable
             onPress={onEnviar}
-            disabled={!texto.trim() || enviando}
-            style={[styles.botonEnviar, { opacity: !texto.trim() || enviando ? 0.5 : 1 }]}
+            disabled={!texto.trim()}
+            style={[styles.botonEnviar, { opacity: !texto.trim() ? 0.5 : 1 }]}
             accessibilityRole="button"
             accessibilityLabel="Enviar mensaje"
           >
@@ -243,6 +305,7 @@ export default function ConversacionScreen() {
 }
 
 const styles = StyleSheet.create({
+  columna: { width: '100%', alignSelf: 'center' },
   lista: { padding: Spacing.three, flexGrow: 1, justifyContent: 'flex-end', gap: Spacing.half },
   cargando: { marginTop: Spacing.five, alignItems: 'center', gap: Spacing.two },
   errorBloque: {
@@ -281,8 +344,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     minHeight: 48,
     maxHeight: 120,
-    fontFamily: Tipografia.regular,
-    fontSize: 16,
+    ...Texto.cuerpo,
   },
   botonEnviar: {
     width: 48,

@@ -38,8 +38,69 @@ jest.mock('react-native-reanimated', () => {
     useSharedValue: (v) => ({ value: v }),
     useAnimatedStyle: (fn) => (typeof fn === 'function' ? fn() : {}),
     withTiming: (v) => v, withSpring: (v) => v, withDelay: (_, v) => v,
+    // El pulso de los esqueletos (END-38). `withRepeat` devuelve su valor para
+    // que `useAnimatedStyle` siga produciendo un estilo valido, y se expone como
+    // jest.fn() porque hay una prueba que comprueba que NO se llama cuando el
+    // sistema pide reducir el movimiento — ahi lo que importa es la llamada, no
+    // el valor.
+    withRepeat: jest.fn((v) => v),
+    // `out` y `cubic` son los del conteo de la cifra (END-37). `out(cubic)` se
+    // devuelve DE VERDAD y no como identidad: la prueba del conteo comprueba que
+    // el numero intermedio va por delante del lineal, que es lo que significa
+    // «arranca rapido y frena al final». Con una identidad esa prueba pasaria
+    // sin comprobar nada.
+    Easing: {
+      inOut: (f) => f,
+      out: (f) => (t) => 1 - f(1 - t),
+      cubic: (t) => t * t * t,
+      ease: (t) => t,
+      linear: (t) => t,
+      bezier: () => (t) => t,
+    },
     useAnimatedScrollHandler: () => () => {},
     interpolate: (x) => x, Extrapolation: { CLAMP: 'clamp' },
     runOnJS: (fn) => fn,
   };
 });
+
+// `react-native-maps` es un módulo NATIVO: fuera de un dispositivo,
+// `TurboModuleRegistry.getEnforcing('RNMapsAirModule')` lanza al importarlo, y
+// tumba la suite entera de cualquier pantalla que lo use — aunque la prueba no
+// mire el mapa.
+//
+// El doble pinta una View con su testID. Sirve para comprobar que la pantalla
+// monta y que el mapa está donde debe; no dice nada sobre si el mapa se ve, que
+// es justo lo que END-10 tiene abierto y solo se comprueba en un dispositivo.
+jest.mock('react-native-maps', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const Falso = (nombre) => {
+    const C = ({ children, ...props }) =>
+      React.createElement(View, { ...props, testID: props.testID ?? nombre }, children);
+    C.displayName = nombre;
+    return C;
+  };
+  const MapView = Falso('mapa');
+  return {
+    __esModule: true,
+    default: MapView,
+    MapView,
+    Marker: Falso('marcador'),
+    Callout: Falso('globo'),
+    PROVIDER_GOOGLE: 'google',
+  };
+});
+
+// AsyncStorage llega por el cliente de Supabase, que lo usa para persistir la
+// sesión. Es nativo, así que fuera del dispositivo es null y revienta al
+// importarse. La librería trae su propio doble.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+);
+
+// Los runners de CI son bastante más lentos que una laptop, y bajo la
+// instrumentación de cobertura un render que aquí tarda 200 ms allí puede tardar
+// segundos. El timeout de 5 s por defecto de Jest convertía eso en fallos al
+// azar — END-23. Una compuerta que falla sin motivo se acaba apagando, que es
+// justo lo que el comentario de Trivy en ci.yml advierte.
+jest.setTimeout(15000);

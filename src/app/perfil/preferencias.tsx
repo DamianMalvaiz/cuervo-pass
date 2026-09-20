@@ -20,6 +20,7 @@ import { construirTextoPerfil } from '@/lib/perfilTexto';
 import { avisoVector, campoVector, resolverPerfilVector } from '@/lib/perfilVector';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
+import { aviso } from '@/lib/registro';
 
 // Documento maestro v5 · §25 — el cuestionario es editable, no una pregunta de
 // una sola vez. Cambiar de presupuesto, de universidad o de consentimiento para
@@ -48,7 +49,7 @@ export default function PreferenciasScreen() {
         const parseo = await parsearPerfil(respuestas.textoLibre);
         if (!parseo.degradado) horario = parseo.horario_predominante;
       } catch (e) {
-        console.warn('parsearPerfil falló, se sigue sin horario inferido:', e);
+        aviso('parsearPerfil falló, se sigue sin horario inferido', undefined, e);
       }
     }
 
@@ -90,9 +91,9 @@ export default function PreferenciasScreen() {
       longitud_universidad: coords?.lng ?? null,
     });
 
-    const aviso = avisoVector(resultadoVector, teniaVector);
-    if (aviso) {
-      Alert.alert(aviso.titulo, aviso.cuerpo, [{ text: 'Entendido', onPress: () => router.back() }]);
+    const avisoDeVector = avisoVector(resultadoVector, teniaVector);
+    if (avisoDeVector) {
+      Alert.alert(avisoDeVector.titulo, avisoDeVector.cuerpo, [{ text: 'Entendido', onPress: () => router.back() }]);
       return;
     }
     router.back();

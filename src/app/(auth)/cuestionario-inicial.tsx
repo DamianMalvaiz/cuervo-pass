@@ -13,6 +13,7 @@ import { construirTextoPerfil } from '@/lib/perfilTexto';
 import { avisoVector, campoVector, resolverPerfilVector } from '@/lib/perfilVector';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
+import { aviso } from '@/lib/registro';
 
 // Documento maestro v5 · §26 (el tercer estado de navegación) y §29.
 export default function CuestionarioInicialScreen() {
@@ -47,7 +48,7 @@ export default function CuestionarioInicialScreen() {
         const parseo = await parsearPerfil(respuestas.textoLibre);
         if (!parseo.degradado) horario = parseo.horario_predominante;
       } catch (e) {
-        console.warn('parsearPerfil falló, se sigue sin horario inferido:', e);
+        aviso('parsearPerfil falló, se sigue sin horario inferido', undefined, e);
       }
     }
 
@@ -90,9 +91,9 @@ export default function CuestionarioInicialScreen() {
       cuestionario_completo: true,
     });
 
-    const aviso = avisoVector(resultadoVector, false);
-    if (aviso) {
-      Alert.alert(aviso.titulo, aviso.cuerpo, [
+    const avisoDeVector = avisoVector(resultadoVector, false);
+    if (avisoDeVector) {
+      Alert.alert(avisoDeVector.titulo, avisoDeVector.cuerpo, [
         { text: 'Entendido', onPress: () => router.replace('/(tabs)/inicio') },
       ]);
       return;

@@ -30,6 +30,43 @@ contactar a alguien fuera de la app.
 | Quien encuentre el token compartido | Usar el microservicio | Reutilizar el `Bearer` filtrado | Comparación en tiempo constante (`hmac.compare_digest`) y procedimiento de rotación ensayado | `main.py`, §24 |
 | Un `drop table` accidental | — | Error humano en la semana 11 | Respaldo antes de cada `db push` a partir de la semana 5 | §33.4 |
 
+## Abuso de la moderación automática (ORDEN A.4 / A.7)
+
+Tres reportes ocultan una publicación (migración 0013) y tres suspenden una
+cuenta (0023). El umbral es bajo a propósito: sin moderadores humanos, la
+alternativa es que nadie reaccione nunca.
+
+Eso abre un ataque evidente. **Tres cuentas coordinadas tumban a cualquiera.**
+El umbral no es el problema; lo era que una cuenta no costara nada: el registro
+era abierto y `enable_confirmations` estaba en `false`, así que tres desechables
+se creaban en dos minutos.
+
+Lo que se hizo para encarecerlo (A.7):
+
+- `enable_confirmations = true`: hay que controlar un buzón real.
+- El correo tiene que ser institucional (`src/lib/correoUniversitario.ts`). Un
+  atacante necesita tres correos universitarios distintos, no tres de Gmail.
+
+Lo que **sigue abierto**, y se declara:
+
+- Alguien con acceso a tres cuentas universitarias reales puede hacerlo igual.
+- No hay panel de moderación, ni revisión humana, ni apelación. Revertir una
+  suspensión es un `update` a mano en el SQL Editor, documentado en la 0023.
+- El contador de reportes no caduca: tres reportes repartidos en seis meses
+  pesan lo mismo que tres en una tarde.
+
+## Qué prueba —y qué no— la insignia de correo verificado
+
+`perfiles_publicos.correo_verificado` (migración 0026) se deriva de
+`auth.users.email_confirmed_at`. Dice **exactamente una cosa**: ese correo
+existe y esa persona lo controla.
+
+No dice que sea estudiante vigente, ni que sea quien afirma ser, ni que el
+departamento que publica sea suyo. Por eso en la interfaz tiene que leerse
+«correo verificado» y nunca «usuario verificado»: la insignia de un documento
+oficial presta una credibilidad que este dato no respalda, y el usuario primario
+de este producto está decidiendo dónde va a vivir sin haber visto el lugar.
+
 ## Lo que este proyecto NO resuelve
 
 Se escribe a propósito: reconocer un riesgo y explicar por qué queda fuera de

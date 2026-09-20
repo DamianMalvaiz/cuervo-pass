@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Filete, Spacing } from '@/constants/theme';
+import { Filete, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -70,7 +70,7 @@ const estilos = StyleSheet.create({
   textos: { flex: 1, gap: Spacing.half },
   // 32px: más grande que `title` (26) porque aquí manda la pantalla entera, y
   // dos renglones caben sin romper el ritmo.
-  titulo: { fontSize: 32, lineHeight: 36, letterSpacing: -0.6, fontFamily: 'Archivo_700Bold' },
+  titulo: Texto.tituloHoja,
   descripcion: { lineHeight: 20 },
   filete: { height: Filete.grueso, marginTop: Spacing.two },
 });

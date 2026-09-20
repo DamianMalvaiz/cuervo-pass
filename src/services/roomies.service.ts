@@ -8,6 +8,7 @@
 import { generarEmbedding } from '@/lib/aiService';
 import { supabase } from '@/lib/supabase';
 import type { Roomie, RoomieSugerido } from '@/types/database.types';
+import { aviso } from '@/lib/registro';
 
 /**
  * Roomies activos de otros usuarios, ordenados por similitud de coseno.
@@ -37,7 +38,7 @@ async function vectorDeBusquedaSeguro(descripcion: string): Promise<number[] | n
   try {
     return await generarEmbedding(descripcion);
   } catch (e) {
-    console.warn('generarEmbedding (roomie) falló:', e);
+    aviso('generarEmbedding (roomie) falló', undefined, e);
     return null;
   }
 }

@@ -10,7 +10,7 @@ import { Campo } from '@/components/Campo';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Filete, Radios, Spacing } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto, escalarTexto } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
@@ -87,7 +87,7 @@ export default function LoginScreen() {
               <ThemedText type="etiqueta" themeColor="textSecondary">
                 UNIVERSIDAD TECNOLÓGICA DEL VALLE DE TOLUCA
               </ThemedText>
-              <ThemedText type="title" style={{ fontSize: 34 * escalaTitulo, lineHeight: 38 * escalaTitulo }}>
+              <ThemedText type="title" style={escalarTexto(Texto.tituloHoja, escalaTitulo)}>
                 Cuervo Pass
               </ThemedText>
               {!altoApretado && (

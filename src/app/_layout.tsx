@@ -1,11 +1,19 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold, Archivo_700Bold, Archivo_900Black, useFonts } from '@expo-google-fonts/archivo';
 import { Stack, ThemeProvider, type Theme } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { ScrollView, Share, StyleSheet, View } from 'react-native';
 
-import { Colors, Tipografia } from '@/constants/theme';
+import { BloqueEstado } from '@/components/ficha/BloqueEstado';
+import { Sello } from '@/components/ficha/Sello';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Colors, Spacing, Tipografia } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { crearClienteConsultas } from '@/lib/consultas';
+import { fallo, limpiar, textoDeError } from '@/lib/registro';
 
 // La pantalla de arranque se sostiene hasta que Archivo esté en memoria. Sin
 // esto la app pinta un fotograma con la tipografía del sistema y luego salta a
@@ -45,6 +53,12 @@ function temaNavegacion(esOscuro: boolean): Theme {
 }
 
 export default function RootLayout() {
+  // El cliente se crea UNA vez por montaje de la app, no en cada render: un
+  // QueryClient nuevo tira la caché entera, que es justo lo contrario de para
+  // lo que está. `useState` con inicializador perezoso es la forma corta de
+  // decir eso sin un `useRef` y una guarda.
+  const [clienteConsultas] = useState(crearClienteConsultas);
+
   const scheme = useColorScheme();
   const esOscuro = scheme === 'dark';
   const c = esOscuro ? Colors.dark : Colors.light;
@@ -77,6 +91,7 @@ export default function RootLayout() {
   } as const;
 
   return (
+    <QueryClientProvider client={clienteConsultas}>
     <ThemeProvider value={temaNavegacion(esOscuro)}>
       <StatusBar style={esOscuro ? 'light' : 'dark'} />
       <Stack
@@ -106,5 +121,78 @@ export default function RootLayout() {
         <Stack.Screen name="aviso-privacidad" options={{ ...encabezado, title: 'Aviso de privacidad' }} />
       </Stack>
     </ThemeProvider>
+    </QueryClientProvider>
   );
 }
+
+/**
+ * END-12 · La red de seguridad en tiempo de ejecución.
+ *
+ * expo-router reconoce un `ErrorBoundary` exportado desde un layout **por su
+ * nombre** y lo pinta en lugar del subárbol que reventó. Sin esto, un error de
+ * render en un build de release es una PANTALLA BLANCA: sin traza, sin mensaje,
+ * sin salida, y en vivo. El principio #1 de PRODUCT.md es «Reliability over
+ * features», y ése era el modo de fallo más visible que tenía la app.
+ *
+ * Tres decisiones:
+ *
+ *   · **Reintentar de verdad.** `retry()` remonta el subárbol. Un error sin
+ *     salida deja la app muerta hasta que se mate el proceso, y quien está
+ *     enseñándola no puede hacer eso delante de nadie.
+ *
+ *   · **Compartir, no copiar.** El portapapeles exigiría `expo-clipboard`, que
+ *     es un módulo nativo y obliga a reconstruir el binario. `Share` ya viene
+ *     en React Native, cuesta cero, y además deja mandarse el detalle por
+ *     WhatsApp — que es lo que uno hace de verdad con un error.
+ *
+ *   · **El detalle se limpia antes de salir.** Va por `limpiar()` de
+ *     `registro.ts`: §29 exige minimización y esto sale del dispositivo hacia
+ *     donde la persona decida.
+ */
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
+  const detalle = textoDeError(error);
+
+  useEffect(() => {
+    fallo('error de render capturado por ErrorBoundary', { detalle }, error);
+  }, [detalle, error]);
+
+  const compartir = () => {
+    const cuerpo = String(limpiar(`Cuervo Pass — error\n\n${detalle}\n\n${error?.stack ?? ''}`));
+    Share.share({ message: cuerpo }).catch(() => {
+      // Si el diálogo del sistema no abre, no hay nada más que hacer aquí: lo
+      // importante —que la pantalla no esté en blanco— ya está resuelto.
+    });
+  };
+
+  return (
+    <ThemedView style={estilos.pantallaError}>
+      <ScrollView contentContainerStyle={estilos.contenidoError}>
+        <BloqueEstado
+          etiqueta="ALGO SE ROMPIÓ"
+          mensaje="La pantalla no pudo dibujarse. Puedes reintentar; si vuelve a pasar, comparte el detalle."
+          icono="warning-outline"
+          tono="alerta"
+        />
+        {/* El detalle, seleccionable y legible. Esconderlo obliga a adivinar. */}
+        <ThemedText type="small" themeColor="textSecondary" selectable style={estilos.detalleError}>
+          {detalle}
+        </ThemedText>
+        <View style={estilos.accionesError}>
+          <Sello onPress={retry} icono="refresh" accessibilityLabel="Reintentar">
+            Reintentar
+          </Sello>
+          <Sello onPress={compartir} variante="contorno" icono="share-outline" accessibilityLabel="Compartir detalle">
+            Compartir detalle
+          </Sello>
+        </View>
+      </ScrollView>
+    </ThemedView>
+  );
+}
+
+const estilos = StyleSheet.create({
+  pantallaError: { flex: 1 },
+  contenidoError: { flexGrow: 1, justifyContent: 'center', padding: Spacing.three, gap: Spacing.three },
+  detalleError: { lineHeight: 20 },
+  accionesError: { gap: Spacing.two },
+});

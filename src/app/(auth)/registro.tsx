@@ -13,12 +13,14 @@ import { Seccion } from '@/components/ficha/Seccion';
 import { RequisitosPassword } from '@/components/RequisitosPassword';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Filete, Radios, Spacing } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto, escalarTexto } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { MENSAJE_CORREO_NO_UNIVERSITARIO, esCorreoUniversitario } from '@/lib/correoUniversitario';
 import { evaluarPassword } from '@/lib/password';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
+import { aviso } from '@/lib/registro';
 
 // Documento maestro v5 · §25 y §29. El aviso se lee DENTRO de la app
 // (src/app/aviso-privacidad.tsx), no en un enlace externo: pedir que se acepte
@@ -34,7 +36,13 @@ const esquemaRegistro = z
       .string()
       .min(3, 'Mínimo 3 caracteres')
       .regex(/^[a-z0-9_]+$/i, 'Solo letras, números y guion bajo'),
-    email: z.string().email('Correo inválido'),
+    // §12 · A.7 — correo institucional. No verifica identidad; encarece crear
+    // cuentas desechables, que es lo que hacia barato el brigading de reportes
+    // (3 reportes ocultan una publicacion o suspenden una cuenta).
+    email: z
+      .string()
+      .email('Correo inválido')
+      .refine(esCorreoUniversitario, MENSAJE_CORREO_NO_UNIVERSITARIO),
     password: z.string(),
     confirmarPassword: z.string(),
     // §29: la casilla NO viene premarcada y el registro no avanza sin ella. La
@@ -117,7 +125,7 @@ export default function RegistroScreen() {
           .from('usuarios')
           .update({ acepto_aviso_privacidad_en: new Date().toISOString() })
           .eq('id', sesion.user.id);
-        if (errorConsentimiento) console.warn('No se guardó la marca de consentimiento:', errorConsentimiento);
+        if (errorConsentimiento) aviso('No se guardó la marca de consentimiento', undefined, errorConsentimiento);
       }
       router.replace('/(auth)/cuestionario-inicial');
     } catch (e) {
@@ -140,7 +148,7 @@ export default function RegistroScreen() {
               <ThemedText type="etiqueta" themeColor="textSecondary">
                 ALTA DE USUARIO
               </ThemedText>
-              <ThemedText type="title" style={{ fontSize: 30 * escalaTitulo, lineHeight: 34 * escalaTitulo }}>
+              <ThemedText type="title" style={escalarTexto(Texto.tituloMedio, escalaTitulo)}>
                 Crear cuenta
               </ThemedText>
               <View style={[estilos.filete, { backgroundColor: theme.text }]} />

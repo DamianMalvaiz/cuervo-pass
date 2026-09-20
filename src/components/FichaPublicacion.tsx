@@ -7,6 +7,7 @@ import { Calificacion } from '@/components/ficha/Calificacion';
 import { ThemedText } from '@/components/themed-text';
 import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { PorQue } from '@/components/ficha/PorQue';
 
 /**
  * Una publicación, como ficha de un expediente.
@@ -31,6 +32,10 @@ interface Props {
   distanciaKm?: number | null;
   /** Score del motor en [0,1]. Se presenta como calificación sobre 10. */
   score?: number | null;
+  /** Afinidad semántica en [0,1]. Null cuando esta fila es de Nivel 1 (END-08). */
+  similitud?: number | null;
+  /** Tope de presupuesto de quien mira, para explicar la holgura. */
+  presupuestoMax?: number | null;
   tipo?: string | null;
   permiteMascotas?: boolean;
   amueblado?: boolean;
@@ -54,6 +59,8 @@ export function FichaPublicacion({
   fotoUrl,
   distanciaKm,
   score,
+  similitud,
+  presupuestoMax,
   tipo,
   permiteMascotas,
   amueblado,
@@ -143,7 +150,18 @@ export function FichaPublicacion({
             y por eso la foto manda; esto ordena por AJUSTE, y quien lo lee tiene
             que ver primero cuánto le ajusta. */}
         <View style={estilos.fichaCampos}>
-          <Calificacion score={score} />
+          {/* END-30 · La cifra deja de estar sola. Sus tres razones al lado la
+              vuelven discutible, que es lo que distingue una recomendación de
+              una sentencia. */}
+          <View>
+            <Calificacion score={score} />
+            <PorQue
+              distanciaKm={distanciaKm}
+              precio={precio}
+              presupuestoMax={presupuestoMax}
+              similitud={similitud}
+            />
+          </View>
           <View style={estilos.camposDerecha}>
             <CampoFicha etiqueta="RENTA MENSUAL" valor={precioTexto} />
             <CampoFicha

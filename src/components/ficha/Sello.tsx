@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { AppColors, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { AppColors, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -87,9 +87,5 @@ const estilos = StyleSheet.create({
   inactivo: { opacity: 0.45 },
   presionado: { opacity: 0.75 },
   contenido: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  texto: {
-    fontFamily: Tipografia.bold,
-    fontSize: 15,
-    letterSpacing: 0.4,
-  },
+  texto: Texto.sello,
 });

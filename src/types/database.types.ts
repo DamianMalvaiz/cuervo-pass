@@ -57,6 +57,13 @@ export interface PerfilPublico {
   nivel_ruido: 'bajo' | 'medio' | 'alto' | null;
   horario_predominante: 'diurno' | 'nocturno' | 'mixto' | null;
   creado_en: string;
+  /**
+   * Se derivó de `auth.users.email_confirmed_at` en la vista (migración 0026),
+   * no es una columna copiada. Dice que el correo existe y que esa persona lo
+   * controla — NADA más. No es «usuario verificado»: la app no verifica
+   * identidades (§28). Etiquétalo en pantalla como «correo verificado».
+   */
+  correo_verificado: boolean;
 }
 
 export type TipoPublicacion = 'depa' | 'cuarto' | 'casa_compartida';
@@ -132,8 +139,42 @@ export interface PublicacionSugerida {
   longitud: number | null;
   distancia: number | null;         // km, ya calculada en Postgres; null si no hay geocoding
   score: number;
-  similitud?: number | null;        // solo en Nivel 2
-  score_final?: number | null;      // solo en Nivel 2
+  // `similitud` es null cuando esa publicación no tiene embedding. Null y no
+  // cero: cero es una afinidad medida, null es su ausencia (END-08).
+  similitud?: number | null;
+  score_final?: number | null;
+  // El nivel es POR FILA, no una bandera de la consulta: en una misma lista
+  // conviven publicaciones ordenadas por afinidad y publicaciones ordenadas
+  // solo por filtros.
+  nivel?: 1 | 2;
+}
+
+/**
+ * END-32 · El orden que el usuario elige, aplicado en Postgres.
+ *
+ * No es cosmético que viva aquí y no en la pantalla: ordenar en el cliente
+ * significaría ordenar el top-30 YA TRUNCADO por encaje, así que «menor renta»
+ * daría las más baratas de las treinta que mejor encajan, no las más baratas.
+ * Es el mismo defecto que END-17, y el carrusel «Las de menor renta» lo tenía.
+ */
+export type OrdenSugerencias = 'ajuste' | 'cercania' | 'precio';
+
+/** Fila de `nuevas_esta_semana`. No trae `similitud` ni `nivel`: este carrusel
+ *  ordena por FECHA, y mezclar ahí la afinidad volvería a contar lo mismo. */
+export interface PublicacionNueva {
+  [key: string]: unknown;
+  id: string;
+  titulo: string;
+  tipo: TipoPublicacion;
+  direccion: string;
+  precio_renta: number;
+  descripcion: string | null;
+  fotos: string[] | null;
+  latitud: number | null;
+  longitud: number | null;
+  distancia: number | null;
+  score: number;
+  creado_en: string;
 }
 
 export interface Roomie {
@@ -260,13 +301,22 @@ export interface Database {
       publicaciones_publicas: Vista<PublicacionPublica>;
     };
     Functions: {
+      // END-17 · `p_tipo` se aplica dentro de la función que trunca a 30, no
+      // después. Filtrar una página ya truncada es lo que hacía que la app
+      // negara la existencia de publicaciones que sí estaban.
       sugerencias_publicaciones: {
-        Args: { p_limite?: number };
+        Args: { p_limite?: number; p_tipo?: TipoPublicacion | null; p_orden?: OrdenSugerencias };
         Returns: PublicacionSugerida[];
       };
       sugerencias_con_ranking: {
-        Args: { p_limite?: number };
+        Args: { p_limite?: number; p_tipo?: TipoPublicacion | null; p_orden?: OrdenSugerencias };
         Returns: PublicacionSugerida[];
+      };
+      // END-32 · El único carrusel. Trae lo que la lista no tiene —lo reciente—
+      // en vez de reordenar el mismo conjunto por tercera vez.
+      nuevas_esta_semana: {
+        Args: { p_limite?: number; p_tipo?: TipoPublicacion | null };
+        Returns: PublicacionNueva[];
       };
       sugerencias_roomies: {
         Args: { p_limite?: number };
@@ -276,8 +326,31 @@ export interface Database {
         Args: { p_otro: string };
         Returns: string;
       };
+      // END-16 · Resuelve el último mensaje y los no leídos de CADA hilo con dos
+      // `lateral join`, en vez de traer 1200 mensajes y plegarlos en el cliente.
+      resumen_conversaciones: {
+        Args: { p_limite: number };
+        Returns: {
+          conversacion_id: string;
+          otro_usuario_id: string;
+          ultimo_contenido: string | null;
+          ultimo_creado_en: string | null;
+          ultimo_remitente_id: string | null;
+          ultimo_leido: boolean | null;
+          no_leidos: number;
+        }[];
+      };
+      afinidad_de: {
+        Args: { p_publicacion_id: string };
+        Returns: {
+          score: number | null;
+          similitud: number | null;
+          score_final: number | null;
+          nivel: 1 | 2;
+        }[];
+      };
       revelar_contacto: {
-        Args: { p_publicacion_id: string; p_score?: number | null };
+        Args: { p_publicacion_id: string};
         Returns: string;
       };
       contactos_de_mis_publicaciones: {

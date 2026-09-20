@@ -1,7 +1,7 @@
 # Prueba de aislamiento entre cuentas
 
 ```bash
-node --env-file=.env scripts/prueba-rls.mjs
+node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs
 ```
 
 Crea dos cuentas temporales, comprueba que la primera no puede tocar nada de la

@@ -88,8 +88,15 @@ cd ai-service
 cp .env.example .env          # claves del servidor: NUNCA con prefijo EXPO_PUBLIC_
 python3 -m venv venv && source venv/bin/activate
 pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
-uvicorn main:app --reload     # desde ai-service/, no desde la raíz
+uvicorn main:app --reload     # desde ai-service/, no desde la raíz.
+                              # config.py carga ai-service/.env solo; si falta
+                              # AI_SHARED_TOKEN el servicio NO arranca, a propósito.
 # o con Docker:  docker compose up
+#   Requiere ai-service/.env (el `cp` de arriba): docker-compose.yml lo
+#   declara en env_file y Compose aborta si falta. Eso es lo correcto —
+#   el microservicio sin AI_SHARED_TOKEN no debe arrancar.
+#   Compose NO está instalado en la máquina de desarrollo actual
+#   (19/09/2026): esta ruta está sin probar aquí. Se usa uvicorn.
 
 # ── Túnel, para que Supabase alcance tu laptop ─────────
 ./scripts/tunel.sh           # NO uses `cloudflared tunnel --url` a pelo: no
@@ -98,14 +105,29 @@ uvicorn main:app --reload     # desde ai-service/, no desde la raíz
 
 # ── Antes de exponer ───────────────────────────────────
 node scripts/verificar.mjs   # túnel, secrets, vectores, RPCs — ver docs/verificacion-pre-demo.md
-npx supabase test db         # 21 aserciones de RLS (local, contra el esquema reconstruido)
-node --env-file=.env scripts/prueba-rls.mjs   # 15 barreras, contra PRODUCCIÓN y por HTTP
+npx supabase test db         # 37 aserciones de RLS (local, contra el esquema reconstruido)
+node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # 19 barreras, contra PRODUCCIÓN y por HTTP
 npx tsc --noEmit && npx expo lint && npx jest
 ```
 
-El `.env` de la raíz es **del cliente**: todo lo que lleva `EXPO_PUBLIC_` se compila dentro del bundle, donde cualquiera con el APK lo lee. Los secretos de servidor —`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_PASSWORD`, `AI_SHARED_TOKEN`, `ANTHROPIC_API_KEY`, `MAPBOX_ACCESS_TOKEN`— tienen que vivir en un `.env.server` aparte.
+Los dos `.env` son **dos archivos separados a propósito**: el de la raíz es del cliente y todo lo que lleva `EXPO_PUBLIC_` se compila dentro del bundle; el de `ai-service/` nunca se lee desde la app. Ninguno de los dos se versiona.
 
-**Ese archivo todavía no existe** y hoy están mezclados en el de la raíz; el microservicio arranca con `. ../.env`. Está registrado como pendiente en AGENTS.md. Una versión anterior de este párrafo afirmaba que el reparto ya estaba hecho, que es justo el defecto que AGENTS.md llama el más caro: documentación que describe un sistema distinto al construido. No se versiona ninguno de los dos.
+Son **tres** archivos, con tres destinos, y ninguno se versiona:
+
+| Archivo | Qué lleva | Quién lo lee |
+|---|---|---|
+| `.env` | solo `EXPO_PUBLIC_*` | la app (se compila dentro del APK) y los scripts |
+| `.env.server` | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_PASSWORD`, `AI_SERVICE_URL`, `CRON_SECRET` | los scripts y el CLI |
+| `ai-service/.env` | `ANTHROPIC_API_KEY`, `AI_SHARED_TOKEN`, modelos, timeouts | `ai-service/config.py`, y `env_file` de Docker |
+
+Los scripts cargan los dos primeros:
+
+```bash
+node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs
+```
+
+El reparto no es una advertencia escrita: lo comprueba `npm run verificar:env`,
+que corre en CI y rompe el build si un secreto aparece del lado del cliente.
 
 ## Decisiones de ingeniería
 
@@ -113,7 +135,7 @@ El `.env` de la raíz es **del cliente**: todo lo que lleva `EXPO_PUBLIC_` se co
 - **Retrieval + ranking, en ese orden.** El filtro duro —presupuesto, distancia, mascotas— descarta primero lo inviable; el embedding solo reordena lo que ya se puede pagar y alcanzar. Un departamento carísimo puede tener un vector muy parecido a tu perfil sin que puedas pagarlo.
 - **El teléfono no se lee, se pide.** `publicaciones_publicas` no trae la columna. El número sale de `revelar_contacto()`, que aplica una cuota de 25 revelaciones diarias y deja registro sin duplicar.
 - **Control de acceso en vez de cifrado de campos.** Se cifra en tránsito (HTTPS) y en reposo (disco de Supabase). Cifrar columnas con `pgp_sym_encrypt` no protegía contra la amenaza real —un usuario legítimo leyendo datos de otro— y mandaba la clave dentro de la consulta, donde acaba en los logs.
-- **Las pruebas de RLS son código.** Doce aserciones de pgTAP que corren en CI y rompen el build (`supabase/tests/rls.test.sql`). Una captura de pantalla no se vuelve a ejecutar.
+- **Las pruebas de RLS son código.** Treinta y siete aserciones de pgTAP que corren en CI y rompen el build (`supabase/tests/rls.test.sql`). Una captura de pantalla no se vuelve a ejecutar.
 - **Sin índice vectorial.** Con unos cientos de filas, un recorrido secuencial sobre `vector(384)` es instantáneo y **exacto**; un índice aproximado solo puede empeorar el resultado. Cuando haga falta será HNSW, no IVFFlat.
 - **Degradación visible.** Si el microservicio se cae, la app pasa a Nivel 1 y lo dice en pantalla. Se puede demostrar en vivo apagando el contenedor.
 
@@ -137,6 +159,14 @@ Datos de geocodificación © OpenStreetMap contributors, bajo licencia ODbL.
 ## Estado del proyecto
 
 Bitácora semanal: [`docs/bitacora-semanal.md`](docs/bitacora-semanal.md).
+
+**Endurecimiento en curso.** El documento maestro v5 se auditó *sobre el
+artefacto escrito, sin ejecutar el sistema*. Ya ejecutado, aparecieron treinta y
+ocho hallazgos propios, tres de ellos críticos. Siete están remediados y el
+resto tiene orden de trabajo escrita:
+[`docs/endurecimiento-v6.md`](docs/endurecimiento-v6.md).
+
+Lo que falta aplicar a producción está en su §3.
 
 ## Capturas de pantalla
 

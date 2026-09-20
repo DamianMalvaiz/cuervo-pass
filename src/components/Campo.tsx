@@ -3,7 +3,7 @@ import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { CampoContrasena } from '@/components/CampoContrasena';
 import { ThemedText } from '@/components/themed-text';
-import { Filete, Radios, Spacing, Tipografia } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -89,7 +89,6 @@ const estilos = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     minHeight: 52,
-    fontFamily: Tipografia.regular,
-    fontSize: 16,
+    ...Texto.cuerpo,
   },
 });
