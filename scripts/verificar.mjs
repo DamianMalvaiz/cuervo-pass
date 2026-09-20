@@ -18,6 +18,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 
+import { esDominioDeTunel, motivoRechazo } from './dominio-tunel.mjs';
+
 // Dos archivos: el de cliente y el de servidor. SUPABASE_SERVICE_ROLE_KEY vive
 // en el segundo desde la ORDEN A.3 — en el primero acababa compilada en el APK
 // si alguien le ponia el prefijo por descuido.
@@ -86,6 +88,18 @@ async function revisarTunel() {
   let dominio;
   try { dominio = readFileSync('.tunel-actual', 'utf8').trim(); }
   catch { anotar('Túnel a Cloudflare', 'aviso', 'no hay .tunel-actual (¿corriste scripts/tunel.sh?)'); return; }
+
+  // V.3 · FALLO y no aviso.
+  //
+  // El 19/09 este archivo contenía `http://127.0.0.1:8000` y esta función
+  // comprobó localhost creyendo comprobar el túnel — exactamente lo que el
+  // encabezado de arriba dice que no hay que hacer. Y como localhost siempre
+  // responde, salió en verde. Un verificador que da confianza falsa justo antes
+  // de exponer es peor que no tenerlo, así que esto no es un aviso.
+  if (!esDominioDeTunel(dominio)) {
+    anotar('Túnel a Cloudflare', 'fallo', motivoRechazo(dominio));
+    return;
+  }
   try {
     const t0 = Date.now();
     const r = await fetch(`${dominio}/listo`, { signal: AbortSignal.timeout(10_000) });

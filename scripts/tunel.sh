@@ -93,8 +93,21 @@ fi
 # secret a mano; para ese caso está `--forzar`.
 if [ "$FORZAR" -eq 0 ] && [ -f .tunel-actual ]; then
   ANTERIOR="$(cat .tunel-actual)"
-  echo "→ Probando el túnel anterior ($ANTERIOR)…"
-  if curl -sf -m 8 "$ANTERIOR/listo" >/dev/null 2>&1; then
+
+  # V.3 · Validar ANTES de confiar.
+  #
+  # El 19/09 este archivo contenía `http://127.0.0.1:8000`. El `curl` de abajo
+  # contra localhost responde 200 siempre, así que el script decía «sigue vivo»,
+  # salía con 0, y NUNCA volvía a crear un túnel. Comprobar el túnel preguntando
+  # a localhost es el fallo que este script existe para evitar.
+  #
+  # La regla vive en scripts/dominio-tunel.mjs, una sola vez, y la comparte con
+  # verificar.mjs. Dos copias en dos lenguajes se desincronizan.
+  if ! node scripts/dominio-tunel.mjs "$ANTERIOR"; then
+    ANTERIOR=""
+  fi
+
+  if [ -n "$ANTERIOR" ] && curl -sf -m 8 "$ANTERIOR/listo" >/dev/null 2>&1; then
     echo "   sigue vivo. No se toca."
     echo
     echo "Túnel arriba: $ANTERIOR"
