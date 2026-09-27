@@ -365,7 +365,7 @@ Lo de `publicacion/editar` es lo que más preocupa de los cuatro: editar una pub
 |---|---|---|---|---|
 | `app/publicacion/editar` | 0 % | 96.29 % | 90/66/100/96 | `test(V.8, 1/4)` |
 | `app/(auth)` | 39.81 % | 89.81 % | 89/70/86/91 | `test(V.8, 2/4)` |
-| `app/(tabs)` | 34.87 % | **73.87 %** | 73/70/67/74 | `d06141a` + `chats` |
+| `app/(tabs)` | 34.87 % | **87.34 %** | 87/76/75/88 | `d06141a` + `chats` + `perfil` |
 | `components/ui` | 0 % | **borrado** | — | capa 4 |
 
 Los tres umbrales se comprobaron subiéndolos a 100 y viendo fallar el build con el porcentaje real en el mensaje.
@@ -379,10 +379,24 @@ Los tres umbrales se comprobaron subiéndolos a 100 y viendo fallar el build con
 | Archivo | Cobertura | Por qué importa |
 |---|---|---|
 | ~~`chats.tsx`~~ | ~~52.94 %~~ → **94.11 %** | ✅ cerrado. Ver abajo: la orden apuntaba al archivo equivocado. |
-| `perfil.tsx` | ~57 % | Tiene dos archivos de prueba (`perfil.eliminar`, `perfil.expediente`) pero cubren dos secciones de ocho. |
+| ~~`perfil.tsx`~~ | ~~57.31 %~~ → **93.9 %** | ✅ cerrado. Ver abajo. |
 | `_layout.tsx` | 0 % | Es la barra de pestañas. Casi no tiene lógica, pero el 0 % incluye el badge de no leídos si algún día se le pone. |
 
-> **Orden para la próxima sesión que toque esto:** ~~`chats.tsx`~~ ✅ hecho. Quedan `perfil.tsx` (dos secciones de ocho cubiertas) y `_layout.tsx`.
+> **Orden para la próxima sesión que toque esto:** ~~`chats.tsx`~~ ✅, ~~`perfil.tsx`~~ ✅. Queda solo `_layout.tsx`, la barra de pestañas, que casi no tiene lógica: **no vale una sesión propia**. Cúbrase cuando se le añada algo —un badge de no leídos, por ejemplo—, no antes.
+
+### `perfil.tsx` · los cuatro manejadores sin red
+
+Estaban sin cubrir las líneas 80-134 y 163-164: las únicas del archivo con `try/catch` propio, o sea exactamente donde algo puede fallar. Tercer archivo de pruebas (`perfil.datos.test.tsx`, 15) junto a los dos que ya había.
+
+**El que importaba: «Descargar mis datos».** Es el derecho de **ACCESO** de la LFPDPPP, y el aviso de privacidad de esta app lo promete por escrito (§29). Un botón que promete un derecho legal y falla en silencio es peor que no tenerlo: la persona se queda creyendo que ya tiene su copia. Se fija que entrega **lo que devuelve el servidor** —`JSON.parse` del mensaje compartido, no un `toHaveBeenCalled()` que un mensaje vacío satisfaría igual—, que un fallo se **dice**, y que el `finally` devuelve el renglón a su estado en vez de dejarlo muerto hasta reiniciar la app.
+
+Comprobado que discrimina, con dos mutaciones: compartir un mensaje vacío tumba una prueba; tragarse el fallo del `catch` tumba dos.
+
+**Los otros tres.** La foto sin permiso explica en vez de no hacer nada; cancelar el selector no deja error; lo que se guarda en el perfil es la **ruta del bucket** y no la `uri` local —guardar la uri dejaría una foto visible solo en el teléfono que la subió—; y un fallo al subir reactiva el botón. Guardar biografía dice su fallo. Cerrar sesión **navega** además de cerrar, porque si solo cerrara la pantalla quedaría pintada con los datos de quien ya no tiene sesión.
+
+**Y el enlace al aviso de privacidad**, que era la línea 505: un enlace roto ahí es del mismo género que una exportación que falla callada — la promesa existe y no se puede alcanzar.
+
+> **Una aserción mía estaba mal, no el código:** busqué el sello «Guardar biografía» sin haber escrito nada. Solo aparece si hay algo sin guardar, que es deliberado —un «Guardar» permanentemente encendido no distingue «ya está» de «te falta»—. Convertido en prueba propia.
 
 ### La fuga de Realtime · cerrada, y la orden estaba mal puesta
 

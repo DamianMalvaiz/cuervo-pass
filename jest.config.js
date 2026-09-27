@@ -80,9 +80,8 @@ module.exports = {
     // geocoding— y era la unica sin red.
     './src/app/publicacion/editar/': { statements: 90, branches: 66, functions: 100, lines: 96 },
     // V.8 · Las cinco pestañas. Estaba en 34.87 % con dos pantallas probadas de
-    // seis; ahora 73.87 % con `inicio`, `publicaciones`, `roomies` y `chats`.
-    // Lo que queda fuera es `_layout.tsx` y la mitad no tocada de `perfil.tsx`
-    // — anotado en la cola, no dado por cerrado.
-    './src/app/(tabs)/': { statements: 73, branches: 70, functions: 67, lines: 74 },
+    // seis; ahora 87.34 %, las cinco cubiertas. Lo único que queda al 0 % es
+    // `_layout.tsx`, que es la barra de pestañas y casi no tiene lógica.
+    './src/app/(tabs)/': { statements: 87, branches: 76, functions: 75, lines: 88 },
   },
 };
