@@ -365,7 +365,7 @@ Lo de `publicacion/editar` es lo que más preocupa de los cuatro: editar una pub
 |---|---|---|---|---|
 | `app/publicacion/editar` | 0 % | 96.29 % | 90/66/100/96 | `test(V.8, 1/4)` |
 | `app/(auth)` | 39.81 % | 89.81 % | 89/70/86/91 | `test(V.8, 2/4)` |
-| `app/(tabs)` | 34.87 % | **87.34 %** | 87/76/75/88 | `d06141a` + `chats` + `perfil` |
+| `app/(tabs)` | 34.87 % | **92.24 %** | 92/79/81/93 | `d06141a` + `chats` + `perfil` + `_layout` |
 | `components/ui` | 0 % | **borrado** | — | capa 4 |
 
 Los tres umbrales se comprobaron subiéndolos a 100 y viendo fallar el build con el porcentaje real en el mensaje.
@@ -380,9 +380,31 @@ Los tres umbrales se comprobaron subiéndolos a 100 y viendo fallar el build con
 |---|---|---|
 | ~~`chats.tsx`~~ | ~~52.94 %~~ → **94.11 %** | ✅ cerrado. Ver abajo: la orden apuntaba al archivo equivocado. |
 | ~~`perfil.tsx`~~ | ~~57.31 %~~ → **93.9 %** | ✅ cerrado. Ver abajo. |
-| `_layout.tsx` | 0 % | Es la barra de pestañas. Casi no tiene lógica, pero el 0 % incluye el badge de no leídos si algún día se le pone. |
+| ~~`_layout.tsx`~~ | ~~0 %~~ → **100 %** | ✅ cerrado. Ver abajo: mi lectura de este archivo era falsa. |
 
-> **Orden para la próxima sesión que toque esto:** ~~`chats.tsx`~~ ✅, ~~`perfil.tsx`~~ ✅. Queda solo `_layout.tsx`, la barra de pestañas, que casi no tiene lógica: **no vale una sesión propia**. Cúbrase cuando se le añada algo —un badge de no leídos, por ejemplo—, no antes.
+> ~~**Orden para la próxima sesión que toque esto:** queda solo `_layout.tsx`, la barra de pestañas, que casi no tiene lógica: no vale una sesión propia.~~ **Retirado. Estaba mal.** Ver abajo.
+
+### `_layout.tsx` · lo descarté por «casi sin lógica» y era falso
+
+Escribí en esta cola que la barra de pestañas «casi no tiene lógica» y que no valía una sesión propia. **Al abrirla resultó tener tres cosas y una de ellas escondía un módulo entero al 0 %:**
+
+1. **`registrarTokenPush(miId)` en un `useEffect`** — pide un permiso del sistema y escribe en `push_tokens`.
+2. **`useAbrirChatDesdeNotificacion()`** — el enlace profundo desde una notificación, con su propio listener y su propio limpiador: el mismo riesgo de fuga que el de Realtime, que fue el motivo de la sesión anterior.
+3. **La marca de tres señales de la pestaña activa** — icono relleno frente a contorno más una barra encima, que es la única parte del sistema visual que se puede comprobar en código en vez de a ojo.
+
+**Y detrás: `lib/pushNotifications.ts` al 0 %.** El único módulo del proyecto que pide un permiso del sistema, escribe en la base **y** navega, sin una sola prueba. Ahora al 92.3 % con su propio archivo (12 pruebas). Lo que se fija ahí:
+
+| Qué | Por qué cuesta si se rompe |
+|---|---|
+| **Nunca propaga** | Se llama desde un `useEffect` sin `.catch()`: una excepción sería un rechazo no atendido, y en React Native eso tumba la pestaña al montar. En Expo Go el camino de fallo se recorre **siempre**, no es un caso raro. |
+| **Sin permiso no guarda token** | Una fila en `push_tokens` de quien no dio permiso es un destino al que el servidor manda notificaciones para siempre sin que lleguen nunca. |
+| **`onConflict: 'usuario_id'`** | Sin él, cambiar de teléfono acumula filas y el servidor escribe a tokens muertos. |
+| **El deep link va a `chat/<conversacion_id>`** | Con `remitente_id` —lo de antes de v5 §26— abría una ruta que ya no existe. Un deep link roto no truena: deja a la persona en una pantalla vacía justo después de tocar la notificación. |
+| **Quita el listener al desmontar** | Si no, un `router.push` por cada montaje: tocar la notificación navegaría varias veces. |
+
+**Lección para futuras anotaciones de esta cola:** «casi no tiene lógica» no es una medición, es una impresión. El 0 % de cobertura era el dato y yo lo descarté con una corazonada. Si un archivo está al 0 %, ábrase antes de decidir que no importa.
+
+> **Dos hallazgos menores del camino:** `marcaActiva: {}` en `_layout.tsx` era un estilo vacío con cero usos — borrado. Y el doble de `expo-constants` en las pruebas nuevas necesitaba `__esModule: true`; sin esa marca el interop de Babel entrega el módulo entero en vez del default, `Constants.expoConfig` sale `undefined` y una de mis pruebas **pasaba por el motivo equivocado** (creía comprobar el aviso del `projectId` y en realidad lo provocaba el propio mock roto).
 
 ### `perfil.tsx` · los cuatro manejadores sin red
 

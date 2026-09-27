@@ -108,5 +108,4 @@ const estilos = StyleSheet.create({
   // Siempre ocupa su espacio, activa o no: si apareciera solo al activarse,
   // el icono brincaría dos píxeles en cada cambio de pestaña.
   marca: { width: 18, height: Filete.grueso, backgroundColor: 'transparent' },
-  marcaActiva: {},
 });

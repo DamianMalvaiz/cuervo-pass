@@ -1,0 +1,198 @@
+import { act, render } from '@testing-library/react-native';
+
+// `(tabs)/_layout.tsx` estaba al 0 %. Lo di por «casi sin lógica» al anotarlo en
+// la cola y me equivoqué: tiene el registro del token push, el enlace profundo
+// desde una notificación, y la marca de tres señales de la pestaña activa. Y
+// detrás tenía `lib/pushNotifications.ts`, también al 0 %, que pide un permiso
+// del sistema, escribe en la base y navega. Ese módulo tiene ahora su propio
+// archivo de pruebas; aquí va lo que es del layout.
+//
+// Lo que se fija:
+//
+//  · El token se registra CON sesión y no sin ella. Llamar sin id escribiría una
+//    fila con `usuario_id` undefined, que RLS rechaza y deja un aviso en cada
+//    arranque sin sesión.
+//  · La marca de la pestaña activa no depende SOLO del color: icono relleno
+//    frente a contorno, y una barra encima. Es la única parte del sistema visual
+//    que se comprueba en código en vez de a ojo.
+//  · La barra reserva su espacio siempre. Si apareciera solo al activarse, el
+//    icono brincaría dos píxeles en cada cambio de pestaña.
+
+const mockRegistrar = jest.fn();
+const mockUsarNotificacion = jest.fn();
+
+// `Tabs` se dobla por lo que ES: un contenedor cuyas `Tabs.Screen` no pintan
+// nada, solo declaran. Guardarlas permite sacar el `tabBarIcon` de cada una y
+// pintarlo aparte, que es la única forma de comprobar el icono sin un navegador
+// de verdad montado.
+const pantallas: { name: string; options: Record<string, unknown> }[] = [];
+const opcionesTabs: Record<string, unknown>[] = [];
+
+jest.mock('expo-router', () => {
+  const React = require('react');
+  const Tabs = ({ children, screenOptions }: { children: React.ReactNode; screenOptions: Record<string, unknown> }) => {
+    opcionesTabs.push(screenOptions);
+    return React.createElement(React.Fragment, null, children);
+  };
+  Tabs.displayName = 'Tabs';
+  const Screen = ({ name, options }: { name: string; options: Record<string, unknown> }) => {
+    pantallas.push({ name, options });
+    return null;
+  };
+  Screen.displayName = 'Tabs.Screen';
+  Tabs.Screen = Screen;
+  return { Tabs };
+});
+// `Ionicons` se pinta como un `<Text>` con el GLIFO, no con el nombre: en el
+// árbol aparece un carácter de la fuente y el nombre no está en ninguna parte.
+// Doblándolo para que escriba su `name`, la aserción dice lo que quiere decir en
+// vez de comparar dos codepoints indistinguibles a ojo.
+jest.mock('@expo/vector-icons', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  const Ionicons = ({ name }: { name: string }) => React.createElement(Text, null, name);
+  Ionicons.displayName = 'Ionicons';
+  return { Ionicons };
+});
+jest.mock('@/lib/pushNotifications', () => ({
+  registrarTokenPush: (...a: unknown[]) => mockRegistrar(...a),
+  useAbrirChatDesdeNotificacion: (...a: unknown[]) => mockUsarNotificacion(...a),
+}));
+
+const sesion: { id: string | undefined } = { id: 'u1' };
+jest.mock('@/store/useAuthStore', () => ({
+  useAuthStore: (sel: (s: unknown) => unknown) =>
+    sel({ session: sesion.id ? { user: { id: sesion.id } } : null }),
+}));
+
+import TabsLayout from '../_layout';
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  pantallas.length = 0;
+  opcionesTabs.length = 0;
+  sesion.id = 'u1';
+});
+
+// ── El token push ────────────────────────────────────────────────────────────
+
+test('con sesión registra el token del usuario', async () => {
+  await render(<TabsLayout />);
+  expect(mockRegistrar).toHaveBeenCalledWith('u1');
+});
+
+// Sin sesión no se llama. El comentario del archivo dice que solo se llega aquí
+// con sesión activa, y aun así el guardia existe — porque durante el cierre de
+// sesión este layout se vuelve a pintar una vez con `session` ya en null.
+test('sin sesión no registra nada', async () => {
+  sesion.id = undefined;
+  await render(<TabsLayout />);
+  expect(mockRegistrar).not.toHaveBeenCalled();
+});
+
+// Una vez por montaje, no una por render: la dependencia es `[miId]`. Si el
+// efecto se disparara en cada render, cada pintado pediría un token a Expo.
+test('registra una sola vez, no una por render', async () => {
+  const vista = await render(<TabsLayout />);
+  await act(async () => {
+    vista.rerender(<TabsLayout />);
+    vista.rerender(<TabsLayout />);
+  });
+  expect(mockRegistrar).toHaveBeenCalledTimes(1);
+});
+
+test('engancha el enlace profundo de notificaciones', async () => {
+  await render(<TabsLayout />);
+  expect(mockUsarNotificacion).toHaveBeenCalled();
+});
+
+// ── Las cinco pestañas ───────────────────────────────────────────────────────
+
+// El orden es el del producto: primero lo que se consulta, al final lo propio.
+// Una pestaña de menos o en otro sitio es un cambio de navegación, y esto lo
+// deja por escrito en vez de en la memoria de quien lo escribió.
+test('declara las cinco pestañas en orden', async () => {
+  await render(<TabsLayout />);
+  expect(pantallas.map((p) => p.name)).toEqual(['inicio', 'publicaciones', 'roomies', 'chats', 'perfil']);
+  expect(pantallas.map((p) => p.options.title)).toEqual([
+    'Sugerencias', 'Publicaciones', 'Roomies', 'Chats', 'Perfil',
+  ]);
+});
+
+// Sin barra de título: cada pantalla carga el suyo en el cuerpo, a cuerpo
+// grande. Si volviera a true, todas las pantallas tendrían dos títulos.
+test('no pinta barra de título', async () => {
+  await render(<TabsLayout />);
+  expect(opcionesTabs[0].headerShown).toBe(false);
+});
+
+// Un impreso separa con filete, no con sombra. En Android `elevation` pinta una
+// sombra gris que este mundo no usa en ningún lado, así que se apaga a mano —y
+// si alguien la quita, la barra deja de pertenecer al sistema visual.
+test('la barra separa con filete y no con sombra', async () => {
+  await render(<TabsLayout />);
+  const barra = opcionesTabs[0].tabBarStyle as Record<string, unknown>;
+  expect(barra.elevation).toBe(0);
+  expect(barra.borderTopWidth).toBeGreaterThan(0);
+  expect(opcionesTabs[0].headerShadowVisible).toBe(false);
+});
+
+// ── La marca de la pestaña activa ────────────────────────────────────────────
+
+/** Pinta el `tabBarIcon` de una pestaña en uno de sus dos estados. */
+const pintarIcono = async (nombre: string, focused: boolean) => {
+  await render(<TabsLayout />);
+  const pantalla = pantallas.find((p) => p.name === nombre);
+  const Icono = pantalla?.options.tabBarIcon as (p: {
+    focused: boolean; color: string; size: number;
+  }) => React.ReactElement;
+  return render(<Icono focused={focused} color="#111111" size={24} />);
+};
+
+// TRES señales y ninguna dependiente solo del color: el icono cambia de relleno
+// a contorno, y eso es lo que se puede comprobar en código. Un usuario que no
+// distingue el tono sigue viendo en qué pestaña está.
+test('la pestaña activa lleva el icono relleno y la inactiva el de contorno', async () => {
+  const activa = await pintarIcono('inicio', true);
+  expect(activa.getByText('home')).toBeTruthy();
+
+  const inactiva = await pintarIcono('inicio', false);
+  expect(inactiva.getByText('home-outline')).toBeTruthy();
+});
+
+// Cada pestaña su par, y que el activo NO sea el `-outline`: copiar y pegar mal
+// un par dejaría una pestaña que nunca parece activa.
+test('cada pestaña tiene su par relleno/contorno', async () => {
+  for (const [nombre, base] of [
+    ['publicaciones', 'business'],
+    ['roomies', 'people'],
+    ['chats', 'chatbubble'],
+    ['perfil', 'person-circle'],
+  ] as const) {
+    const activa = await pintarIcono(nombre, true);
+    const inactiva = await pintarIcono(nombre, false);
+    expect(activa.getByText(base)).toBeTruthy();
+    expect(activa.queryByText(`${base}-outline`)).toBeNull();
+    expect(inactiva.getByText(`${base}-outline`)).toBeTruthy();
+  }
+});
+
+// La barra de encima reserva su espacio siempre, activa o no. Si apareciera solo
+// al activarse, el icono brincaría dos píxeles en cada cambio de pestaña — y ese
+// salto es de los defectos que se notan sin saber nombrarlos.
+test('la barra de encima ocupa su sitio esté activa o no', async () => {
+  const activa = await pintarIcono('inicio', true);
+  const inactiva = await pintarIcono('inicio', false);
+
+  // `render` es asíncrono en este arnés, así que su `ReturnType` es una promesa
+  // y no lo que se recibe tras el `await`: de ahí `Awaited<>`. tsc lo atrapó.
+  const alto = (vista: Awaited<ReturnType<typeof render>>) => {
+    const raiz = vista.toJSON() as { children?: unknown[] };
+    const marca = (raiz.children as { props: { style: unknown } }[])[0];
+    return JSON.stringify(marca.props.style);
+  };
+  // Misma altura en los dos estados; lo que cambia es el color de fondo.
+  expect(alto(activa)).toContain('height');
+  expect(alto(inactiva)).toContain('height');
+  expect(alto(activa)).not.toEqual(alto(inactiva));
+});
