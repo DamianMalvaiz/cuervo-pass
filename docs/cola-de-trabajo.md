@@ -597,6 +597,54 @@ Y la **distancia**, que depende de dos cosas: coordenadas en la publicación y c
 |---|---|---|
 | `components/FormularioPublicacion.tsx` | 30 de 136 | Ya tiene tres archivos; faltan ramas de validación sueltas. |
 | `components/ficha/DesgloseCalificacion.tsx` | 29 de 31 | Presentación casi pura. |
-| `app/perfil/[usuarioId].tsx` | 28 de 54 | **El siguiente:** es lo que ve un extraño, o sea qué se filtra y qué no. Riesgo de privacidad, no de píxeles. |
+| ~~`app/perfil/[usuarioId].tsx`~~ | ~~28 de 54~~ → **83.3 %** | ✅ cerrado. Ver abajo. |
 | `lib/mapboxAutocomplete.ts` | 14 de 14 | Al 0 %. |
 | `lib/geocoding.ts` | 8 de 8 | Al 0 %. Atado al bloqueo de la clave de Maps. |
+
+
+## `perfil/[usuarioId].tsx` · ramas 48 % → 83.3 %, líneas 100 %
+
+*Ejecutado el 26/09/2026.* 62 suites, 548 pruebas. 21 pruebas nuevas.
+
+Es la pantalla con el riesgo de privacidad más directo del producto: lo que se pinta aquí es lo que **un extraño puede ver de otra persona**.
+
+### La prueba que faltaba desde v3
+
+v3 hacía `from('usuarios').select('*')` y pintaba el rango de presupuesto de cualquiera, porque su RLS filtraba **filas y no columnas**. La corrección fue la vista `perfiles_publicos`, que no trae esas columnas. **Lo que esta pantalla pinta es la segunda mitad de esa corrección, y no lo comprobaba nada.**
+
+La prueba le entrega un objeto que **sí** trae `presupuesto_min`, `presupuesto_max` y `universidad` —como si alguien añadiera esas columnas a la vista sin pensarlo, que es el error que v3 ya cometió— y comprueba que aun así no se pintan. La vista es la primera defensa; esto es la segunda.
+
+> **Comprobado que no es vacía**, que era el riesgo real de una aserción de ausencia: añadiendo a propósito una sección que pinta el presupuesto ajeno, la prueba falla. Atrapa exactamente la regresión de v3.
+
+### La afinidad, que es accesoria y no puede tumbar al principal
+
+El archivo lo dice en un comentario: la afinidad va en **su propia petición y su propio estado**, porque colgarla del mismo `then` haría que un fallo al calcularla dejara la pantalla sin perfil. Un dato accesorio tumbando al principal.
+
+**Comprobado que la prueba defiende esa estructura:** fusionando las dos peticiones en un `Promise.all` con un solo `catch` —que es el refactor «limpio» que cualquiera haría—, la prueba falla.
+
+### Lo demás
+
+| Qué | Por qué |
+|---|---|
+| **AUD-07 · el chat va por la RPC** | Dos personas tocando a la vez reciben el MISMO identificador, en vez de que la segunda vea un error de índice único al iniciar el chat. Más el guardia de doble toque: iniciar el chat crea una fila. |
+| **El acuse del reporte dice QUÉ pasa** | Hasta la migración 0023 este acuse era **falso**: el trigger salía sin hacer nada para reportes de personas, así que la app agradecía por algo que no ocurría. Hoy el texto es una afirmación comprobable —tercer reporte, suspensión— y la prueba la fija, incluida la línea que dice «no uses solo esta app: avisa a alguien de confianza», que es lo que ninguna app de este tipo debería omitir. |
+| **`23505` para el reporte repetido** | El índice `reportes_unico_usuario` existe para que una sola cuenta no empuje el contador hasta la suspensión. |
+| **D.9 · movimiento reducido** | `reducido !== false` cubre el «todavía no sé»: mientras la preferencia del sistema no llega, no se anima. Sin eso, quien pidió no ver movimiento vería el fundido arrancar y cortarse, que es peor que no animar. |
+
+### Dos cosas mías, una con consecuencia
+
+1. **Mi fixture usaba `horario_predominante: 'matutino'`**, y el `check` de la migración 0009 solo admite `('diurno','nocturno','mixto')`. Era un valor que la base **rechazaría**, así que todas las pruebas del archivo venían pintando el respaldo de la etiqueta sin que yo lo supiera. Corregido a `diurno`, y anotado en el fixture.
+2. Mi primera versión de la prueba del valor desconocido usaba `'nocturno'`, que **sí** está en el mapa. Cambiado a un valor realmente ausente.
+
+### Deriva encontrada, no corregida
+
+`perfil/[usuarioId].tsx:136` compara `codigo === '23505'` **a mano**, mientras `publicacion/[id].tsx` usa el ayudante compartido `esCodigo(e, SQL.UNIQUE_VIOLATION)`. Funciona igual —las dos comparan el código y no el texto, que es lo que END-27 exigía— así que **no es un defecto**, es inconsistencia. Lo dejo anotado y sin tocar porque cambiarlo en esta sesión mezclaría un refactor con la cobertura; si alguien pasa por ahí, unificar.
+
+### Lo que queda en el grupo global
+
+| Archivo | Ramas sin cubrir | Nota |
+|---|---|---|
+| `components/FormularioPublicacion.tsx` | 30 de 136 | Ya tiene tres archivos; faltan ramas de validación sueltas. **El siguiente por volumen.** |
+| `components/ficha/DesgloseCalificacion.tsx` | 29 de 31 | Presentación casi pura. Bajo valor. |
+| `lib/mapboxAutocomplete.ts` | 14 de 14 | Al 0 %. |
+| `lib/geocoding.ts` | 8 de 8 | Al 0 %. **Atado al bloqueo de la clave de Maps**, que sigue abierto y solo lo puede resolver el usuario. |

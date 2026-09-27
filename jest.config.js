@@ -66,7 +66,10 @@ module.exports = {
   // Queda dicho porque un trinquete que sube al borrar código cubre mal el
   // mérito, y la próxima persona que lea «66 %» merece saber de dónde salió
   // ese punto.
-  // 78/73 tras cubrir `publicacion/[id].tsx` (ramas 54 % → 91.8 %) y
+  // 79/75 tras `perfil/[usuarioId].tsx` (ramas 48 % → 83.3 %), que es la
+  // pantalla con el riesgo de privacidad más directo: lo que ve un extraño.
+  //
+  // Antes 78/73 tras cubrir `publicacion/[id].tsx` (ramas 54 % → 91.8 %) y
   // `BotonVerContacto`, que es EL SELLO: la única acción del producto que
   // consume cuota.
   //
@@ -74,7 +77,7 @@ module.exports = {
   // —el guardia de §26, diecisiete ramas en setenta líneas— y
   // `components/FormularioCuestionario.tsx`, 530 líneas que producen TODOS los
   // perfiles de la app y que la prueba de su pantalla mockeaba entera.
-  global: { statements: 78, branches: 73, functions: 75, lines: 79 },
+  global: { statements: 79, branches: 75, functions: 77, lines: 81 },
     './src/services/': { statements: 64, branches: 52, functions: 66, lines: 72 },
     './src/store/': { statements: 66, branches: 52, functions: 67, lines: 68 },
     // V.4 · La pantalla de chat estaba al 0 %. El umbral va justo por debajo de
