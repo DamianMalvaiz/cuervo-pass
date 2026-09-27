@@ -284,52 +284,47 @@ No vale la pena reescribir el historial de un repositorio que se entrega en sema
 
 # V.7 · La suite deja un proceso sin cerrar
 
-*Añadida el 20/09/2026, al terminar V.5.*
+**Cerrado en lo que importaba** · `2730761` · 26/09/2026
 
-### Defecto
+### Lo que era
 
-Al correr la suite completa, Jest emite:
+Mucho peor que un aviso. Medido archivo por archivo con `/usr/bin/time`:
 
-```
-A worker process has failed to exit gracefully and has been force exited.
-This is likely caused by tests leaking due to improper teardown.
-```
+| Archivo | Pruebas | Proceso colgado |
+|---|---|---|
+| `pantallas.humo.test.tsx` | 6 en 0.8 s | **280 s** |
+| `detalle.test.tsx` | 4 | 280 s |
+| `perfil.eliminar.test.tsx` | 5 | 280 s |
+| `consultas.test.tsx` | 8 | 31 s |
+| `use-fotos-firmadas.test.tsx` | — | 280 s |
 
-**No lo introdujo V.4 ni V.5**: aparece sin esas pruebas y no aparece con ellas solas. Lo que sí se acotó:
+Cinco de los seis archivos que crean un `QueryClient`.
 
-| Qué se corrió | Resultado |
-|---|---|
-| `src/lib`, `src/services`, `src/store`, `src/components`, `src/hooks` | limpio |
-| `src/app` completo, en paralelo | **avisa** |
-| Cada archivo de `src/app` por separado (`--runTestsByPath`, los 8) | **todos limpios** |
-| `src/app` con `--runInBand` | **limpio** |
-| Suite **completa** con `--runInBand` | **limpio** |
+### La causa, y cómo se encontró
 
-Los dos últimos son lo interesante: **ningún archivo lo reproduce solo, y en serie no ocurre.** No es «una prueba que gotea»: es un manejador o un temporizador que sobrevive al desmontaje de una suite y solo se nota cuando el worker se reutiliza para la siguiente.
+React Query agenda un `setTimeout` por consulta cuando `gcTime` es un número **finito**, y otro por `staleTime`. Con cinco minutos y treinta segundos por omisión, esos temporizadores mantienen vivo el bucle de eventos de Node.
 
-Por qué importa y no es cosmético: Jest **fuerza** la salida del worker. Si eso ocurre mientras otra suite escribe su cobertura, el informe puede salir incompleto — y las compuertas de `coverageThreshold` dependen de ese informe. Un umbral que se evalúa sobre datos parciales falla o pasa por el motivo equivocado.
+Se confirmó pidiéndole los recursos a Node, no razonando: `process.getActiveResourcesInfo()` tras cada prueba devolvía `{"Timeout": 9}`, tres más por prueba.
 
-### Orden
+### La corrección
 
-> **No adivines cuál es.** Ya se descartó archivo por archivo. Corre el diagnóstico que Jest ofrece para esto:
->
-> ```bash
-> cd /home/damianml/cuervo-pass && npx jest src/app --detectOpenHandles 2>&1 | tail -40
-> ```
->
-> Sospechosos por orden de probabilidad, y todos se confirman o descartan leyendo la salida de arriba, no razonando:
->
-> 1. **Una suscripción de Realtime sin cancelar.** `suscribirseAConversacion` devuelve su función de limpieza; comprueba que todas las pruebas que la mockean la ejecuten al desmontar.
-> 2. **Un temporizador de `use-fotos-firmadas`** (C.7 programó la refirma a los 50 minutos). Si una prueba monta el hook y no desmonta, el `setTimeout` queda vivo. La corrección no es `jest.useFakeTimers()` a ciegas: es comprobar que el `clearTimeout` del cleanup corre.
-> 3. **El cliente de react-query.** Cada suite crea el suyo con `crearClienteConsultas()`; si tiene reintentos con backoff, un `queryClient.clear()` en `afterEach` cierra los que queden en vuelo.
->
-> Cuando lo encuentres, **la prueba es que el aviso desaparece con el worker pool**, no con `--runInBand`: en serie ya está limpio hoy, así que verificarlo así no probaría nada.
+No programar el temporizador: React Query solo agenda con un `gcTime` finito. `0` descarta en cuanto no quedan observadores, `Infinity` no recolecta nunca, y **ninguno de los dos crea un `setTimeout`**. Una prueba no necesita el punto medio.
 
-### Verificación
+`test-utils/consultas.ts` expone `clienteDePrueba()`, y `test-utils/__tests__/clientes-registrados.test.ts` rompe el build si una prueba crea su cliente a mano.
+
+**Resultado:** ningún archivo pasa de 8 s. La suite entera bajó de 13.55 s a **5.11 s**.
+
+### Lo que NO se cerró
+
+El aviso de worker **todavía aparece en 1 de cada 5 corridas** en paralelo. En serie no aparece nunca, y `--detectOpenHandles` sobre la suite completa no encuentra ningún manejador.
+
+Ya no es una fuga —era «siempre, más 280 s de cuelgue»— sino una carrera ocasional al desmontar el worker. Si alguien quiere rematarlo:
 
 ```bash
-cd /home/damianml/cuervo-pass && npx jest --silent 2>&1 | grep -q "worker process" && echo "✗ sigue avisando" || echo "✓ la suite cierra limpia"
+cd /home/damianml/cuervo-pass && for i in $(seq 1 10); do npx jest --silent 2>&1 | grep -q "worker process" && echo aviso || echo limpio; done
 ```
+
+Y un hallazgo de paso que ya está arreglado: la prueba «dentro del staleTime, remontar NO vuelve a consultar» **pasaba con `gcTime: 0`**, o sea con recolección inmediata — justo lo contrario de lo que dice comprobar. Ahora pide `Infinity` explícito.
 
 ---
 
@@ -384,7 +379,7 @@ cd /home/damianml/cuervo-pass && npx jest --coverage --coverageReporters=text --
 | 4 | **V.4** · `app/chat` al 0 % | ✅ `1928dd2` · ahora 83 % |
 | 5 | **V.5** · `app/(auth)` al 9 % | ✅ `8dd8c65` · ahora 40 % |
 | — | V.6 · `coverage/` en el historial | nada que hacer |
-| 6 | **V.7** · la suite no cierra limpia | pendiente |
+| 6 | **V.7** · la suite no cierra limpia | ✅ `2730761` · 280 s → 5.11 s · residual anotado |
 | 7 | **V.8** · tres capas sin pruebas | pendiente · una capa por sesión |
 
 V.7 va antes que V.8 a propósito: el aviso de worker puede dejar el informe de
