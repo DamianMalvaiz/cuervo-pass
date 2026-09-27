@@ -358,6 +358,31 @@ Lo de `publicacion/editar` es lo que más preocupa de los cuatro: editar una pub
 > **3. `app/(tabs)`.** Empieza por `inicio.tsx`: que el kicker diga `NIVEL 1` cuando ninguna publicación tiene afinidad y `NIVEL 2 · N DE M` cuando alguna sí — es END-08, el peor hallazgo del proyecto, y hoy solo lo prueba pgTAP del lado del servidor.
 >
 > **4. `components/ui`.** Es lo de menos: un `collapsible`. Si sigue sin usarse en ninguna pantalla, **bórralo** en vez de probarlo.
+
+### Lo hecho, capa por capa
+
+| Capa | Antes | Ahora | Umbral | Commit |
+|---|---|---|---|---|
+| `app/publicacion/editar` | 0 % | 96.29 % | 90/66/100/96 | `test(V.8, 1/4)` |
+| `app/(auth)` | 39.81 % | 89.81 % | 89/70/86/91 | `test(V.8, 2/4)` |
+| `app/(tabs)` | 34.87 % | **71.02 %** | 70/61/60/71 | `d06141a` |
+| `components/ui` | 0 % | — | — | pendiente |
+
+Los tres umbrales se comprobaron subiéndolos a 100 y viendo fallar el build con el porcentaje real en el mensaje.
+
+**Y un hallazgo colateral en la capa 3:** el umbral `global` llevaba **dieciséis puntos de retraso** sobre la realidad (49 declarado, 65.8 % medido). Había dejado de ser un trinquete: no habría detectado perder un tercio de la cobertura de su grupo. Subido a 65. **Cada vez que se añada un grupo por ruta hay que volver a medir el `global`**, porque Jest saca de ese grupo los archivos que caen bajo un umbral por ruta y el número se mueve solo.
+
+### Lo que la capa 3 NO cerró
+
+`app/(tabs)` está en 71 %, no en 90. Lo que queda, en orden de riesgo:
+
+| Archivo | Cobertura | Por qué importa |
+|---|---|---|
+| `chats.tsx` | 52.94 % | La lista de conversaciones con su suscripción en tiempo real y el conteo de no leídos. Una suscripción que no se limpia al desmontar no lo dice ninguna prueba, y es la clase de fuga que solo se ve con la app abierta media hora. |
+| `perfil.tsx` | ~57 % | Tiene dos archivos de prueba (`perfil.eliminar`, `perfil.expediente`) pero cubren dos secciones de ocho. |
+| `_layout.tsx` | 0 % | Es la barra de pestañas. Casi no tiene lógica, pero el 0 % incluye el badge de no leídos si algún día se le pone. |
+
+> **Orden para la próxima sesión que toque esto:** `chats.tsx`, y específicamente que `suscribirseAMisChats` se **desuscriba al desmontar** — la función ya devuelve su limpiador, lo que falta es la prueba de que se llama. Es el único de los tres que puede fallar sin que se vea.
 >
 > Cada una con su umbral en `jest.config.js`, justo por debajo de lo conseguido. Y **comprueba que el umbral se aplica**, subiéndolo a un valor imposible y viendo fallar el build: la ruta de `(auth)` lleva paréntesis y podría ignorarse en silencio. Se comprobó en V.5 y funciona, pero cada ruta nueva se comprueba igual.
 
@@ -380,7 +405,7 @@ cd /home/damianml/cuervo-pass && npx jest --coverage --coverageReporters=text --
 | 5 | **V.5** · `app/(auth)` al 9 % | ✅ `8dd8c65` · ahora 40 % |
 | — | V.6 · `coverage/` en el historial | nada que hacer |
 | 6 | **V.7** · la suite no cierra limpia | ✅ `2730761` · 280 s → 5.11 s · residual anotado |
-| 7 | **V.8** · tres capas sin pruebas | pendiente · una capa por sesión |
+| 7 | **V.8** · tres capas sin pruebas | 🟡 3 de 4 · `editar` ✅, `(auth)` ✅, `(tabs)` ✅ `d06141a` · falta `components/ui` |
 
 V.7 va antes que V.8 a propósito: el aviso de worker puede dejar el informe de
 cobertura incompleto, y V.8 consiste precisamente en poner umbrales que se
