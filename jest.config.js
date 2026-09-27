@@ -66,7 +66,7 @@ module.exports = {
   // Queda dicho porque un trinquete que sube al borrar código cubre mal el
   // mérito, y la próxima persona que lea «66 %» merece saber de dónde salió
   // ese punto.
-  global: { statements: 68, branches: 63, functions: 64, lines: 70 },
+  global: { statements: 68, branches: 64, functions: 64, lines: 70 },
     './src/services/': { statements: 64, branches: 52, functions: 66, lines: 72 },
     './src/store/': { statements: 66, branches: 52, functions: 67, lines: 68 },
     // V.4 · La pantalla de chat estaba al 0 %. El umbral va justo por debajo de
@@ -84,6 +84,14 @@ module.exports = {
     // que ese archivo «casi no tiene lógica» y era falso: registra el token
     // push, engancha el enlace profundo de notificaciones y dibuja la marca de
     // tres señales de la pestaña activa.
-    './src/app/(tabs)/': { statements: 92, branches: 79, functions: 81, lines: 93 },
+    //
+    // Las RAMAS pasaron de 79 a 92.8 % cubriendo la segunda cara de cada campo:
+    // el perfil a medio llenar, el consentimiento de IA en «DESACTIVADO», el
+    // fallo CON resultados en pantalla, el mínimo del carrusel. Lo que se dejó
+    // fuera a propósito —y por eso el umbral es 92 y no 100— son los guardias de
+    // `session?.user.id` que el guardia de §26 vuelve inalcanzables, el
+    // `Platform.OS === 'ios'` y los `pressed && estilo`, que no cambian
+    // comportamiento. Está razonado en la cola.
+    './src/app/(tabs)/': { statements: 93, branches: 92, functions: 85, lines: 94 },
   },
 };

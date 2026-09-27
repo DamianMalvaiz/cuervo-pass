@@ -28,7 +28,12 @@ jest.mock('@/hooks/queries/usePublicaciones', () => ({
   useContactosRecibidos: (...a: unknown[]) => mockContactos(...a),
   useCambiarEstadoPublicacion: () => ({ mutateAsync: mockMutar }),
 }));
-jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: () => ({ urls: new Map(), fallo: null }) }));
+jest.mock('@/hooks/use-fotos-firmadas', () => ({
+  useFotosFirmadas: (rutas: (string | null | undefined)[]) => ({
+    urls: new Map(rutas.filter(Boolean).map((r) => [r, `https://firmada.test/${r}`])),
+    fallo: null,
+  }),
+}));
 jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) => sel({ session: { user: { id: 'u1' } } }),
 }));
@@ -161,4 +166,23 @@ test('mientras carga no dice que no hay nada', async () => {
   mockMisPublicaciones.mockReturnValue({ datos: [], cargando: true });
   await render(<PublicacionesScreen />);
   expect(screen.queryByText('SIN PUBLICACIONES')).toBeNull();
+});
+
+
+// Una publicación con foto: el camino que el fixture sin fotos no tocaba.
+test('una publicación con foto monta con su ficha entera', async () => {
+  mockMisPublicaciones.mockReturnValue({
+    datos: [publicacion({ fotos: ['u1/p1-0.jpg'] })],
+    cargando: false,
+  });
+  await render(<PublicacionesScreen />);
+  expect(screen.getByText('Depa centro')).toBeTruthy();
+});
+
+// Una publicación que nadie ha contactado no está en el Map, y eso debe leerse
+// como cero y no como «undefined personas pidieron tu contacto».
+test('una publicación sin contactos dice cero, no undefined', async () => {
+  mockContactos.mockReturnValue(new Map());
+  await render(<PublicacionesScreen />);
+  expect(screen.getByText('0 personas pidieron tu contacto')).toBeTruthy();
 });

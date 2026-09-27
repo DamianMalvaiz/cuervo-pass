@@ -27,7 +27,12 @@ jest.mock('@/hooks/queries/useRoomies', () => ({
   useMiRoomie: (...a: unknown[]) => mockMiRoomie(...a),
   useGuardarMiRoomie: () => ({ mutateAsync: mockMutar, isPending: false }),
 }));
-jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: () => ({ urls: new Map(), fallo: null }) }));
+jest.mock('@/hooks/use-fotos-firmadas', () => ({
+  useFotosFirmadas: (rutas: (string | null | undefined)[]) => ({
+    urls: new Map(rutas.filter(Boolean).map((r) => [r, `https://firmada.test/${r}`])),
+    fallo: null,
+  }),
+}));
 jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) => sel({ session: { user: { id: 'u1' } } }),
 }));
@@ -177,4 +182,35 @@ test('el conteo de personas concuerda en número', async () => {
   });
   await render(<RoomiesScreen />);
   expect(screen.getByText('1 PERSONA BUSCANDO')).toBeTruthy();
+});
+
+
+// ── Las ramas que quedaban ───────────────────────────────────────────────────
+
+// `descripcion_busqueda: null` en la base. Si no se normalizara a cadena vacía,
+// el campo mostraría «null» como texto y el contador diría 4/2000.
+test('una descripción nula se siembra como vacía, no como «null»', async () => {
+  mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: null, estado: 'activo' } });
+  await render(<RoomiesScreen />);
+  expect(screen.getByPlaceholderText(/Zona, presupuesto/).props.value).toBe('');
+  expect(screen.getByText('0/2000')).toBeTruthy();
+});
+
+// Apagar con la descripción vacía manda un texto por omisión y no una cadena
+// vacía: la columna alimenta el vector de búsqueda, y un vector de nada haría
+// que esa ficha apareciera al final de la lista de todo el mundo para siempre.
+test('al apagar sin descripción se guarda un texto por omisión', async () => {
+  mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: '', estado: 'activo' } });
+  await render(<RoomiesScreen />);
+  await encender(false);
+  expect(mockMutar).toHaveBeenCalledWith({ descripcionBusqueda: 'Busco roomie.', estado: 'cerrado' });
+});
+
+test('un roomie con foto se pinta con su tarjeta completa', async () => {
+  mockRoomies.mockReturnValue({
+    roomies: [{ id: 'r1', usuario_id: 'o1', nombre_completo: 'Ana', descripcion_busqueda: 'Hola', foto_url: 'o1/a.jpg', similitud: 0.9 }],
+    cargando: false,
+  });
+  await render(<RoomiesScreen />);
+  expect(screen.getByText('Ana')).toBeTruthy();
 });

@@ -26,13 +26,17 @@ jest.mock('@/hooks/queries/usePublicaciones', () => ({
   useNuevas: (...a: unknown[]) => mockNuevas(...a),
 }));
 jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: () => ({ urls: new Map(), fallo: null }) }));
+// Mutable para poder pintar el resumen de filtros SIN preferencias, que es la
+// otra mitad de `ResumenFiltros`. El prefijo `mock` lo exige
+// `babel-plugin-jest-hoist`: sube las factorías por encima de las declaraciones
+// del módulo y solo tolera leer de fuera las variables así nombradas.
+const mockPerfil: { valor: Record<string, unknown> | null } = {
+  valor: { id: 'u1', presupuesto_max: 4000, distancia_max_km: 10, universidad: 'UTVT' },
+};
+
 jest.mock('@/store/usePerfilStore', () => ({
   usePerfilStore: (sel?: (s: unknown) => unknown) => {
-    const estado = {
-      perfil: { id: 'u1', presupuesto_max: 4000, distancia_max_km: 10, universidad: 'UTVT' },
-      error: null,
-      cargarPerfil: jest.fn(),
-    };
+    const estado = { perfil: mockPerfil.valor, error: null, cargarPerfil: jest.fn() };
     return sel ? sel(estado) : estado;
   },
 }));
@@ -76,6 +80,7 @@ const respuesta = (extra: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPerfil.valor = { id: 'u1', presupuesto_max: 4000, distancia_max_km: 10, universidad: 'UTVT' };
   mockSugerencias.mockReturnValue(respuesta());
   mockNuevas.mockReturnValue({ datos: [], cargando: false });
 });
@@ -155,5 +160,98 @@ describe('cuando falla', () => {
 
     expect(screen.getByText('SIN REGISTROS')).toBeTruthy();
     expect(screen.queryByText('NO SE PUDO CONSULTAR')).toBeNull();
+  });
+});
+
+
+// ── Las ramas que quedaban sin pisar ─────────────────────────────────────────
+
+// §27 · LA rama de este bloque. Un refresco fallido CON resultados en memoria
+// mostraba datos viejos y ningún aviso: la persona lee precios de hace una hora
+// creyendo que son de ahora. Silencioso es la peor forma de fallar, y es distinto
+// del fallo sin datos —que sí tiene su pantalla— porque aquí hay algo que mirar.
+describe('un fallo mientras hay resultados en pantalla', () => {
+  it('avisa de que lo que se ve está viejo, sin borrarlo', async () => {
+    mockSugerencias.mockReturnValue(
+      respuesta({ datos: [publicacion('p1'), publicacion('p2')], total: 2, fallo: 'sin red' })
+    );
+    await render(<InicioScreen />);
+
+    expect(screen.getByText(/Estás viendo los últimos resultados cargados/)).toBeTruthy();
+    // Y no se borran: el aviso ACOMPAÑA a los datos, no los sustituye.
+    expect(screen.getByText('Depa p1')).toBeTruthy();
+  });
+
+  it('con la lista vacía no pone ese aviso, que sería contradictorio', async () => {
+    mockSugerencias.mockReturnValue(respuesta({ fallo: 'sin red' }));
+    await render(<InicioScreen />);
+    expect(screen.queryByText(/últimos resultados cargados/)).toBeNull();
+  });
+
+  it('y sin fallo no hay aviso aunque haya datos', async () => {
+    mockSugerencias.mockReturnValue(respuesta({ datos: [publicacion('p1')], total: 1 }));
+    await render(<InicioScreen />);
+    expect(screen.queryByText(/últimos resultados cargados/)).toBeNull();
+  });
+});
+
+// «Un carril con dos es un hueco con título»: el mínimo es tres. El límite se
+// prueba por los dos lados, que es donde un `>` en vez de un `>=` se esconde.
+describe('el carrusel de nuevas', () => {
+  const nueva = (id: string) => ({ ...publicacion(id), creado_en: '2026-09-20T10:00:00Z' });
+
+  it('con dos no se pinta', async () => {
+    mockNuevas.mockReturnValue({ datos: [nueva('n1'), nueva('n2')], cargando: false });
+    await render(<InicioScreen />);
+    expect(screen.queryByText('Nuevas esta semana')).toBeNull();
+  });
+
+  it('con tres sí', async () => {
+    mockNuevas.mockReturnValue({ datos: [nueva('n1'), nueva('n2'), nueva('n3')], cargando: false });
+    await render(<InicioScreen />);
+    expect(screen.getByText('Nuevas esta semana')).toBeTruthy();
+  });
+});
+
+// El membrete lleva la hora del sello solo si hay una. Sin `emitido` no debe
+// quedar un « · EMITIDO » colgando sin fecha.
+describe('la hora de emisión del membrete', () => {
+  it('se añade cuando el motor la devuelve', async () => {
+    mockSugerencias.mockReturnValue(
+      // `Date` y no una cadena ISO: `fechaHoraDeSello` llama a `getHours()`. El
+      // doble de `respuesta()` acepta `Record<string, unknown>`, así que tsc no
+      // lo atrapa — lo atrapó la prueba al reventar.
+      respuesta({ datos: [publicacion('p1')], total: 1, emitido: new Date('2026-09-26T12:30:00Z') })
+    );
+    await render(<InicioScreen />);
+    expect(screen.getByText(/1 REGISTRO · EMITIDO /)).toBeTruthy();
+  });
+
+  it('y no se insinúa cuando no la hay', async () => {
+    mockSugerencias.mockReturnValue(respuesta({ datos: [publicacion('p1')], total: 1 }));
+    await render(<InicioScreen />);
+    expect(screen.getByText('1 REGISTRO')).toBeTruthy();
+    expect(screen.queryByText(/EMITIDO/)).toBeNull();
+  });
+});
+
+// `ResumenFiltros` con el perfil a medio llenar. Es la primera cosa que se lee al
+// abrir la app: si los filtros sin definir se pintaran en blanco, la lista
+// parecería filtrada por criterios que nadie fijó.
+describe('el resumen de filtros sin preferencias', () => {
+  it('nombra lo que falta en vez de dejarlo en blanco', async () => {
+    mockPerfil.valor = { id: 'u1', presupuesto_max: null, distancia_max_km: null, universidad: null };
+    await render(<InicioScreen />);
+
+    expect(screen.getByText(/Sin presupuesto/)).toBeTruthy();
+    expect(screen.getByText(/Sin distancia/)).toBeTruthy();
+    expect(screen.getByText(/Sin universidad/)).toBeTruthy();
+  });
+
+  it('y con ellas puestas las muestra', async () => {
+    await render(<InicioScreen />);
+    expect(screen.getByText(/Hasta \$4,000/)).toBeTruthy();
+    expect(screen.getByText(/10 km/)).toBeTruthy();
+    expect(screen.getByText(/UTVT/)).toBeTruthy();
   });
 });

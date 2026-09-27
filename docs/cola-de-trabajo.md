@@ -365,7 +365,7 @@ Lo de `publicacion/editar` es lo que más preocupa de los cuatro: editar una pub
 |---|---|---|---|---|
 | `app/publicacion/editar` | 0 % | 96.29 % | 90/66/100/96 | `test(V.8, 1/4)` |
 | `app/(auth)` | 39.81 % | 89.81 % | 89/70/86/91 | `test(V.8, 2/4)` |
-| `app/(tabs)` | 34.87 % | **92.24 %** | 92/79/81/93 | `d06141a` + `chats` + `perfil` + `_layout` |
+| `app/(tabs)` | 34.87 % | **93.46 %** · ramas **92.8 %** | 93/92/85/94 | `d06141a` + `chats` + `perfil` + `_layout` + ramas |
 | `components/ui` | 0 % | **borrado** | — | capa 4 |
 
 Los tres umbrales se comprobaron subiéndolos a 100 y viendo fallar el build con el porcentaje real en el mensaje.
@@ -401,6 +401,27 @@ Escribí en esta cola que la barra de pestañas «casi no tiene lógica» y que 
 | **`onConflict: 'usuario_id'`** | Sin él, cambiar de teléfono acumula filas y el servidor escribe a tokens muertos. |
 | **El deep link va a `chat/<conversacion_id>`** | Con `remitente_id` —lo de antes de v5 §26— abría una ruta que ya no existe. Un deep link roto no truena: deja a la persona en una pantalla vacía justo después de tocar la notificación. |
 | **Quita el listener al desmontar** | Si no, un `router.push` por cada montaje: tocar la notificación navegaría varias veces. |
+
+### Las ramas · 79 % → 92.8 %
+
+Dije que lo que faltaba eran «combinaciones de tema claro/oscuro y de tamaño de pantalla que no cambian comportamiento». **Lo medí antes de escribir nada y era falso:** de 58 ramas sin cubrir, ninguna era de tema. Eran la segunda cara de casi cada campo, y el fixture con el perfil completo hacía que solo se pintara una.
+
+Lo que resultó tener comportamiento de verdad:
+
+| Rama | Por qué importa |
+|---|---|
+| **Consentimiento de IA en «DESACTIVADO»** | Es una declaración de lo que la app hace con los datos de alguien (LFPDPPP). Decir ACTIVADO a quien no consintió es del mismo género que una exportación que falla callada. Nunca se había pintado. La prueba comprueba además que **no** diga la palabra contraria, porque «DESACTIVADO» contiene «ACTIVADO» como subcadena: un `toContain` pasaría en los dos estados. |
+| **El perfil a medio llenar** | `tono="atenuado"` existe para que una preferencia sin definir se vea distinta de una definida. Si ese lado estuviera roto, un perfil a medias se leería como completo y la persona no sabría qué le falta. |
+| **Fallo CON resultados en pantalla** (`inicio`) | §27. Un refresco fallido con datos en memoria mostraba precios viejos sin aviso. Es distinto del fallo sin datos, que ya tenía su pantalla, porque aquí hay algo que mirar. Se prueba que el aviso **acompaña** a los datos en vez de sustituirlos. |
+| **El mínimo del carrusel** | «Un carril con dos es un hueco con título». Probado por los dos lados del límite, que es donde se esconde un `>` puesto donde iba un `>=`. |
+| **`descripcion_busqueda` nula y el texto por omisión** (`roomies`) | Apagar con la descripción vacía guarda «Busco roomie.» y no una cadena vacía: esa columna alimenta el vector de búsqueda, y un vector de nada dejaría esa ficha al final de la lista de todo el mundo para siempre. |
+| **El camino CON foto** en las tres listas | El bucket es privado (§14), así que el avatar solo aparece si la URL se firmó. Los dobles devolvían un Map vacío, o sea que la mitad con foto no se ejecutaba nunca en ninguna de las tres. |
+
+**Lo que se dejó fuera a propósito**, y por eso el umbral de ramas es 92 y no 100:
+
+- Los guardias `if (!session?.user.id) return` — alcanzables solo sin sesión, que el guardia de §26 impide. Probarlos sería afirmar «no pasa nada».
+- `Platform.OS === 'ios' ? 'padding' : undefined` y los `pressed && estilo`: presentación, no comportamiento.
+- Los cuatro `e instanceof Error ? e.message : 'genérico'`. **Aquí comprobé una hipótesis mía y era falsa:** supuse que los errores de Supabase son objetos planos, con lo que el lado genérico sería el camino *real* y no el defensivo. Verificado en `node_modules`: `PostgrestError` se construye con `new PostgrestError(...)` y **sí** extiende `Error`, igual que `FunctionsHttpError`. O sea que esas ramas son defensivas de verdad y cubrirlas exigiría lanzar una cadena a mano.
 
 **Lección para futuras anotaciones de esta cola:** «casi no tiene lógica» no es una medición, es una impresión. El 0 % de cobertura era el dato y yo lo descarté con una corazonada. Si un archivo está al 0 %, ábrase antes de decidir que no importa.
 

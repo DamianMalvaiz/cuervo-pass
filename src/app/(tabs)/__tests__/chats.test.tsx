@@ -18,7 +18,15 @@ jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 jest.mock('@/hooks/queries/useChat', () => ({
   useConversaciones: (...a: unknown[]) => mockConversaciones(...a),
 }));
-jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: () => ({ urls: new Map(), fallo: null }) }));
+// Devuelve la URL firmada resuelta: §14 deja el bucket privado, así que una ruta
+// cruda no carga y el avatar SOLO aparece si se firmó. Con un Map vacío se
+// pintaba siempre la inicial y la mitad con foto no se ejecutaba nunca.
+jest.mock('@/hooks/use-fotos-firmadas', () => ({
+  useFotosFirmadas: (rutas: (string | null | undefined)[]) => ({
+    urls: new Map(rutas.filter(Boolean).map((r) => [r, `https://firmada.test/${r}`])),
+    fallo: null,
+  }),
+}));
 jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) => sel({ session: { user: { id: 'u1' } } }),
 }));
@@ -138,4 +146,18 @@ test('el conteo del membrete concuerda en número', async () => {
   mockConversaciones.mockReturnValue({ conversaciones: [hilo(), hilo({ conversacionId: 'c2' })], cargando: false });
   await render(<ChatsScreen />);
   expect(screen.getByText('2 CONVERSACIONES')).toBeTruthy();
+});
+
+
+// El avatar con foto: la otra mitad de la inicial. Si la URL firmada llega, se
+// pinta la imagen y la letra desaparece — si se pintaran las dos, el renglón
+// tendría una letra encima de la cara.
+test('con foto firmada se pinta la imagen y no la inicial', async () => {
+  mockConversaciones.mockReturnValue({
+    conversaciones: [hilo({ otroUsuario: { id: 'o1', nombre_completo: 'Ana Pérez', foto_url: 'o1/avatar.jpg' } })],
+    cargando: false,
+  });
+  await render(<ChatsScreen />);
+  expect(screen.queryByText('A')).toBeNull();
+  expect(screen.getByText('Ana Pérez')).toBeTruthy();
 });
