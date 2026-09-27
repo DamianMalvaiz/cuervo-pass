@@ -60,11 +60,9 @@ module.exports = {
     // V.4 · La pantalla de chat estaba al 0 %. El umbral va justo por debajo de
     // lo conseguido, como los otros dos: es un trinquete, solo sube.
     './src/app/chat/': { statements: 80, branches: 66, functions: 80, lines: 86 },
-    // V.5 · El registro estaba al 9 %. Sube a 39 con las cuatro pruebas de
-    // `registro.tsx`; el resto de la carpeta —login, recuperar, cuestionario—
-    // sigue sin cubrir, y por eso el numero es bajo y honesto en vez de
-    // medirse solo sobre el archivo probado.
-    './src/app/(auth)/': { statements: 39, branches: 20, functions: 51, lines: 41 },
+    // V.5 cubrio `registro.tsx` y dejo la carpeta en 39 %. V.8 anadio login,
+    // recuperar-contrasena y cuestionario-inicial: 89.81 %. El trinquete sube.
+    './src/app/(auth)/': { statements: 89, branches: 70, functions: 86, lines: 91 },
     // V.8 · `publicacion/editar` estaba al 0 %. Es la ruta con mas piezas del
     // producto —formulario de dieciseis campos, subida con upsert, embedding y
     // geocoding— y era la unica sin red.
