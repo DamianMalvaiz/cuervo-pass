@@ -5,12 +5,26 @@
 
 const mockDesde = jest.fn();
 const mockRpc = jest.fn();
+const mockCanal = jest.fn();
+const mockQuitarCanal = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
-  supabase: { from: (...a: unknown[]) => mockDesde(...a), rpc: (...a: unknown[]) => mockRpc(...a) },
+  supabase: {
+    from: (...a: unknown[]) => mockDesde(...a),
+    rpc: (...a: unknown[]) => mockRpc(...a),
+    channel: (...a: unknown[]) => mockCanal(...a),
+    removeChannel: (...a: unknown[]) => mockQuitarCanal(...a),
+  },
 }));
 
-import { abrirConversacion, cursorDe, enviarMensaje, listarMensajes, marcarConversacionComoLeida } from '../mensajes.service';
+import {
+  abrirConversacion,
+  cursorDe,
+  enviarMensaje,
+  listarMensajes,
+  marcarConversacionComoLeida,
+  suscribirseAMisChats,
+} from '../mensajes.service';
 import type { Mensaje } from '@/types/database.types';
 
 function cadena(resultado: { data?: unknown; error?: unknown }) {
@@ -30,6 +44,8 @@ const mensaje = (id: string, creado_en: string): Mensaje =>
 beforeEach(() => {
   mockDesde.mockReset();
   mockRpc.mockReset();
+  mockCanal.mockReset();
+  mockQuitarCanal.mockReset();
 });
 
 test('abrir conversacion va por la RPC idempotente', async () => {
@@ -109,4 +125,81 @@ test('enviar devuelve la fila insertada, que es la que lleva el id real', async 
 test('un error al enviar se propaga: el mensaje optimista tiene que poder pintarse en rojo', async () => {
   mockDesde.mockReturnValue(cadena({ data: null, error: { message: 'sin red' } }));
   await expect(enviarMensaje('c1', 'u1', 'hola')).rejects.toMatchObject({ message: 'sin red' });
+});
+
+
+// ── La suscripcion de Realtime ────────────────────────────────────────────────
+//
+// Esto no se probaba, y es la clase de fallo que no se ve: un canal que no se
+// cierra al desmontar no rompe nada visible, solo deja un websocket abierto por
+// cada vez que se entro a la pestaña. Con la app abierta media hora son una
+// docena de canales recibiendo el mismo evento, y el unico sintoma es que la
+// bateria baja mas rapido — nadie lo atribuye nunca a esto.
+
+/**
+ * Doble del canal de Supabase: `.on()` se encadena, `.subscribe()` cierra.
+ *
+ * El tipo va declarado y no inferido porque `on` devuelve el propio canal y eso
+ * es una referencia circular: sin la interfaz, tsc falla con TS7022 («'canal'
+ * implicitly has type any porque se referencia en su propio inicializador»).
+ */
+type Escucha = { evento: Record<string, unknown>; cb: () => void };
+interface CanalFalso {
+  escuchas: Escucha[];
+  on: jest.Mock<CanalFalso, [string, Record<string, unknown>, () => void]>;
+  subscribe: jest.Mock<CanalFalso, []>;
+}
+
+function canalFalso(): CanalFalso {
+  const escuchas: Escucha[] = [];
+  const canal: CanalFalso = {
+    escuchas,
+    on: jest.fn((_tipo: string, evento: Record<string, unknown>, cb: () => void) => {
+      escuchas.push({ evento, cb });
+      return canal;
+    }),
+    subscribe: jest.fn(() => canal),
+  };
+  return canal;
+}
+
+test('el limpiador que devuelve cierra EL canal que abrio', () => {
+  const canal = canalFalso();
+  mockCanal.mockReturnValue(canal);
+
+  const desuscribir = suscribirseAMisChats(jest.fn());
+  expect(mockQuitarCanal).not.toHaveBeenCalled();
+
+  desuscribir();
+  // Con el canal concreto, no con cualquiera: si se cerrara otro, el suyo
+  // seguiria abierto y este mismo aserto pasaria con un `toHaveBeenCalled()`.
+  expect(mockQuitarCanal).toHaveBeenCalledWith(canal);
+});
+
+// Dos eventos y no uno. El INSERT en `mensajes` es el mensaje nuevo; el UPDATE
+// en `conversaciones` es el contador de no leidos al marcar como leido. Si
+// faltara el segundo, la insignia se quedaria puesta despues de leer el hilo en
+// otro dispositivo.
+test('escucha el mensaje nuevo Y el cambio de la conversacion', () => {
+  const canal = canalFalso();
+  mockCanal.mockReturnValue(canal);
+  const alCambiar = jest.fn();
+
+  suscribirseAMisChats(alCambiar);
+
+  const tablas = canal.escuchas.map((e: Escucha) => `${e.evento.event}:${e.evento.table}`);
+  expect(tablas).toEqual(['INSERT:mensajes', 'UPDATE:conversaciones']);
+
+  // Y las dos avisan al mismo callback: es lo que hace que la lista se
+  // invalide venga el cambio por donde venga.
+  for (const e of canal.escuchas) e.cb();
+  expect(alCambiar).toHaveBeenCalledTimes(2);
+});
+
+test('se suscribe de verdad, no solo registra las escuchas', () => {
+  const canal = canalFalso();
+  mockCanal.mockReturnValue(canal);
+  suscribirseAMisChats(jest.fn());
+  // Sin `.subscribe()` el canal existe y no recibe nada: fallo mudo perfecto.
+  expect(canal.subscribe).toHaveBeenCalled();
 });

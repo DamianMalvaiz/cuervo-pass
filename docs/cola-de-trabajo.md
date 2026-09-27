@@ -365,7 +365,7 @@ Lo de `publicacion/editar` es lo que más preocupa de los cuatro: editar una pub
 |---|---|---|---|---|
 | `app/publicacion/editar` | 0 % | 96.29 % | 90/66/100/96 | `test(V.8, 1/4)` |
 | `app/(auth)` | 39.81 % | 89.81 % | 89/70/86/91 | `test(V.8, 2/4)` |
-| `app/(tabs)` | 34.87 % | **71.02 %** | 70/61/60/71 | `d06141a` |
+| `app/(tabs)` | 34.87 % | **73.87 %** | 73/70/67/74 | `d06141a` + `chats` |
 | `components/ui` | 0 % | **borrado** | — | capa 4 |
 
 Los tres umbrales se comprobaron subiéndolos a 100 y viendo fallar el build con el porcentaje real en el mensaje.
@@ -378,11 +378,32 @@ Los tres umbrales se comprobaron subiéndolos a 100 y viendo fallar el build con
 
 | Archivo | Cobertura | Por qué importa |
 |---|---|---|
-| `chats.tsx` | 52.94 % | La lista de conversaciones con su suscripción en tiempo real y el conteo de no leídos. Una suscripción que no se limpia al desmontar no lo dice ninguna prueba, y es la clase de fuga que solo se ve con la app abierta media hora. |
+| ~~`chats.tsx`~~ | ~~52.94 %~~ → **94.11 %** | ✅ cerrado. Ver abajo: la orden apuntaba al archivo equivocado. |
 | `perfil.tsx` | ~57 % | Tiene dos archivos de prueba (`perfil.eliminar`, `perfil.expediente`) pero cubren dos secciones de ocho. |
 | `_layout.tsx` | 0 % | Es la barra de pestañas. Casi no tiene lógica, pero el 0 % incluye el badge de no leídos si algún día se le pone. |
 
-> **Orden para la próxima sesión que toque esto:** `chats.tsx`, y específicamente que `suscribirseAMisChats` se **desuscriba al desmontar** — la función ya devuelve su limpiador, lo que falta es la prueba de que se llama. Es el único de los tres que puede fallar sin que se vea.
+> **Orden para la próxima sesión que toque esto:** ~~`chats.tsx`~~ ✅ hecho. Quedan `perfil.tsx` (dos secciones de ocho cubiertas) y `_layout.tsx`.
+
+### La fuga de Realtime · cerrada, y la orden estaba mal puesta
+
+La orden decía «pruébalo en `chats.tsx`». **Mal ubicada:** la pantalla no se suscribe a nada — la suscripción se mudó a `useConversaciones` con END-18. Una prueba de la fuga escrita en la pantalla habría comprobado el *mock* del hook y habría pasado en verde con la fuga intacta. Es el mismo error de forma que AUD-01: la prueba mira una capa que no es la que decide.
+
+Cubierto en los dos sitios donde sí decide:
+
+| Dónde | Qué se fija |
+|---|---|
+| `services/mensajes.service` (3) | El limpiador cierra **ese** canal (`toHaveBeenCalledWith(canal)`, no `toHaveBeenCalled`); escucha los **dos** eventos —`INSERT:mensajes` y `UPDATE:conversaciones`, el segundo es el contador de no leídos— y llama a `.subscribe()`, sin el cual el canal existe y no recibe nada. |
+| `hooks/queries/useChat` (7) | Al desmontar **cierra**; una sola suscripción por montaje, no una por render; sin usuario no se suscribe; al cambiar de cuenta cierra la anterior antes de abrir la nueva; y el aviso de Realtime **invalida** en vez de recargar a pelo, que es el punto de END-18. `useChat.ts` queda al **100 %**. |
+
+Comprobado que discrimina: quitando el `return` del `useEffect` de `useChat.ts`, **dos** de las siete fallan.
+
+### Hallazgo del arnés: `unmount()` necesita `act()`
+
+`consultas.test.tsx` llevaba una nota que decía que la prueba del remonte tenía que ir **la última del archivo**, porque un `unmount()` a secas dejaba sin pintar todo render posterior. Diagnóstico equivocado: era el síntoma.
+
+Medido con una sonda: en este arnés `unmount()` desmonta pero **no vacía los limpiadores de efecto**. El limpiador se queda pendiente y se vacía dentro del **siguiente `act`** del archivo —la sonda lo vio contar 2 donde debía contar 1—, y ese vaciado a destiempo es lo que rompe los renders de en medio. Con `act` alrededor del `unmount` la restricción desaparece: la prueba está ahora en segundo lugar de su archivo y las ocho pasan.
+
+> **Queda una pregunta ya contestable, para quien toque esas pruebas:** `FormularioPublicacion` tuvo que partir sus pruebas de envío a otro archivo sin que se entendiera por qué, y aquel archivo tiene `afterEach(cleanup)` — un unmount explícito. Con la causa conocida, probablemente se puedan volver a juntar. No se intentó aquí para no mezclarlo con esto.
 
 ### Capa 4 · `components/ui` · borrado, no probado
 

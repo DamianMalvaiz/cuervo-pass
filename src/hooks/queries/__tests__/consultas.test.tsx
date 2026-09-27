@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 // END-18 · Antes cada pantalla de lista era `useState` + `useFocusEffect`. Sin
@@ -50,6 +50,50 @@ test('devuelve los datos del servicio', async () => {
   const { result } = await renderHook(() => useSugerencias(null), { wrapper: Envoltura });
   await waitFor(() => expect(result.current.datos).toHaveLength(1));
   expect(result.current.conAfinidad).toBe(1);
+});
+
+// ── Por qué el `unmount()` va dentro de `act` ──
+//
+// Esta prueba estuvo LA ÚLTIMA del archivo con una nota que decía que tenía que
+// estarlo: llamaba a `unmount()` a secas, y eso dejaba sin pintar a todo render
+// posterior del mismo archivo —`result.current` llegaba null y las consultas ni
+// se disparaban—. Se comprobó entonces: aislada pasaba, en medio tumbaba a las
+// tres siguientes, al final las siete pasaban. La conclusión que saqué fue
+// «colócala al final», y era tratar el síntoma.
+//
+// La causa, medida con una sonda el 26/09/2026 al escribir las pruebas de
+// `useChat`: en este arnés `unmount()` desmonta pero NO vacía los limpiadores de
+// efecto. El limpiador se queda pendiente y se vacía dentro del SIGUIENTE `act`
+// del archivo —la sonda lo vio contar 2 donde debía contar 1—, y ese vaciado a
+// destiempo es lo que rompe los renders de en medio.
+//
+// Con `act` alrededor del `unmount` la restricción desaparece: esta prueba está
+// ahora en segundo lugar y las ocho pasan. Queda escrito porque la regla vieja
+// («las pruebas con unmount van al final») habría ido creciendo por el
+// repositorio sin que nadie supiera por qué.
+//
+// Y deja una pregunta ya contestable: `FormularioPublicacion` tuvo que partir
+// sus pruebas de envío a otro archivo sin que se entendiera el motivo, y aquel
+// archivo tiene `afterEach(cleanup)` —un unmount explícito—. Anotado en la cola.
+//
+// Volver del detalle a la lista dentro del staleTime no debe reconsultar.
+test('dentro del staleTime, remontar NO vuelve a consultar', async () => {
+  // `gcTime: Infinity` y no el 0 por omisión: esta prueba existe para comprobar
+  // que el dato SOBREVIVE al desmontaje, y con recolección inmediata pasaría
+  // por casualidad —la consulta se descarta y se vuelve a pedir tan rápido que
+  // el conteo podría cuadrar igual—. Infinity retiene y, por ser infinito, no
+  // agenda ningún temporizador.
+  const { Envoltura, cliente } = envolver(clienteDePrueba({ queries: { staleTime: 1000, gcTime: Infinity } }));
+  const primero = await renderHook(() => useSugerencias(null), { wrapper: Envoltura });
+  await waitFor(() => expect(primero.result.current.datos).toHaveLength(1));
+  await act(async () => {
+    primero.unmount();
+  });
+
+  const segundo = await renderHook(() => useSugerencias(null), { wrapper: Envoltura });
+  await waitFor(() => expect(segundo.result.current.datos).toHaveLength(1));
+  expect(mockObtenerSugerencias).toHaveBeenCalledTimes(1);
+  expect(cliente.getQueryData(['sugerencias', null, 'ajuste'])).toBeTruthy();
 });
 
 // LA propiedad que no existía. Dos consumidores de lo mismo, una sola petición.
@@ -122,32 +166,3 @@ test('usePublicacion no consulta sin id', async () => {
   expect(mockObtenerPublicacion).not.toHaveBeenCalled();
 });
 
-// ── Esta prueba va LA ÚLTIMA del archivo, y no por gusto ──
-//
-// Llama a `unmount()` explícitamente, y en este arnés eso deja sin pintar a
-// TODO render posterior del mismo archivo: `result.current` llega null y las
-// consultas ni se disparan. Comprobado: aislada pasa; colocada en medio, las
-// tres siguientes fallan; movida al final, las siete pasan.
-//
-// Esto explica además el misterio de FormularioPublicacion, donde hubo que
-// partir las pruebas de envío a otro archivo sin entender por qué: aquel
-// archivo tiene `afterEach(cleanup)`, que es un unmount explícito. Queda
-// pendiente comprobar si quitarlo permite volver a juntarlos.
-//
-// Volver del detalle a la lista dentro del staleTime no debe reconsultar.
-test('dentro del staleTime, remontar NO vuelve a consultar', async () => {
-  // `gcTime: Infinity` y no el 0 por omisión: esta prueba existe para comprobar
-  // que el dato SOBREVIVE al desmontaje, y con recolección inmediata pasaría
-  // por casualidad —la consulta se descarta y se vuelve a pedir tan rápido que
-  // el conteo podría cuadrar igual—. Infinity retiene y, por ser infinito, no
-  // agenda ningún temporizador.
-  const { Envoltura, cliente } = envolver(clienteDePrueba({ queries: { staleTime: 1000, gcTime: Infinity } }));
-  const primero = await renderHook(() => useSugerencias(null), { wrapper: Envoltura });
-  await waitFor(() => expect(primero.result.current.datos).toHaveLength(1));
-  primero.unmount();
-
-  const segundo = await renderHook(() => useSugerencias(null), { wrapper: Envoltura });
-  await waitFor(() => expect(segundo.result.current.datos).toHaveLength(1));
-  expect(mockObtenerSugerencias).toHaveBeenCalledTimes(1);
-  expect(cliente.getQueryData(['sugerencias', null, 'ajuste'])).toBeTruthy();
-});

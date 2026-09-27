@@ -66,7 +66,7 @@ module.exports = {
   // Queda dicho porque un trinquete que sube al borrar código cubre mal el
   // mérito, y la próxima persona que lea «66 %» merece saber de dónde salió
   // ese punto.
-  global: { statements: 66, branches: 61, functions: 62, lines: 67 },
+  global: { statements: 66, branches: 62, functions: 62, lines: 67 },
     './src/services/': { statements: 64, branches: 52, functions: 66, lines: 72 },
     './src/store/': { statements: 66, branches: 52, functions: 67, lines: 68 },
     // V.4 · La pantalla de chat estaba al 0 %. El umbral va justo por debajo de
@@ -80,9 +80,9 @@ module.exports = {
     // geocoding— y era la unica sin red.
     './src/app/publicacion/editar/': { statements: 90, branches: 66, functions: 100, lines: 96 },
     // V.8 · Las cinco pestañas. Estaba en 34.87 % con dos pantallas probadas de
-    // seis; ahora 71.02 % con `inicio`, `publicaciones` y `roomies` añadidas.
-    // Lo que queda fuera es `chats.tsx`, `_layout.tsx` y la mitad no tocada de
-    // `perfil.tsx` — anotado en la cola, no dado por cerrado.
-    './src/app/(tabs)/': { statements: 70, branches: 61, functions: 60, lines: 71 },
+    // seis; ahora 73.87 % con `inicio`, `publicaciones`, `roomies` y `chats`.
+    // Lo que queda fuera es `_layout.tsx` y la mitad no tocada de `perfil.tsx`
+    // — anotado en la cola, no dado por cerrado.
+    './src/app/(tabs)/': { statements: 73, branches: 70, functions: 67, lines: 74 },
   },
 };
