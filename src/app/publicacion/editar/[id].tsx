@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import {
@@ -27,17 +28,41 @@ export default function EditarPublicacionScreen() {
   const session = useAuthStore((s) => s.session);
   const [publicacion, setPublicacion] = useState<Publicacion | null>(null);
   const [cargando, setCargando] = useState(true);
+  // END-11 · Un estado APARTE, no un `publicacion` en null.
+  //
+  // Este `.catch` dejaba la publicación en null, y la pantalla entonces decía
+  // «No se encontró esta publicación». Se cae el wifi y la app te afirma que tu
+  // propia publicación ya no existe — la misma acusación inventada que END-11
+  // corrigió en la ficha pública, en una pantalla que aquella orden no tocó.
+  const [fallo, setFallo] = useState(false);
 
-  useEffect(() => {
+  // `consultar` NO reinicia el estado: lo hace `reintentar`. Si lo hiciera, el
+  // efecto de abajo estaría llamando a `setState` de forma síncrona en su
+  // cuerpo —renders en cascada, y el compilador de React lo marca como error—
+  // y además sería redundante: el estado inicial ya es «cargando, sin fallo».
+  const consultar = useCallback(() => {
     if (!id) return;
     // `obtenerMiPublicacion` lee la TABLA, no la vista pública: la vista no trae
     // `whatsapp`, y aquí hace falta para poder editarlo. La policy
     // publicaciones_select_propias garantiza que solo funcione con las propias.
     obtenerMiPublicacion(id)
       .then(setPublicacion)
-      .catch((e) => aviso('obtenerMiPublicacion falló', undefined, e))
+      .catch((e) => {
+        aviso('obtenerMiPublicacion falló', undefined, e);
+        setFallo(true);
+      })
       .finally(() => setCargando(false));
   }, [id]);
+
+  useEffect(() => {
+    consultar();
+  }, [consultar]);
+
+  const reintentar = useCallback(() => {
+    setCargando(true);
+    setFallo(false);
+    consultar();
+  }, [consultar]);
 
   if (cargando) {
     return (
@@ -46,6 +71,25 @@ export default function EditarPublicacionScreen() {
         <ThemedText type="etiqueta" themeColor="textSecondary">
           CONSULTANDO LA PUBLICACIÓN
         </ThemedText>
+      </ThemedView>
+    );
+  }
+
+  // El fallo va PRIMERO y no comparte pantalla con el vacío: son dos cosas
+  // distintas y la persona hace algo distinto con cada una.
+  if (fallo) {
+    return (
+      <ThemedView style={styles.centrado}>
+        <Ionicons name="cloud-offline-outline" size={28} color={theme.error} />
+        <ThemedText type="etiqueta" themeColor="error">
+          NO PUDIMOS CONSULTAR
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.textoCentrado}>
+          No pudimos abrir tu publicación para editarla. Revisa tu conexión y reintenta.
+        </ThemedText>
+        <Sello onPress={reintentar} icono="refresh" accessibilityLabel="Reintentar">
+          Reintentar
+        </Sello>
       </ThemedView>
     );
   }
@@ -135,7 +179,8 @@ export default function EditarPublicacionScreen() {
 }
 
 const styles = StyleSheet.create({
-  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
+  centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two, padding: Spacing.four },
+  textoCentrado: { textAlign: 'center', lineHeight: 20 },
   container: { padding: Spacing.three, paddingBottom: Spacing.six },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.four },
