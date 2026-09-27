@@ -20,10 +20,17 @@ jest.mock('@/services/publicaciones.service', () => ({
   contarContactosRecibidos: jest.fn(),
 }));
 
-import { crearClienteConsultas } from '@/lib/consultas';
+import { clienteDePrueba } from '@pruebas/consultas';
 import { usePublicacion, useSugerencias } from '@/hooks/queries/usePublicaciones';
 
-const envolver = (cliente = crearClienteConsultas()) => {
+// V.7 · `staleTime` de un segundo, no los treinta de producción.
+//
+// Estas pruebas comprueban que DENTRO del staleTime no se reconsulta, y sus
+// aserciones ocurren en milisegundos: treinta segundos y uno demuestran lo
+// mismo. La diferencia es que un `staleTime` de 30 s deja un temporizador vivo
+// que cuelga el proceso treinta segundos tras pasar las ocho pruebas —medido
+// el 26/09/2026: 31.26 s de reloj para 0.8 s de pruebas.
+const envolver = (cliente = clienteDePrueba({ queries: { staleTime: 1000 } })) => {
   const Envoltura = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={cliente}>{children}</QueryClientProvider>
   );
@@ -82,7 +89,7 @@ test('cada orden es su propia clave', async () => {
 // El backoff se acorta a 1 ms: lo que se comprueba es que REINTENTE, no cuánto
 // espera — eso lo fija `crearClienteConsultas` y no hay que pagarlo en segundos
 // en cada corrida.
-const clienteRapido = () => crearClienteConsultas({ queries: { retryDelay: 1 } });
+const clienteRapido = () => clienteDePrueba({ queries: { retryDelay: 1 } });
 
 // Un fallo transitorio de red dejaba la pantalla vacía hasta que alguien
 // deslizara. Con reintento, se resuelve solo.
@@ -129,7 +136,12 @@ test('usePublicacion no consulta sin id', async () => {
 //
 // Volver del detalle a la lista dentro del staleTime no debe reconsultar.
 test('dentro del staleTime, remontar NO vuelve a consultar', async () => {
-  const { Envoltura, cliente } = envolver();
+  // `gcTime: Infinity` y no el 0 por omisión: esta prueba existe para comprobar
+  // que el dato SOBREVIVE al desmontaje, y con recolección inmediata pasaría
+  // por casualidad —la consulta se descarta y se vuelve a pedir tan rápido que
+  // el conteo podría cuadrar igual—. Infinity retiene y, por ser infinito, no
+  // agenda ningún temporizador.
+  const { Envoltura, cliente } = envolver(clienteDePrueba({ queries: { staleTime: 1000, gcTime: Infinity } }));
   const primero = await renderHook(() => useSugerencias(null), { wrapper: Envoltura });
   await waitFor(() => expect(primero.result.current.datos).toHaveLength(1));
   primero.unmount();

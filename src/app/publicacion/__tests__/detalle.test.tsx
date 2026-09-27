@@ -2,7 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { crearClienteConsultas } from '@/lib/consultas';
+import { clienteDePrueba } from '@pruebas/consultas';
 
 // END-11 · El peor mensaje que tenía la app.
 //
@@ -57,7 +57,7 @@ const PUB = {
 // en cada estado, no cuánto espera el reintento — eso lo fija y lo prueba
 // `crearClienteConsultas`.
 const pintar = async () => {
-  const cliente = crearClienteConsultas({ queries: { retryDelay: 1 } });
+  const cliente = clienteDePrueba({ queries: { retryDelay: 1 } });
   const Envoltura = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={cliente}>{children}</QueryClientProvider>
   );

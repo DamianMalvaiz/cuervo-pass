@@ -2,7 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
-import { crearClienteConsultas } from '@/lib/consultas';
+import { clienteDePrueba } from '@pruebas/consultas';
 
 // Pruebas de humo de las pantallas rediseñadas.
 //
@@ -88,7 +88,7 @@ jest.mock('@/lib/supabase', () => ({ supabase: { auth: { resetPasswordForEmail: 
 // necesitan su provider. El backoff se acorta: aquí solo se comprueba que
 // MONTAN, no cuánto espera un reintento.
 const pintar = async (Pantalla: () => React.ReactElement) => {
-  const cliente = crearClienteConsultas({ queries: { retryDelay: 1 } });
+  const cliente = clienteDePrueba({ queries: { retryDelay: 1 } });
   const Envoltura = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={cliente}>{children}</QueryClientProvider>
   );

@@ -104,3 +104,17 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 // azar — END-23. Una compuerta que falla sin motivo se acaba apagando, que es
 // justo lo que el comentario de Trivy en ci.yml advierte.
 jest.setTimeout(15000);
+
+// V.7 · Soltar los clientes de react-query al terminar cada prueba.
+//
+// Esto NO es lo que arregló el cuelgue —conviene decirlo, porque parece que sí—.
+// El cuelgue lo causaban los temporizadores de `gcTime` y `staleTime`, y se
+// resolvió no programándolos: ver test-utils/consultas.ts.
+//
+// Esto libera memoria: vacía la caché y suelta los oyentes de foco y conexión
+// que cada cliente instala. Con seis archivos creando clientes en cada prueba,
+// sin esto la suite arrastra todas las respuestas de todas las pruebas hasta el
+// final.
+afterEach(() => {
+  require('@pruebas/consultas').liberarClientesDePrueba();
+});

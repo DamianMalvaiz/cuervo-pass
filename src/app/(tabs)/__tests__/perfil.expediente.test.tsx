@@ -52,12 +52,14 @@ jest.mock('@/store/usePerfilStore', () => ({
   }),
 }));
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+
+import { clienteDePrueba } from '@pruebas/consultas';
 
 import PerfilScreen from '../perfil';
 
 const envolver = ({ children }: { children: React.ReactNode }) => (
-  <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+  <QueryClientProvider client={clienteDePrueba({ queries: { retry: false } })}>
     {children}
   </QueryClientProvider>
 );

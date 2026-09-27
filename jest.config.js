@@ -11,6 +11,9 @@ module.exports = {
   preset: 'jest-expo',
   moduleNameMapper: {
     '\\.css$': '<rootDir>/jest.cssMock.js',
+    // V.7 · Ayudantes que solo existen para las pruebas. Viven fuera de `src/`
+    // a proposito: no entran en el bundle ni en `collectCoverageFrom`.
+    '^@pruebas/(.*)$': '<rootDir>/test-utils/$1',
   },
   modulePathIgnorePatterns: ['<rootDir>/.claude/worktrees/'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],

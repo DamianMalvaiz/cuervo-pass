@@ -16,11 +16,11 @@ jest.mock('@/lib/storage', () => ({
   CADUCIDAD_SEGUNDOS: 3600,
 }));
 
-import { crearClienteConsultas } from '@/lib/consultas';
+import { clienteDePrueba } from '@pruebas/consultas';
 import { INTERVALO_REFIRMA_MS, useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { CADUCIDAD_SEGUNDOS } from '@/lib/storage';
 
-const envolver = (cliente = crearClienteConsultas()) => {
+const envolver = (cliente = clienteDePrueba()) => {
   const Envoltura = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={cliente}>{children}</QueryClientProvider>
   );
