@@ -366,7 +366,7 @@ Lo de `publicacion/editar` es lo que más preocupa de los cuatro: editar una pub
 | `app/publicacion/editar` | 0 % | 96.29 % | 90/66/100/96 | `test(V.8, 1/4)` |
 | `app/(auth)` | 39.81 % | 89.81 % | 89/70/86/91 | `test(V.8, 2/4)` |
 | `app/(tabs)` | 34.87 % | **71.02 %** | 70/61/60/71 | `d06141a` |
-| `components/ui` | 0 % | — | — | pendiente |
+| `components/ui` | 0 % | **borrado** | — | capa 4 |
 
 Los tres umbrales se comprobaron subiéndolos a 100 y viendo fallar el build con el porcentaje real en el mensaje.
 
@@ -383,6 +383,17 @@ Los tres umbrales se comprobaron subiéndolos a 100 y viendo fallar el build con
 | `_layout.tsx` | 0 % | Es la barra de pestañas. Casi no tiene lógica, pero el 0 % incluye el badge de no leídos si algún día se le pone. |
 
 > **Orden para la próxima sesión que toque esto:** `chats.tsx`, y específicamente que `suscribirseAMisChats` se **desuscriba al desmontar** — la función ya devuelve su limpiador, lo que falta es la prueba de que se llama. Es el único de los tres que puede fallar sin que se vea.
+
+### Capa 4 · `components/ui` · borrado, no probado
+
+La orden decía: «si sigue sin usarse en ninguna pantalla, **bórralo** en vez de probarlo». Comprobado: `Collapsible` tenía **cero importaciones** en todo el repositorio —ni en `src/`, ni en `scripts/`, ni en la documentación salvo esta cola—. Era el `Collapsible` de la plantilla de Expo con un find/replace de tokens del sistema encima, y conservaba los nombres en inglés (`isOpen`, `styles`, `heading`) cuando el resto del proyecto está en español (`estilos`, `abierto`): nunca se adoptó. Borrado, y con él la carpeta `src/components/ui/`.
+
+**Dos cosas que salieron de tirar de ese hilo:**
+
+1. **`expo-symbols` era la única dependencia que ese archivo importaba, y se quitó de `package.json`.** Pero **no desaparece del árbol**: es dependencia de `expo-router`, así que sigue instalada y el bundle no adelgaza. Lo que se gana es que `package.json` ya no declara una dependencia directa que nadie usa. Conviene no contarlo como una victoria de tamaño, porque no lo es.
+2. **El umbral `global` subió de 65 a 66 sin que se probara nada.** Borrar un archivo al 0 % encoge el denominador. Está anotado en `jest.config.js` junto al número, porque un trinquete que sube al borrar código atribuye mérito donde no hubo ninguno.
+
+**Y una corrección en `docs/endurecimiento-v6.md`:** END-37 afirmaba que Reanimated se usaba en **dos** archivos y de ahí concluía que su runtime no se amortizaba. Eran **seis**, y tres de ellos ya existían el día que escribí el hallazgo — recuento mal hecho, no dato caducado. También nombraba a Gesture Handler como equipaje gratuito cuando es dependencia de `expo-router` y no se puede quitar. La mitad del hallazgo que sí valía —la falta de tacto— estaba correctamente cerrada en `8db5ed8`.
 >
 > Cada una con su umbral en `jest.config.js`, justo por debajo de lo conseguido. Y **comprueba que el umbral se aplica**, subiéndolo a un valor imposible y viendo fallar el build: la ruta de `(auth)` lleva paréntesis y podría ignorarse en silencio. Se comprobó en V.5 y funciona, pero cada ruta nueva se comprueba igual.
 
@@ -405,7 +416,7 @@ cd /home/damianml/cuervo-pass && npx jest --coverage --coverageReporters=text --
 | 5 | **V.5** · `app/(auth)` al 9 % | ✅ `8dd8c65` · ahora 40 % |
 | — | V.6 · `coverage/` en el historial | nada que hacer |
 | 6 | **V.7** · la suite no cierra limpia | ✅ `2730761` · 280 s → 5.11 s · residual anotado |
-| 7 | **V.8** · tres capas sin pruebas | 🟡 3 de 4 · `editar` ✅, `(auth)` ✅, `(tabs)` ✅ `d06141a` · falta `components/ui` |
+| 7 | **V.8** · tres capas sin pruebas | ✅ 4 de 4 · `editar`, `(auth)`, `(tabs)` `d06141a`, `ui` borrado |
 
 V.7 va antes que V.8 a propósito: el aviso de worker puede dejar el informe de
 cobertura incompleto, y V.8 consiste precisamente en poner umbrales que se

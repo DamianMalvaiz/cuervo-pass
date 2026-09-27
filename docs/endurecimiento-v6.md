@@ -392,7 +392,19 @@ Tres problemas apilados:
 
 **END-36 · Sistema responsive sin aplicar donde importa** · **Medio** — `useTamanoPantalla` está en 8 pantallas de formularios y auth, y **en ninguna** de `inicio`, `publicaciones`, `roomies`, `chats`, `chat/[id]` ni `publicacion/[id]`. `MaxContentWidth = 800` tiene **cero usos** en todo el código: un token muerto en el corazón del sistema.
 
-**END-37 · Sin movimiento y sin tacto** · **Bajo** — Reanimated, Worklets y Gesture Handler instalados y usados en **dos** archivos (`components/ui/collapsible.tsx` y `app/perfil/[usuarioId].tsx`). Un tercero —`ficha/DesgloseCalificacion.tsx`— anima con `LayoutAnimation`, que es de React Native y no de Reanimated. O sea: se carga el runtime completo de Reanimated para un acordeón y una pantalla de perfil. `expo-haptics` **no está instalado**: un mundo cuya pieza central se llama «sello» y no vibra al estampar. El único feedback de pulsación en toda la app es `opacity: 0.7`, el valor por defecto de React Native.
+**END-37 · Sin movimiento y sin tacto** · **Bajo** — Reanimated y Worklets instalados, y `expo-haptics` **no**: un mundo cuya pieza central se llama «sello» y no vibra al estampar. El único feedback de pulsación en toda la app es `opacity: 0.7`, el valor por defecto de React Native. Un archivo —`ficha/DesgloseCalificacion.tsx`— anima con `LayoutAnimation`, que es de React Native y no de Reanimated.
+
+> **Corrección del 26/09/2026, al ejecutar V.8 capa 4.** Este hallazgo llevaba un dato mal contado, y conviene decir exactamente cuál para no dar por retirado lo que sí valía.
+>
+> **Lo que era falso.** La redacción original decía que «Reanimated, Worklets y Gesture Handler» estaban «usados en **dos** archivos (`components/ui/collapsible.tsx` y `app/perfil/[usuarioId].tsx`)», y de ahí concluía que se cargaba el runtime completo de Reanimated «para un acordeón y una pantalla de perfil». Dos errores:
+>
+> · **Eran seis archivos, no dos.** Además de esos dos: `ficha/Pulsable.tsx`, `ficha/Calificacion.tsx`, `ficha/FichaEsqueleto.tsx` y `(tabs)/inicio.tsx`. Los tres de `ficha/` se crearon el 18 y el 19 de septiembre y este documento se escribió el **20**: ya existían cuando conté. Fue un recuento mal hecho, no un dato caducado, y la conclusión que colgaba de él —que el runtime no se amortizaba— no se sostiene.
+> · **Gesture Handler no se importa en ningún archivo del proyecto, y aun así hace falta:** es dependencia de `expo-router`. Nombrarlo junto a los otros dos lo pintaba como equipaje gratuito cuando no se puede quitar.
+>
+> **Lo que sí valía, y se arregló.** La mitad del tacto era correcta y está cerrada en `8db5ed8`: `expo-haptics` instalado y `src/lib/tacto.ts` con **dos** funciones a propósito —`sello()` para lo que queda registrado y no se deshace, `toque()` para lo que solo responde—, hoy en cuatro pantallas. El razonamiento de por qué son dos y no ocho vive en la cabecera de ese archivo.
+>
+> **Y una consecuencia de V.8 capa 4:** al borrar `components/ui/collapsible.tsx` —el `Collapsible` de la plantilla de Expo, cero importaciones en todo el proyecto— Reanimated queda en cinco archivos, todos deliberados.
+
 
 **END-38 · Catorce spinners, cero esqueletos** · **Bajo** — `ActivityIndicator` en 14 archivos. El esqueleto se escribe solo en este mundo: dibujar la ficha vacía con sus etiquetas y llenar los valores al llegar. Está inventado y sin construir.
 

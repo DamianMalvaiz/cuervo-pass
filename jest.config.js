@@ -61,7 +61,12 @@ module.exports = {
   // realidad (65.8 %), o sea que habia dejado de ser un trinquete: no habria
   // detectado perder un tercio de la cobertura del grupo.
   coverageThreshold: {
-    global: { statements: 65, branches: 60, functions: 60, lines: 67 },
+    // V.8 capa 4 · Sube de 65 a 66 SOLO por haber borrado `components/ui`, que
+  // estaba al 0 %. No se probó nada nuevo: el denominador se hizo más pequeño.
+  // Queda dicho porque un trinquete que sube al borrar código cubre mal el
+  // mérito, y la próxima persona que lea «66 %» merece saber de dónde salió
+  // ese punto.
+  global: { statements: 66, branches: 61, functions: 62, lines: 67 },
     './src/services/': { statements: 64, branches: 52, functions: 66, lines: 72 },
     './src/store/': { statements: 66, branches: 52, functions: 67, lines: 68 },
     // V.4 · La pantalla de chat estaba al 0 %. El umbral va justo por debajo de
