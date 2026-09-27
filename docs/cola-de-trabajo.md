@@ -644,7 +644,58 @@ El archivo lo dice en un comentario: la afinidad va en **su propia petición y s
 
 | Archivo | Ramas sin cubrir | Nota |
 |---|---|---|
-| `components/FormularioPublicacion.tsx` | 30 de 136 | Ya tiene tres archivos; faltan ramas de validación sueltas. **El siguiente por volumen.** |
+| ~~`components/FormularioPublicacion.tsx`~~ | ~~30 de 136~~ → **88.2 %** | ✅ cerrado, líneas al 100 %. **Y dejó una pregunta abierta, ver abajo.** |
 | `components/ficha/DesgloseCalificacion.tsx` | 29 de 31 | Presentación casi pura. Bajo valor. |
 | `lib/mapboxAutocomplete.ts` | 14 de 14 | Al 0 %. |
 | `lib/geocoding.ts` | 8 de 8 | Al 0 %. **Atado al bloqueo de la clave de Maps**, que sigue abierto y solo lo puede resolver el usuario. |
+
+
+## `FormularioPublicacion.tsx` · ramas 78 % → 88.2 %, líneas 100 %
+
+*Ejecutado el 26/09/2026.* 63 suites, 567 pruebas. Cuarto archivo de pruebas del componente (`.cp-fotos`), 19 pruebas.
+
+Ya tenía tres archivos —rellenado al editar, envío y desplegable—. Los dos huecos que quedaban con consecuencia:
+
+### 1 · El autorrelleno por código postal
+
+Rellena estado, municipio y localidad **solo en los campos que nadie tocó**: «nunca pisa algo que ya haya escrito a mano». Ese «nunca pisa» son tres `if (!getValues(...))`, y es exactamente la clase de guardia que un refactor sustituye por un `setValue` directo porque «queda más limpio». Cuando se rompe, quien corrigió a mano su municipio —porque el catálogo postal no siempre acierta— lo ve cambiar solo al teclear el CP, sin forma de saber por qué.
+
+Comprobado que discrimina: quitando dos de los tres guardias, la prueba falla. Y la prueba exige **las dos mitades** —que lo escrito sobreviva **y** que lo vacío se rellene—, porque un guardia que no rellena nunca es igual de inútil que uno que lo pisa todo.
+
+También: el CP de menos de cinco dígitos no consulta (sin el corte, teclear «52104» dispara cinco consultas al catálogo), el mismo CP no se consulta dos veces, uno distinto sí, y el aviso de «no encontrado» se retira al seguir escribiendo en vez de acusar mientras la persona todavía teclea.
+
+### 2 · Las fotografías y el antirrebote
+
+Permiso denegado, cancelación, el **tope de ocho** —no es cosmético: cada foto se sube al bucket y se firma una por una— y quitar una foto renumerando el resto. Más el antirrebote de calle: menos de cuatro caracteres no consulta (cada consulta a Mapbox cuenta contra la cuota) y teclear rápido consulta **una** vez, no una por letra.
+
+> **Un falso verde mío, corregido:** mi primera versión de «menos de cuatro caracteres no consulta» escribía sobre la etiqueta `Calle`, que es un desplegable y no un TextInput — así que **pasaba por no haber tocado nada**. Una aserción negativa sobre el elemento equivocado siempre pasa. Corregida para abrir el desplegable primero, y **emparejada con su contraparte positiva** («con cuatro sí consulta») para que no pueda volver a pasar por vacía.
+
+---
+
+## ⚠️ PREGUNTA ABIERTA · ¿se guarda una colonia escrita a mano?
+
+**Esto hay que comprobarlo en un dispositivo. No pude resolverlo en el arnés y no lo doy por defecto ni por sano.**
+
+El desplegable de colonia ofrece «Otra (escribir)» para las que no están en el catálogo postal. Medido el 26/09/2026 con un `console.log` temporal dentro del `onSeleccionar` de la colonia:
+
+- `fireEvent.changeText` sobre el campo de texto libre **no llega a `onSeleccionar`**: el registro nunca se imprime, el `value` del campo sigue siendo el anterior, y al enviar se guarda la colonia **vieja**.
+- Pero `onSeleccionar` **sí** se llama al pulsar una opción de la lista — lo prueba «elegir una colonia la fija en el campo y cierra la lista», que pasa.
+- Y `fireEvent.changeText` **sí** funciona sobre el campo de búsqueda de otro desplegable: de eso dependen las pruebas del antirrebote de calle.
+
+O el `onChangeText` del campo libre no llega en el arnés, o **hay un defecto real en el que escribir una colonia a mano no se guarda.** Las dos posibilidades son compatibles con lo medido y no pude separarlas.
+
+**Si es un defecto, importa mucho:** el catálogo de códigos postales es incompleto, una colonia fuera de lista es común, la colonia es **obligatoria**, y quien la tenga **no podría publicar** — vería que escribe y que al guardar no se respeta, sin entender por qué.
+
+> **Cómo comprobarlo, en dos minutos y en el teléfono:** abrir «nueva publicación», poner un CP válido, abrir Colonia, pulsar «Otra (escribir)», teclear una colonia que no esté en la lista, guardar, y mirar la dirección guardada. Si conserva la colonia anterior o la deja vacía, es un defecto y hay que arreglarlo antes de la entrega.
+
+La prueba del repositorio afirma solo lo que se pudo verificar: que la salida existe y ofrece un campo editable. El comentario del archivo lleva todo lo medido.
+
+### Lo que queda en el grupo global
+
+| Archivo | Ramas sin cubrir | Nota |
+|---|---|---|
+| `components/ficha/DesgloseCalificacion.tsx` | 29 de 31 | Presentación casi pura. Valor bajo. |
+| `lib/mapboxAutocomplete.ts` | 14 de 14 | Al 0 %. |
+| `lib/geocoding.ts` | 8 de 8 | Al 0 %. **Atado al bloqueo de la clave de Maps.** |
+
+> **Recomendación:** la cobertura ya rinde poco. Lo que queda por hacer que sí mueve la entrega es la **clave de Google Maps** (mapa gris en Android) y **comprobar la pregunta abierta de arriba en un dispositivo**.
