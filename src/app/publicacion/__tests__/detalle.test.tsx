@@ -1,105 +1,292 @@
-import { QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 
-import { clienteDePrueba } from '@pruebas/consultas';
+// `publicacion/[id].tsx` · la ficha que se abre desde un toque en las
+// sugerencias. Tenía 28 de 61 ramas sin cubrir.
+//
+// El sello —revelar contacto— NO se prueba aquí: vive en `BotonVerContacto`, que
+// tiene su propio archivo. Esta pantalla solo le pasa `revelarContacto` como
+// prop, así que una prueba de la cuota escrita aquí comprobaría el doble del
+// servicio. Mismo reparto que con `chats` y `useChat`.
+//
+// Lo que sí es de la pantalla:
+//
+//  · END-11 · TRES estados y no dos. `fallo` es una caída de lectura;
+//    `publicacion === null` es que de verdad no está. Mientras compartieron un
+//    mismo `null`, la pantalla elegía la interpretación más grave y ACUSABA DE
+//    REPORTES a un anuncio ajeno por un fallo de red. Es el peor de los END-11
+//    del proyecto porque no solo miente: difama.
+//  · END-27 · El reporte duplicado se reconoce por el código 23505, no por la
+//    subcadena «duplicate key value».
+//  · La distancia, que depende de que el perfil tenga coordenadas de
+//    universidad — lo mismo que se fija en las pruebas del cuestionario.
 
-// END-11 · El peor mensaje que tenía la app.
-//
-// `obtenerPublicacionPublica(id).catch(...)` dejaba la publicación en null, y
-// la pantalla entonces decía:
-//
-//   «FICHA NO DISPONIBLE — Esta publicación ya no está disponible. Pudo
-//    desactivarse o ocultarse tras varios reportes.»
-//
-// Se cae el wifi y la app afirma que esa publicación fue REPORTADA por abuso.
-// No es un mensaje impreciso: es una acusación inventada por un fallo de red,
-// sobre el anuncio de otra persona.
-
-const mockObtener = jest.fn();
+const mockPublicacion = jest.fn();
+const mockAfinidad = jest.fn();
+const mockReportar = jest.fn();
+const mockReintentar = jest.fn();
+const mockFotos = jest.fn();
+const mockPerfil: { valor: Record<string, unknown> | null } = { valor: null };
 
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn() },
-  useLocalSearchParams: () => ({ id: 'pub1' }),
-  useFocusEffect: (cb: () => void) => require('react').useEffect(cb, []),
+  router: { push: jest.fn(), back: jest.fn() },
+  useLocalSearchParams: () => ({ id: 'p1' }),
+  Stack: { Screen: () => null },
+}));
+jest.mock('@/hooks/queries/usePublicaciones', () => ({
+  usePublicacion: (...a: unknown[]) => mockPublicacion(...a),
+  useAfinidad: (...a: unknown[]) => mockAfinidad(...a),
 }));
 jest.mock('@/services/publicaciones.service', () => ({
-  obtenerPublicacionPublica: (...a: unknown[]) => mockObtener(...a),
-  revelarContacto: jest.fn(),
-  reportarPublicacion: jest.fn(),
+  reportarPublicacion: (...a: unknown[]) => mockReportar(...a),
+  revelarContacto: jest.fn().mockResolvedValue('7221234567'),
 }));
-jest.mock('@/services/mensajes.service', () => ({ abrirConversacion: jest.fn() }));
-jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: () => ({}) }));
+jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: (...a: unknown[]) => mockFotos(...a) }));
 jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) => sel({ session: { user: { id: 'u1' } } }),
 }));
 jest.mock('@/store/usePerfilStore', () => ({
-  usePerfilStore: Object.assign(
-    (sel?: (s: unknown) => unknown) => {
-      const estado = { perfil: { id: 'u1' }, cargando: false, error: null, cargarPerfil: jest.fn() };
-      return sel ? sel(estado) : estado;
-    },
-    { getState: () => ({ cargarPerfil: jest.fn() }) }
-  ),
+  usePerfilStore: (sel?: (s: unknown) => unknown) => {
+    const estado = { perfil: mockPerfil.valor, cargarPerfil: jest.fn() };
+    return sel ? sel(estado) : estado;
+  },
 }));
+jest.mock('@/lib/tacto', () => ({ sello: jest.fn(), toque: jest.fn() }));
 
-import Detalle from '../[id]';
+import DetalleScreen from '../[id]';
 
-const PUB = {
-  id: 'pub1', titulo: 'Depa cerca del campus', tipo: 'depa', direccion: 'San Mateo Atenco',
-  precio_renta: 2800, descripcion: 'Luminoso', fotos: null, permite_mascotas: false,
-  amueblado: true, servicios_incluidos: false, recamaras: 1, latitud: 19.29, longitud: -99.56,
-  usuario_id: 'otro', creada_en: new Date().toISOString(),
+const PUBLICACION = {
+  id: 'abcd1234-0000-0000-0000-000000000000',
+  titulo: 'Depa centro',
+  tipo: 'depa',
+  direccion: 'Calle 1, Lerma',
+  descripcion: 'Bien iluminado y cerca del transporte.',
+  precio_renta: 3500,
+  fotos: [],
+  permite_mascotas: false,
+  amueblado: false,
+  servicios_incluidos: false,
+  latitud: null,
+  longitud: null,
+  creado_en: '2026-09-20T10:00:00Z',
 };
 
-// La pantalla consulta por react-query (END-18), así que necesita su provider.
-// El backoff se acorta a 1 ms: lo que estas pruebas comprueban es QUÉ se pinta
-// en cada estado, no cuánto espera el reintento — eso lo fija y lo prueba
-// `crearClienteConsultas`.
-const pintar = async () => {
-  const cliente = clienteDePrueba({ queries: { retryDelay: 1 } });
-  const Envoltura = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={cliente}>{children}</QueryClientProvider>
-  );
-  return render(<Detalle />, { wrapper: Envoltura });
-};
+const estado = (extra: Record<string, unknown> = {}) => ({
+  publicacion: PUBLICACION,
+  cargando: false,
+  fallo: null,
+  reintentar: mockReintentar,
+  ...extra,
+});
+
+const pintar = async () => render(<DetalleScreen />);
 
 beforeEach(() => {
   jest.clearAllMocks();
-  jest.spyOn(console, 'warn').mockImplementation(() => {});
-});
-afterEach(() => jest.restoreAllMocks());
-
-test('con datos, pinta la ficha', async () => {
-  mockObtener.mockResolvedValue(PUB);
-  await pintar();
-  expect(await screen.findByText('Depa cerca del campus', {}, { timeout: 5000 })).toBeTruthy();
+  jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  mockPerfil.valor = null;
+  mockPublicacion.mockReturnValue(estado());
+  mockAfinidad.mockReturnValue(null);
+  mockFotos.mockReturnValue({ urls: new Map(), fallo: null });
 });
 
-// Vacío legítimo: la publicación de verdad ya no está.
-test('si no existe, dice que no está disponible', async () => {
-  mockObtener.mockResolvedValue(null);
-  await pintar();
-  expect(await screen.findByText('FICHA NO DISPONIBLE', {}, { timeout: 5000 })).toBeTruthy();
-});
+// ── END-11 · los tres estados ────────────────────────────────────────────────
 
-// LA prueba. Un fallo de red NO puede producir el mensaje de arriba.
-test('si falla la red, NO acusa de reportes: dice que no se pudo consultar', async () => {
-  mockObtener.mockRejectedValue(new Error('network request failed'));
+// El peor END-11 del proyecto. Un fallo de red hacía que la pantalla dijera que
+// la publicación «pudo ocultarse tras varios reportes»: no solo mentía sobre el
+// estado, difamaba a un anuncio ajeno delante de quien lo estaba mirando.
+test('un fallo de lectura NO insinúa reportes: ofrece reintentar', async () => {
+  mockPublicacion.mockReturnValue(estado({ publicacion: null, fallo: 'No pudimos cargar' }));
   await pintar();
-  expect(await screen.findByText('NO PUDIMOS CONSULTAR', {}, { timeout: 5000 })).toBeTruthy();
+
+  expect(screen.queryByText(/reportes/)).toBeNull();
   expect(screen.queryByText('FICHA NO DISPONIBLE')).toBeNull();
-  expect(screen.queryByText(/reportes/i)).toBeNull();
+  expect(screen.getByLabelText('Reintentar')).toBeTruthy();
 });
 
-// Un error sin salida deja la pantalla muerta. Con la red intermitente de un
-// aula, reintentar es la diferencia entre seguir la demo y reiniciar la app.
-test('el estado de error ofrece reintentar, y reintentar vuelve a consultar', async () => {
-  mockObtener.mockRejectedValue(new Error('network request failed'));
+test('y el botón de reintentar reintenta de verdad', async () => {
+  mockPublicacion.mockReturnValue(estado({ publicacion: null, fallo: 'No pudimos cargar' }));
   await pintar();
-  expect(await screen.findByText('NO PUDIMOS CONSULTAR', {}, { timeout: 5000 })).toBeTruthy();
+  await act(async () => {
+    fireEvent.press(screen.getByLabelText('Reintentar'));
+  });
+  expect(mockReintentar).toHaveBeenCalled();
+});
 
-  mockObtener.mockResolvedValue(PUB);
-  fireEvent.press(await screen.findByLabelText('Reintentar', {}, { timeout: 5000 }));
-  expect(await screen.findByText('Depa cerca del campus', {}, { timeout: 5000 })).toBeTruthy();
+// Ausente de verdad: sin fallo y sin publicación. Aquí SÍ toca decir que pudo
+// desactivarse u ocultarse, porque es lo que de verdad pasó.
+test('ausente de verdad dice que no está disponible, sin ofrecer reintento', async () => {
+  mockPublicacion.mockReturnValue(estado({ publicacion: null }));
+  await pintar();
+
+  expect(screen.getByText('FICHA NO DISPONIBLE')).toBeTruthy();
+  expect(screen.getByText(/Pudo desactivarse o ocultarse tras varios reportes/)).toBeTruthy();
+  expect(screen.queryByLabelText('Reintentar')).toBeNull();
+});
+
+test('mientras carga no afirma ni fallo ni ausencia', async () => {
+  mockPublicacion.mockReturnValue(estado({ publicacion: null, cargando: true }));
+  await pintar();
+  expect(screen.queryByText('FICHA NO DISPONIBLE')).toBeNull();
+  expect(screen.queryByLabelText('Reintentar')).toBeNull();
+});
+
+// ── END-27 · el reporte ──────────────────────────────────────────────────────
+
+/** Abre el diálogo de reporte y devuelve sus botones. */
+const abrirReporte = async () => {
+  await act(async () => {
+    fireEvent.press(screen.getByLabelText(/Reportar/i));
+  });
+  await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
+  const llamada = (Alert.alert as jest.Mock).mock.calls.find(([t]) => t === 'Reportar publicación');
+  return llamada?.[2] as { text: string; onPress?: () => unknown }[];
+};
+
+test('reportar pregunta el motivo antes de enviar nada', async () => {
+  await pintar();
+  const botones = await abrirReporte();
+  expect(botones.map((b) => b.text)).toEqual(['Cancelar', 'Contenido sospechoso', 'Información falsa']);
+  expect(mockReportar).not.toHaveBeenCalled();
+});
+
+test('el motivo elegido viaja tal cual', async () => {
+  mockReportar.mockResolvedValue(undefined);
+  await pintar();
+  const botones = await abrirReporte();
+  await act(async () => {
+    await botones.find((b) => b.text === 'Información falsa')?.onPress?.();
+  });
+  expect(mockReportar).toHaveBeenCalledWith('u1', PUBLICACION.id, 'información falsa');
+});
+
+// END-27 · 23505 es el código estándar de violación de unicidad, el mismo en
+// cualquier versión y cualquier locale. El texto «duplicate key value» no lo es.
+// Este error trae el mensaje en inglés a propósito.
+test('un reporte repetido se reconoce por código, no por el texto', async () => {
+  mockReportar.mockRejectedValue({ code: '23505', message: 'duplicate key value violates unique constraint' });
+  await pintar();
+  const botones = await abrirReporte();
+  await act(async () => {
+    await botones.find((b) => b.text === 'Contenido sospechoso')?.onPress?.();
+  });
+
+  const aviso = (Alert.alert as jest.Mock).mock.calls.at(-1);
+  expect(aviso?.[0]).toBe('No se pudo enviar el reporte');
+  expect(aviso?.[1]).toBe('Ya habías reportado esta publicación.');
+});
+
+test('otro fallo al reportar da el mensaje genérico', async () => {
+  mockReportar.mockRejectedValue(new Error('sin red'));
+  await pintar();
+  const botones = await abrirReporte();
+  await act(async () => {
+    await botones.find((b) => b.text === 'Contenido sospechoso')?.onPress?.();
+  });
+  expect((Alert.alert as jest.Mock).mock.calls.at(-1)?.[1]).toBe('Intenta de nuevo en un momento.');
+});
+
+test('un reporte enviado se agradece', async () => {
+  mockReportar.mockResolvedValue(undefined);
+  await pintar();
+  const botones = await abrirReporte();
+  await act(async () => {
+    await botones.find((b) => b.text === 'Contenido sospechoso')?.onPress?.();
+  });
+  expect((Alert.alert as jest.Mock).mock.calls.at(-1)?.[0]).toBe('Gracias');
+});
+
+// ── La distancia ─────────────────────────────────────────────────────────────
+
+// Depende de DOS cosas: que la publicación tenga coordenadas y que el perfil
+// tenga las de su universidad. Faltando cualquiera, «sin dato» y atenuado — no
+// un 0.0 km, que sería una afirmación falsa.
+test('sin coordenadas de universidad la distancia dice «sin dato»', async () => {
+  mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, latitud: 19.3, longitud: -99.45 } }));
+  mockPerfil.valor = { id: 'u1' };
+  await pintar();
+  expect(screen.getByText('sin dato')).toBeTruthy();
+});
+
+test('sin coordenadas de la publicación tampoco se inventa', async () => {
+  mockPerfil.valor = { id: 'u1', latitud_universidad: 19.32568, longitud_universidad: -99.458244 };
+  await pintar();
+  expect(screen.getByText('sin dato')).toBeTruthy();
+});
+
+test('con las dos, se calcula', async () => {
+  mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, latitud: 19.33, longitud: -99.46 } }));
+  mockPerfil.valor = { id: 'u1', latitud_universidad: 19.32568, longitud_universidad: -99.458244 };
+  await pintar();
+  expect(screen.getByText(/^\d+\.\d km$/)).toBeTruthy();
+});
+
+// ── Las fotografías ──────────────────────────────────────────────────────────
+
+test('sin fotografías no se pinta carrusel ni foja', async () => {
+  await pintar();
+  expect(screen.queryByText(/FOJA/)).toBeNull();
+});
+
+// Una sola foto no lleva foja: «FOJA 1 DE 1» es ruido.
+test('con una sola foto no hay foja', async () => {
+  mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, fotos: ['a.jpg'] } }));
+  mockFotos.mockReturnValue({ urls: new Map([['a.jpg', 'https://f.test/a']]), fallo: null });
+  await pintar();
+  expect(screen.queryByText(/FOJA/)).toBeNull();
+});
+
+test('con varias, la foja dice en cuál vas y cuántas hay', async () => {
+  mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, fotos: ['a.jpg', 'b.jpg', 'c.jpg'] } }));
+  mockFotos.mockReturnValue({
+    urls: new Map([['a.jpg', 'https://f.test/a'], ['b.jpg', 'https://f.test/b'], ['c.jpg', 'https://f.test/c']]),
+    fallo: null,
+  });
+  await pintar();
+  expect(screen.getByText(/FOJA 1 DE 3/)).toBeTruthy();
+});
+
+// §14 · El bucket es privado. Si la firma falla, se DICE en vez de dejar
+// rectángulos vacíos que se leen como una publicación sin fotos.
+test('si falla firmar las fotos se dice', async () => {
+  mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, fotos: ['a.jpg'] } }));
+  mockFotos.mockReturnValue({ urls: new Map(), fallo: 'no se pudo firmar' });
+  await pintar();
+  expect(screen.getByText('FOTOGRAFÍA NO DISPONIBLE')).toBeTruthy();
+});
+
+// ── La ficha ─────────────────────────────────────────────────────────────────
+
+test('las condiciones se dicen por los dos lados', async () => {
+  await pintar();
+  expect(screen.getAllByText('No').length).toBeGreaterThanOrEqual(2);
+  expect(screen.getByText('No acepta')).toBeTruthy();
+
+  mockPublicacion.mockReturnValue(
+    estado({ publicacion: { ...PUBLICACION, amueblado: true, permite_mascotas: true, servicios_incluidos: true } })
+  );
+  await pintar();
+  expect(screen.getByText('Sí acepta')).toBeTruthy();
+  expect(screen.getAllByText('Sí').length).toBeGreaterThanOrEqual(2);
+});
+
+// Un tipo que no esté en el mapa no debe pintar «undefined» en el membrete: cae
+// al nombre crudo en mayúsculas, que al menos dice algo.
+test('un tipo desconocido cae al nombre crudo, no a undefined', async () => {
+  mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, tipo: 'loft' } }));
+  await pintar();
+  expect(screen.getByText('LOFT')).toBeTruthy();
+});
+
+test('sin descripción no se pinta esa sección vacía', async () => {
+  mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, descripcion: null } }));
+  await pintar();
+  expect(screen.queryByText(/Bien iluminado/)).toBeNull();
+});
+
+// El bloque del «por qué» solo aparece si el motor devolvió un score: sin
+// afinidad calculada, afirmar un porcentaje sería inventarlo.
+test('sin afinidad no se pinta el desglose', async () => {
+  await pintar();
+  expect(screen.queryByText(/POR QUÉ/i)).toBeNull();
 });

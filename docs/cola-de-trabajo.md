@@ -555,9 +555,48 @@ Era el agujero más grande del repositorio. Ahora 96.2 % de sentencias y 93.1 % 
 |---|---|---|
 | `components/FormularioPublicacion.tsx` | 30 de 136 | Ya tiene tres archivos de pruebas; lo que falta son ramas de validación sueltas. |
 | `components/ficha/DesgloseCalificacion.tsx` | 29 de 31 | Al 0 % práctico. Es el desglose de la calificación, presentación casi pura. |
-| `app/publicacion/[id].tsx` | 28 de 61 | **El siguiente de verdad:** aquí vive revelar contacto, que consume cuota. |
+| ~~`app/publicacion/[id].tsx`~~ | ~~28 de 61~~ → **91.8 %** | ✅ cerrado. Y la nota estaba imprecisa: revelar contacto **no vive aquí**. Ver abajo. |
 | `app/perfil/[usuarioId].tsx` | 28 de 54 | Perfil público: lo que ve un extraño, o sea qué se filtra y qué no. |
 | `lib/mapboxAutocomplete.ts` | 14 de 14 | Al 0 %. |
 | `lib/geocoding.ts` | 8 de 8 | Al 0 %. Relacionado con el bloqueo de la clave de Maps. |
 
-> **Orden para la próxima sesión:** `app/publicacion/[id].tsx`, y dentro de él **revelar contacto**. Es la única acción del producto que consume cuota y escribe una fila con índice único (AUD-11); una doble pulsación o un fallo mal tratado ahí cuesta dinero y reputación, no píxeles.
+> ~~**Orden para la próxima sesión:** `app/publicacion/[id].tsx`, y dentro de él revelar contacto.~~ ✅ Hecho, con una corrección: **revelar contacto no vive en esa pantalla.** Ver abajo.
+
+## `publicacion/[id].tsx` + `BotonVerContacto` · ramas 54 % → 91.8 %
+
+*Ejecutado el 26/09/2026.* 61 suites, 527 pruebas.
+
+**La orden decía «dentro de él revelar contacto» y era imprecisa:** la pantalla solo pasa `revelarContacto` como prop a `BotonVerContacto`, que estaba con 5 de 6 ramas sin cubrir y sin archivo de pruebas. Una prueba de la cuota escrita en la pantalla habría comprobado el doble del servicio. Mismo reparto que con `chats`/`useChat`, y el mismo error de forma que AUD-01: mirar una capa que no decide. **Tercera vez que una orden de esta cola apunta a la capa equivocada — conviene comprobar dónde vive la lógica antes de anotar el archivo.**
+
+### `BotonVerContacto` · EL SELLO (11 pruebas, 0 → 92.8 % / 83.3 % ramas)
+
+Es la única acción de toda la app que compromete algo: revela un teléfono ajeno, consume cuota diaria y deja una fila en `contactos`. El modelo de privacidad que hay detrás es que antes el número viajaba **incrustado** en la publicación, así que un `select` sobre `publicaciones` bajaba la base de teléfonos completa. Estas pruebas son las que impiden que ese diseño se deshaga por accidente.
+
+| Qué se fija | Por qué |
+|---|---|
+| **Dos toques revelan una vez** | Cada revelación gasta cuota y escribe una fila. |
+| **El sello se estampa DESPUÉS** (END-37) | Vibrar al tocar confirmaría el toque; esto confirma el hecho. Se prueba que **no** vibra si falla: si lo hiciera, confirmaría algo que no pasó. |
+| **Cuota agotada por código `CP001`** (END-27) | El error de la prueba trae el texto en inglés a propósito. `includes('cuota')` habría coincidido además con cualquier mensaje que mencionara la palabra. |
+| **El enlace: `wa.me/52` + solo dígitos** | El número se guarda como lo escribió una persona, con espacios y guiones. El 52 es alcance declarado (AUD-17), no descuido. |
+| **El título codificado** | Uno con `&` partiría la query y el mensaje llegaría truncado. |
+| **El `finally`** | Sin él, un fallo deja el sello deshabilitado sin forma de reintentar. |
+
+> **Hallazgo al verificar que la prueba discrimina:** escribí que el `if (cargando) return` era «lo único que impide» la doble revelación. **Falso.** Hay **dos** guardias —ese y `disabled={cargando}` en el `Pressable`— y medido uno por uno: quitando cualquiera de los dos por separado, la prueba sigue pasando; solo falla al quitar los dos. La redundancia es deliberada y quedó escrita en el archivo para que nadie la «limpie» creyendo que la prueba cubre la otra mitad. Por eso la línea 34 aparece sin cubrir en el informe: es inalcanzable desde la interfaz, que es exactamente lo que se espera de una defensa de reserva.
+
+### La pantalla (20 pruebas, ramas → 91.8 %)
+
+**END-11, el peor del proyecto.** `fallo` es una caída de lectura; `publicacion === null` es que de verdad no está. Mientras compartieron un mismo `null`, la pantalla elegía la interpretación más grave y decía que la publicación «pudo ocultarse tras varios reportes»: no solo mentía sobre el estado, **difamaba a un anuncio ajeno** delante de quien lo estaba mirando. Comprobado que discrimina: haciendo que un fallo vuelva a caer en esa rama, fallan dos pruebas.
+
+**END-27 otra vez**, ahora con `23505` —violación de unicidad, el código estándar— para el reporte duplicado, con el mensaje en inglés en el doble.
+
+Y la **distancia**, que depende de dos cosas: coordenadas en la publicación y coordenadas de universidad en el perfil. Faltando cualquiera, «sin dato» y atenuado — no un `0.0 km`, que sería una afirmación falsa. Es la otra punta de lo que fijan las pruebas del cuestionario sobre `universidadCoords`.
+
+### Lo que queda en el grupo global
+
+| Archivo | Ramas sin cubrir | Nota |
+|---|---|---|
+| `components/FormularioPublicacion.tsx` | 30 de 136 | Ya tiene tres archivos; faltan ramas de validación sueltas. |
+| `components/ficha/DesgloseCalificacion.tsx` | 29 de 31 | Presentación casi pura. |
+| `app/perfil/[usuarioId].tsx` | 28 de 54 | **El siguiente:** es lo que ve un extraño, o sea qué se filtra y qué no. Riesgo de privacidad, no de píxeles. |
+| `lib/mapboxAutocomplete.ts` | 14 de 14 | Al 0 %. |
+| `lib/geocoding.ts` | 8 de 8 | Al 0 %. Atado al bloqueo de la clave de Maps. |
