@@ -511,3 +511,53 @@ Y antes de exponer la app a alguien:
 ```bash
 cd /home/damianml/cuervo-pass && node scripts/verificar.mjs && node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs
 ```
+
+
+---
+
+# Las ramas del grupo global · 64 % → 71.6 %
+
+*Ejecutado el 26/09/2026.*
+
+Medido antes de tocar nada: **374 ramas sin cubrir de 922** en el grupo global. Dos archivos concentraban el riesgo, y los dos estaban al **0 % en sentencias y en ramas**.
+
+### 1 · `app/index.tsx` — el guardia de §26
+
+Diecisiete ramas en setenta líneas: la densidad más alta del repositorio, y el archivo que **decide quién entra a la app**. Ahora 100 % de sentencias y 94 % de ramas (10 pruebas).
+
+Tiene tres destinos —login, cuestionario, pestañas— y un cuarto estado que no es destino sino **espera**, que es el que de verdad importa: `cuestionarioCompleto` arranca en `null`, y `null` es falso. Sin el guardia `session && cuestionarioCompleto === null`, **quien ya completó el cuestionario sería mandado a repetirlo cada vez que abriera la app**. No es una pantalla fea: es perder el acceso a lo que ya hiciste.
+
+Comprobado que la prueba discrimina: quitando ese guardia de la condición de carga, falla.
+
+### 2 · `components/FormularioCuestionario.tsx` — 530 líneas al 0 %
+
+Era el agujero más grande del repositorio. Ahora 96.2 % de sentencias y 93.1 % de ramas (23 pruebas).
+
+**Y estaba al 0 % por una razón concreta, no por olvido:** la prueba de su pantalla (`(auth)/__tests__/cuestionario.test.tsx`) lo **mockea entero**. La pantalla quedaba probada y el formulario no — el reparto exactamente contrario al que conviene, porque este componente produce **todos los perfiles de la app** y lo que escribe alimenta después el filtro duro de las sugerencias, el corte de distancia y el vector semántico.
+
+| Qué se fija | Por qué cuesta si se rompe |
+|---|---|
+| **`universidadCoords`** | Una universidad conocida manda sus coordenadas verificadas a mano; «Otra» manda `null`. Si una conocida mandara null, el corte de distancia se quedaría sin centro y las sugerencias saldrían mal ordenadas **sin un solo error**. Las coordenadas están curadas justamente porque geocodificar «UTVT» como texto libre devuelve lugares no relacionados. |
+| **`consienteIa` sin premarcar** (§29) | Una casilla premarcada no es consentimiento. Es la clase de detalle que se «arregla» sin querer al refactorizar un `defaultValues`, y nadie lo nota: la app sigue funcionando, solo que ahora analiza con IA los textos de gente que nunca dijo que sí. También que un consentimiento **ya dado** se conserve al reabrir. |
+| **Presupuesto invertido** | El filtro duro usa los dos extremos: con el máximo por debajo del mínimo ninguna publicación cabe, y sale lista vacía sin explicación. Iguales **sí** pasan: quien tiene un presupuesto exacto no se está equivocando. |
+| **Distancia 1–50** | §17, es el corte real de las sugerencias. Probados los dos extremos: un 0 deja la lista vacía y un 500 la vuelve inútil. Y que los atajos de km **escriban en el campo** en vez de ser decoración. |
+| **`textoLibre` vacío → `undefined`** | Una cadena vacía guardada genera un embedding **de nada**, y ese vector queda compitiendo en el ranking contra descripciones reales. |
+| **El `ref` expone `enviar`** | `cuestionario-inicial` guarda desde SU botón a través del ref. Si el ref no lo expusiera, ese botón no haría nada y el único camino de alta de la app quedaría muerto. |
+
+### Dos artefactos míos, no defectos del código
+
+1. **Las casillas son un `Switch`, no un pulsable.** `FilaAjuste` con `valor`/`onCambiar` se acciona con `valueChange`; mi primera versión pulsaba y no se movían.
+2. **`onEstadoEnvio` con un `onCompletar` que resuelve al instante no avisa nunca de «guardando»:** `setEnviando(true)` y `setEnviando(false)` caen en el mismo lote de React y el efecto solo ve el valor final. En producción hay una escritura de red en medio, así que el estado sí existe. La prueba deja la promesa **en vuelo** para reproducir ese hueco. Es el mismo aprendizaje que el `act` del `onBlur` de roomies: un doble instantáneo borra estados que en la realidad duran.
+
+### Lo que queda en el grupo global
+
+| Archivo | Ramas sin cubrir | Nota |
+|---|---|---|
+| `components/FormularioPublicacion.tsx` | 30 de 136 | Ya tiene tres archivos de pruebas; lo que falta son ramas de validación sueltas. |
+| `components/ficha/DesgloseCalificacion.tsx` | 29 de 31 | Al 0 % práctico. Es el desglose de la calificación, presentación casi pura. |
+| `app/publicacion/[id].tsx` | 28 de 61 | **El siguiente de verdad:** aquí vive revelar contacto, que consume cuota. |
+| `app/perfil/[usuarioId].tsx` | 28 de 54 | Perfil público: lo que ve un extraño, o sea qué se filtra y qué no. |
+| `lib/mapboxAutocomplete.ts` | 14 de 14 | Al 0 %. |
+| `lib/geocoding.ts` | 8 de 8 | Al 0 %. Relacionado con el bloqueo de la clave de Maps. |
+
+> **Orden para la próxima sesión:** `app/publicacion/[id].tsx`, y dentro de él **revelar contacto**. Es la única acción del producto que consume cuota y escribe una fila con índice único (AUD-11); una doble pulsación o un fallo mal tratado ahí cuesta dinero y reputación, no píxeles.
