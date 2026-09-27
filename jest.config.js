@@ -50,11 +50,18 @@ module.exports = {
   // lineas — las lineas ya pasan el objetivo, las sentencias todavia no, y
   // queda escrito asi en vez de redondear hacia arriba.
   // OJO con el `global`: Jest SACA del grupo global los archivos que caen bajo
-  // un umbral por ruta. Asi que este 48 % no es el de todo `src/` —que es
-  // 51 %— sino el de todo MENOS services y store. Poner aqui el numero de la
-  // suite entera hace que el build falle sin que nadie entienda por que.
+  // un umbral por ruta. Asi que este 65 % no es el de todo `src/` —que es
+  // 69.75 %— sino el de todo MENOS los cinco grupos de abajo. Poner aqui el
+  // numero de la suite entera hace que el build falle sin que nadie entienda
+  // por que.
+  //
+  // Y cada numero de este bloque esta MEDIDO, no estimado: se sube el umbral a
+  // 100, se lee el porcentaje real del mensaje de fallo y se fija justo por
+  // debajo. El 49 que habia aqui llevaba dieciseis puntos de retraso sobre la
+  // realidad (65.8 %), o sea que habia dejado de ser un trinquete: no habria
+  // detectado perder un tercio de la cobertura del grupo.
   coverageThreshold: {
-    global: { statements: 49, branches: 41, functions: 44, lines: 50 },
+    global: { statements: 65, branches: 60, functions: 60, lines: 67 },
     './src/services/': { statements: 64, branches: 52, functions: 66, lines: 72 },
     './src/store/': { statements: 66, branches: 52, functions: 67, lines: 68 },
     // V.4 · La pantalla de chat estaba al 0 %. El umbral va justo por debajo de
@@ -67,5 +74,10 @@ module.exports = {
     // producto —formulario de dieciseis campos, subida con upsert, embedding y
     // geocoding— y era la unica sin red.
     './src/app/publicacion/editar/': { statements: 90, branches: 66, functions: 100, lines: 96 },
+    // V.8 · Las cinco pestañas. Estaba en 34.87 % con dos pantallas probadas de
+    // seis; ahora 71.02 % con `inicio`, `publicaciones` y `roomies` añadidas.
+    // Lo que queda fuera es `chats.tsx`, `_layout.tsx` y la mitad no tocada de
+    // `perfil.tsx` — anotado en la cola, no dado por cerrado.
+    './src/app/(tabs)/': { statements: 70, branches: 61, functions: 60, lines: 71 },
   },
 };
