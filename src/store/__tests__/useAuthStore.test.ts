@@ -11,6 +11,7 @@
 
 const mockSignOut = jest.fn();
 const mockOnAuthStateChange = jest.fn();
+const mockBorrarToken = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
@@ -20,6 +21,10 @@ jest.mock('@/lib/supabase', () => ({
       onAuthStateChange: (cb: unknown) => mockOnAuthStateChange(cb),
     },
   },
+}));
+
+jest.mock('@/lib/tokenPush', () => ({
+  borrarTokenPush: (...a: unknown[]) => mockBorrarToken(...a),
 }));
 
 import { useChatStore } from '../useChatStore';
@@ -40,6 +45,7 @@ function sembrarDatosDeAna() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockSignOut.mockResolvedValue({ error: null });
+  mockBorrarToken.mockResolvedValue(undefined);
   mockOnAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } });
   useAuthStore.getState().detenerEscuchaSesion();
 });
@@ -113,4 +119,63 @@ test('un TOKEN_REFRESHED no borra nada', async () => {
   expect(vaciarCache).not.toHaveBeenCalled();
   expect(usePerfilStore.getState().perfil).toEqual(PERFIL);
   quitar();
+});
+
+// ── token push ─────────────────────────────────────────────────────────────
+// Migración 0040. El borrado tiene que ir ANTES de `signOut`: la policy compara
+// contra auth.uid() y sin sesión ya no hay dueño de la fila.
+test('cerrar sesión borra el token push de quien sale, ANTES de signOut', async () => {
+  const orden: string[] = [];
+  mockBorrarToken.mockImplementation(async () => {
+    orden.push('borrar');
+  });
+  mockSignOut.mockImplementation(async () => {
+    orden.push('signOut');
+    return { error: null };
+  });
+  sembrarDatosDeAna();
+
+  await useAuthStore.getState().cerrarSesion();
+
+  expect(mockBorrarToken).toHaveBeenCalledWith('u1');
+  expect(orden).toEqual(['borrar', 'signOut']);
+});
+
+test('sin sesión no intenta borrar ningún token', async () => {
+  useAuthStore.setState({ session: null, cargando: false });
+
+  await useAuthStore.getState().cerrarSesion();
+
+  expect(mockBorrarToken).not.toHaveBeenCalled();
+  expect(mockSignOut).toHaveBeenCalledTimes(1);
+});
+
+test('si borrar el token revienta, la persona sale igual', async () => {
+  mockBorrarToken.mockRejectedValue(new Error('se cayó la red'));
+  sembrarDatosDeAna();
+
+  await useAuthStore.getState().cerrarSesion();
+
+  expect(mockSignOut).toHaveBeenCalledTimes(1);
+  expect(useAuthStore.getState().session).toBeNull();
+  expect(usePerfilStore.getState().perfil).toBeNull();
+});
+
+// Sin red, una petición de supabase-js puede quedarse colgada mucho tiempo. El
+// botón «Cerrar sesión» no puede esperarla.
+test('si borrar el token se cuelga, el cierre no espera para siempre', async () => {
+  jest.useFakeTimers();
+  try {
+    mockBorrarToken.mockReturnValue(new Promise(() => {}));
+    sembrarDatosDeAna();
+
+    const cierre = useAuthStore.getState().cerrarSesion();
+    await jest.advanceTimersByTimeAsync(10_000);
+    await cierre;
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(useAuthStore.getState().session).toBeNull();
+  } finally {
+    jest.useRealTimers();
+  }
 });

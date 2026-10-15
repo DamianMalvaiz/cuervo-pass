@@ -14,18 +14,17 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
-import { QueryClient } from '@tanstack/react-query';
+import { clienteDePrueba } from '@pruebas/consultas';
 import { act, renderHook } from '@testing-library/react-native';
 
 import { useAuthStore } from '@/store/useAuthStore';
 
 import { useLimpiarCacheAlCerrarSesion } from '../useLimpiarCacheAlCerrarSesion';
 
-// `gcTime: Infinity` no es cosmética: con el valor por omisión (5 min) cada
-// entrada de la caché deja un temporizador vivo y Jest no termina al correr este
-// archivo solo.
-const crearCliente = () =>
-  new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } });
+// `gcTime: Infinity` y no el 0 por omisión del ayudante: aquí el dato tiene que
+// SOBREVIVIR hasta que se cierre la sesión. Con 0 se recolectaría al no tener
+// observadores y la primera prueba pasaría sin comprobar nada.
+const crearCliente = () => clienteDePrueba({ queries: { gcTime: Infinity } });
 
 test('cerrar sesión vacía la caché de consultas', async () => {
   const cliente = crearCliente();

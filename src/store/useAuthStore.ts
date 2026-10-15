@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { create } from 'zustand';
 
 import { supabase } from '@/lib/supabase';
+import { borrarTokenPush } from '@/lib/tokenPush';
 
 import { useChatStore } from './useChatStore';
 import { usePerfilStore } from './usePerfilStore';
@@ -44,6 +45,32 @@ export function alCerrarSesion(limpiar: () => void): () => void {
   };
 }
 
+/** Cuánto se espera a quitar el token push antes de cerrar sesión de todos modos. */
+const ESPERA_MAXIMA_TOKEN_MS = 3000;
+
+/**
+ * Quita el token push de `usuarioId` sin dejar que bloquee el cierre de sesión.
+ *
+ * Sin red, una petición de supabase-js puede quedarse colgada mucho tiempo y el
+ * botón «Cerrar sesión» no puede esperarla. El costo de rendirse a tiempo es
+ * acotado: el token queda ligado a la cuenta anterior hasta que la siguiente
+ * persona inicie sesión en ese teléfono y `registrarTokenPush` lo sobrescriba.
+ */
+async function quitarTokenPush(usuarioId: string): Promise<void> {
+  let temporizador: ReturnType<typeof setTimeout> | undefined;
+  const limite = new Promise<void>((resolver) => {
+    temporizador = setTimeout(resolver, ESPERA_MAXIMA_TOKEN_MS);
+  });
+  try {
+    await Promise.race([borrarTokenPush(usuarioId), limite]);
+  } catch {
+    // `borrarTokenPush` no propaga, pero este es el único sitio donde un fallo
+    // impediría salir; se atrapa aquí también.
+  } finally {
+    clearTimeout(temporizador);
+  }
+}
+
 /**
  * Deja la memoria como si la app acabara de abrirse.
  *
@@ -70,7 +97,7 @@ function limpiarMemoriaDeSesion() {
   }
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   cargando: true,
   /**
@@ -127,6 +154,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   cerrarSesion: async () => {
+    // ANTES de `signOut`: la policy de borrado (migración 0040) compara contra
+    // `auth.uid()`, y sin sesión ya no hay dueño de la fila. Se lee el id ahora
+    // porque después de salir ya no está.
+    const usuarioId = get().session?.user.id;
+    if (usuarioId) await quitarTokenPush(usuarioId);
+
     try {
       await supabase.auth.signOut();
     } finally {
