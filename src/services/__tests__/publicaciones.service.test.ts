@@ -15,6 +15,7 @@ const mockDesde = jest.fn();
 const mockGenerarEmbedding = jest.fn();
 const mockGeocodificar = jest.fn();
 const mockSubirFoto = jest.fn();
+const mockBorrarFotos = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
   supabase: { rpc: (...a: unknown[]) => mockRpc(...a), from: (...a: unknown[]) => mockDesde(...a) },
@@ -24,13 +25,16 @@ jest.mock('@/lib/geocoding', () => ({
   geocodificarDireccion: (...a: unknown[]) => mockGeocodificar(...a),
   ATRIBUCION_MAPA: '© OpenStreetMap contributors',
 }));
-jest.mock('@/lib/storage', () => ({ subirFotoPublicacion: (...a: unknown[]) => mockSubirFoto(...a) }));
+jest.mock('@/lib/storage', () => ({
+  subirFotoPublicacion: (...a: unknown[]) => mockSubirFoto(...a),
+  borrarFotos: (...a: unknown[]) => mockBorrarFotos(...a),
+}));
 
 /** Doble encadenable: `.select().eq().single()` y `await` directo sobre el
  *  constructor, que es como lo usan las escrituras de este servicio. */
 function cadena(resultado: { data?: unknown; error?: unknown }) {
   const c: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'in', 'insert', 'update', 'upsert', 'order', 'limit', 'neq', 'or']) {
+  for (const m of ['select', 'eq', 'in', 'insert', 'update', 'upsert', 'delete', 'order', 'limit', 'neq', 'or']) {
     c[m] = jest.fn(() => c);
   }
   c.single = jest.fn(async () => resultado);
@@ -426,4 +430,137 @@ test('un espacio sobrante en la dirección no cuenta como cambio', async () => {
   await actualizarPublicacion('p1', { ...datosBase, direccion: 'Calle 1 ' }, anteriorConMapa);
 
   expect(mockGeocodificar).not.toHaveBeenCalled();
+});
+
+// ── Crear: nunca queda una publicación a medias a la vista de todos ───────────
+
+// Hallazgo 6 (revisión del 15/10/2026). `crearPublicacion` insertaba la fila,
+// luego subía las fotos y luego actualizaba `fotos`. Tres pasos sin ninguna
+// coordinación:
+//
+//   · Si una subida fallaba, quedaba una publicación SIN FOTOS en el catálogo de
+//     todos, y quien publicaba, al ver el error, la volvía a crear: duplicada.
+//   · Si la app moría a mitad de la subida —el sistema mata procesos en segundo
+//     plano todo el tiempo— no corría ningún código de limpieza y la fila a
+//     medias se quedaba para siempre.
+//
+// La solución tiene dos mitades, porque una sola no cubre los dos casos:
+//   1. La fila nace INACTIVA cuando hay fotos que subir y se activa en el mismo
+//      `update` que escribe `fotos`. Cubre la muerte del proceso: aunque nada se
+//      limpie, nadie ve la fila.
+//   2. Si algo falla y el proceso sigue vivo, se DESHACE: se borran los archivos
+//      subidos y la fila, y se propaga el error ORIGINAL.
+const RUTA = (i: number) => `publicaciones/u1/p1/${i}.jpg`;
+const fotosNuevas = [
+  { esNueva: true as const, uri: 'file:///a.jpg' },
+  { esNueva: true as const, uri: 'file:///b.jpg' },
+];
+const conFotos = { ...datosBase, fotos: fotosNuevas };
+
+describe('crearPublicacion con fotos', () => {
+  beforeEach(() => {
+    mockGenerarEmbedding.mockResolvedValue([0.1]);
+    mockGeocodificar.mockResolvedValue(null);
+    mockBorrarFotos.mockReset();
+    mockBorrarFotos.mockResolvedValue(undefined);
+    mockSubirFoto.mockImplementation(async (_u: string, _p: string, i: number) => RUTA(i));
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  test('la fila nace INACTIVA y se activa en el mismo update que escribe las fotos', async () => {
+    const insertar = cadena({ data: { id: 'p1' }, error: null });
+    const actualizar = cadena({ data: { id: 'p1', fotos: [RUTA(0), RUTA(1)] }, error: null });
+    mockDesde.mockReturnValueOnce(insertar).mockReturnValueOnce(actualizar);
+
+    await crearPublicacion(conFotos);
+
+    const [fila] = (insertar.insert as jest.Mock).mock.calls[0];
+    expect(fila.activa).toBe(false);
+    expect(actualizar.update).toHaveBeenCalledWith({ fotos: [RUTA(0), RUTA(1)], activa: true });
+  });
+
+  // Sin fotos no hay nada que pueda quedar a medias: nace activa y termina ahí.
+  test('sin fotos no nace inactiva ni hace un segundo paso', async () => {
+    const insertar = cadena({ data: { id: 'p1' }, error: null });
+    mockDesde.mockReturnValueOnce(insertar);
+
+    await crearPublicacion(datosBase);
+
+    const [fila] = (insertar.insert as jest.Mock).mock.calls[0];
+    expect(fila.activa).not.toBe(false);
+    expect(mockDesde).toHaveBeenCalledTimes(1);
+  });
+
+  test('si una subida falla: se borra la fila, se borran las fotos que sí subieron y llega el error original', async () => {
+    mockSubirFoto.mockImplementation(async (_u: string, _p: string, i: number) => {
+      if (i === 1) throw new Error('sin espacio en el bucket');
+      return RUTA(i);
+    });
+    const insertar = cadena({ data: { id: 'p1' }, error: null });
+    const borrar = cadena({ error: null });
+    mockDesde.mockReturnValueOnce(insertar).mockReturnValueOnce(borrar);
+
+    await expect(crearPublicacion(conFotos)).rejects.toThrow('sin espacio en el bucket');
+
+    expect(borrar.delete).toHaveBeenCalled();
+    expect(borrar.eq).toHaveBeenCalledWith('id', 'p1');
+    expect(mockBorrarFotos).toHaveBeenCalledWith([RUTA(0)]);
+    // Y nunca se llegó a activar: no hubo un segundo `update`.
+    expect(mockDesde).toHaveBeenCalledTimes(2);
+  });
+
+  test('si falla el update final: se deshace todo y llega ESE error', async () => {
+    const insertar = cadena({ data: { id: 'p1' }, error: null });
+    const actualizar = cadena({ data: null, error: { message: 'violación de policy' } });
+    const borrar = cadena({ error: null });
+    mockDesde.mockReturnValueOnce(insertar).mockReturnValueOnce(actualizar).mockReturnValueOnce(borrar);
+
+    await expect(crearPublicacion(conFotos)).rejects.toMatchObject({ message: 'violación de policy' });
+
+    expect(borrar.delete).toHaveBeenCalled();
+    expect(mockBorrarFotos).toHaveBeenCalledWith([RUTA(0), RUTA(1)]);
+  });
+
+  // La limpieza corre cuando ya algo anda mal, y es probable que sea la misma
+  // red. Si lanzara, taparía el error que la persona necesita leer.
+  test('si la limpieza TAMBIÉN falla, el error que llega es el original', async () => {
+    mockSubirFoto.mockImplementation(async () => {
+      throw new Error('falló la subida');
+    });
+    const insertar = cadena({ data: { id: 'p1' }, error: null });
+    const borrar = cadena({ error: null });
+    (borrar.eq as jest.Mock).mockImplementation(() => {
+      throw new Error('también se cayó el borrado');
+    });
+    mockBorrarFotos.mockRejectedValue(new Error('y el de fotos'));
+    mockDesde.mockReturnValueOnce(insertar).mockReturnValueOnce(borrar);
+
+    await expect(crearPublicacion(conFotos)).rejects.toThrow('falló la subida');
+  });
+
+  // `Promise.all` rechaza en cuanto UNA falla y deja las demás en vuelo: la
+  // limpieza correría sin saber de la que aún no termina, y esa foto subiría
+  // DESPUÉS de borrar, huérfana para siempre. Hay que esperar a todas.
+  test('la limpieza espera a las subidas que aún están en vuelo', async () => {
+    let terminarLaLenta!: () => void;
+    mockSubirFoto.mockImplementation(async (_u: string, _p: string, i: number) => {
+      if (i === 0) throw new Error('falló la rápida');
+      await new Promise<void>((r) => {
+        terminarLaLenta = r;
+      });
+      return RUTA(i);
+    });
+    const insertar = cadena({ data: { id: 'p1' }, error: null });
+    const borrar = cadena({ error: null });
+    mockDesde.mockReturnValueOnce(insertar).mockReturnValueOnce(borrar);
+
+    const resultado = crearPublicacion(conFotos).catch((e: Error) => e);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockBorrarFotos).not.toHaveBeenCalled(); // todavía espera a la lenta
+
+    terminarLaLenta();
+    expect((await resultado).message).toBe('falló la rápida');
+    expect(mockBorrarFotos).toHaveBeenCalledWith([RUTA(1)]);
+  });
 });

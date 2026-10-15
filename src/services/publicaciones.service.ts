@@ -8,7 +8,7 @@
 
 import { generarEmbedding } from '@/lib/aiService';
 import { geocodificarDireccion } from '@/lib/geocoding';
-import { subirFotoPublicacion } from '@/lib/storage';
+import { borrarFotos, subirFotoPublicacion } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import type {
   OrdenSugerencias,
@@ -224,6 +224,76 @@ function columnasComunes(datos: DatosPublicacion) {
   };
 }
 
+/**
+ * Sube las fotos NUEVAS y devuelve las rutas de todas, en orden.
+ *
+ * Espera a que TODAS terminen, también cuando una falla. `Promise.all` rechaza en
+ * cuanto una cae y deja las demás en vuelo: la limpieza correría sin saber de la
+ * que aún no termina, y esa foto subiría DESPUÉS de borrar, huérfana para
+ * siempre. `subidas` se va llenando con lo que sí quedó en el bucket, que es lo
+ * que habría que borrar al deshacer.
+ */
+async function subirFotosNuevas(
+  usuarioId: string,
+  publicacionId: string,
+  fotos: FotoEntrada[],
+  subidas: string[]
+): Promise<string[]> {
+  const resultados = await Promise.allSettled(
+    fotos.map(async (foto, indice) => {
+      if (!foto.esNueva) return foto.url;
+      const ruta = await subirFotoPublicacion(usuarioId, publicacionId, indice, foto.uri);
+      subidas.push(ruta);
+      return ruta;
+    })
+  );
+  const fallida = resultados.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+  if (fallida) throw fallida.reason;
+  return resultados.map((r) => (r as PromiseFulfilledResult<string>).value);
+}
+
+/**
+ * Deshace una publicación que no llegó a completarse: borra los archivos que sí
+ * subieron y la fila. Nunca lanza.
+ *
+ * Corre cuando algo ya anda mal, y es probable que sea la misma red. Si lanzara,
+ * taparía el error ORIGINAL, que es el que la persona necesita leer. Cada paso va
+ * por separado para que el fallo de uno no impida el otro. Lo que no se logre
+ * deshacer no queda a la vista: la fila nació inactiva.
+ */
+async function deshacerPublicacion(publicacionId: string, subidas: string[]): Promise<void> {
+  try {
+    await borrarFotos(subidas);
+  } catch (e) {
+    aviso('no se pudieron borrar las fotos al deshacer la publicación', { publicacionId }, e);
+  }
+  try {
+    const { error } = await supabase.from('publicaciones').delete().eq('id', publicacionId);
+    if (error) aviso('no se pudo borrar la publicación a medias', { publicacionId, detalle: error.message });
+  } catch (e) {
+    aviso('borrar la publicación a medias no respondió', { publicacionId }, e);
+  }
+}
+
+/**
+ * Hallazgo 6 · Antes: insertar, subir fotos, actualizar. Tres pasos sin
+ * coordinación. Si una subida fallaba quedaba una publicación SIN FOTOS en el
+ * catálogo de todos, y quien publicaba, al ver el error, la volvía a crear:
+ * duplicada. Y si la app moría a mitad de la subida no corría ninguna limpieza.
+ *
+ * Dos mitades, porque una sola no cubre los dos casos:
+ *
+ *   1. Con fotos que subir, la fila nace INACTIVA y se activa en el mismo
+ *      `update` que escribe `fotos`. Cubre la muerte del proceso: aunque nada se
+ *      limpie, nadie ve la fila (solo su dueña, en «Mis publicaciones»).
+ *   2. Si algo falla y el proceso sigue vivo, se DESHACE y se propaga el error
+ *      original.
+ *
+ * Las fotos se suben DESPUÉS del insert porque necesitan el id que Postgres
+ * genera para armar la ruta publicaciones/<usuario>/<id>/n.jpg. No se genera el
+ * id en el cliente para evitarlo: la app no tiene hoy ninguna fuente de UUID, y
+ * `crypto.randomUUID` en Hermes no está verificado.
+ */
 export async function crearPublicacion(datos: DatosPublicacion): Promise<Publicacion> {
   // §27: si el geocoding falla, la publicación se guarda igual con
   // `pendiente_geocoding = true` y se reintenta desde "Mis publicaciones".
@@ -231,6 +301,8 @@ export async function crearPublicacion(datos: DatosPublicacion): Promise<Publica
     geocodificarDireccion(datos.direccion),
     generarEmbeddingSeguro(datos),
   ]);
+
+  const hayFotos = datos.fotos.length > 0;
 
   const { data: fila, error } = await supabase
     .from('publicaciones')
@@ -242,27 +314,33 @@ export async function crearPublicacion(datos: DatosPublicacion): Promise<Publica
       geocodificado_por: coords?.proveedor ?? null,
       pendiente_geocoding: coords == null,
       ...(vectorEmbedding ? { vector_embedding: vectorEmbedding } : {}),
+      // Invisible hasta que las fotos estén. Sin fotos no hay nada que pueda
+      // quedar a medias, así que nace activa por omisión como siempre.
+      ...(hayFotos ? { activa: false } : {}),
     })
     .select()
     .single();
   if (error) throw error;
   const publicacion = fila as Publicacion;
 
-  if (datos.fotos.length === 0) return publicacion;
+  if (!hayFotos) return publicacion;
 
-  // Las fotos se suben DESPUÉS del insert porque necesitan el id que Postgres
-  // genera para armar la ruta publicaciones/<usuario>/<id>/n.jpg que las
-  // policies de Storage esperan.
-  const rutas = await resolverFotos(datos.usuarioId, publicacion.id, datos.fotos);
+  const subidas: string[] = [];
+  try {
+    const rutas = await subirFotosNuevas(datos.usuarioId, publicacion.id, datos.fotos, subidas);
 
-  const { data: actualizada, error: errorUpdate } = await supabase
-    .from('publicaciones')
-    .update({ fotos: rutas })
-    .eq('id', publicacion.id)
-    .select()
-    .single();
-  if (errorUpdate) throw errorUpdate;
-  return actualizada as Publicacion;
+    const { data: actualizada, error: errorUpdate } = await supabase
+      .from('publicaciones')
+      .update({ fotos: rutas, activa: true })
+      .eq('id', publicacion.id)
+      .select()
+      .single();
+    if (errorUpdate) throw errorUpdate;
+    return actualizada as Publicacion;
+  } catch (e) {
+    await deshacerPublicacion(publicacion.id, subidas);
+    throw e;
+  }
 }
 
 /**

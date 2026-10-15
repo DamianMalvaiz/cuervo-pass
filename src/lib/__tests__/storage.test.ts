@@ -11,16 +11,24 @@ const mockLiberarContexto = jest.fn();
 const mockLiberarImagen = jest.fn();
 const mockManipular = jest.fn();
 const mockSubir = jest.fn();
+const mockRemover = jest.fn();
 
 jest.mock('expo-image-manipulator', () => ({
   ImageManipulator: { manipulate: (...a: unknown[]) => mockManipular(...a) },
   SaveFormat: { JPEG: 'jpeg' },
 }));
 jest.mock('@/lib/supabase', () => ({
-  supabase: { storage: { from: () => ({ upload: (...a: unknown[]) => mockSubir(...a) }) } },
+  supabase: {
+    storage: {
+      from: () => ({
+        upload: (...a: unknown[]) => mockSubir(...a),
+        remove: (...a: unknown[]) => mockRemover(...a),
+      }),
+    },
+  },
 }));
 
-import { subirFotoPerfil, subirFotoPublicacion } from '../storage';
+import { borrarFotos, subirFotoPerfil, subirFotoPublicacion } from '../storage';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -33,6 +41,7 @@ beforeEach(() => {
     release: mockLiberarContexto,
   });
   mockSubir.mockResolvedValue({ error: null });
+  mockRemover.mockResolvedValue({ data: [], error: null });
   global.fetch = jest.fn().mockResolvedValue({ arrayBuffer: async () => new ArrayBuffer(8) }) as never;
 });
 
@@ -95,5 +104,36 @@ test('un error de Storage se propaga: la publicacion no puede darse por subida',
   mockSubir.mockResolvedValue({ error: { message: 'bucket lleno' } });
   await expect(subirFotoPublicacion('u1', 'p1', 0, 'file:///original.jpg')).rejects.toMatchObject({
     message: 'bucket lleno',
+  });
+});
+
+// ── borrarFotos · hallazgo 6 ────────────────────────────────────────────────
+// Se usa para DESHACER una publicación que no se pudo completar. Va dentro de
+// una limpieza, así que nunca puede propagar: un fallo aquí taparía el error
+// original, que es el que la persona necesita leer.
+describe('borrarFotos', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  test('pide a Storage borrar exactamente esas rutas', async () => {
+    await borrarFotos(['publicaciones/u1/p1/0.jpg', 'publicaciones/u1/p1/1.jpg']);
+    expect(mockRemover).toHaveBeenCalledWith(['publicaciones/u1/p1/0.jpg', 'publicaciones/u1/p1/1.jpg']);
+  });
+
+  test('sin rutas no llama a Storage', async () => {
+    await borrarFotos([]);
+    expect(mockRemover).not.toHaveBeenCalled();
+  });
+
+  test('un error de Storage no se propaga', async () => {
+    mockRemover.mockResolvedValue({ data: null, error: { message: 'sin red' } });
+    await expect(borrarFotos(['a.jpg'])).resolves.toBeUndefined();
+  });
+
+  test('una excepción tampoco se propaga', async () => {
+    mockRemover.mockRejectedValue(new Error('se cayó la red'));
+    await expect(borrarFotos(['a.jpg'])).resolves.toBeUndefined();
   });
 });

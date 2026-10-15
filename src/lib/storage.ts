@@ -136,3 +136,21 @@ export async function firmarMiniatura(ruta: string | null | undefined): Promise<
 export async function borrarFotoPerfil(usuarioId: string): Promise<void> {
   await supabase.storage.from(BUCKET).remove([`perfiles/${usuarioId}.jpg`]);
 }
+
+/**
+ * Borra archivos del bucket sin propagar nunca. Hallazgo 6.
+ *
+ * Sirve para DESHACER una publicación que no llegó a completarse: se llama desde
+ * una limpieza, y una limpieza que lanza taparía el error original, que es el
+ * que la persona necesita leer. Si falla, los archivos quedan como lo que eran
+ * antes de este cambio —huérfanos en el bucket— y se avisa para que sea visible.
+ */
+export async function borrarFotos(rutas: string[]): Promise<void> {
+  if (rutas.length === 0) return;
+  try {
+    const { error } = await supabase.storage.from(BUCKET).remove(rutas);
+    if (error) aviso('No se pudieron borrar fotos al deshacer una publicación', { detalle: error.message });
+  } catch (e) {
+    aviso('borrarFotos no respondió', undefined, e);
+  }
+}
