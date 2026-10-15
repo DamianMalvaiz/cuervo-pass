@@ -5,6 +5,8 @@ import { Controller, useForm, type FieldErrors } from 'react-hook-form';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
+import '@/lib/zodEs';
+
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { Desplazador } from '@/hooks/use-desplazador';

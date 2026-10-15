@@ -6,6 +6,8 @@ import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
+import '@/lib/zodEs';
+
 import { Campo } from '@/components/Campo';
 import { Casilla } from '@/components/Casilla';
 import { Sello } from '@/components/ficha/Sello';
