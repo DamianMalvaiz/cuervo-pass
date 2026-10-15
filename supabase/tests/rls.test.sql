@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(96);
+select plan(98);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1404,6 +1404,27 @@ select lives_ok(
   $$ update publicaciones set activa = true
       where usuario_id = '00000000-0000-0000-0000-0000000000b2' and titulo = 'B2 inactiva' $$,
   'el tope es por cuenta: la activacion de b2 no depende de d5' );
+
+-- ════════════ 97 y 98 · el bucket de fotos tiene límites propios ════════════
+-- Hallazgo de la revisión del 15/10/2026. El bucket `fotos` no tenía límite de
+-- tamaño ni de tipo, y la policy de subida solo comprueba la CARPETA de la cuenta:
+-- cualquier sesión podía subir archivos de hasta 50 MiB (el tope global del
+-- servicio) y de cualquier tipo a `publicaciones/<su-id>/...`, sin crear una sola
+-- fila. Un tope a las filas inactivas no lo habría acotado.
+--
+-- Estas dos comprueban la CONFIGURACIÓN. Que Storage la APLIQUE se comprueba con
+-- `scripts/verificar-bucket-fotos.mjs`, que sube de verdad un archivo excesivo y
+-- uno de otro tipo: pgTAP no habla con la API de Storage.
+select actuar_como_servicio();
+select is(
+  (select file_size_limit from storage.buckets where id = 'fotos'),
+  5242880::bigint,
+  'el bucket de fotos limita cada archivo a 5 MiB' );
+
+select is(
+  (select allowed_mime_types from storage.buckets where id = 'fotos'),
+  array['image/jpeg']::text[],
+  'el bucket de fotos solo admite image/jpeg, que es lo unico que sube la app' );
 
 select * from finish();
 rollback;
