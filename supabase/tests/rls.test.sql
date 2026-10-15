@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(86);
+select plan(89);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1280,6 +1280,51 @@ select is(
   (select similitud from afinidad_roomie_de('00000000-0000-0000-0000-0000000000b2')),
   null::numeric,
   'sin vector de busqueda, la afinidad es null y no cero' );
+
+-- ════════════════ push_tokens · borrar el propio al cerrar sesión ════════════════
+-- Hallazgo 3 (15/10/2026). La tabla tenía policies de select, insert y update y
+-- NINGUNA de delete, y `authenticated` sí tiene el privilegio DELETE a nivel de
+-- tabla: así que borrar afectaba CERO filas, en silencio. Al cerrar sesión el
+-- token del teléfono se quedaba ligado a la cuenta anterior, y los mensajes de
+-- esa cuenta seguían llegando a un teléfono que ya usaba otra persona.
+--
+-- Como siempre con RLS, se afirma sobre el NÚMERO DE FILAS, no sobre un error:
+-- un delete bloqueado no lanza nada.
+select actuar_como_servicio();
+insert into push_tokens (usuario_id, token) values
+  ('00000000-0000-0000-0000-0000000000a1', 'ExponentPushToken[token-de-a]'),
+  ('00000000-0000-0000-0000-0000000000b2', 'ExponentPushToken[token-de-b]');
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+-- A intenta borrar la fila de B por su id. RLS no lanza error: la filtra.
+delete from push_tokens where usuario_id = '00000000-0000-0000-0000-0000000000b2';
+select actuar_como_servicio();
+select is(
+  (select count(*)::int from push_tokens
+    where usuario_id = '00000000-0000-0000-0000-0000000000b2'),
+  1,
+  'A no puede borrar el token push de B' );
+
+-- A borra el suyo: es lo que hace la app al cerrar sesion.
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+delete from push_tokens where usuario_id = '00000000-0000-0000-0000-0000000000a1';
+select actuar_como_servicio();
+select is(
+  (select count(*)::int from push_tokens
+    where usuario_id = '00000000-0000-0000-0000-0000000000a1'),
+  0,
+  'A si borra su propio token push' );
+
+-- Un delete SIN where es el descuido clasico: debe llevarse solo lo que A ve.
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+delete from push_tokens;
+select actuar_como_servicio();
+select is(
+  (select count(*)::int from push_tokens
+    where usuario_id = '00000000-0000-0000-0000-0000000000b2'),
+  1,
+  'un delete sin where de A tampoco toca el token de B' );
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
 
 select * from finish();
 rollback;
