@@ -36,6 +36,20 @@ ARG MODELO_EMBEDDINGS=paraphrase-multilingual-MiniLM-L12-v2
 RUN python -c "from sentence_transformers import SentenceTransformer; \
 SentenceTransformer('${MODELO_EMBEDDINGS}')"
 
+# pip FUERA de la imagen final.
+#
+# Trivy marcó `urllib3 2.7.0` (HIGH ×2, corrección en 2.8.0) y no era una dependencia
+# del servicio: es la copia que pip empaqueta dentro de sí mismo, igual que las de
+# msgpack y setuptools que .trivyignore venía silenciando. Fijar la versión en
+# requirements.txt no cambia nada —pip usa la suya— y subir pip tampoco: la imagen ya
+# trae la última publicada. La solución de raíz es que el contenedor en marcha no
+# tenga pip. Nunca se invoca: arranca uvicorn, y el healthcheck usa urllib de la
+# biblioteca estándar. Elimina los tres hallazgos y los que traiga la próxima versión.
+#
+# Va DESPUÉS de instalar las dependencias y de descargar el modelo (que usa `python`,
+# no `pip`), y nada puede ejecutar pip debajo: tests/test_dockerfile.py lo comprueba.
+RUN pip uninstall -y pip
+
 COPY . .
 
 RUN useradd --create-home app && chown -R app /app /opt/hf
