@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(89);
+select plan(96);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1325,6 +1325,85 @@ select is(
   1,
   'un delete sin where de A tampoco toca el token de B' );
 select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+-- ════════════ 90 a 96 · el tope de 15 se aplica también al ACTIVAR ════════════
+-- Hallazgo de la revisión del 15/10/2026. `trg_limitar_publicaciones` era BEFORE
+-- INSERT: un `update ... set activa = true` no pasaba por él. Dos consecuencias:
+--
+--   · Se saltaba con la API: insertar filas INACTIVAS (que el tope no cuenta) y
+--     activarlas después. Con 14 activas, tres inactivas y tres updates, quedaban 17.
+--   · REACTIVAR no estaba limitado, aunque `publicaciones.tsx` (AUD-26) lo afirma:
+--     con 15 activas y una inactiva vieja, reactivarla daba 16.
+--
+-- Los nombres de los casos van por el estado de la cuenta: d5 tiene 14 activas y 3
+-- inactivas. Las filas se crean como servicio; los cambios, como la dueña.
+select actuar_como_servicio();
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data)
+values
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000d5',
+   'authenticated', 'authenticated', 'd5@test.mx', '', now(), now(),
+   '{"nombre_usuario":"usuario_d5","nombre_completo":"Cuenta Cinco"}');
+insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp, activa)
+select '00000000-0000-0000-0000-0000000000d5', 'D5 activa ' || n, 'depa', 'Calle D ' || n,
+       2500, '5512345678', true
+  from generate_series(1, 14) n;
+insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp, activa)
+select '00000000-0000-0000-0000-0000000000d5', 'D5 inactiva ' || n, 'depa', 'Calle I ' || n,
+       2500, '5512345678', false
+  from generate_series(1, 3) n;
+
+-- Una inactiva ajena, para comprobar que el tope es por cuenta.
+insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp, activa)
+values ('00000000-0000-0000-0000-0000000000b2', 'B2 inactiva', 'depa', 'Calle B', 2500, '5512345678', false);
+
+select actuar_como('00000000-0000-0000-0000-0000000000d5');
+
+select lives_ok(
+  $$ update publicaciones set activa = true
+      where usuario_id = '00000000-0000-0000-0000-0000000000d5' and titulo = 'D5 inactiva 1' $$,
+  'con 14 activas, activar una mas (la 15) se permite' );
+
+select throws_ok(
+  $$ update publicaciones set activa = true
+      where usuario_id = '00000000-0000-0000-0000-0000000000d5' and titulo = 'D5 inactiva 2' $$,
+  'CP002',
+  null,
+  'con 15 activas, activar la 16 se rechaza con el mismo codigo que al crear' );
+
+select actuar_como_servicio();
+select is(
+  (select count(*)::int from publicaciones
+    where usuario_id = '00000000-0000-0000-0000-0000000000d5' and activa),
+  15,
+  'el tope se sostiene: nunca hay mas de 15 activas por la via de los updates' );
+
+-- Quitar una al limite NO es activar: tiene que poder hacerse siempre.
+select actuar_como('00000000-0000-0000-0000-0000000000d5');
+select lives_ok(
+  $$ update publicaciones set activa = false
+      where usuario_id = '00000000-0000-0000-0000-0000000000d5' and titulo = 'D5 activa 1' $$,
+  'desactivar con el tope lleno se permite' );
+
+-- Reactivar la que se acaba de quitar vuelve a dejar 15, y eso es legitimo. Con el
+-- tope lleno, un update que SOLO cambia el titulo de una activa no debe contar como
+-- una activacion: la fila ya estaba activa.
+select lives_ok(
+  $$ update publicaciones set activa = true
+      where usuario_id = '00000000-0000-0000-0000-0000000000d5' and titulo = 'D5 activa 1' $$,
+  'reactivar la que se acaba de quitar (de 14 a 15) se permite' );
+
+select lives_ok(
+  $$ update publicaciones set activa = true, titulo = 'D5 activa 2 editada'
+      where usuario_id = '00000000-0000-0000-0000-0000000000d5' and titulo = 'D5 activa 2' $$,
+  'volver a poner activa = true en una fila ya activa no cuenta como activar' );
+
+-- El tope es por cuenta: que d5 este al limite no afecta a b2.
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select lives_ok(
+  $$ update publicaciones set activa = true
+      where usuario_id = '00000000-0000-0000-0000-0000000000b2' and titulo = 'B2 inactiva' $$,
+  'el tope es por cuenta: la activacion de b2 no depende de d5' );
 
 select * from finish();
 rollback;

@@ -106,7 +106,7 @@ uvicorn main:app --reload     # desde ai-service/, no desde la raíz.
 
 # ── Antes de exponer ───────────────────────────────────
 node scripts/verificar.mjs   # túnel, secrets, vectores, RPCs — ver docs/verificacion-pre-demo.md
-npx supabase test db         # 89 aserciones de RLS (local, contra el esquema reconstruido)
+npx supabase test db         # 96 aserciones de RLS (local, contra el esquema reconstruido)
 node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # 19 barreras, contra PRODUCCIÓN y por HTTP
 npx tsc --noEmit && npx expo lint && npm test -- --coverage   # los umbrales rompen el build si baja
 ```
@@ -187,7 +187,7 @@ Compuertas, todas en CI:
 
 | | |
 |---|---|
-| pgTAP (RLS y funciones) | 89 aserciones |
+| pgTAP (RLS y funciones) | 96 aserciones |
 | Frontend (jest) | 296 pruebas, con umbral de cobertura que solo sube |
 | Microservicio (pytest) | 20 pruebas |
 | Aislamiento entre cuentas | 19 barreras **contra producción** |
