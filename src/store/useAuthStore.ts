@@ -3,6 +3,9 @@ import { create } from 'zustand';
 
 import { supabase } from '@/lib/supabase';
 
+import { useChatStore } from './useChatStore';
+import { usePerfilStore } from './usePerfilStore';
+
 // Documento maestro v5 · §12 y §26.
 
 interface DatosRegistro {
@@ -27,6 +30,46 @@ interface AuthState {
 // sesión reevaluara selectores que no dependen de ella.
 let cancelarSuscripcionAuth: (() => void) | null = null;
 
+// Quien guarda datos de una persona en memoria y no es un store de Zustand
+// —la caché de TanStack Query vive en el layout raíz— se apunta aquí para
+// vaciarse cuando la sesión termina. El store no importa el cliente de consultas
+// porque no es suyo: lo crea `RootLayout` una vez por montaje.
+const limpiadoresDeSesion = new Set<() => void>();
+
+/** Registra una función que se ejecuta al terminar la sesión. Devuelve cómo quitarla. */
+export function alCerrarSesion(limpiar: () => void): () => void {
+  limpiadoresDeSesion.add(limpiar);
+  return () => {
+    limpiadoresDeSesion.delete(limpiar);
+  };
+}
+
+/**
+ * Deja la memoria como si la app acabara de abrirse.
+ *
+ * Hallazgo 3 · Antes `cerrarSesion` solo llamaba a `signOut`. La caché y los
+ * stores sobrevivían, y la persona que iniciaba sesión después en el mismo
+ * teléfono veía un instante sugerencias, roomies y perfil del anterior: varias
+ * claves de consulta no llevan el id de usuario, así que la caché no distingue
+ * de quién son.
+ *
+ * Idempotente: se llama desde `cerrarSesion` y desde el listener de
+ * `SIGNED_OUT`, y la segunda vez no tiene nada que borrar.
+ */
+function limpiarMemoriaDeSesion() {
+  usePerfilStore.setState({ perfil: null, cargando: false, error: null });
+  useChatStore.setState({ mensajesPorConversacion: {}, ordenDeUso: [] });
+  // Un limpiador que falla no puede impedir que los demás corran: quedaría
+  // memoria ajena sin vaciar, que es justo lo que esto viene a evitar.
+  for (const limpiar of limpiadoresDeSesion) {
+    try {
+      limpiar();
+    } catch {
+      // Sin nada que hacer aquí: el siguiente limpiador debe correr igual.
+    }
+  }
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   session: null,
   cargando: true,
@@ -47,7 +90,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ session: data.session, cargando: false });
 
     if (cancelarSuscripcionAuth) return;
-    const { data: suscripcion } = supabase.auth.onAuthStateChange((_evento, session) => {
+    const { data: suscripcion } = supabase.auth.onAuthStateChange((evento, session) => {
+      // La sesión también termina sin que nadie pulse «Cerrar sesión»: token
+      // revocado desde otro dispositivo, refresco que falla. Ese camino no pasa
+      // por `cerrarSesion`.
+      if (evento === 'SIGNED_OUT') limpiarMemoriaDeSesion();
       set({ session, cargando: false });
     });
     cancelarSuscripcionAuth = () => suscripcion.subscription.unsubscribe();
@@ -80,7 +127,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   cerrarSesion: async () => {
-    await supabase.auth.signOut();
-    set({ session: null });
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      // Aunque `signOut` falle, lo que hay en memoria era de esa persona y no
+      // se conserva: es preferible volver a pedirlo que enseñárselo a otra.
+      limpiarMemoriaDeSesion();
+      set({ session: null });
+    }
   },
 }));
