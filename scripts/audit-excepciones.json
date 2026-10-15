@@ -1,0 +1,14 @@
+[
+  {
+    "advisory": "GHSA-vfj7-8cjw-p6xm",
+    "paquete": "braces",
+    "motivo": "DoS por agotamiento de pila con patrones anidados. No existe versión corregida: 3.0.3 es la última publicada y el aviso cubre <=3.0.3. Llega por micromatch, que traen metro, jest y @expo/cli: herramientas de compilación y de pruebas. VERIFICADO el 15/10/2026 con `npx expo export --platform android --dump-sourcemap`: el bundle de producción tiene 2159 fuentes de 89 paquetes y ni braces ni micromatch está entre ellos. Para renovar: volver a correr ese export y comprobar con `npm view braces versions` si ya salió una versión posterior a 3.0.3.",
+    "revisar": "2026-11-15"
+  },
+  {
+    "advisory": "GHSA-86w9-cpqp-85rv",
+    "paquete": "node-forge",
+    "motivo": "La verificación de firmas RSA PKCS#1 v1.5 acepta elementos DigestAlgorithm anidados de más. No existe versión corregida: 1.4.0 es la última publicada y el aviso cubre <=1.4.0. Lo trae @expo/code-signing-certificates, parte de la CLI de Expo (firma de actualizaciones), no de la app. VERIFICADO el 15/10/2026 con `npx expo export --platform android --dump-sourcemap`: ni node-forge ni @expo/code-signing-certificates están en el bundle de producción (2159 fuentes, 89 paquetes). Para renovar: volver a correr ese export y comprobar con `npm view node-forge versions` si ya salió una versión posterior a 1.4.0.",
+    "revisar": "2026-11-15"
+  }
+]

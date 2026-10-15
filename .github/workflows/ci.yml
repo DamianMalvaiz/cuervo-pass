@@ -98,16 +98,24 @@ jobs:
       # microservicio; nadie miraba node_modules, que es donde vive la mayor
       # parte del código de terceros que acaba en el APK.
       #
-      # El umbral es `high` y no `moderate` por el mismo motivo que Trivy lleva
-      # `ignore-unfixed`: al 19/09/2026 hay 14 moderadas, todas de dependencias
-      # transitivas de `expo`, `expo-router` y `expo-splash-screen`. No se
-      # corrigen sin salir del SDK 57, así que con umbral `moderate` este job
-      # nacería en rojo permanente — y una compuerta que siempre está roja se
-      # acaba apagando, que es justo lo que §33.3 quiere evitar.
+      # La puerta NO es `npm audit --audit-level=high`, que estaba en rojo y no se podía
+      # poner en verde subiendo dependencias. Medido el 15/10/2026: 66 paquetes
+      # afectados son 7 avisos, y de los altos que quedaban, `braces` y `node-forge` ya
+      # están en su última versión publicada y el aviso cubre esa versión: NO EXISTE una
+      # corrección. Ninguno está en el bundle de producción de la app (verificado con un
+      # `expo export` de Android): son herramientas de compilación y de pruebas.
       #
-      # Cuando Expo publique versiones con esas dependencias actualizadas, bajar
-      # el umbral a `moderate` es una línea.
-      - run: npm audit --audit-level=high
+      # Las dos salidas fáciles eran malas: dejarlo en rojo entrena a ignorar el rojo, y
+      # bajar el umbral a `critical` deja pasar cualquier aviso alto futuro. Esta puerta
+      # falla ante todo aviso alto o crítico NUEVO, permite los conocidos por nombre y
+      # con un motivo escrito (scripts/audit-excepciones.json), y se pone en rojo
+      # también si una excepción deja de valer: ya hay corrección, ya no aparece, o
+      # venció su fecha de revisión. Ver scripts/verificar-audit.mjs.
+      #
+      # El umbral sigue siendo `high`: lo moderado se ve en `npm audit` y no rompe el
+      # CI. test-utils/__tests__/ci-audit-con-excepciones.test.ts impide volver al
+      # comando a secas.
+      - run: npm run verificar:audit
       - run: npm run verificar:contraste
       # END-35 · El invariante 8 dice «44×44 pt, sin excepciones» y vivía solo
       # en AGENTS.md: había cinco controles por debajo —30, 32, 36, 38 y 40—

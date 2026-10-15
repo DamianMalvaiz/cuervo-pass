@@ -65,6 +65,7 @@
     "verificar:env": "node scripts/verificar-env.mjs",
     "verificar:contraste": "node scripts/verificar-contraste.mjs",
     "verificar:toques": "node scripts/verificar-toques.mjs",
+    "verificar:audit": "node scripts/verificar-audit.mjs",
     "verificar:bucket": "node --env-file=.env --env-file=.env.server scripts/verificar-bucket-fotos.mjs"
   },
   "private": true
