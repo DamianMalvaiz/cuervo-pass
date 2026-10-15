@@ -55,10 +55,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.3.0
+      # Versión EXACTA de Deno, no `v2.x`. Con la flotante el job se puso en rojo sin que
+      # el repositorio cambiara una línea: Deno 2.9 endureció la resolución de npm y
+      # activó una regla de lint nueva. Es lo mismo que se hizo con el CLI de Supabase
+      # (arriba) y con las acciones, fijadas por SHA. Subirla es una decisión: se cambia
+      # aquí, se corre el job y se ve qué rompe. test-utils/__tests__/ci-sin-versiones-
+      # flotantes.test.ts lo comprueba. 2.9.7 es la que se reprodujo y verificó.
       - uses: denoland/setup-deno@909cc5acb0fdd60627fb858598759246509fa755   # v2.0.2
-        with: { deno-version: v2.x }
-      - run: deno check supabase/functions/*/index.ts
-      - run: deno lint supabase/functions/
+        with: { deno-version: 2.9.7 }
+      # `--node-modules-dir=none`: en la raíz hay un package.json (el de la app), y Deno
+      # lo toma como espacio de trabajo y resuelve las dependencias npm de `supabase-js`
+      # en `node_modules`. Aquí no hay `npm ci` —y no debe haberlo: instalaría el árbol
+      # entero de Expo para comprobar cuatro funciones—, así que fallaba con «Could not
+      # find a matching package for npm:@supabase/realtime-js». Con `none` Deno usa su
+      # propia caché. Un `deno.json` dentro de supabase/functions NO lo arregla (se probó):
+      # Deno sigue usando el package.json de la raíz.
+      - run: deno check --node-modules-dir=none supabase/functions/*/index.ts
+      # `no-import-prefix` prohíbe los imports `jsr:` en línea. Las funciones los usan a
+      # propósito: es el patrón de la documentación de Edge Functions, cada función se
+      # despliega por separado, y la versión queda fijada en deno.lock. Moverlos a un
+      # import map cambiaría cómo se empaquetan en el despliegue, que aquí no se puede
+      # probar. Es la única regla de lint que falla.
+      - run: deno lint --rules-exclude=no-import-prefix supabase/functions/
 
   frontend:
     runs-on: ubuntu-latest
