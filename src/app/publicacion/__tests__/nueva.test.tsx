@@ -13,12 +13,19 @@ import { render } from '@testing-library/react-native';
 const mockCrear = jest.fn();
 const mockReplace = jest.fn();
 const mockSello = jest.fn();
-const capturado: { onGuardar?: (datos: unknown) => Promise<void> } = {};
+const capturado: {
+  onGuardar?: (datos: unknown) => Promise<void>;
+  desplazador?: { alNodo?: unknown };
+} = {};
 
 jest.mock('expo-router', () => ({ router: { replace: (...a: unknown[]) => mockReplace(...a) } }));
 jest.mock('@/components/FormularioPublicacion', () => ({
-  FormularioPublicacion: (props: { onGuardar: (datos: unknown) => Promise<void> }) => {
+  FormularioPublicacion: (props: {
+    onGuardar: (datos: unknown) => Promise<void>;
+    desplazador?: { alNodo?: unknown };
+  }) => {
     capturado.onGuardar = props.onGuardar;
+    capturado.desplazador = props.desplazador;
     return null;
   },
 }));
@@ -52,6 +59,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   useToastStore.setState({ actual: null });
   capturado.onGuardar = undefined;
+  capturado.desplazador = undefined;
   mockCrear.mockResolvedValue({ id: 'p1' });
 });
 
@@ -76,4 +84,12 @@ test('si crear falla no hay aviso de éxito, ni vibración, ni navegación', asy
   expect(useToastStore.getState().actual).toBeNull();
   expect(mockSello).not.toHaveBeenCalled();
   expect(mockReplace).not.toHaveBeenCalled();
+});
+
+// Scroll al primer error. El ScrollView es de ESTA pantalla y el formulario no
+// puede moverlo: sin el `desplazador`, un envío inválido solo avisaría y la vista
+// se quedaría donde estaba, a veces a varias pantallas del error.
+test('le pasa al formulario un desplazador para llevar la vista al error', async () => {
+  await render(<NuevaPublicacionScreen />);
+  expect(typeof capturado.desplazador?.alNodo).toBe('function');
 });

@@ -12,6 +12,7 @@ import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Spacing } from '@/constants/theme';
+import { useDesplazador } from '@/hooks/use-desplazador';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { parsearPerfil } from '@/lib/aiService';
@@ -34,6 +35,10 @@ export default function PreferenciasScreen() {
   const formulario = useRef<ControlCuestionario>(null);
   const [guardando, setGuardando] = useState(false);
   const { anchoContenido, clase } = useTamanoPantalla();
+  // Scroll al primer error: el ScrollView es de ESTA pantalla y el formulario no
+  // puede moverlo. Con un pie fijo y un formulario largo, un error puede quedar a
+  // varias pantallas de donde se tocó el botón.
+  const { registrarScroll, onScroll, desplazador } = useDesplazador();
   const session = useAuthStore((s) => s.session);
   const { perfil, actualizarPerfil } = usePerfilStore();
 
@@ -114,6 +119,9 @@ export default function PreferenciasScreen() {
     <ThemedView style={styles.pantalla}>
       <KeyboardAvoidingView style={styles.pantalla} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
+          ref={registrarScroll}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.container, clase === 'amplia' && styles.centradoAmplio]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -136,6 +144,7 @@ export default function PreferenciasScreen() {
               ref={formulario}
               botonEnPie
               onEstadoEnvio={setGuardando}
+              desplazador={desplazador}
               textoBoton="Guardar preferencias"
             valoresIniciales={{
               universidad: perfil.universidad ?? undefined,

@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, type Ref } from 'react';
 import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { CampoContrasena } from '@/components/CampoContrasena';
@@ -33,8 +33,14 @@ export const Campo = forwardRef<
      * idéntico a los demás no distingue "no quise" de "se me olvidó".
      */
     punteado?: boolean;
+    /**
+     * Ancla del mensaje de error, para poder llevar la vista hasta él (scroll al
+     * primer error). Solo se usa cuando hay error: el mensaje y su ancla existen
+     * a la vez.
+     */
+    anclaError?: Ref<View>;
   }
->(function Campo({ etiqueta, error, contrasena, punteado, style, value, ...props }, ref) {
+>(function Campo({ etiqueta, error, contrasena, punteado, anclaError, style, value, ...props }, ref) {
   const theme = useTheme();
   const vacio = punteado === true && !String(value ?? '').trim();
 
@@ -72,9 +78,13 @@ export const Campo = forwardRef<
       )}
 
       {error ? (
-        <ThemedText type="small" style={{ color: theme.error }} accessibilityLiveRegion="polite">
-          {error}
-        </ThemedText>
+        // `collapsable={false}`: Android elimina del árbol nativo las vistas que
+        // no pintan nada propio, y entonces el ref queda sin nodo medible.
+        <View ref={anclaError} collapsable={false}>
+          <ThemedText type="small" style={{ color: theme.error }} accessibilityLiveRegion="polite">
+            {error}
+          </ThemedText>
+        </View>
       ) : null}
     </View>
   );

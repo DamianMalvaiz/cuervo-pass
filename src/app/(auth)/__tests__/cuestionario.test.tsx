@@ -56,9 +56,17 @@ jest.mock('@/lib/registro', () => ({ aviso: jest.fn(), fallo: jest.fn() }));
 // El prefijo `mock` lo exige jest: una fábrica de jest.mock() no puede
 // referenciar variables de fuera salvo que se llamen así.
 let mockRespuestas = RESPUESTAS;
+const mockCapturado: { desplazador?: { alNodo?: unknown } } = {};
 jest.mock('@/components/FormularioCuestionario', () => ({
-  FormularioCuestionario: ({ onCompletar }: { onCompletar: (r: unknown) => void }) => {
+  FormularioCuestionario: ({
+    onCompletar,
+    desplazador,
+  }: {
+    onCompletar: (r: unknown) => void;
+    desplazador?: { alNodo?: unknown };
+  }) => {
     const { Pressable: P, Text: T } = require('react-native');
+    mockCapturado.desplazador = desplazador;
     return (
       <P accessibilityRole="button" accessibilityLabel="Completar" onPress={() => onCompletar(mockRespuestas)}>
         <T>Completar</T>
@@ -152,4 +160,11 @@ describe('con consentimiento', () => {
     expect(guardado()).not.toHaveProperty('perfil_vector');
     expect(Alert.alert).toHaveBeenCalled();
   });
+});
+
+// Scroll al primer error. El ScrollView es de esta pantalla: sin el `desplazador`,
+// un envío inválido solo avisaría y la vista se quedaría donde estaba.
+test('le pasa al formulario un desplazador para llevar la vista al error', async () => {
+  await render(<CuestionarioInicialScreen />);
+  expect(typeof mockCapturado.desplazador?.alNodo).toBe('function');
 });

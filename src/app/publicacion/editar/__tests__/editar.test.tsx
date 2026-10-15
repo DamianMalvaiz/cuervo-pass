@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { ScrollView } from 'react-native';
 
 import { useToastStore } from '@/store/useToastStore';
 
@@ -131,6 +132,36 @@ describe('guardar', () => {
     expect(mockReplace).not.toHaveBeenCalled();
     // Y no hay aviso de éxito: lo único que se avisa es el fallo, desde el formulario.
     expect(useToastStore.getState().actual?.tipo).toBe('error');
+  });
+});
+
+// Scroll al primer error, de extremo a extremo con el formulario REAL. El
+// ScrollView es de esta pantalla: si no le pasara el `desplazador` al formulario,
+// un envío inválido solo avisaría y la vista se quedaría donde estaba. La prueba
+// comprueba que la petición llega hasta el ScrollView (le pide su posición); la
+// cuenta del desplazamiento se prueba en use-desplazador.test.tsx.
+describe('scroll al primer error', () => {
+  const medirScroll = () => (ScrollView as unknown as { prototype: { measureInWindow: jest.Mock } }).prototype.measureInWindow;
+
+  it('un envío inválido llega hasta el ScrollView de la pantalla', async () => {
+    await montar();
+    medirScroll().mockClear();
+    await fireEvent.changeText(screen.getByLabelText('Precio de renta mensual en pesos'), 'abc');
+
+    await fireEvent.press(screen.getByLabelText('Guardar cambios'));
+
+    await waitFor(() => expect(medirScroll()).toHaveBeenCalled());
+    expect(mockActualizar).not.toHaveBeenCalled();
+  });
+
+  it('un envío válido no mueve la vista', async () => {
+    await montar();
+    medirScroll().mockClear();
+
+    await act(async () => { fireEvent.press(screen.getByLabelText('Guardar cambios')); });
+    await waitFor(() => expect(mockActualizar).toHaveBeenCalled());
+
+    expect(medirScroll()).not.toHaveBeenCalled();
   });
 });
 

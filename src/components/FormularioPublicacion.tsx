@@ -9,6 +9,8 @@ import { z } from 'zod';
 
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import type { Desplazador } from '@/hooks/use-desplazador';
+import { useDesplazarAlError } from '@/hooks/use-desplazar-al-error';
 import { buscarPorCodigoPostal } from '@/lib/direccionMx';
 import { buscarCalles } from '@/lib/mapboxAutocomplete';
 import { resumenDeErrores } from '@/lib/resumenErrores';
@@ -122,6 +124,11 @@ interface Props {
   /** Oculta el botón interno: la pantalla lo pone en un PieFijo. */
   botonEnPie?: boolean;
   onEstadoEnvio?: (enviando: boolean) => void;
+  /**
+   * Quien puede llevar la vista a un campo: el ScrollView es de la pantalla y el
+   * formulario no puede moverlo. Opcional: sin él, un envío inválido solo avisa.
+   */
+  desplazador?: Desplazador;
   onGuardar: (datos: DatosGuardarPublicacion) => Promise<void>;
 }
 
@@ -306,8 +313,24 @@ function CampoDesplegable({
 
 // Fila de fotos con miniaturas que se pueden quitar y placeholder para agregar
 // más — misma UI tanto para crear (fotosIniciales vacío) como para editar.
+/**
+ * El mensaje de error de un campo, con un ancla para poder desplazarse hasta él.
+ *
+ * Solo existe cuando HAY error, así que el registro de anclas contiene
+ * exactamente los campos que están mal. `collapsable={false}` evita que Android
+ * elimine la vista del árbol nativo por no pintar nada propio, que dejaría el
+ * ref sin nodo medible.
+ */
+function MensajeError({ ancla, mensaje }: { ancla: (nodo: View | null) => void; mensaje?: string }) {
+  return (
+    <View ref={ancla} collapsable={false}>
+      <ThemedText style={styles.error}>{mensaje}</ThemedText>
+    </View>
+  );
+}
+
 export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(function FormularioPublicacion(
-  { valoresIniciales, fotosIniciales = [], textoBoton, botonEnPie, onEstadoEnvio, onGuardar },
+  { valoresIniciales, fotosIniciales = [], textoBoton, botonEnPie, onEstadoEnvio, desplazador, onGuardar },
   ref
 ) {
   const theme = useTheme();
@@ -321,6 +344,9 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
   const direccionIlegible = Boolean(valoresIniciales?.direccion) && partes === null;
 
   const [error, setError] = useState<string | null>(null);
+
+  // Scroll al primer error: el registro de anclas y el efecto viven en el hook.
+  const { anclar, irAlCampo } = useDesplazarAlError(desplazador);
 
   const [sugerenciasCalle, setSugerenciasCalle] = useState<string[]>([]);
   const [buscandoCalle, setBuscandoCalle] = useState(false);
@@ -467,6 +493,11 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
   const onInvalid = (errores: FieldErrors<FormPublicacion>) => {
     const resumen = resumenDeErrores(errores, ETIQUETAS);
     if (resumen) toast.error(resumen);
+    // El PRIMERO en el orden de la pantalla, no el primero en el que falló la
+    // validación. Es un objeto nuevo en cada intento: con la misma cadena el
+    // efecto no se volvería a ejecutar al fallar dos veces en el mismo campo.
+    const primero = Object.keys(ETIQUETAS).find((campo) => errores[campo as keyof FormPublicacion]);
+    if (primero) irAlCampo(primero);
   };
 
   // DESPUÉS de onSubmit y de useForm, no antes: referenciar `handleSubmit`
@@ -503,7 +534,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
           />
         )}
       />
-      {errors.titulo && <ThemedText style={styles.error}>{errors.titulo.message}</ThemedText>}
+      {errors.titulo && <MensajeError ancla={anclar('titulo')} mensaje={errors.titulo.message} />}
 
       <Controller
         control={control}
@@ -585,7 +616,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
           />
         )}
       />
-      {errors.calle && <ThemedText style={styles.error}>{errors.calle.message}</ThemedText>}
+      {errors.calle && <MensajeError ancla={anclar('calle')} mensaje={errors.calle.message} />}
 
       <View style={styles.filaDos}>
         <Controller
@@ -619,7 +650,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
           )}
         />
       </View>
-      {errors.numeroExterior && <ThemedText style={styles.error}>{errors.numeroExterior.message}</ThemedText>}
+      {errors.numeroExterior && <MensajeError ancla={anclar('numeroExterior')} mensaje={errors.numeroExterior.message} />}
 
       <Controller
         control={control}
@@ -647,7 +678,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
           No encontramos ese código postal — puedes llenar colonia/municipio/estado a mano.
         </ThemedText>
       )}
-      {errors.codigoPostal && <ThemedText style={styles.error}>{errors.codigoPostal.message}</ThemedText>}
+      {errors.codigoPostal && <MensajeError ancla={anclar('codigoPostal')} mensaje={errors.codigoPostal.message} />}
 
       <Controller
         control={control}
@@ -668,7 +699,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
           />
         )}
       />
-      {errors.colonia && <ThemedText style={styles.error}>{errors.colonia.message}</ThemedText>}
+      {errors.colonia && <MensajeError ancla={anclar('colonia')} mensaje={errors.colonia.message} />}
 
       <Controller
         control={control}
@@ -685,7 +716,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
           />
         )}
       />
-      {errors.localidad && <ThemedText style={styles.error}>{errors.localidad.message}</ThemedText>}
+      {errors.localidad && <MensajeError ancla={anclar('localidad')} mensaje={errors.localidad.message} />}
 
       <View style={styles.filaDos}>
         <Controller
@@ -719,8 +750,8 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
           )}
         />
       </View>
-      {errors.municipio && <ThemedText style={styles.error}>{errors.municipio.message}</ThemedText>}
-      {errors.estado && <ThemedText style={styles.error}>{errors.estado.message}</ThemedText>}
+      {errors.municipio && <MensajeError ancla={anclar('municipio')} mensaje={errors.municipio.message} />}
+      {errors.estado && <MensajeError ancla={anclar('estado')} mensaje={errors.estado.message} />}
 
       <View style={styles.grupo}>
         <ThemedText type="etiqueta" themeColor="textSecondary">
@@ -744,7 +775,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
           />
         )}
       />
-      {errors.precioRenta && <ThemedText style={styles.error}>{errors.precioRenta.message}</ThemedText>}
+      {errors.precioRenta && <MensajeError ancla={anclar('precioRenta')} mensaje={errors.precioRenta.message} />}
 
       <Controller
         control={control}
@@ -779,7 +810,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
           />
         )}
       />
-      {errors.recamaras && <ThemedText style={styles.error}>{errors.recamaras.message}</ThemedText>}
+      {errors.recamaras && <MensajeError ancla={anclar('recamaras')} mensaje={errors.recamaras.message} />}
 
       <Controller
         control={control}
@@ -828,7 +859,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
           />
         )}
       />
-      {errors.whatsapp && <ThemedText style={styles.error}>{errors.whatsapp.message}</ThemedText>}
+      {errors.whatsapp && <MensajeError ancla={anclar('whatsapp')} mensaje={errors.whatsapp.message} />}
 
       <View style={styles.grupo}>
         <ThemedText type="etiqueta" themeColor="textSecondary">

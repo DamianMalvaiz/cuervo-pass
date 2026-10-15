@@ -16,6 +16,7 @@ const mockBack = jest.fn();
 const mockGenerarEmbedding = jest.fn();
 
 let mockRespuestas: Record<string, unknown> = {};
+const mockCapturado: { desplazador?: { alNodo?: unknown } } = {};
 let mockPerfilActual: Record<string, unknown> = {};
 
 jest.mock('expo-router', () => ({ router: { back: () => mockBack() } }));
@@ -23,7 +24,14 @@ jest.mock('expo-router', () => ({ router: { back: () => mockBack() } }));
 jest.mock('@/components/FormularioCuestionario', () => {
   const React = require('react');
   return {
-    FormularioCuestionario: ({ onCompletar }: { onCompletar: (r: unknown) => void }) => {
+    FormularioCuestionario: ({
+      onCompletar,
+      desplazador,
+    }: {
+      onCompletar: (r: unknown) => void;
+      desplazador?: { alNodo?: unknown };
+    }) => {
+      mockCapturado.desplazador = desplazador;
       // Una sola vez al montar, que es lo que hace una persona al pulsar
       // "Guardar". Con onCompletar en las dependencias se dispararia en bucle.
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -118,4 +126,11 @@ test('con el aviso, volver atras ocurre al cerrarlo y no antes', async () => {
   const botones = (Alert.alert as jest.Mock).mock.calls[0][2];
   botones[0].onPress();
   expect(mockBack).toHaveBeenCalled();
+});
+
+// Scroll al primer error. El ScrollView es de esta pantalla: sin el `desplazador`,
+// un envío inválido solo avisaría y la vista se quedaría donde estaba.
+test('le pasa al formulario un desplazador para llevar la vista al error', async () => {
+  await render(<PreferenciasScreen />);
+  expect(typeof mockCapturado.desplazador?.alNodo).toBe('function');
 });

@@ -7,6 +7,8 @@ import { z } from 'zod';
 
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import type { Desplazador } from '@/hooks/use-desplazador';
+import { useDesplazarAlError } from '@/hooks/use-desplazar-al-error';
 import { resumenDeErrores } from '@/lib/resumenErrores';
 import { toast } from '@/lib/toast';
 import { OPCION_OTRA_UNIVERSIDAD, UNIVERSIDADES } from '@/lib/universidades';
@@ -107,16 +109,24 @@ interface Props {
   botonEnPie?: boolean;
   /** Para que el pie pueda mostrar su estado de carga. */
   onEstadoEnvio?: (enviando: boolean) => void;
+  /**
+   * Quien puede llevar la vista a un campo: el ScrollView es de la pantalla y el
+   * formulario no puede moverlo. Opcional: sin él, un envío inválido solo avisa.
+   */
+  desplazador?: Desplazador;
   onCompletar: (respuestas: RespuestasCuestionario) => Promise<void>;
 }
 
 export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(function FormularioCuestionario(
-  { valoresIniciales, textoBoton = 'Guardar y continuar', botonEnPie, onEstadoEnvio, onCompletar },
+  { valoresIniciales, textoBoton = 'Guardar y continuar', botonEnPie, onEstadoEnvio, desplazador, onCompletar },
   ref
 ) {
   const theme = useTheme();
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Scroll al primer error: el registro de anclas y el efecto viven en el hook.
+  const { anclar, irAlCampo } = useDesplazarAlError(desplazador);
 
   const universidadInicial =
     UNIVERSIDADES.find((u) => u.nombre === valoresIniciales?.universidad)?.id ?? UNIVERSIDADES[0]?.id;
@@ -187,6 +197,10 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
   const onInvalid = (errores: FieldErrors<FormCuestionario>) => {
     const resumen = resumenDeErrores(errores, ETIQUETAS);
     if (resumen) toast.error(resumen);
+    // El PRIMERO en el orden de la pantalla, no el primero en el que falló la
+    // validación.
+    const primero = Object.keys(ETIQUETAS).find((campo) => errores[campo as keyof FormCuestionario]);
+    if (primero) irAlCampo(primero);
   };
 
   /** Atajos de distancia. Teclear "5" en un campo numérico es peor que tocarlo,
@@ -219,9 +233,11 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
           )}
         />
         {errors.universidadId && (
-          <ThemedText type="small" style={{ color: theme.error }}>
-            {errors.universidadId.message}
-          </ThemedText>
+          <View ref={anclar('universidadId')} collapsable={false}>
+            <ThemedText type="small" style={{ color: theme.error }}>
+              {errors.universidadId.message}
+            </ThemedText>
+          </View>
         )}
 
         {esOtra && (
@@ -233,6 +249,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
                 etiqueta="NOMBRE DE TU UNIVERSIDAD"
                 placeholder="Universidad Tecnológica del Valle de Toluca"
                 error={errors.universidadOtroNombre?.message}
+                anclaError={anclar('universidadOtroNombre')}
                 onBlur={onBlur}
                 onChangeText={onChange}
                 value={value}
@@ -258,6 +275,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
                   placeholder="2000"
                   keyboardType="numeric"
                   error={errors.presupuestoMin?.message}
+                anclaError={anclar('presupuestoMin')}
                   onBlur={onBlur}
                   onChangeText={onChange}
                   value={value}
@@ -275,6 +293,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
                   placeholder="5000"
                   keyboardType="numeric"
                   error={errors.presupuestoMax?.message}
+                anclaError={anclar('presupuestoMax')}
                   onBlur={onBlur}
                   onChangeText={onChange}
                   value={value}
@@ -294,6 +313,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
                 placeholder="5"
                 keyboardType="numeric"
                 error={errors.distanciaMaxKm?.message}
+                anclaError={anclar('distanciaMaxKm')}
                 onBlur={onBlur}
                 onChangeText={onChange}
                 value={value}
@@ -413,6 +433,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
               maxLength={2000}
               style={estilos.textoLibre}
               error={errors.textoLibre?.message}
+                anclaError={anclar('textoLibre')}
               onBlur={onBlur}
               onChangeText={onChange}
               value={value}

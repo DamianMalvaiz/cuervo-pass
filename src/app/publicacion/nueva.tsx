@@ -11,6 +11,7 @@ import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Spacing } from '@/constants/theme';
+import { useDesplazador } from '@/hooks/use-desplazador';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { crearPublicacion } from '@/services/publicaciones.service';
@@ -23,12 +24,19 @@ export default function NuevaPublicacionScreen() {
   const [guardando, setGuardando] = useState(false);
   const theme = useTheme();
   const { anchoContenido, clase } = useTamanoPantalla();
+  // Scroll al primer error: el ScrollView es de ESTA pantalla y el formulario no
+  // puede moverlo. Con un pie fijo y un formulario largo, un error puede quedar a
+  // varias pantallas de donde se tocó el botón.
+  const { registrarScroll, onScroll, desplazador } = useDesplazador();
   const session = useAuthStore((s) => s.session);
 
   return (
     <ThemedView style={{ flex: 1 }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
+          ref={registrarScroll}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           contentContainerStyle={[styles.container, clase === 'amplia' && styles.centradoAmplio]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -48,6 +56,7 @@ export default function NuevaPublicacionScreen() {
               ref={formulario}
               botonEnPie
               onEstadoEnvio={setGuardando}
+              desplazador={desplazador}
             textoBoton="Publicar"
             onGuardar={async (datos) => {
               if (!session?.user.id) return;
