@@ -2,11 +2,31 @@
 # de la imagen. Quien tuviera la imagen tenía la clave.
 .env
 .env.*
+
+# Entornos virtuales, con TODOS los nombres habituales. Este archivo decía solo
+# `venv/`, que excluye una carpeta llamada exactamente así: la real se llama
+# `.venv`, y viajaban 5.9 GB del entorno de Python 3.14 de la laptop dentro de una
+# imagen de Python 3.11. Medido el 15/10/2026: contexto de 6.184 GB, imagen de
+# 22.9 GB y más de diez minutos de build. No era una fuga —el .env sí se excluía—,
+# era peso muerto y un entorno ajeno dentro de producción.
+#
+# Lo que garantiza que no vuelva a pasar con otro nombre es
+# tests/test_dockerignore.py, que mide lo que de verdad entra en el contexto.
+.venv/
 venv/
+env/
+
 __pycache__/
 *.pyc
 .pytest_cache/
 tests/
+pytest.ini
 # Las dependencias de prueba no se instalan en la imagen (el Dockerfile solo
 # instala requirements.txt), así que este archivo tampoco tiene por qué viajar.
 requirements-dev.txt
+
+# Configuración del propio build y del escáner: se leen desde el repositorio, no
+# desde dentro de la imagen.
+Dockerfile
+.dockerignore
+.trivyignore
