@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
+import { useToastStore } from '@/store/useToastStore';
+
 // `perfil/[usuarioId].tsx` · el perfil AJENO. Tenía 28 de 54 ramas sin cubrir, y
 // es la pantalla con el riesgo de privacidad más directo del producto: lo que se
 // pinta aquí es lo que un extraño puede ver de otra persona.
@@ -79,6 +81,7 @@ const pintar = async () => {
 beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  useToastStore.setState({ actual: null });
   mockPerfilPublico.mockResolvedValue(PERFIL);
   mockAfinidad.mockResolvedValue({ similitud: 0.82, nivel: 2 });
   mockAbrirConversacion.mockResolvedValue('conv-1');
@@ -191,7 +194,12 @@ test('si no se puede abrir el chat se dice y no se navega', async () => {
   const boton = await screen.findByLabelText('Iniciar chat con Ana Pérez');
   await act(async () => { fireEvent.press(boton); });
 
-  await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith('No se pudo abrir el chat', expect.any(String)));
+  // Paso 3 · se AVISA, no se pregunta. El diálogo que se queda es el de reportar.
+  await waitFor(() => expect(useToastStore.getState().actual).not.toBeNull());
+  expect(useToastStore.getState().actual).toMatchObject({
+    tipo: 'error',
+    mensaje: 'No se pudo abrir el chat. Esta persona ya no está disponible.',
+  });
   expect(mockPush).not.toHaveBeenCalled();
 });
 
@@ -247,7 +255,10 @@ test('un reporte repetido se reconoce por el código 23505', async () => {
   await act(async () => {
     await botones.find((b) => b.text === 'Información falsa')?.onPress?.();
   });
-  expect((Alert.alert as jest.Mock).mock.calls.at(-1)?.[1]).toBe('Ya habías reportado a esta persona.');
+  expect(useToastStore.getState().actual).toMatchObject({
+    tipo: 'error',
+    mensaje: 'No se pudo enviar el reporte. Ya habías reportado a esta persona.',
+  });
 });
 
 test('otro fallo al reportar da el mensaje genérico', async () => {
@@ -256,7 +267,10 @@ test('otro fallo al reportar da el mensaje genérico', async () => {
   await act(async () => {
     await botones.find((b) => b.text === 'Información falsa')?.onPress?.();
   });
-  expect((Alert.alert as jest.Mock).mock.calls.at(-1)?.[1]).toBe('Intenta de nuevo en un momento.');
+  expect(useToastStore.getState().actual).toMatchObject({
+    tipo: 'error',
+    mensaje: 'No se pudo enviar el reporte. Intenta de nuevo en un momento.',
+  });
 });
 
 // ── La ficha de convivencia ──────────────────────────────────────────────────

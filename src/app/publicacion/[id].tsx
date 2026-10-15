@@ -36,6 +36,7 @@ import { usePerfilStore } from '@/store/usePerfilStore';
 import { Sello } from '@/components/ficha/Sello';
 import { usePublicacion , useAfinidad } from '@/hooks/queries/usePublicaciones';
 import { SQL, esCodigo } from '@/lib/erroresPostgres';
+import { toast } from '@/lib/toast';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 const ETIQUETA_TIPO: Record<string, string> = {
@@ -101,16 +102,17 @@ export default function DetallePublicacionScreen() {
         await reportarPublicacion(usuarioId, publicacionId, motivo);
         // El ocultamiento a los 3 reportes lo hace el trigger `al_reportar`
         // (migración 0013), y el dueño recibe una notificación.
-        Alert.alert('Gracias', 'Reportamos esta publicación para revisión.');
+        toast.exito('Gracias. Reportamos esta publicación para revisión.');
       } catch (e) {
         // END-27 · 23505 es el código estándar de violación de unicidad, el
         // mismo en cualquier versión y cualquier locale. El texto «duplicate
         // key value» no lo es.
-        Alert.alert(
-          'No se pudo enviar el reporte',
+        // Es un resultado, no una pregunta: va como aviso. El Alert que SÍ se
+        // queda es el de arriba, el que pide el motivo.
+        toast.error(
           esCodigo(e, SQL.UNIQUE_VIOLATION)
-            ? 'Ya habías reportado esta publicación.'
-            : 'Intenta de nuevo en un momento.'
+            ? 'No se pudo enviar el reporte. Ya habías reportado esta publicación.'
+            : 'No se pudo enviar el reporte. Intenta de nuevo en un momento.'
         );
       }
     };
@@ -394,7 +396,7 @@ export default function DetallePublicacionScreen() {
             titulo={publicacion.titulo}
             score={afinidad?.scoreFinal ?? null}
             onRevelar={revelarContacto}
-            onError={(mensaje) => Alert.alert('No se pudo abrir el contacto', mensaje)}
+            onError={(mensaje) => toast.error(mensaje)}
           />
         </View>
 

@@ -24,6 +24,7 @@ import { obtenerAfinidadRoomie, obtenerPerfilPublico, reportarUsuario } from '@/
 import { useAuthStore } from '@/store/useAuthStore';
 import type { PerfilPublico } from '@/types/database.types';
 import { aviso } from '@/lib/registro';
+import { toast } from '@/lib/toast';
 
 const ETIQUETA_RUIDO: Record<string, string> = {
   bajo: 'Prefiere silencio',
@@ -108,7 +109,7 @@ export default function PerfilRoomieScreen() {
       router.push(`/chat/${conversacionId}`);
     } catch (e) {
       aviso('abrirConversacion falló', undefined, e);
-      Alert.alert('No se pudo abrir el chat', 'Esta persona ya no está disponible.');
+      toast.error('No se pudo abrir el chat. Esta persona ya no está disponible.');
     } finally {
       setAbriendoChat(false);
     }
@@ -131,9 +132,10 @@ export default function PerfilRoomieScreen() {
         // 23505 = ya lo habías reportado. El índice reportes_unico_usuario
         // existe para que una sola cuenta no pueda empujar el contador.
         const codigo = (e as { code?: string })?.code;
-        Alert.alert(
-          'No se pudo enviar el reporte',
-          codigo === '23505' ? 'Ya habías reportado a esta persona.' : 'Intenta de nuevo en un momento.'
+        toast.error(
+          codigo === '23505'
+            ? 'No se pudo enviar el reporte. Ya habías reportado a esta persona.'
+            : 'No se pudo enviar el reporte. Intenta de nuevo en un momento.'
         );
       }
     };

@@ -29,6 +29,7 @@ import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
 import { subirFotoPerfil } from '@/lib/storage';
+import { toast } from '@/lib/toast';
 import { eliminarMiCuenta, exportarMisDatos } from '@/services/usuarios.service';
 import { useMiRoomie } from '@/hooks/queries/useRoomies';
 import { useMisPublicaciones } from '@/hooks/queries/usePublicaciones';
@@ -81,7 +82,11 @@ export default function PerfilScreen() {
     setError(null);
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
-      setError('Necesitamos permiso para acceder a tus fotos');
+      // En la ficha Y como aviso: el texto de la ficha puede estar fuera de la
+      // vista si se ha deslizado.
+      const mensaje = 'Necesitamos permiso para acceder a tus fotos';
+      setError(mensaje);
+      toast.error(mensaje);
       return;
     }
     const resultado = await ImagePicker.launchImageLibraryAsync({
@@ -96,8 +101,11 @@ export default function PerfilScreen() {
     try {
       const ruta = await subirFotoPerfil(session.user.id, resultado.assets[0].uri);
       await actualizarPerfil(session.user.id, { foto_url: ruta });
+      toast.exito('Foto actualizada');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo subir la foto');
+      const mensaje = e instanceof Error ? e.message : 'No se pudo subir la foto';
+      setError(mensaje);
+      toast.error(mensaje);
     } finally {
       setSubiendoFoto(false);
     }
@@ -109,8 +117,12 @@ export default function PerfilScreen() {
     setGuardando(true);
     try {
       await actualizarPerfil(session.user.id, { biografia });
+      // Dentro del `try`, para que un fallo no dé también el aviso de éxito.
+      toast.exito('Biografía guardada');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo guardar la biografía');
+      const mensaje = e instanceof Error ? e.message : 'No se pudo guardar la biografía';
+      setError(mensaje);
+      toast.error(mensaje);
     } finally {
       setGuardando(false);
     }

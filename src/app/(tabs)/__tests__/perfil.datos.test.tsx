@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Alert, Share } from 'react-native';
 
+import { useToastStore } from '@/store/useToastStore';
+
 // V.8 · Los cuatro manejadores de `perfil.tsx` que seguían sin red: exportar
 // mis datos, cambiar la foto, guardar la biografía y cerrar sesión. Eran las
 // líneas 80-134 y 163-164, las únicas del archivo con `try/catch` propio.
@@ -86,6 +88,7 @@ const pulsar = async (texto: string) => {
 beforeEach(() => {
   jest.clearAllMocks();
   almacen.cargando = false;
+  useToastStore.setState({ actual: null });
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' } as never);
   mockExportar.mockResolvedValue({ perfil: { nombre_usuario: 'yo' }, publicaciones: [] });
@@ -166,6 +169,12 @@ test('sin permiso de fotos se explica y no se intenta subir nada', async () => {
   });
 
   expect(await screen.findByText('Necesitamos permiso para acceder a tus fotos')).toBeTruthy();
+  // Paso 3 · y además se AVISA: el texto de arriba queda en la ficha, fuera de la
+  // vista si se ha deslizado.
+  expect(useToastStore.getState().actual).toMatchObject({
+    tipo: 'error',
+    mensaje: 'Necesitamos permiso para acceder a tus fotos',
+  });
   expect(mockElegirImagen).not.toHaveBeenCalled();
   expect(mockSubirFoto).not.toHaveBeenCalled();
 });
@@ -178,6 +187,7 @@ test('cancelar el selector no sube nada ni muestra error', async () => {
 
   expect(mockSubirFoto).not.toHaveBeenCalled();
   expect(screen.queryByText(/No se pudo subir/)).toBeNull();
+  expect(useToastStore.getState().actual).toBeNull();
 });
 
 test('al elegir una foto se sube y se guarda la RUTA, no la uri local', async () => {
@@ -192,6 +202,9 @@ test('al elegir una foto se sube y se guarda la RUTA, no la uri local', async ()
   // dejaría un `foto_url` que solo resuelve en ese teléfono: la foto se vería
   // en el dispositivo que la subió y en ningún otro.
   expect(mockActualizarPerfil).toHaveBeenCalledWith('u1', { foto_url: 'u1/foto.jpg' });
+  await waitFor(() =>
+    expect(useToastStore.getState().actual).toMatchObject({ tipo: 'exito', mensaje: 'Foto actualizada' })
+  );
 });
 
 test('un fallo al subir se dice y el botón se reactiva', async () => {
@@ -203,6 +216,10 @@ test('un fallo al subir se dice y el botón se reactiva', async () => {
   });
 
   expect(await screen.findByText('el bucket rechazó el archivo')).toBeTruthy();
+  expect(useToastStore.getState().actual).toMatchObject({
+    tipo: 'error',
+    mensaje: 'el bucket rechazó el archivo',
+  });
   // `accessibilityState.busy` vuelve a false: es el `finally`. Sin él el botón
   // queda deshabilitado y no hay forma de reintentar.
   const boton = screen.getByLabelText('Agregar una foto de perfil');
@@ -241,6 +258,7 @@ test('un fallo al guardar la biografía se dice', async () => {
     fireEvent.press(screen.getByLabelText('Guardar biografía'));
   });
   expect(await screen.findByText('no se pudo escribir')).toBeTruthy();
+  expect(useToastStore.getState().actual).toMatchObject({ tipo: 'error', mensaje: 'no se pudo escribir' });
 });
 
 test('guardar la biografía la manda al perfil', async () => {
@@ -250,6 +268,21 @@ test('guardar la biografía la manda al perfil', async () => {
     fireEvent.press(screen.getByLabelText('Guardar biografía'));
   });
   expect(mockActualizarPerfil).toHaveBeenCalledWith('u1', { biografia: 'Estudio mecatrónica.' });
+  await waitFor(() =>
+    expect(useToastStore.getState().actual).toMatchObject({ tipo: 'exito', mensaje: 'Biografía guardada' })
+  );
+});
+
+// Un fallo no debe dar también el aviso de éxito.
+test('si falla guardar la biografía, NO hay aviso de éxito', async () => {
+  mockActualizarPerfil.mockRejectedValue(new Error('no se pudo escribir'));
+  await pintar();
+  await escribirBiografia('Estudio mecatrónica.');
+  await act(async () => {
+    fireEvent.press(screen.getByLabelText('Guardar biografía'));
+  });
+  await screen.findByText('no se pudo escribir');
+  expect(useToastStore.getState().actual?.tipo).toBe('error');
 });
 
 // Cerrar sesión NAVEGA además de cerrar. Si solo cerrara, la pantalla quedaría

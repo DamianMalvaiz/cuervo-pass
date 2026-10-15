@@ -1,6 +1,9 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
+import { revelarContacto } from '@/services/publicaciones.service';
+import { useToastStore } from '@/store/useToastStore';
+
 // `publicacion/[id].tsx` · la ficha que se abre desde un toque en las
 // sugerencias. Tenía 28 de 61 ramas sin cubrir.
 //
@@ -84,6 +87,7 @@ const pintar = async () => render(<DetalleScreen />);
 beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  useToastStore.setState({ actual: null });
   mockPerfil.valor = null;
   mockPublicacion.mockReturnValue(estado());
   mockAfinidad.mockReturnValue(null);
@@ -171,9 +175,12 @@ test('un reporte repetido se reconoce por código, no por el texto', async () =>
     await botones.find((b) => b.text === 'Contenido sospechoso')?.onPress?.();
   });
 
-  const aviso = (Alert.alert as jest.Mock).mock.calls.at(-1);
-  expect(aviso?.[0]).toBe('No se pudo enviar el reporte');
-  expect(aviso?.[1]).toBe('Ya habías reportado esta publicación.');
+  // Paso 3 · el resultado se AVISA, no se pregunta: un Alert que solo informa
+  // obliga a tocar «OK» para seguir. El diálogo que sí se queda es el del motivo.
+  expect(useToastStore.getState().actual).toMatchObject({
+    tipo: 'error',
+    mensaje: 'No se pudo enviar el reporte. Ya habías reportado esta publicación.',
+  });
 });
 
 test('otro fallo al reportar da el mensaje genérico', async () => {
@@ -183,7 +190,10 @@ test('otro fallo al reportar da el mensaje genérico', async () => {
   await act(async () => {
     await botones.find((b) => b.text === 'Contenido sospechoso')?.onPress?.();
   });
-  expect((Alert.alert as jest.Mock).mock.calls.at(-1)?.[1]).toBe('Intenta de nuevo en un momento.');
+  expect(useToastStore.getState().actual).toMatchObject({
+    tipo: 'error',
+    mensaje: 'No se pudo enviar el reporte. Intenta de nuevo en un momento.',
+  });
 });
 
 test('un reporte enviado se agradece', async () => {
@@ -193,7 +203,28 @@ test('un reporte enviado se agradece', async () => {
   await act(async () => {
     await botones.find((b) => b.text === 'Contenido sospechoso')?.onPress?.();
   });
-  expect((Alert.alert as jest.Mock).mock.calls.at(-1)?.[0]).toBe('Gracias');
+  expect(useToastStore.getState().actual).toMatchObject({
+    tipo: 'exito',
+    mensaje: 'Gracias. Reportamos esta publicación para revisión.',
+  });
+});
+
+// Paso 3 · el fallo de revelar el contacto se AVISA. El Alert que había obligaba a
+// tocar «OK» para un mensaje que solo informa. El texto ya llega completo desde
+// el botón, así que se muestra tal cual.
+test('si no se puede revelar el contacto, se avisa con el mensaje del botón', async () => {
+  (revelarContacto as jest.Mock).mockRejectedValueOnce(new Error('sin red'));
+  await pintar();
+
+  await act(async () => {
+    fireEvent.press(screen.getByLabelText('Ver contacto'));
+  });
+
+  await waitFor(() => expect(useToastStore.getState().actual).not.toBeNull());
+  expect(useToastStore.getState().actual).toMatchObject({
+    tipo: 'error',
+    mensaje: 'No pudimos obtener el contacto de esta publicación. Intenta de nuevo en un momento.',
+  });
 });
 
 // ── La distancia ─────────────────────────────────────────────────────────────

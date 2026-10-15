@@ -18,6 +18,7 @@ import { actualizarPublicacion, obtenerMiPublicacion } from '@/services/publicac
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
 import { aviso } from '@/lib/registro';
+import { toast } from '@/lib/toast';
 
 export default function EditarPublicacionScreen() {
   const formulario = useRef<ControlPublicacion>(null);
@@ -155,6 +156,8 @@ export default function EditarPublicacionScreen() {
                 whatsapp: datos.whatsapp,
                 fotos: datos.fotos,
               }, publicacion);
+              // Antes saltaba a la ficha sin decir que se guardó.
+              toast.exito('Cambios guardados');
               router.replace(`/publicacion/${publicacion.id}`);
             }}
           />

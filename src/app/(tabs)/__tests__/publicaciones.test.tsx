@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
+import { useToastStore } from '@/store/useToastStore';
+
 // V.8 · `publicaciones.tsx` — la pantalla del DUEÑO, que era la de menor
 // cobertura de la carpeta (36 %) y la que concentra tres hallazgos distintos:
 //
@@ -58,6 +60,7 @@ const publicacion = (extra: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  useToastStore.setState({ actual: null });
   mockMisPublicaciones.mockReturnValue({ datos: [publicacion()], cargando: false });
   mockContactos.mockReturnValue(new Map([['p1', 3]]));
   mockMutar.mockResolvedValue(undefined);
@@ -114,9 +117,10 @@ test('END-27 · el límite de 15 se reconoce por código, no por el texto', asyn
   const [, , botones] = await tocar('Reactivar Depa centro');
   await confirmar(botones);
 
-  const [titulo, cuerpo] = (Alert.alert as jest.Mock).mock.calls[1];
-  expect(titulo).toBe('No se pudo cambiar el estado');
-  expect(cuerpo).toContain('15 publicaciones activas');
+  // Paso 3 · el fallo se AVISA. Solo se queda como Alert la pregunta de confirmar.
+  expect(useToastStore.getState().actual).toMatchObject({ tipo: 'error' });
+  expect(useToastStore.getState().actual?.mensaje).toContain('No se pudo cambiar el estado');
+  expect(useToastStore.getState().actual?.mensaje).toContain('15 publicaciones activas');
 });
 
 test('un fallo sin código da el mensaje genérico, no el del límite', async () => {
@@ -125,9 +129,40 @@ test('un fallo sin código da el mensaje genérico, no el del límite', async ()
   const [, , botones] = await tocar('Desactivar Depa centro');
   await confirmar(botones);
 
-  const [, cuerpo] = (Alert.alert as jest.Mock).mock.calls[1];
-  expect(cuerpo).toBe('Intenta de nuevo en un momento.');
-  expect(cuerpo).not.toContain('15');
+  expect(useToastStore.getState().actual).toMatchObject({
+    tipo: 'error',
+    mensaje: 'No se pudo cambiar el estado. Intenta de nuevo en un momento.',
+  });
+  expect(useToastStore.getState().actual?.mensaje).not.toContain('15');
+});
+
+// Paso 3 · antes, un cambio exitoso no decía nada: la publicación solo cambiaba de
+// aspecto en la lista, y quien estaba mirando otra cosa no se enteraba.
+test('al desactivar bien, se confirma con un aviso de éxito', async () => {
+  await render(<PublicacionesScreen />);
+  const [, , botones] = await tocar('Desactivar Depa centro');
+  await confirmar(botones);
+
+  expect(useToastStore.getState().actual).toMatchObject({ tipo: 'exito', mensaje: 'Publicación desactivada' });
+});
+
+test('al reactivar bien, se confirma con un aviso de éxito', async () => {
+  mockMisPublicaciones.mockReturnValue({ datos: [publicacion({ activa: false })], cargando: false });
+  await render(<PublicacionesScreen />);
+  const [, , botones] = await tocar('Reactivar Depa centro');
+  await confirmar(botones);
+
+  expect(useToastStore.getState().actual).toMatchObject({ tipo: 'exito', mensaje: 'Publicación reactivada' });
+});
+
+// Un fallo no debe dar también el aviso de éxito.
+test('si falla, NO hay aviso de éxito', async () => {
+  mockMutar.mockRejectedValue(new Error('sin red'));
+  await render(<PublicacionesScreen />);
+  const [, , botones] = await tocar('Desactivar Depa centro');
+  await confirmar(botones);
+
+  expect(useToastStore.getState().actual?.tipo).toBe('error');
 });
 
 // AUD-16 · Sin esto, una publicación oculta por reportes desaparecía de las

@@ -1,5 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
+import { useToastStore } from '@/store/useToastStore';
+
 // V.8 · `app/publicacion/editar` estaba al 0 %.
 //
 // Es la ruta con más piezas del producto: el formulario de dieciséis campos, la
@@ -71,6 +73,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockObtener.mockResolvedValue(PUBLICACION);
   mockActualizar.mockResolvedValue(PUBLICACION);
+  useToastStore.setState({ actual: null });
 });
 
 describe('precarga · regresión de 9aed935', () => {
@@ -112,6 +115,9 @@ describe('guardar', () => {
     // A la ficha, y con `replace`: volver atrás desde la ficha recién guardada
     // no debe devolver al formulario de edición.
     expect(mockReplace).toHaveBeenCalledWith('/publicacion/pub1');
+    // Paso 3 · editar terminaba saltando a la ficha sin decir que se guardó. El
+    // aviso es del host raíz, así que sigue en pantalla ya en la ficha.
+    expect(useToastStore.getState().actual).toMatchObject({ tipo: 'exito', mensaje: 'Cambios guardados' });
   });
 
   it('si guardar falla, NO navega y dice el motivo', async () => {
@@ -123,6 +129,8 @@ describe('guardar', () => {
     // cambios, convencida de que los guardó.
     await waitFor(() => expect(screen.getByText('No se pudo subir la foto')).toBeTruthy());
     expect(mockReplace).not.toHaveBeenCalled();
+    // Y no hay aviso de éxito: lo único que se avisa es el fallo, desde el formulario.
+    expect(useToastStore.getState().actual?.tipo).toBe('error');
   });
 });
 

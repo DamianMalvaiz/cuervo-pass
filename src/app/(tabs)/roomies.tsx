@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Switch, View } from 'react-native';
+import { FlatList, StyleSheet, Switch, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
@@ -17,6 +17,7 @@ import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuthStore } from '@/store/useAuthStore';
 import { aviso } from '@/lib/registro';
+import { toast } from '@/lib/toast';
 import { useGuardarMiRoomie, useMiRoomie, useRoomiesSugeridos } from '@/hooks/queries/useRoomies';
 
 // Documento maestro v5 · §11 (la tabla se llama `roomies`), §18, §25.
@@ -59,9 +60,9 @@ export default function RoomiesScreen() {
     const miId = session?.user.id;
     if (!miId) return;
     if (nuevoEstado && descripcion.trim().length < 10) {
-      Alert.alert(
-        'Falta tu descripción',
-        'Escribe qué buscas antes de activar la búsqueda: es lo que usamos para ordenar tu lista por afinidad.'
+      // No hay nada que decidir, solo que escribir: es un aviso, no una pregunta.
+      toast.info(
+        'Falta tu descripción. Escribe qué buscas antes de activar la búsqueda: es lo que usamos para ordenar tu lista por afinidad.'
       );
       return;
     }
@@ -71,11 +72,13 @@ export default function RoomiesScreen() {
         descripcionBusqueda: descripcion.trim() || 'Busco roomie.',
         estado: nuevoEstado ? 'activo' : 'cerrado',
       });
+      // Antes activar o apagar solo movía el interruptor. Dentro del `try`, para
+      // que un fallo no dé también el aviso de éxito.
+      toast.exito(nuevoEstado ? 'Búsqueda de roomie activada' : 'Búsqueda de roomie desactivada');
     } catch (e) {
       setBuscoRoomie(!nuevoEstado);
-      Alert.alert(
-        'No se pudo guardar',
-        'Revisa tu conexión e intenta de nuevo. Si el problema sigue, puede faltar aplicar una migración de la base de datos.'
+      toast.error(
+        'No se pudo guardar. Revisa tu conexión e intenta de nuevo. Si el problema sigue, puede faltar aplicar una migración de la base de datos.'
       );
       aviso('No se pudo guardar el roomie', undefined, e);
     }
@@ -85,7 +88,17 @@ export default function RoomiesScreen() {
     if (!miId || !buscoRoomie || descripcion.trim().length < 10) return;
     // Guardar la descripción regenera el vector de búsqueda: si no, la afinidad
     // seguiría calculándose contra el texto anterior.
-    await guardar.mutateAsync({ descripcionBusqueda: descripcion.trim(), estado: 'activo' });
+    //
+    // Sin `try`, un fallo era un rechazo SIN ATENDER: nadie veía nada y el
+    // indicador seguía diciendo «Sin guardar» sin explicar por qué. No hay aviso
+    // de éxito: el autoguardado ya tiene su indicador («Guardado»), y uno en cada
+    // salida del campo sería ruido.
+    try {
+      await guardar.mutateAsync({ descripcionBusqueda: descripcion.trim(), estado: 'activo' });
+    } catch (e) {
+      aviso('No se pudo guardar la descripción del roomie', undefined, e);
+      toast.error('No se pudo guardar la descripción. Revisa tu conexión e intenta de nuevo.');
+    }
   };
 
   const descripcionSinGuardar = (miRoomie?.descripcion_busqueda ?? '') !== descripcion;

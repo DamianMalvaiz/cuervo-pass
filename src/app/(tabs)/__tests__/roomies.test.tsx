@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
+import { useToastStore } from '@/store/useToastStore';
+
 // V.8 · `roomies.tsx`. Tres propiedades que ninguna prueba cubría y que se
 // rompen calladas:
 //
@@ -45,6 +47,7 @@ const DESCRIPCION = 'Busco cerca de la UTVT, no fumo, tengo gato.';
 beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  useToastStore.setState({ actual: null });
   mockRoomies.mockReturnValue({ roomies: [], cargando: false });
   mockMiRoomie.mockReturnValue({ miRoomie: null });
   mockMutar.mockResolvedValue(undefined);
@@ -61,8 +64,11 @@ const encender = async (valor = true) => {
 test('activar sin descripción avisa y NO guarda', async () => {
   await render(<RoomiesScreen />);
   await encender();
-  await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
-  expect((Alert.alert as jest.Mock).mock.calls[0][0]).toBe('Falta tu descripción');
+  // Paso 3 · se AVISA, no se pregunta: no hay nada que decidir, solo que escribir.
+  await waitFor(() => expect(useToastStore.getState().actual).not.toBeNull());
+  expect(useToastStore.getState().actual).toMatchObject({ tipo: 'info' });
+  expect(useToastStore.getState().actual?.mensaje).toContain('Falta tu descripción');
+  expect(Alert.alert).not.toHaveBeenCalled();
   expect(mockMutar).not.toHaveBeenCalled();
 });
 
@@ -96,12 +102,71 @@ test('si guardar falla, el interruptor vuelve y se dice', async () => {
   await render(<RoomiesScreen />);
   await encender();
 
-  await waitFor(() => expect((Alert.alert as jest.Mock).mock.calls[0][0]).toBe('No se pudo guardar'));
+  await waitFor(() => expect(useToastStore.getState().actual).not.toBeNull());
+  expect(useToastStore.getState().actual).toMatchObject({ tipo: 'error' });
+  expect(useToastStore.getState().actual?.mensaje).toContain('No se pudo guardar');
+  expect(Alert.alert).not.toHaveBeenCalled();
   // El interruptor vuelve a apagado: si se quedara encendido, afirmaría que la
   // ficha está activa cuando el servidor nunca la guardó.
   expect(screen.getByLabelText('Buscar roomie').props.value).toBe(false);
   // Y con él desaparece el campo, que solo existe con la búsqueda activa.
   expect(screen.queryByText('QUÉ BUSCAS')).toBeNull();
+});
+
+// Paso 3 · antes, activar o apagar la búsqueda solo movía el interruptor.
+test('activar la búsqueda se confirma con un aviso de éxito', async () => {
+  mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'cerrado' } });
+  await render(<RoomiesScreen />);
+  await encender();
+
+  expect(useToastStore.getState().actual).toMatchObject({
+    tipo: 'exito',
+    mensaje: 'Búsqueda de roomie activada',
+  });
+});
+
+test('apagar la búsqueda también se confirma', async () => {
+  mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'activo' } });
+  await render(<RoomiesScreen />);
+  await encender(false);
+
+  expect(useToastStore.getState().actual).toMatchObject({
+    tipo: 'exito',
+    mensaje: 'Búsqueda de roomie desactivada',
+  });
+});
+
+// La descripción se guarda al salir del campo, SIN preguntar. Si fallaba, el
+// rechazo quedaba sin atender: nadie veía nada y el indicador seguía diciendo
+// «Sin guardar» sin explicar por qué. Es el invariante 2 aplicado a una escritura.
+test('si guardar la descripción al salir del campo falla, se avisa', async () => {
+  mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'activo' } });
+  mockMutar.mockRejectedValue(new Error('sin red'));
+  await render(<RoomiesScreen />);
+
+  await act(async () => {
+    fireEvent(screen.getByPlaceholderText(/Zona, presupuesto/), 'blur');
+  });
+
+  await waitFor(() => expect(useToastStore.getState().actual).not.toBeNull());
+  expect(useToastStore.getState().actual).toMatchObject({
+    tipo: 'error',
+    mensaje: 'No se pudo guardar la descripción. Revisa tu conexión e intenta de nuevo.',
+  });
+});
+
+// El autoguardado ya tiene su indicador («Guardado»): un aviso de éxito en cada
+// salida del campo sería ruido.
+test('guardar la descripción bien NO lanza aviso: ya lo dice el indicador', async () => {
+  mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'activo' } });
+  await render(<RoomiesScreen />);
+
+  await act(async () => {
+    fireEvent(screen.getByPlaceholderText(/Zona, presupuesto/), 'blur');
+  });
+
+  expect(mockMutar).toHaveBeenCalled();
+  expect(useToastStore.getState().actual).toBeNull();
 });
 
 // La siembra de una sola vez. Un refresco del servidor NO debe pisar lo que se

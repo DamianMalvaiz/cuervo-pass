@@ -20,6 +20,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
 import { useCambiarEstadoPublicacion, useContactosRecibidos, useMisPublicaciones } from '@/hooks/queries/usePublicaciones';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
+import { toast } from '@/lib/toast';
 
 // Documento maestro v5 · §25 y §27.
 export default function PublicacionesScreen() {
@@ -54,17 +55,22 @@ export default function PublicacionesScreen() {
               // eso, la publicación desactivada seguiría en la lista hasta que
               // venciera el staleTime.
               await cambiarEstado.mutateAsync({ id: publicacion.id, activa: activar });
+              // Antes un cambio exitoso no decía nada: la publicación solo cambiaba
+              // de aspecto en la lista. Dentro del `try`, para que un fallo no dé
+              // también el aviso de éxito.
+              toast.exito(activar ? 'Publicación reactivada' : 'Publicación desactivada');
             } catch (e) {
               // AUD-26: el límite de 15 activas por cuenta se aplica al
               // reactivar igual que al crear.
-              Alert.alert(
-                'No se pudo cambiar el estado',
+              // Es un resultado, no una pregunta: va como aviso. El Alert que SÍ se
+              // queda es el de arriba, el que pide confirmar.
+              toast.error(
                 // END-27 · Por código. Con la subcadena, un servidor con
                 // locale distinto nunca entraba en esta rama y la persona leía
                 // «intenta de nuevo» ante un límite que no se mueve solo.
                 esCodigo(e, CP.LIMITE_PUBLICACIONES)
-                  ? 'Ya tienes 15 publicaciones activas. Desactiva alguna primero.'
-                  : 'Intenta de nuevo en un momento.'
+                  ? 'No se pudo cambiar el estado. Ya tienes 15 publicaciones activas. Desactiva alguna primero.'
+                  : 'No se pudo cambiar el estado. Intenta de nuevo en un momento.'
               );
             }
           },

@@ -15,6 +15,7 @@ import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { crearPublicacion } from '@/services/publicaciones.service';
 import { sello } from '@/lib/tacto';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export default function NuevaPublicacionScreen() {
@@ -68,6 +69,10 @@ export default function NuevaPublicacionScreen() {
               // existe, con su id. Es lo mismo que el sello del contacto —algo
               // quedó registrado— y por eso es la misma vibración.
               sello();
+              // La vibración confirma al tacto; el aviso, a la vista y al lector
+              // de pantalla. Sigue en pantalla ya en la ficha: el host es del
+              // layout raíz.
+              toast.exito('Publicación creada');
               router.replace(`/publicacion/${publicacion.id}`);
             }}
           />
