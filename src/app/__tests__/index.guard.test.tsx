@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 // El guardia de entrada · v5 §26. Estaba al 0 % de ramas con 17 de 17 sin
 // cubrir, y es el archivo que decide QUIÉN ENTRA A LA APP. Diecisiete ramas en
@@ -60,9 +60,11 @@ interface Cadena {
   maybeSingle: jest.Mock;
 }
 
-const consulta = (resultado?: { data: unknown }) => {
-  let resolver!: (v: { data: unknown }) => void;
-  const promesa = new Promise<{ data: unknown }>((r) => {
+type Respuesta = { data: unknown; error?: { message: string } | null };
+
+const consulta = (resultado?: Respuesta) => {
+  let resolver!: (v: Respuesta) => void;
+  const promesa = new Promise<Respuesta>((r) => {
     resolver = r;
     if (resultado) r(resultado);
   });
@@ -187,4 +189,96 @@ test('pregunta por cuestionario_completo del usuario de la sesión', async () =>
 test('sin sesión no consulta nada', async () => {
   await render(<Index />);
   expect(mockDesde).not.toHaveBeenCalled();
+});
+
+// ── Fallar no es «no hay dato» · invariante 2 · hallazgo 4 ───────────────────
+
+// El defecto. La consulta ignoraba `error`: con la red caída `data` era null,
+// `Boolean(null?.cuestionario_completo)` es false, y alguien que YA completó el
+// cuestionario era mandado a repetirlo —y a sobrescribir sus preferencias— por
+// un fallo de wifi. Un fallo de lectura jamás debe presentarse como contenido
+// borrado.
+test('si la lectura FALLA, no manda al cuestionario ni a las pestañas', async () => {
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  mockAuth.session = SESION;
+  mockDesde.mockReturnValue(
+    consulta({ data: null, error: { message: 'network request failed' } }).cadena
+  );
+
+  await render(<Index />);
+
+  // Primero lo que importa, esperando a que la consulta ya se haya resuelto: así
+  // el rojo apunta a la redirección equivocada y no solo a un texto que falta.
+  await waitFor(() => expect(mockDesde).toHaveBeenCalledTimes(1));
+  await act(async () => {});
+  expect(mockRedirigir).not.toHaveBeenCalled();
+  expect(await screen.findByText(/No pudimos comprobar tu cuenta/)).toBeTruthy();
+});
+
+// Segundo hueco del mismo `.then`: sin `.catch`, una excepción dejaba el
+// indicador de carga girando para siempre, sin salida.
+test('si la consulta LANZA, tampoco se queda cargando para siempre', async () => {
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  mockAuth.session = SESION;
+  const c: Cadena = {
+    select: jest.fn(() => c),
+    eq: jest.fn(() => c),
+    maybeSingle: jest.fn(() => Promise.reject(new Error('se cayó la red'))),
+  };
+  mockDesde.mockReturnValue(c);
+
+  await render(<Index />);
+
+  expect(await screen.findByText(/No pudimos comprobar tu cuenta/)).toBeTruthy();
+  expect(mockRedirigir).not.toHaveBeenCalled();
+});
+
+// La salida del estado de error: sin ella la persona queda atrapada en una
+// pantalla que no se puede cerrar.
+test('Reintentar vuelve a preguntar y, si ahora responde, entra', async () => {
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  mockAuth.session = SESION;
+  mockDesde
+    .mockReturnValueOnce(consulta({ data: null, error: { message: 'sin red' } }).cadena)
+    .mockReturnValue(consulta({ data: { cuestionario_completo: true } }).cadena);
+
+  await render(<Index />);
+  fireEvent.press(await screen.findByLabelText('Reintentar'));
+
+  await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/inicio'));
+  expect(mockDesde).toHaveBeenCalledTimes(2);
+});
+
+// Reintentar no puede mandar al cuestionario si vuelve a fallar.
+test('si Reintentar vuelve a fallar, sigue en el aviso y no redirige', async () => {
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  mockAuth.session = SESION;
+  mockDesde.mockImplementation(() => consulta({ data: null, error: { message: 'sin red' } }).cadena);
+
+  await render(<Index />);
+  fireEvent.press(await screen.findByLabelText('Reintentar'));
+
+  await waitFor(() => expect(mockDesde).toHaveBeenCalledTimes(2));
+  expect(await screen.findByText(/No pudimos comprobar tu cuenta/)).toBeTruthy();
+  expect(mockRedirigir).not.toHaveBeenCalled();
+});
+
+// El resultado lleva el id de quien lo pidió. Si la sesión cambia a otra cuenta
+// con la pregunta nueva todavía en vuelo, la respuesta de la cuenta anterior no
+// puede decidir el destino de la nueva: Ana ya completó el cuestionario, Beto
+// quizá no, y mandar a Beto a las pestañas por lo que contestó Ana es abrirle una
+// app sin su ficha.
+test('al cambiar de cuenta no se reutiliza la respuesta de la anterior', async () => {
+  mockAuth.session = { user: { id: 'u1' } };
+  mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true } }).cadena);
+
+  const { rerender } = await render(<Index />);
+  await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/inicio'));
+
+  mockRedirigir.mockClear();
+  mockAuth.session = { user: { id: 'u2' } };
+  mockDesde.mockReturnValue(consulta().cadena); // la de u2, todavía en vuelo
+  await rerender(<Index />);
+
+  expect(mockRedirigir).not.toHaveBeenCalled();
 });
