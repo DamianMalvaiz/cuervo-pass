@@ -8,6 +8,7 @@ import { ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { Sello } from '@/components/ficha/Sello';
+import { ToastHost } from '@/components/ToastHost';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Spacing, Tipografia } from '@/constants/theme';
@@ -123,6 +124,8 @@ export default function RootLayout() {
             después. Con cabecera para que haya "atrás" sin gestos. */}
         <Stack.Screen name="aviso-privacidad" options={{ ...encabezado, title: 'Aviso de privacidad' }} />
       </Stack>
+      {/* Después del Stack: se pinta encima de cualquier pantalla. Un solo host. */}
+      <ToastHost />
     </ThemeProvider>
     </QueryClientProvider>
   );

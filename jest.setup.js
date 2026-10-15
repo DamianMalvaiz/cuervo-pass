@@ -33,7 +33,7 @@ jest.mock('react-native-reanimated', () => {
     default: { View, Text, ScrollView, Image, createAnimatedComponent: (C) => C },
     View, Text, ScrollView, Image,
     createAnimatedComponent: (C) => C,
-    FadeIn: paso(), FadeOut: paso(), FadeInDown: paso(), FadeInUp: paso(),
+    FadeIn: paso(), FadeOut: paso(), FadeInDown: paso(), FadeInUp: paso(), FadeOutUp: paso(),
     SlideInRight: paso(), SlideOutLeft: paso(), Layout: paso(), LinearTransition: paso(),
     useSharedValue: (v) => ({ value: v }),
     useAnimatedStyle: (fn) => (typeof fn === 'function' ? fn() : {}),
