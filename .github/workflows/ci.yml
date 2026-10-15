@@ -37,7 +37,14 @@ jobs:
   secretos:
     runs-on: ubuntu-latest
     steps:
+      # Historial COMPLETO, no el checkout superficial por omisión. En un push, la acción
+      # de gitleaks escanea el rango `<primer commit>^..<último>`; sin el padre del primero
+      # falla con «unknown revision» y «0 commits scanned», o sea que el job se pone en rojo
+      # sin haber escaneado nada. No se notó mientras los pushes eran de un commit: el
+      # primero de varios lo rompió. Reproducido con un clon `--depth 1`.
+      # test-utils/__tests__/ci-gitleaks-historial-completo.test.ts lo comprueba.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.3.0
+        with: { fetch-depth: 0 }
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
         with: { node-version: 20 }
       - run: node scripts/verificar-env.mjs .env.example .env.server.example
