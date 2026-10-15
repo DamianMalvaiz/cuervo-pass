@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.3.0
         with: { fetch-depth: 0 }
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
-        with: { node-version: 20 }
+        with: { node-version: 24 }
       - run: node scripts/verificar-env.mjs .env.example .env.server.example
       # Escaneo de secretos sobre el repositorio. Trivy (job `imagen`) mira la
       # imagen de Docker; nadie miraba el arbol, en un proyecto cuyo tema
@@ -90,7 +90,15 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.3.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
-        with: { node-version: 20, cache: npm }
+        # Node 24, el mismo que se usa para desarrollar, y no 20: `@supabase/supabase-js` y
+        # `@supabase/realtime-js` declaran `engines.node >= 22` porque necesitan el WebSocket
+        # nativo de Node 22. Con Node 20, `createClient` lanza «native WebSocket not found» y
+        # las seis suites que importan el cliente real ni arrancan (66 pruebas sin
+        # ejecutarse). Quedó oculto porque el job fallaba antes, en `npm audit`, y nunca
+        # llegaba a las pruebas. React Native 0.86 admite 20.19, 22.13 y 24.3.
+        # test-utils/__tests__/ci-node-cumple-las-dependencias.test.ts lee el mínimo del
+        # paquete instalado, no de un número copiado aquí.
+        with: { node-version: 24, cache: npm }
       # §33.3: `npm ci` instala exactamente el package-lock.json. `npm install`
       # puede resolver versiones distintas y hacer que CI y la laptop difieran,
       # que es el peor lugar donde descubrir una diferencia.
