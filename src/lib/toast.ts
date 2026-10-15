@@ -13,9 +13,13 @@
 // Un fallo se dice como fallo (invariante 2): `toast.error`, nunca `toast.info`
 // con un texto suave que lo disfrace de otra cosa.
 
-import { useToastStore } from '@/store/useToastStore';
+import { useToastStore, type AccionToast } from '@/store/useToastStore';
 
-type Opciones = { duracionMs?: number };
+type Opciones = {
+  duracionMs?: number;
+  /** Un botón en el aviso, p. ej. «Ajustes». Al pulsarlo se ejecuta y el aviso se cierra. */
+  accion?: AccionToast;
+};
 
 export const toast = {
   /** Algo quedó hecho. */

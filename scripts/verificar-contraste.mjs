@@ -56,12 +56,17 @@ const PARES = [
   ['texto', 'textSecondary', 'background'],
   ['texto', 'textSecondary', 'backgroundElement'],
   ['texto', 'acento', 'background'],
+  // El botón de acción del aviso ("Ajustes") va en ámbar sobre la superficie del aviso.
+  ['texto', 'acento', 'backgroundElement'],
   ['texto', 'error', 'background'],
   ['texto', 'exito', 'background'],
   ['texto', 'errorTexto', 'error'],
   // Bordes de control.
   ['control', 'border', 'background'],
   ['control', 'border', 'backgroundElement'],
+  // El borde y el icono del aviso (éxito y error) sobre su superficie.
+  ['control', 'exito', 'backgroundElement'],
+  ['control', 'error', 'backgroundElement'],
   // Superficie contra superficie: lo que nunca se midió.
   ['superficie', 'backgroundElement', 'background'],
   ['superficie', 'backgroundSelected', 'background'],

@@ -13,7 +13,7 @@ jest.mock('@/hooks/use-movimiento-reducido', () => ({ useMovimientoReducido: () 
 
 import { ToastHost } from '@/components/ToastHost';
 import { toast } from '@/lib/toast';
-import { DURACION_MS, useToastStore } from '@/store/useToastStore';
+import { DURACION_CON_ACCION_MS, DURACION_MS, useToastStore } from '@/store/useToastStore';
 
 const avanzar = (ms: number) =>
   act(async () => {
@@ -150,5 +150,110 @@ describe('accesibilidad', () => {
     });
     await rerender(<ToastHost />);
     expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── Aviso con acción ─────────────────────────────────────────────────────────
+// «Ajustes» en el aviso de permiso denegado. Un botón dentro de un aviso que se
+// cierra solo tiene tres maneras de salir mal: que no se pueda alcanzar con un
+// lector de pantalla, que tocarlo cierre sin hacer nada, o que desaparezca antes
+// de poder pulsarlo.
+describe('aviso con acción', () => {
+  const conAccion = (onPress = jest.fn()) => {
+    toast.error('Necesitamos permiso para acceder a tus fotos', {
+      accion: { etiqueta: 'Ajustes', onPress },
+    });
+    return onPress;
+  };
+
+  test('muestra el botón con su etiqueta, junto al mensaje', async () => {
+    await render(<ToastHost />);
+    await act(async () => {
+      conAccion();
+    });
+
+    expect(screen.getByText('Necesitamos permiso para acceder a tus fotos')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ajustes' })).toBeTruthy();
+  });
+
+  test('sin acción no hay botón', async () => {
+    await render(<ToastHost />);
+    await act(async () => {
+      toast.error('No se pudo guardar');
+    });
+
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  test('pulsar la acción la ejecuta UNA vez y cierra el aviso', async () => {
+    await render(<ToastHost />);
+    let onPress!: jest.Mock;
+    await act(async () => {
+      onPress = conAccion();
+    });
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Ajustes' }));
+
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Necesitamos permiso para acceder a tus fotos')).toBeNull();
+  });
+
+  // El cuerpo cierra; solo el botón actúa. Si tocar el texto ejecutara la acción,
+  // quien solo quiere quitar el aviso acabaría abriendo los Ajustes del teléfono.
+  test('tocar el mensaje cierra el aviso SIN ejecutar la acción', async () => {
+    await render(<ToastHost />);
+    let onPress!: jest.Mock;
+    await act(async () => {
+      onPress = conAccion();
+    });
+
+    await fireEvent.press(screen.getByText('Necesitamos permiso para acceder a tus fotos'));
+
+    expect(onPress).not.toHaveBeenCalled();
+    expect(screen.queryByText('Necesitamos permiso para acceder a tus fotos')).toBeNull();
+  });
+
+  // La acción puede fallar (abrir Ajustes no es de fiar en todos los teléfonos).
+  // Que falle no puede dejar un aviso colgado ni tumbar la pantalla.
+  test('si la acción lanza, el aviso se cierra igual y no se propaga', async () => {
+    await render(<ToastHost />);
+    await act(async () => {
+      conAccion(
+        jest.fn(() => {
+          throw new Error('no se pudo abrir');
+        })
+      );
+    });
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Ajustes' }));
+
+    expect(screen.queryByText('Necesitamos permiso para acceder a tus fotos')).toBeNull();
+  });
+
+  // Un aviso con botón obliga a leer, decidir y alcanzar el botón.
+  test('con acción dura más que un error sin ella', async () => {
+    await render(<ToastHost />);
+    await act(async () => {
+      conAccion();
+    });
+
+    await avanzar(DURACION_MS.error + 500);
+    expect(screen.getByRole('button', { name: 'Ajustes' })).toBeTruthy();
+
+    await avanzar(DURACION_CON_ACCION_MS);
+    expect(screen.queryByRole('button', { name: 'Ajustes' })).toBeNull();
+  });
+
+  // El lector de pantalla tiene que saber que hay algo que pulsar: el anuncio es
+  // solo del texto, y sin esto el botón existe pero nadie sabe que hay que buscarlo.
+  test('el anuncio dice que hay una acción disponible', async () => {
+    await render(<ToastHost />);
+    await act(async () => {
+      conAccion();
+    });
+
+    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(
+      'Necesitamos permiso para acceder a tus fotos. Acción disponible: Ajustes.'
+    );
   });
 });

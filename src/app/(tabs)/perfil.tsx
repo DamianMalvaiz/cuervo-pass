@@ -28,6 +28,7 @@ import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTheme } from '@/hooks/use-theme';
+import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 import { subirFotoPerfil } from '@/lib/storage';
 import { toast } from '@/lib/toast';
 import { eliminarMiCuenta, exportarMisDatos } from '@/services/usuarios.service';
@@ -83,10 +84,9 @@ export default function PerfilScreen() {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
       // En la ficha Y como aviso: el texto de la ficha puede estar fuera de la
-      // vista si se ha deslizado.
-      const mensaje = 'Necesitamos permiso para acceder a tus fotos';
-      setError(mensaje);
-      toast.error(mensaje);
+      // vista si se ha deslizado. Con «Ajustes» cuando el sistema ya no volverá a
+      // preguntar.
+      setError(avisarPermisoDeFotosDenegado(permiso.canAskAgain));
       return;
     }
     const resultado = await ImagePicker.launchImageLibraryAsync({

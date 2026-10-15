@@ -4,7 +4,7 @@
 // vuelven nueve segundos de pantalla ocupada con mensajes que ya no son lo que
 // pasó; con reemplazo, siempre se ve lo más reciente.
 
-import { DURACION_MS, useToastStore } from '../useToastStore';
+import { DURACION_CON_ACCION_MS, DURACION_MS, useToastStore } from '../useToastStore';
 import { toast } from '@/lib/toast';
 
 beforeEach(() => {
@@ -79,5 +79,46 @@ describe('toast.*', () => {
     toast.exito('A');
     toast.descartar();
     expect(useToastStore.getState().actual).toBeNull();
+  });
+});
+
+// ── Aviso con acción ─────────────────────────────────────────────────────────
+// Un aviso que ofrece hacer algo —«Ajustes»— tiene que dar tiempo de decidir. Si
+// desaparece antes de poder leerlo y pulsar, la acción no existió (WCAG 2.2.1).
+describe('aviso con acción', () => {
+  const accion = { etiqueta: 'Ajustes', onPress: jest.fn() };
+
+  test('guarda la acción en el aviso', () => {
+    useToastStore.getState().mostrar('error', 'Sin permiso', { accion });
+    expect(useToastStore.getState().actual?.accion).toBe(accion);
+  });
+
+  test('sin acción no hay acción', () => {
+    useToastStore.getState().mostrar('error', 'Sin permiso');
+    expect(useToastStore.getState().actual?.accion).toBeUndefined();
+  });
+
+  test('con acción dura al menos lo que se necesita para decidir, aunque el tipo dure menos', () => {
+    useToastStore.getState().mostrar('exito', 'Listo', { accion });
+    expect(useToastStore.getState().actual?.duracionMs).toBe(DURACION_CON_ACCION_MS);
+    expect(DURACION_CON_ACCION_MS).toBeGreaterThan(DURACION_MS.exito);
+  });
+
+  // El que ya dura más no se acorta por tener acción.
+  test('un tipo que ya dura más no se acorta', () => {
+    useToastStore.getState().mostrar('error', 'Sin permiso', { accion });
+    expect(useToastStore.getState().actual?.duracionMs).toBe(
+      Math.max(DURACION_MS.error, DURACION_CON_ACCION_MS)
+    );
+  });
+
+  test('la duración propia sigue mandando sobre todo', () => {
+    useToastStore.getState().mostrar('error', 'Sin permiso', { accion, duracionMs: 1000 });
+    expect(useToastStore.getState().actual?.duracionMs).toBe(1000);
+  });
+
+  test('toast.error pasa la acción', () => {
+    toast.error('Sin permiso', { accion });
+    expect(useToastStore.getState().actual).toMatchObject({ tipo: 'error', accion });
   });
 });

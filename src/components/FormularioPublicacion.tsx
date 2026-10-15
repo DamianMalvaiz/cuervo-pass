@@ -15,6 +15,7 @@ import type { Desplazador } from '@/hooks/use-desplazador';
 import { useDesplazarAlError } from '@/hooks/use-desplazar-al-error';
 import { buscarPorCodigoPostal } from '@/lib/direccionMx';
 import { buscarCalles } from '@/lib/mapboxAutocomplete';
+import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 import { resumenDeErrores } from '@/lib/resumenErrores';
 import { toast } from '@/lib/toast';
 import type { FotoEntrada } from '@/services/publicaciones.service';
@@ -440,9 +441,9 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
   const onAgregarFotos = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
-      const mensaje = 'Necesitamos permiso para acceder a tus fotos';
-      setError(mensaje);
-      toast.error(mensaje);
+      // Aviso con «Ajustes» cuando el sistema ya no volverá a preguntar; el texto
+      // queda también en el formulario.
+      setError(avisarPermisoDeFotosDenegado(permiso.canAskAgain));
       return;
     }
     const resultado = await ImagePicker.launchImageLibraryAsync({

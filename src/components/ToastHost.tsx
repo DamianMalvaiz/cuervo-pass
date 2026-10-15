@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { Filete, MaxContentWidth, Radios, Spacing } from '@/constants/theme';
 import { useMovimientoReducido } from '@/hooks/use-movimiento-reducido';
+import { aviso } from '@/lib/registro';
 import { useTheme } from '@/hooks/use-theme';
 import { useToastStore, type TipoToast } from '@/store/useToastStore';
 
@@ -51,6 +52,7 @@ export function ToastHost() {
   const id = actual?.id;
   const duracionMs = actual?.duracionMs;
   const mensaje = actual?.mensaje;
+  const etiquetaAccion = actual?.accion?.etiqueta;
 
   useEffect(() => {
     if (id === undefined || duracionMs === undefined) return;
@@ -59,12 +61,29 @@ export function ToastHost() {
   }, [id, duracionMs, descartar]);
 
   useEffect(() => {
-    if (id !== undefined && mensaje) AccessibilityInfo.announceForAccessibility(mensaje);
-  }, [id, mensaje]);
+    if (id === undefined || !mensaje) return;
+    // Con acción, el anuncio lo dice: sin esto el botón existe pero quien usa un
+    // lector de pantalla no sabe que hay algo que pulsar.
+    AccessibilityInfo.announceForAccessibility(
+      etiquetaAccion ? `${mensaje}. Acción disponible: ${etiquetaAccion}.` : mensaje
+    );
+  }, [id, mensaje, etiquetaAccion]);
 
   if (!actual) return null;
 
   const animar = reducido === false;
+
+  // Se cierra PRIMERO y se ejecuta después: si la acción lanza, el aviso ya no está
+  // colgado. Abrir los Ajustes del teléfono no es de fiar en todos los dispositivos.
+  const ejecutarAccion = () => {
+    const accion = actual.accion;
+    descartar(actual.id);
+    try {
+      accion?.onPress();
+    } catch (e) {
+      aviso('La acción del aviso falló', { etiqueta: accion?.etiqueta }, e);
+    }
+  };
   const colorBorde =
     actual.tipo === 'exito' ? theme.exito : actual.tipo === 'error' ? theme.error : theme.border;
 
@@ -81,21 +100,40 @@ export function ToastHost() {
         exiting={animar ? FadeOutUp.duration(MS_ANIMACION) : undefined}
         style={estilos.columna}
       >
-        <Pressable
-          onPress={() => descartar(actual.id)}
-          accessibilityRole={actual.tipo === 'error' ? 'alert' : undefined}
-          accessibilityLiveRegion={actual.tipo === 'error' ? 'assertive' : 'polite'}
-          accessibilityHint="Toca para cerrar"
+        <View
           style={[
             estilos.aviso,
             { backgroundColor: theme.backgroundElement, borderColor: colorBorde },
           ]}
         >
-          <Ionicons name={ICONO[actual.tipo]} size={22} color={colorBorde} />
-          <ThemedText type="small" style={estilos.texto}>
-            {actual.mensaje}
-          </ThemedText>
-        </Pressable>
+          {/* El cuerpo y el botón son HERMANOS y no uno dentro del otro: un
+              Pressable que agrupa a sus hijos para el lector de pantalla (iOS) deja
+              el botón inalcanzable. Tocar el cuerpo cierra; solo el botón actúa. */}
+          <Pressable
+            onPress={() => descartar(actual.id)}
+            accessibilityRole={actual.tipo === 'error' ? 'alert' : undefined}
+            accessibilityLiveRegion={actual.tipo === 'error' ? 'assertive' : 'polite'}
+            accessibilityHint="Toca para cerrar"
+            style={estilos.cuerpo}
+          >
+            <Ionicons name={ICONO[actual.tipo]} size={22} color={colorBorde} />
+            <ThemedText type="small" style={estilos.texto}>
+              {actual.mensaje}
+            </ThemedText>
+          </Pressable>
+          {actual.accion && (
+            <Pressable
+              onPress={ejecutarAccion}
+              accessibilityRole="button"
+              accessibilityLabel={actual.accion.etiqueta}
+              style={estilos.accion}
+            >
+              <ThemedText type="smallBold" style={{ color: theme.acento }}>
+                {actual.accion.etiqueta}
+              </ThemedText>
+            </Pressable>
+          )}
+        </View>
       </Animated.View>
     </View>
   );
@@ -115,10 +153,21 @@ const estilos = StyleSheet.create({
   aviso: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
-    padding: Spacing.three,
     borderWidth: Filete.fino,
     borderRadius: Radios.control,
   },
+  cuerpo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    padding: Spacing.three,
+  },
   texto: { flex: 1 },
+  // 44 pt: Invariante 8. El padding no basta, el alto del texto es de 20.
+  accion: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+  },
 });

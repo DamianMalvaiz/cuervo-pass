@@ -179,6 +179,30 @@ test('sin permiso de fotos se explica y no se intenta subir nada', async () => {
   expect(mockSubirFoto).not.toHaveBeenCalled();
 });
 
+// «Ajustes» solo si el sistema ya no volverá a preguntar: con el permiso denegado
+// para siempre, tocar la foto otra vez no hace nada y nadie sabe dónde darlo.
+test('si el sistema ya no volverá a preguntar, el aviso ofrece «Ajustes»', async () => {
+  mockPermiso.mockResolvedValue({ granted: false, canAskAgain: false });
+  await pintar();
+  await act(async () => {
+    fireEvent.press(screen.getByLabelText('Agregar una foto de perfil'));
+  });
+
+  await screen.findByText('Necesitamos permiso para acceder a tus fotos');
+  expect(useToastStore.getState().actual?.accion?.etiqueta).toBe('Ajustes');
+});
+
+test('si todavía puede preguntar, el aviso NO ofrece «Ajustes»', async () => {
+  mockPermiso.mockResolvedValue({ granted: false, canAskAgain: true });
+  await pintar();
+  await act(async () => {
+    fireEvent.press(screen.getByLabelText('Agregar una foto de perfil'));
+  });
+
+  await screen.findByText('Necesitamos permiso para acceder a tus fotos');
+  expect(useToastStore.getState().actual?.accion).toBeUndefined();
+});
+
 test('cancelar el selector no sube nada ni muestra error', async () => {
   await pintar();
   await act(async () => {

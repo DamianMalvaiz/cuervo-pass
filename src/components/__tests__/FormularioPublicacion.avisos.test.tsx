@@ -121,6 +121,36 @@ test('sin permiso para las fotos, avisa', async () => {
   });
 });
 
+// «Ajustes» solo si el sistema ya no volverá a preguntar. Con el permiso denegado
+// para siempre, el aviso sin salida deja a la persona sin camino: tocar el botón
+// otra vez no hace nada, y nadie sabe que el permiso se da en los ajustes.
+test('si el sistema ya no volverá a preguntar, el aviso ofrece «Ajustes»', async () => {
+  (ImagePicker.requestMediaLibraryPermissionsAsync as jest.Mock).mockResolvedValue({
+    granted: false,
+    canAskAgain: false,
+  });
+  await render(<FormularioPublicacion onGuardar={jest.fn()} textoBoton="Guardar" />);
+
+  await fireEvent.press(screen.getByLabelText('Agregar foto'));
+
+  await waitFor(() => expect(aviso()).not.toBeNull());
+  expect(aviso()?.accion?.etiqueta).toBe('Ajustes');
+});
+
+test('si todavía puede preguntar, el aviso NO ofrece «Ajustes»', async () => {
+  (ImagePicker.requestMediaLibraryPermissionsAsync as jest.Mock).mockResolvedValue({
+    granted: false,
+    canAskAgain: true,
+  });
+  await render(<FormularioPublicacion onGuardar={jest.fn()} textoBoton="Guardar" />);
+
+  await fireEvent.press(screen.getByLabelText('Agregar foto'));
+
+  await waitFor(() => expect(aviso()).not.toBeNull());
+  expect(aviso()?.mensaje).toBe('Necesitamos permiso para acceder a tus fotos');
+  expect(aviso()?.accion).toBeUndefined();
+});
+
 // ── Por el ref: AL FINAL ─────────────────────────────────────────────────────
 
 test('enviar con campos inválidos avisa CUÁLES, en el orden de la pantalla', async () => {
