@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, type FieldErrors } from 'react-hook-form';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { resumenDeErrores } from '@/lib/resumenErrores';
+import { toast } from '@/lib/toast';
 import { OPCION_OTRA_UNIVERSIDAD, UNIVERSIDADES } from '@/lib/universidades';
 import { Campo } from './Campo';
 import { Casilla } from './Casilla';
@@ -53,6 +55,23 @@ const esquema = z
   });
 
 type FormCuestionario = z.infer<typeof esquema>;
+
+// Cómo se llama cada campo en el aviso de «revisa…», en el orden de la PANTALLA.
+// `satisfies` exige que estén todos y ninguno de más: añadir un campo al esquema
+// sin etiqueta no compila.
+const ETIQUETAS = {
+  universidadId: 'Universidad',
+  universidadOtroNombre: 'Nombre de la universidad',
+  presupuestoMin: 'Presupuesto mínimo',
+  presupuestoMax: 'Presupuesto máximo',
+  distanciaMaxKm: 'Distancia máxima',
+  nivelRuido: 'Nivel de ruido',
+  mascotas: 'Mascotas',
+  fuma: 'Fuma',
+  buscaRoomie: 'Busca roomie',
+  textoLibre: 'Texto libre',
+  consienteIa: 'Consentimiento de IA',
+} satisfies Record<keyof FormCuestionario, string>;
 
 export interface RespuestasCuestionario {
   universidad: string;
@@ -127,7 +146,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
   const universidadIdSeleccionada = watch('universidadId');
   const esOtra = universidadIdSeleccionada === OPCION_OTRA_UNIVERSIDAD;
 
-  useImperativeHandle(ref, () => ({ enviar: () => handleSubmit(onSubmit)() }));
+  useImperativeHandle(ref, () => ({ enviar: () => handleSubmit(onSubmit, onInvalid)() }));
 
   useEffect(() => {
     onEstadoEnvio?.(enviando);
@@ -152,10 +171,22 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
         consienteIa: valores.consienteIa,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo guardar el cuestionario');
+      // En el formulario Y como aviso: el del formulario se pinta al final, a
+      // pantallas del botón fijo donde se tocó.
+      const mensaje = e instanceof Error ? e.message : 'No se pudo guardar el cuestionario';
+      setError(mensaje);
+      toast.error(mensaje);
     } finally {
       setEnviando(false);
     }
+  };
+
+  // Tocar el botón con un campo mal no mostraba nada a la vista: el error sale
+  // bajo su campo, que puede estar fuera de pantalla. El aviso dice DÓNDE mirar;
+  // el campo, QUÉ está mal.
+  const onInvalid = (errores: FieldErrors<FormCuestionario>) => {
+    const resumen = resumenDeErrores(errores, ETIQUETAS);
+    if (resumen) toast.error(resumen);
   };
 
   /** Atajos de distancia. Teclear "5" en un campo numérico es peor que tocarlo,
@@ -425,7 +456,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
       )}
 
       {!botonEnPie && (
-        <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel={textoBoton}>
+        <Sello onPress={handleSubmit(onSubmit, onInvalid)} cargando={enviando} accessibilityLabel={textoBoton}>
           {textoBoton}
         </Sello>
       )}

@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, type FieldErrors } from 'react-hook-form';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
@@ -11,6 +11,8 @@ import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { buscarPorCodigoPostal } from '@/lib/direccionMx';
 import { buscarCalles } from '@/lib/mapboxAutocomplete';
+import { resumenDeErrores } from '@/lib/resumenErrores';
+import { toast } from '@/lib/toast';
 import type { FotoEntrada } from '@/services/publicaciones.service';
 import type { TipoPublicacion } from '@/types/database.types';
 import { FileteHoja } from './ficha/CampoFicha';
@@ -64,6 +66,29 @@ const esquema = z.object({
 });
 
 type FormPublicacion = z.infer<typeof esquema>;
+
+// Cómo se llama cada campo en el aviso de «revisa…». En el orden de la PANTALLA:
+// de ahí sale el orden de la frase. `satisfies` exige que estén TODOS y ninguno
+// de más: añadir un campo al esquema sin etiqueta no compila.
+const ETIQUETAS = {
+  titulo: 'Título',
+  tipo: 'Tipo',
+  calle: 'Calle',
+  numeroExterior: 'Número exterior',
+  numeroInterior: 'Número interior',
+  codigoPostal: 'Código postal',
+  colonia: 'Colonia',
+  localidad: 'Localidad',
+  municipio: 'Municipio',
+  estado: 'Estado',
+  precioRenta: 'Precio',
+  descripcion: 'Descripción',
+  recamaras: 'Recámaras',
+  permiteMascotas: 'Mascotas',
+  amueblado: 'Amueblado',
+  serviciosIncluidos: 'Servicios incluidos',
+  whatsapp: 'WhatsApp',
+} satisfies Record<keyof FormPublicacion, string>;
 
 // Forma externa que ya consumen publicacion/nueva.tsx y publicacion/editar/[id].tsx
 // — se mantiene igual (un solo `direccion`) para no tener que tocar el servicio
@@ -387,7 +412,9 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
   const onAgregarFotos = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
-      setError('Necesitamos permiso para acceder a tus fotos');
+      const mensaje = 'Necesitamos permiso para acceder a tus fotos';
+      setError(mensaje);
+      toast.error(mensaje);
       return;
     }
     const resultado = await ImagePicker.launchImageLibraryAsync({
@@ -423,15 +450,28 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
         fotos,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo guardar la publicación');
+      // El mensaje queda en el formulario Y se avisa: el del formulario se pinta
+      // al FINAL de todo, a pantallas del botón fijo donde se tocó.
+      const mensaje = e instanceof Error ? e.message : 'No se pudo guardar la publicación';
+      setError(mensaje);
+      toast.error(mensaje);
     } finally {
       setEnviando(false);
     }
   };
 
+  // Tocar «Publicar» con un campo mal no mostraba NADA a la vista: el error sale
+  // bajo su campo, que puede estar fuera de pantalla. Esto dice cuántos y
+  // cuáles. El error junto al campo se queda: el aviso dice DÓNDE mirar, el campo
+  // dice QUÉ está mal.
+  const onInvalid = (errores: FieldErrors<FormPublicacion>) => {
+    const resumen = resumenDeErrores(errores, ETIQUETAS);
+    if (resumen) toast.error(resumen);
+  };
+
   // DESPUÉS de onSubmit y de useForm, no antes: referenciar `handleSubmit`
   // arriba del archivo lo lee en su zona muerta temporal y revienta al montar.
-  useImperativeHandle(ref, () => ({ enviar: () => handleSubmit(onSubmit)() }));
+  useImperativeHandle(ref, () => ({ enviar: () => handleSubmit(onSubmit, onInvalid)() }));
 
   useEffect(() => {
     onEstadoEnvio?.(enviando);
@@ -828,7 +868,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
       {/* Publicar SÍ compromete: escribe la fila, sube las fotos y geocodifica.
           Es el único ámbar del formulario. */}
       {!botonEnPie && (
-        <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel={textoBoton}>
+        <Sello onPress={handleSubmit(onSubmit, onInvalid)} cargando={enviando} accessibilityLabel={textoBoton}>
           {textoBoton}
         </Sello>
       )}
