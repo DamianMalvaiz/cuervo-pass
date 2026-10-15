@@ -275,7 +275,7 @@ antes. Nunca registres una cuenta real delante del evaluador.
 
 | Archivo | Qué es |
 |---|---|
-| [docs/cola-de-trabajo.md](docs/cola-de-trabajo.md) | **Lo que falta.** Ordenes ejecutables con defecto, aceptacion y verificacion. Empieza aqui |
+| [docs/cola-de-trabajo.md](docs/cola-de-trabajo.md) | Las **reglas de trabajo** y las ordenes del 20/09/2026 (una instantanea: sus cifras envejecieron, el estado actual se consulta con los comandos de «Terminado significa esto»). Los pendientes posteriores, en `docs/auditoria-27-09-2026.md` y `docs/bitacora-semanal.md` |
 | [docs/endurecimiento-v6.md](docs/endurecimiento-v6.md) | Auditoria de la implementacion: END-01 a END-40, todos remediados. Se lee para saber POR QUE algo esta como esta, no para saber que hacer |
 | [PRODUCT.md](PRODUCT.md) | Usuarios, alcance, principios de producto |
 | [DESIGN.md](DESIGN.md) | Sistema visual "La Ficha": color, tipografía, componentes |

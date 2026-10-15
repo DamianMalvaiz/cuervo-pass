@@ -2,7 +2,7 @@
 
 App móvil para que alumnos universitarios encuentren departamento y compañeros de vivienda compatibles, usando un motor de sugerencias que combina filtros duros con matching semántico por embeddings.
 
-Construida contra el **documento maestro v5**, que audita el diseño anterior y corrige veintiocho hallazgos (`AUD-01`), y endurecida después contra [`docs/endurecimiento-v6.md`](docs/endurecimiento-v6.md), que auditó el sistema **en ejecución** y encontró treinta y ocho más (`END-01`). Los comentarios del código citan las secciones (`§17`) y los hallazgos de los dos documentos, con el número al lado del arreglo.
+Construida contra el **documento maestro v5**, que audita el diseño anterior y corrige veintiocho hallazgos (`AUD-01`), y endurecida después contra [`docs/endurecimiento-v6.md`](docs/endurecimiento-v6.md), que auditó el sistema **en ejecución** y encontró cuarenta más (`END-01` a `END-40`). Los comentarios del código citan las secciones (`§17`) y los hallazgos de los dos documentos, con el número al lado del arreglo.
 
 ## El problema
 
@@ -40,7 +40,7 @@ Un alumno de nuevo ingreso no conoce la zona ni sabe dónde vivir, y buscar por 
 
 ## Modelo de datos
 
-`usuarios`, `publicaciones`, `roomies`, `conversaciones`, `mensajes`, `contactos`, `cuotas_uso`, `notificaciones`, `reportes`, `geocodificaciones`.
+`usuarios`, `publicaciones`, `roomies`, `conversaciones`, `mensajes`, `contactos`, `cuotas_uso`, `notificaciones`, `reportes`, `push_tokens`, `fotos_huerfanas`, `geocodificaciones` y `geocodificaciones_ritmo`.
 
 Las tablas están **cerradas**: cada usuario solo ve sus propias filas. Lo que otros pueden ver sale de dos vistas con lista blanca de columnas — `perfiles_publicos` y `publicaciones_publicas` — que deliberadamente no incluyen presupuesto, universidad, vector de perfil ni teléfono. Ver `supabase/migrations/0014_v5_rls_y_vistas.sql`.
 
@@ -68,13 +68,13 @@ cp .env.example .env          # solo valores públicos: todo esto acaba en el AP
 npx expo start
 
 # ── Supabase ───────────────────────────────────────────
-# Si es la primera vez en esta máquina, lee antes docs/aplicar-migraciones.md:
-# este repositorio venía aplicando las migraciones a mano en el SQL Editor, así
-# que `db push` necesita un `migration repair` previo para no reaplicar 0001.
-npm install -D supabase
-npx supabase init
+# Producción tiene su historial de migraciones COMPLETO: no hace falta ningún
+# repair. Procedimiento entero, con respaldo y verificación: docs/aplicar-migraciones.md
+# (el CLI se usa con `npx`, en la versión que fija .github/workflows/ci.yml)
 npx supabase link --project-ref TU_PROJECT_REF
-npx supabase db dump --data-only -f respaldos/$(date +%F).sql   # antes de tocar nada
+npx supabase db dump --data-only -f respaldos/$(date +%F)-antes-de-NNNN.sql   # antes de tocar nada
+npx supabase migration list   # qué falta en producción
+npx supabase db push --dry-run   # qué empujaría, sin empujar
 npx supabase db push          # aplica supabase/migrations/
 npx supabase test db          # pruebas de RLS con pgTAP (necesita Docker)
 
@@ -107,7 +107,8 @@ uvicorn main:app --reload     # desde ai-service/, no desde la raíz.
 # ── Antes de exponer ───────────────────────────────────
 node scripts/verificar.mjs   # túnel, secrets, vectores, RPCs — ver docs/verificacion-pre-demo.md
 npx supabase test db         # 98 aserciones de RLS (local, contra el esquema reconstruido)
-node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # 19 barreras, contra PRODUCCIÓN y por HTTP
+node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # las barreras, contra PRODUCCIÓN y por HTTP
+npm run verificar:bucket     # que Storage APLIQUE los límites de las fotos (sube sondas y las borra)
 npx tsc --noEmit && npx expo lint && npm test -- --coverage   # los umbrales rompen el build si baja
 ```
 
@@ -176,27 +177,35 @@ Datos de geocodificación © OpenStreetMap contributors, bajo licencia ODbL.
 
 Bitácora semanal: [`docs/bitacora-semanal.md`](docs/bitacora-semanal.md).
 
-**Endurecimiento cerrado (20/09/2026).** El documento maestro v5 se auditó
-*sobre el artefacto escrito, sin ejecutar el sistema*. Ya ejecutado, aparecieron
-treinta y ocho hallazgos propios, tres de ellos críticos
-([`docs/endurecimiento-v6.md`](docs/endurecimiento-v6.md)). **Los treinta y ocho
-están remediados y aplicados a producción**, cada uno con su prueba en rojo antes
-del arreglo.
+**Endurecimiento cerrado.** El documento maestro v5 se auditó *sobre el artefacto
+escrito, sin ejecutar el sistema*. Ya ejecutado, aparecieron cuarenta hallazgos
+propios, varios de ellos críticos
+([`docs/endurecimiento-v6.md`](docs/endurecimiento-v6.md)). **Los cuarenta están
+remediados y aplicados a producción**, cada uno con su prueba en rojo antes del
+arreglo.
 
-Compuertas, todas en CI:
+Compuertas, todas en CI (`.github/workflows/ci.yml`, un job por fila):
 
-| | |
+| Job | Qué comprueba |
 |---|---|
-| pgTAP (RLS y funciones) | 98 aserciones |
-| Frontend (jest) | 296 pruebas, con umbral de cobertura que solo sube |
-| Microservicio (pytest) | 20 pruebas |
-| Aislamiento entre cuentas | 19 barreras **contra producción** |
-| Contraste, objetivos táctiles y reparto de secretos | scripts propios |
+| `base-de-datos` | pgTAP: RLS, funciones y límites del bucket, contra un esquema reconstruido desde las migraciones |
+| `frontend` | tipos, lint, la puerta de `npm audit` con excepciones, contraste, objetivos táctiles y jest con umbral de cobertura que solo sube |
+| `servicio-ia` | pytest del microservicio |
+| `imagen` | build de la imagen, escaneo de vulnerabilidades (Trivy) e inventario de componentes (SBOM) |
+| `edge-functions` | `deno check` y `deno lint` de las funciones |
+| `secretos` | reparto de variables entre archivos y gitleaks sobre el historial |
+
+Aparte, contra **producción** y a mano: el aislamiento entre cuentas
+(`prueba-rls.mjs`) y que Storage aplique sus límites (`npm run verificar:bucket`).
+
+Cuántas pruebas hay no se escribe aquí: lo dice cada herramienta, y
+`test-utils/__tests__/readme-al-dia.test.ts` rompe el build si este archivo copia
+una cifra que envejece.
 
 ```bash
-npx supabase test db                                   # 86
-npm test -- --coverage                                 # 296 + umbrales
-node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # 19/19
+npx supabase test db                                   # el archivo dice cuántas
+npm test -- --coverage                                 # y los umbrales
+node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # todas las barreras o sale con 1
 node --env-file=.env --env-file=.env.server scripts/verificar.mjs    # antes de exponer
 ```
 
@@ -205,12 +214,12 @@ node --env-file=.env --env-file=.env.server scripts/verificar.mjs    # antes de 
 lo que el sistema visual todavía no resuelve, en [`DESIGN.md`](DESIGN.md) §«Lo
 que este sistema NO resuelve todavía». Lo más importante de esas dos listas: el
 escalado de fuente al 200 % está **implementado y sin verificar en dispositivo**,
-y ninguna de las 296 pruebas dice si algo se VE bien.
+y ninguna de las pruebas automáticas dice si algo se VE bien.
 
 ## Capturas de pantalla
 
 **Pendiente.** Lo que conviene capturar, en claro y en oscuro, con el catálogo de
-demo cargado (114 publicaciones, todas con foto y con vector):
+demo cargado (todas las publicaciones con foto y con vector):
 
 | Pantalla | Qué demuestra |
 |---|---|

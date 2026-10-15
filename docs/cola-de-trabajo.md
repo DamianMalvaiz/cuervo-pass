@@ -1,5 +1,16 @@
 # Cola de trabajo
 
+> **Esto es una instantánea del 20/09/2026, no el estado de hoy.** Las cifras de abajo
+> (jest 306, pytest 20, migraciones hasta la 0039, «Barreras 19/19») eran ciertas ese día y
+> ya no lo son, y las órdenes V.1 a V.5 se ejecutaron. Lo que sigue VIGENTE aquí son las
+> **reglas** (§Reglas).
+>
+> El estado actual no se copia en ningún documento, porque envejece: se consulta.
+> `npx supabase migration list` (qué hay en producción), `npx supabase test db`,
+> `npm test` y el último run de CI en GitHub Actions. Los hallazgos posteriores están en
+> [`auditoria-27-09-2026.md`](auditoria-27-09-2026.md) —varios ya se cerraron: `git log`
+> dice cuáles— y en [`bitacora-semanal.md`](bitacora-semanal.md) §«Pendientes abiertos».
+
 Estado al **20/09/2026**, tras la revisión del bloque de endurecimiento.
 Complementa a [`endurecimiento-v6.md`](endurecimiento-v6.md), que es el mapa —y que la **orden V.1 arregla, porque está desactualizado**.
 

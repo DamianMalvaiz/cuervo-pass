@@ -1,199 +1,170 @@
-# Cómo aplicar las migraciones 0009–0018
+# Cómo aplicar migraciones a producción
 
-## Por qué `supabase db push` falló
+Procedimiento vigente, verificado paso a paso el 15/10/2026 al aplicar las
+migraciones 0040, 0041 y 0042. Cada comando de aquí se ejecutó; ninguno se escribió de
+memoria.
 
-```
-Cannot find project ref. Have you run supabase link?
-```
+## Estado de partida
 
-No es un error tuyo: **este repositorio nunca corrió `supabase init` ni
-`supabase link`.** No hay `supabase/config.toml` ni `supabase/.temp/project-ref`,
-así que el CLI no sabe contra qué proyecto trabajar.
+Producción tiene el **historial de migraciones completo** y el proyecto está vinculado
+con el CLI (`supabase/.temp/project-ref`, que no se versiona). Por eso **no hace falta
+ningún `migration repair`**: esa instrucción vivía aquí cuando las migraciones se
+pegaban a mano en el SQL Editor y la base no tenía historial, y dejó de ser cierta.
+Si dudas, `npx supabase migration list` lo dice: las dos columnas deben coincidir.
 
-Y hay una razón de fondo: hasta ahora las migraciones **nunca se aplicaron con el
-CLI**. Se pegaron a mano en el SQL Editor de Supabase — lo dicen sus propias
-cabeceras, desde `0001_esquema_inicial.sql`:
+Qué se necesita:
 
-> *Corre con `supabase db push` (CLI vinculado a tu proyecto) **o pegado en el
-> SQL editor de Supabase**.*
+| | |
+|---|---|
+| Proyecto vinculado | `npx supabase link --project-ref <REF>` (una vez por máquina) |
+| Contraseña de la base | `SUPABASE_DB_PASSWORD` en `.env.server` |
+| Docker corriendo | el `dump` lo necesita |
+| CLI | `npx supabase`, en la versión que fija `.github/workflows/ci.yml` |
 
-Eso importa para lo que sigue: la base remota tiene las tablas de 0001–0008, pero
-**no tiene el historial** que el CLI usa para saber qué falta. Si vinculas el
-proyecto y corres `db push` sin más, el CLI intentará aplicar **0001 en
-adelante**, contra una base donde esas tablas ya existen. Truena en el primer
-`create table`, y si no tronara sería peor.
-
-Elige un camino. El A es el que ya conoces; el B es el que v5 recomienda (§34) y
-el que hace falta para que `supabase test db` y el CI funcionen.
-
----
-
-## Antes de cualquiera de los dos: respaldo
-
-Sin `link`, `supabase db dump` no corre. Usa el panel:
-
-**Dashboard → Database → Backups → Download**, o bien el SQL Editor para
-guardarte las tablas que más duelen (`usuarios`, `publicaciones`, `mensajes`).
-
-Desde la semana 5 hay datos que costaron horas. Este paso no se puede hacer
-después.
-
----
-
-## Camino A — SQL Editor (lo que ya haces)
-
-Funciona hoy, sin instalar nada.
-
-1. **Primero, confirma si tu 0008 de push ya está aplicado.** En el SQL Editor:
-
-   ```sql
-   select to_regclass('public.push_tokens');
-   ```
-
-   Si devuelve `null`, pega y corre `0008_notificaciones_push.sql` **antes** de
-   seguir. La migración 0012 reimplementa el trigger de mensajes y espera que la
-   función `enviar_notificacion_push` ya exista (si no existe, se salta el push
-   sin fallar — pero entonces tendrías que volver a correr 0012 después).
-
-2. Pega y corre, **en orden y uno por uno**, esperando a que cada uno termine:
-
-   ```
-   0009_v5_usuarios.sql
-   0010_v5_publicaciones.sql
-   0011_v5_roomies.sql
-   0012_v5_conversaciones.sql
-   0013_v5_contactos_y_cuotas.sql
-   0014_v5_rls_y_vistas.sql
-   0015_v5_motor_sugerencias.sql
-   0016_v5_storage_privado.sql
-   0017_v5_arco_y_geocoding.sql
-   0018_v5_vectores_obsoletos.sql
-   ```
-
-   El orden no es decorativo: 0012 borra `mensajes.destinatario_id` y 0014 crea
-   policies que dependen de la tabla `conversaciones` que 0012 crea.
-
-3. **Si una truena, para.** No corras la siguiente. Mándame el error: se corrige
-   con una migración nueva, nunca editando la que ya se aplicó (§33.4, regla 1).
-
-**Lo que este camino NO te da:** `supabase test db` no funciona sin CLI
-vinculado, así que las doce aserciones de pgTAP —el control que sustituye a las
-capturas de pantalla, AUD-13— se quedan sin correr. Y el job `base-de-datos` del
-CI tampoco. Por eso existe el camino B.
-
----
-
-## Camino B — CLI (lo que pide v5 §34)
-
-Media hora, una sola vez, y te desbloquea las pruebas de RLS y el CI.
+Cargar la contraseña en la sesión sin escribirla ni imprimirla:
 
 ```bash
-cd ~/cuervo-pass
+set -a && . ./.env.server && set +a
+```
 
-# 1. Crea supabase/config.toml (respeta lo que ya hay en supabase/)
-npx supabase init
+---
 
-# 2. Vincula con tu proyecto. El ref sale de la URL del dashboard:
-#    https://supabase.com/dashboard/project/<ESTE-ES-EL-REF>
-npx supabase link --project-ref <TU_PROJECT_REF>
+## 0 · Antes de tocar producción: que pase en local
 
-# 3. Respaldo, ahora sí desde el CLI
-mkdir -p respaldos
-npx supabase db dump --data-only -f respaldos/$(date +%F).sql
+```bash
+npx supabase migration up     # la aplica a la base local
+npx supabase test db          # pgTAP: la migración y su prueba, juntas
+```
 
-# 4. ¿Qué cree el CLI que está aplicado? (va a decir: nada)
+Si amplías una policy de RLS o de Storage, su aserción en `supabase/tests/rls.test.sql`
+va **en el mismo commit** (AGENTS.md, invariante 6). Y nunca se edita una migración ya
+aplicada: su hash vive en `supabase_migrations.schema_migrations`; se corrige con una
+migración nueva.
+
+## 1 · Qué falta
+
+```bash
 npx supabase migration list
 ```
 
-**El paso que evita el desastre.** Le dices al CLI que 0001–0008 ya están en la
-base, sin volver a ejecutarlas:
+Lo que está en «Local» y no en «Remote» es lo que se va a aplicar. Lo que está en
+«Remote» y no en «Local» es **deriva** y hay que entenderla antes de seguir.
+
+## 2 · Comprobar la migración contra los datos REALES
+
+Que pase en local no dice que pase con los datos de producción. Para cada migración,
+pregunta qué cosa concreta podría romper y mídela con consultas de **solo lectura**:
 
 ```bash
-npx supabase migration repair --status applied \
-  0001 0002 0003 0004 0005 0006 0007 0008
+npx supabase db query --linked "select count(*) from public.publicaciones"
 ```
 
-Si `push_tokens` **no** existe todavía (ver el paso 1 del camino A), deja el
-`0008` fuera de esa lista para que `db push` sí lo aplique.
+Ejemplos de preguntas que se hicieron el 15/10/2026:
+
+| Migración | Qué podía romper | Qué se midió |
+|---|---|---|
+| Tope de 15 activas al activar | Cuentas que ya lo superen | máximo de activas por cuenta; cuentas sobre 15 |
+| Límites del bucket (5 MiB, `image/jpeg`) | Archivos existentes que los incumplan | cuántos objetos superan 5 MiB o no son `image/jpeg`, y el mayor |
+| Policy de borrado de `push_tokens` | Una policy previa | las policies actuales de la tabla |
+
+Anota también el **estado de partida** (cuentas, filas de las tablas tocadas, objetos
+de Storage): lo vas a necesitar en el paso 6.
+
+## 3 · Respaldo
+
+Antes de cualquier `db push` (AGENTS.md). Desde la **raíz del proyecto**:
 
 ```bash
-# 5. Ahora sí: aplica solo 0009-0018
-npx supabase migration list      # verifica antes de empujar
-npx supabase db push
-
-# 6. Las pruebas de acceso (necesita Docker corriendo)
-npx supabase test db
+mkdir -p respaldos
+npx supabase db dump --data-only -f respaldos/$(date +%F)-antes-de-NNNN.sql
+chmod 600 respaldos/$(date +%F)-antes-de-NNNN.sql
 ```
 
-Si `supabase test db` se queja de Docker, instálalo o quédate con el camino A y
-corre las pruebas más adelante — pero antes de la entrega, porque son la
-evidencia de que RLS hace lo que el documento dice.
+`respaldos/` está en `.gitignore`: el archivo lleva datos personales y no debe subirse.
+
+Dos cosas que conviene saber del volcado:
+
+- **Es solo DATOS** (`--data-only`). El esquema vive en las migraciones del repositorio.
+- **No contiene los archivos de Storage**, solo su tabla de metadatos. Una migración que
+  los toque exige otro respaldo.
+
+**Compruébalo, no lo des por bueno.** Un archivo de 1 MB puede estar vacío de lo que
+importa. El volcado trae **una sentencia `INSERT` por tabla, con una fila por línea** (no
+`COPY`), así que se cuenta así:
+
+```bash
+F=respaldos/AAAA-MM-DD-antes-de-NNNN.sql
+filas() { awk -v t="INSERT INTO \"$1\"" 'index($0,t)==1{f=1;next} f&&/^[ \t]*\(/{c++} f&&/;[ \t]*$/{f=0} END{print c+0}' $F; }
+filas 'public"."usuarios'      # debe coincidir con el conteo de la base
+filas 'public"."publicaciones'
+```
+
+Compara cada cifra con la que obtuviste en el paso 2. Si no coinciden, no sigas.
+
+## 4 · Ensayo
+
+```bash
+npx supabase db push --dry-run
+```
+
+Debe listar **exactamente** las migraciones del paso 1 y ninguna más. Si lista otras, para.
+
+## 5 · Aplicar
+
+```bash
+npx supabase db push          # pide confirmación
+npx supabase db push --yes    # sin preguntar, para ejecutarlo desde un script
+```
+
+Cada migración se aplica en orden. **Si una falla, para**: no se corre la siguiente, y se
+corrige con una migración nueva, nunca editando la que ya se aplicó.
+
+## 6 · Verificar que surtió efecto
+
+No te fíes del mensaje del CLI: pregúntale a la base.
+
+```bash
+npx supabase migration list   # sin faltantes y sin deriva
+```
+
+Y, con `db query --linked`, el estado **real** de lo que la migración cambió: las
+policies de la tabla (`pg_policies`), la definición del trigger
+(`pg_get_triggerdef`), la ACL de la función (`proacl`), la configuración del bucket
+(`storage.buckets`). Después, los conteos del paso 2: tienen que ser **idénticos**. Una
+migración que cambia el esquema no debe cambiar las filas.
+
+## 7 · Verificar que producción lo HACE CUMPLIR
+
+Lo anterior comprueba que la configuración *dice* lo correcto. Estos dos scripts
+comprueban que se *aplica*, y lo hacen contra producción:
+
+```bash
+node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # aislamiento entre cuentas
+npm run verificar:bucket                                             # límites de las fotos
+```
+
+**Escriben datos transitorios en producción**: `prueba-rls.mjs` crea cuentas temporales y
+las borra al terminar (en un `finally`); `verificar:bucket` sube archivos de prueba a
+`sondas/` y borra los que se aceptaron. Pídele permiso a quien corresponda antes de
+correrlos, y comprueba después que no dejaron residuos: cuentas de prueba restantes (0),
+objetos en `sondas/` (0), cola de fotos huérfanas (0) y los conteos del paso 2.
 
 ---
 
-## Cuidado: estás en el directorio equivocado
+## Si algo sale mal
 
-Los comandos que corriste fueron en `~/cuervo-pass`, que está en la rama `main`
-y **todavía no tiene las migraciones v5**. El trabajo está en el worktree:
+- **Cada migración trae su reversión escrita en la cabecera.** Aplícala como migración
+  nueva; no se borra la fila de `schema_migrations`.
+- **El respaldo restaura datos, no esquema.** Sirve si una migración tocó filas, no si
+  cambió una policy.
+- **No sigas con la siguiente.** Un error a medias es información; encadenar tres
+  migraciones sobre una base en un estado que no entiendes la destruye.
 
-```bash
-cd ~/cuervo-pass/.claude/worktrees/bridge-cse_01TzND5SX7DaPvbpa5cULZ8T
-ls supabase/migrations/     # aquí sí aparecen 0009-0018
-```
+## Por qué este documento cambió
 
-Lo limpio es integrar la rama a `main` antes de aplicar nada — ver la sección de
-abajo. Si prefieres avanzar ya, puedes copiar los `.sql` al SQL Editor desde el
-worktree sin mover ramas.
-
-Ah, y un detalle del primer comando: hiciste `cd respaldos/` y luego
-`-f respaldos/$(date +%F).sql`, que apunta a `respaldos/respaldos/…` — una
-carpeta que no existe. Corre siempre desde la raíz del proyecto.
-
----
-
-## Tu trabajo de la Semana 11 ya está en esta rama
-
-Las notificaciones push existían solo como archivos sin versionar en
-`~/cuervo-pass`. Están incorporadas aquí, con las tres colisiones resueltas:
-
-| Colisión | Cómo quedó |
-|---|---|
-| Ambas migraciones se llamaban `0008_` | Las de v5 se renumeraron a **0009–0018**. `0008_notificaciones_push.sql` conserva su lugar |
-| `crear_notificacion_mensaje()` usa `new.destinatario_id`, columna que v5 elimina — el push habría dejado de enviarse **sin un solo error en los logs** | La migración 0012 reimplementa el envío dentro de `al_insertar_mensaje()`, con un `if exists` para que corra igual si 0008 no está aplicada |
-| El deep link abría `/chat/<remitente_id>`, ruta que ya no existe | Corregido a `conversacion_id`, que el trigger ya manda en los datos del push |
-
-`push_tokens` y `enviar_notificacion_push` entran en `database.types.ts`, y el
-registro del token se combinó con el renombrado de la pestaña Roomings → Roomies.
-
-### Limpia las copias sin versionar antes de integrar
-
-En `~/cuervo-pass` siguen existiendo los archivos originales, sin versionar. Git
-se negará a hacer el merge mientras estén ahí («untracked working tree files
-would be overwritten»), porque la rama trae su propia versión de cada uno —
-mejor, en el caso de `pushNotifications.ts`.
-
-```bash
-cd ~/cuervo-pass
-
-# Red de seguridad, por si quieres comparar después
-git stash push -u -m "semana-11-original" \
-  eas.json src/lib/pushNotifications.ts \
-  supabase/migrations/0008_notificaciones_push.sql \
-  app.json package.json package-lock.json \
-  src/app/\(tabs\)/_layout.tsx .env.example
-
-git status --short     # debe quedar limpio, salvo .claude/worktrees/
-```
-
-Y ya con el árbol limpio, integra la rama (o haz merge del PR desde GitHub).
-
-Cuando confirmes que todo está bien, borra ese stash **por su nombre**, no con
-un `git stash drop` a secas:
-
-```bash
-git stash list            # localiza la línea con "semana-11-original"
-git stash drop 'stash@{N}'   # N es el índice que viste arriba
-```
-
-`git stash drop` sin índice borra el más reciente, que en este proyecto puede ser
-de otra sesión: los worktrees comparten la misma pila de stashes.
+Hasta la 0039 las migraciones se pegaban a mano en el SQL Editor, y la base remota tenía
+las tablas pero no el historial, de modo que `db push` habría intentado reaplicar 0001.
+Eso pedía un `migration repair` previo y un «camino A» (SQL Editor) y un «camino B» (CLI).
+Ya no: el CLI está vinculado y el historial está completo. El documento anterior seguía
+describiendo ese sistema, que es exactamente el defecto que `README.md` y `AGENTS.md`
+nombran como el más caro de este repositorio.
