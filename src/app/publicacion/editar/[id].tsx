@@ -154,7 +154,7 @@ export default function EditarPublicacionScreen() {
                 recamaras: Number(datos.recamaras),
                 whatsapp: datos.whatsapp,
                 fotos: datos.fotos,
-              });
+              }, publicacion);
               router.replace(`/publicacion/${publicacion.id}`);
             }}
           />

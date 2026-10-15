@@ -49,6 +49,8 @@ const PUBLICACION = {
   titulo: 'Depa de 1 recámara',
   tipo: 'depa',
   direccion: DIRECCION,
+  latitud: 19.29,
+  longitud: -99.56,
   precio_renta: 2500,
   descripcion: 'Cerca del campus',
   permite_mascotas: true,
@@ -99,6 +101,14 @@ describe('guardar', () => {
 
     await waitFor(() => expect(mockActualizar).toHaveBeenCalledTimes(1));
     expect(mockActualizar.mock.calls[0][0]).toBe('pub1');
+    // Hallazgo 5 · la ubicación ANTERIOR viaja con el guardado: sin ella el
+    // servicio no puede saber si la dirección cambió, y cada edición volvería a
+    // geocodificar y a arriesgarse a borrar las coordenadas.
+    expect(mockActualizar.mock.calls[0][2]).toMatchObject({
+      direccion: DIRECCION,
+      latitud: 19.29,
+      longitud: -99.56,
+    });
     // A la ficha, y con `replace`: volver atrás desde la ficha recién guardada
     // no debe devolver al formulario de edición.
     expect(mockReplace).toHaveBeenCalledWith('/publicacion/pub1');

@@ -265,20 +265,57 @@ export async function crearPublicacion(datos: DatosPublicacion): Promise<Publica
   return actualizada as Publicacion;
 }
 
-export async function actualizarPublicacion(publicacionId: string, datos: DatosPublicacion): Promise<Publicacion> {
+/**
+ * Lo que `actualizarPublicacion` necesita saber de cómo estaba la publicación
+ * antes de editarla: solo dirección y coordenadas.
+ */
+export type UbicacionAnterior = Pick<Publicacion, 'direccion' | 'latitud' | 'longitud'>;
+
+/**
+ * Hallazgo 5 · Antes se geocodificaba en CADA guardado y se escribía
+ * `coords?.lat ?? null`. Si Nominatim o la Edge Function fallaban, cambiar solo
+ * el precio dejaba la publicación sin coordenadas y sin mapa: un fallo ajeno
+ * borraba un dato bueno que ni siquiera se había tocado.
+ *
+ * Son dos casos y no uno:
+ *
+ *   · Misma dirección y con coordenadas → siguen valiendo. No se geocodifica ni
+ *     se tocan las columnas: omitirlas, y no mandar null, es lo que conserva el
+ *     valor (la misma razón por la que `vector_embedding` se omite).
+ *   · Dirección cambiada → las viejas apuntan a OTRO lugar. Si el geocoding
+ *     falla, se anulan y se marca `pendiente_geocoding` para reintentar:
+ *     conservarlas pondría el pin donde la dirección ya no está.
+ *
+ * `anterior` es obligatorio a propósito: con un parámetro opcional, olvidarlo en
+ * un llamador volvería en silencio al comportamiento de antes.
+ */
+export async function actualizarPublicacion(
+  publicacionId: string,
+  datos: DatosPublicacion,
+  anterior: UbicacionAnterior
+): Promise<Publicacion> {
+  const conservarUbicacion =
+    datos.direccion.trim() === anterior.direccion.trim() &&
+    anterior.latitud != null &&
+    anterior.longitud != null;
+
   const [rutas, coords, vectorEmbedding] = await Promise.all([
     resolverFotos(datos.usuarioId, publicacionId, datos.fotos),
-    geocodificarDireccion(datos.direccion),
+    conservarUbicacion ? Promise.resolve(null) : geocodificarDireccion(datos.direccion),
     generarEmbeddingSeguro(datos),
   ]);
   const { data, error } = await supabase
     .from('publicaciones')
     .update({
       ...columnasComunes(datos),
-      latitud: coords?.lat ?? null,
-      longitud: coords?.lng ?? null,
-      geocodificado_por: coords?.proveedor ?? null,
-      pendiente_geocoding: coords == null,
+      ...(conservarUbicacion
+        ? {}
+        : {
+            latitud: coords?.lat ?? null,
+            longitud: coords?.lng ?? null,
+            geocodificado_por: coords?.proveedor ?? null,
+            pendiente_geocoding: coords == null,
+          }),
       fotos: rutas,
       ...(vectorEmbedding ? { vector_embedding: vectorEmbedding } : {}),
     })

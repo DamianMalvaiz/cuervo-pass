@@ -40,6 +40,7 @@ function cadena(resultado: { data?: unknown; error?: unknown }) {
 }
 
 import {
+  actualizarPublicacion,
   cambiarEstadoPublicacion,
   contarContactosRecibidos,
   crearPublicacion,
@@ -337,4 +338,92 @@ test('si el update falla, tampoco cuenta', async () => {
   mockDesde.mockReturnValue(cadena({ error: { message: 'no se pudo' } }));
   const n = await reintentarGeocodingPendiente([pub('b', true)]);
   expect(n).toBe(0);
+});
+
+// ── Editar: las coordenadas no se pierden por un fallo ajeno ──────────────────
+
+// Hallazgo 5 (revisión del 15/10/2026). `actualizarPublicacion` geocodificaba en
+// CADA guardado y escribía `coords?.lat ?? null`: si Nominatim o la Edge
+// Function fallaban, cambiar solo el precio dejaba la publicación sin
+// coordenadas y sin mapa. Un fallo de un servicio externo, sobre un dato que no
+// se tocó, borraba un dato bueno.
+//
+// La regla, y por qué son dos casos y no uno:
+//   · misma dirección y con coordenadas → siguen valiendo; ni se geocodifica.
+//   · dirección cambiada y el geocoding falla → las viejas apuntan a OTRO sitio,
+//     así que se anulan y se marca para reintentar. Conservarlas pondría el pin
+//     en un lugar que ya no es el de la dirección.
+const anteriorConMapa = { direccion: 'Calle 1', latitud: 19.29, longitud: -99.56 };
+
+test('editar sin cambiar la dirección NO geocodifica ni toca las coordenadas', async () => {
+  mockGenerarEmbedding.mockResolvedValue([0.1]);
+  const c = cadena({ data: { id: 'p1' }, error: null });
+  mockDesde.mockReturnValue(c);
+
+  await actualizarPublicacion('p1', { ...datosBase, precioRenta: 3500 }, anteriorConMapa);
+
+  expect(mockGeocodificar).not.toHaveBeenCalled();
+  const [cambios] = (c.update as jest.Mock).mock.calls[0];
+  for (const columna of ['latitud', 'longitud', 'geocodificado_por', 'pendiente_geocoding']) {
+    expect(columna in cambios).toBe(false);
+  }
+  expect(cambios.precio_renta).toBe(3500);
+});
+
+test('con la dirección cambiada y el geocoding caído, se anulan y se marca pendiente', async () => {
+  mockGenerarEmbedding.mockResolvedValue([0.1]);
+  mockGeocodificar.mockResolvedValue(null);
+  const c = cadena({ data: { id: 'p1' }, error: null });
+  mockDesde.mockReturnValue(c);
+
+  await actualizarPublicacion('p1', { ...datosBase, direccion: 'Calle 2' }, anteriorConMapa);
+
+  const [cambios] = (c.update as jest.Mock).mock.calls[0];
+  expect(cambios.latitud).toBeNull();
+  expect(cambios.longitud).toBeNull();
+  expect(cambios.pendiente_geocoding).toBe(true);
+});
+
+test('con la dirección cambiada y el geocoding bien, se guardan las nuevas', async () => {
+  mockGenerarEmbedding.mockResolvedValue([0.1]);
+  mockGeocodificar.mockResolvedValue({ lat: 19.4, lng: -99.1, proveedor: 'nominatim-osm-odbl' });
+  const c = cadena({ data: { id: 'p1' }, error: null });
+  mockDesde.mockReturnValue(c);
+
+  await actualizarPublicacion('p1', { ...datosBase, direccion: 'Calle 2' }, anteriorConMapa);
+
+  expect(mockGeocodificar).toHaveBeenCalledWith('Calle 2');
+  const [cambios] = (c.update as jest.Mock).mock.calls[0];
+  expect(cambios).toMatchObject({
+    latitud: 19.4,
+    longitud: -99.1,
+    geocodificado_por: 'nominatim-osm-odbl',
+    pendiente_geocoding: false,
+  });
+});
+
+// Misma dirección PERO sin coordenadas previas: era una pendiente. Editar es una
+// oportunidad de resolverla, así que sí se intenta.
+test('misma dirección pero sin coordenadas previas: se intenta geocodificar', async () => {
+  mockGenerarEmbedding.mockResolvedValue([0.1]);
+  mockGeocodificar.mockResolvedValue({ lat: 19.4, lng: -99.1, proveedor: 'nominatim-osm-odbl' });
+  const c = cadena({ data: { id: 'p1' }, error: null });
+  mockDesde.mockReturnValue(c);
+
+  await actualizarPublicacion('p1', datosBase, { direccion: 'Calle 1', latitud: null, longitud: null });
+
+  expect(mockGeocodificar).toHaveBeenCalledTimes(1);
+  const [cambios] = (c.update as jest.Mock).mock.calls[0];
+  expect(cambios.pendiente_geocoding).toBe(false);
+});
+
+// Un espacio de más al final no es otra dirección.
+test('un espacio sobrante en la dirección no cuenta como cambio', async () => {
+  mockGenerarEmbedding.mockResolvedValue([0.1]);
+  const c = cadena({ data: { id: 'p1' }, error: null });
+  mockDesde.mockReturnValue(c);
+
+  await actualizarPublicacion('p1', { ...datosBase, direccion: 'Calle 1 ' }, anteriorConMapa);
+
+  expect(mockGeocodificar).not.toHaveBeenCalled();
 });
