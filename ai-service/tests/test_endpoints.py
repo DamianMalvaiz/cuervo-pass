@@ -266,3 +266,19 @@ def test_la_variable_de_entorno_gana_sobre_el_arbol(monkeypatch):
     finally:
         monkeypatch.delenv("CUERVO_COMMIT", raising=False)
         importlib.reload(config)
+
+
+# ── La documentación automática no se publica ────────────────────────────────────
+# FastAPI sirve por omisión /docs, /redoc y /openapi.json, SIN token: listan todas las
+# rutas y todos los esquemas. Con el servicio detrás de un túnel público, cualquiera que
+# conozca el dominio los leería. No filtran ningún secreto, pero no hay ninguna razón
+# para publicarlos: el único cliente es la Edge Function `ai-proxy`, que ya conoce la API.
+@pytest.mark.parametrize("ruta", ["/docs", "/redoc", "/openapi.json"])
+def test_la_documentacion_automatica_no_esta_expuesta(ruta):
+    assert cliente.get(ruta).status_code == 404
+
+
+# Cerrar la documentación no puede cerrar lo que sí debe estar: la sonda de vida. (`/salud`
+# y `/listo` dependen del modelo y ya se prueban arriba, con el lifespan cargado.)
+def test_la_sonda_de_vida_sigue_abierta():
+    assert cliente.get("/vivo").status_code == 200

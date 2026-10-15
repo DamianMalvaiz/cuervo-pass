@@ -52,7 +52,18 @@ async def ciclo_de_vida(app: FastAPI):
     log.info("apagando")
 
 
-app = FastAPI(title="Cuervo Pass — servicio de IA", lifespan=ciclo_de_vida)
+# Sin documentación automática: FastAPI sirve por omisión /docs, /redoc y /openapi.json
+# SIN token, y listan todas las rutas y esquemas. Con el servicio detrás de un túnel
+# público, cualquiera que conozca el dominio los leería. No filtran secretos, pero no hay
+# razón para publicarlos: el único cliente es la Edge Function `ai-proxy`, que ya conoce
+# la API. tests/test_endpoints.py lo comprueba.
+app = FastAPI(
+    title="Cuervo Pass — servicio de IA",
+    lifespan=ciclo_de_vida,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 
 # ── identidad del llamador ────────────────────────────────────────────────
