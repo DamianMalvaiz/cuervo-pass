@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(116);
+select plan(141);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1084,6 +1084,7 @@ select is(
     'contactos_de_mis_publicaciones',
     'distancia_km',
     'exportar_mis_datos',
+    'favoritos_por_publicacion',
     'nuevas_esta_semana',
     'resumen_conversaciones',
     'revelar_contacto',
@@ -1561,6 +1562,202 @@ select is(
     where usuario_id = '00000000-0000-0000-0000-0000000000c7'),
   0,
   'borrar la cuenta borra sus roles' );
+
+
+-- ═══════ 117 a 133 · favoritos (Cuervo 360) ═══════
+-- Un favorito es PRIVADO: solo su dueña lo lee, nadie ve cuántos tiene una publicación. Solo se
+-- puede guardar una publicación VISIBLE (activa y sin ocultar); si no, la policy de insert la
+-- rechaza con el mismo error que una que no existe, para que guardar no sirva de sonda que
+-- revele qué publicaciones están ocultas. Tope de 200 por cuenta, aplicado en la base.
+select actuar_como_servicio();
+update publicaciones set activa = true, oculta_por_reportes = false
+ where id = '00000000-0000-0000-0000-00000000dea1';
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta,
+                           whatsapp, latitud, longitud, permite_mascotas)
+values ('00000000-0000-0000-0000-00000000dea2', '00000000-0000-0000-0000-0000000000b2',
+        'Depa B2', 'depa', 'Calle Falsa 456', 3000, '5512345678', 19.29, -99.56, false);
+
+select is(
+  (select relrowsecurity from pg_class where oid = 'public.favoritos'::regclass),
+  true, 'favoritos tiene RLS activo' );
+
+select is(
+  has_table_privilege('anon', 'public.favoritos', 'select'),
+  false, 'anon no puede leer favoritos' );
+
+select is(
+  (select bool_or(has_table_privilege('authenticated', 'public.favoritos', p))
+     from unnest(array['update', 'truncate']) p),
+  false, 'authenticated no puede actualizar ni truncar favoritos' );
+
+select is(
+  (select bool_and(has_table_privilege('authenticated', 'public.favoritos', p))
+     from unnest(array['select', 'insert', 'delete']) p),
+  true, 'authenticated puede leer, guardar y quitar sus favoritos' );
+
+-- Guardar una publicación visible.
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+insert into favoritos (usuario_id, publicacion_id)
+values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000dea1');
+select is(
+  (select count(*)::int from favoritos), 1,
+  'una cuenta guarda una publicación visible y la ve' );
+
+select throws_ok(
+  $$insert into favoritos (usuario_id, publicacion_id)
+    values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000dea1')$$,
+  '23505', null, 'guardar dos veces la misma publicación se rechaza por clave única' );
+
+-- Aislamiento: la ajena no ve nada, ni puede guardar a nombre de otra.
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is(
+  (select count(*)::int from favoritos), 0,
+  'una cuenta ajena no ve los favoritos de otra' );
+
+select throws_ok(
+  $$insert into favoritos (usuario_id, publicacion_id)
+    values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000dea2')$$,
+  '42501', null, 'no se puede guardar un favorito a nombre de otra cuenta' );
+
+-- Solo lo visible: inactiva y también inexistente dan el MISMO error (no hay sonda).
+select actuar_como_servicio();
+update publicaciones set activa = false where id = '00000000-0000-0000-0000-00000000dea2';
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select throws_ok(
+  $$insert into favoritos (usuario_id, publicacion_id)
+    values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000dea2')$$,
+  '42501', null, 'no se puede guardar una publicación inactiva u oculta' );
+select throws_ok(
+  $$insert into favoritos (usuario_id, publicacion_id)
+    values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000ffff')$$,
+  '42501', null, 'una publicación inexistente da el mismo error que una oculta: no sirve de sonda' );
+
+-- Quitar: la dueña sí, la ajena no.
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+delete from favoritos where usuario_id = '00000000-0000-0000-0000-0000000000a1';
+select actuar_como_servicio();
+select is(
+  (select count(*)::int from favoritos where usuario_id = '00000000-0000-0000-0000-0000000000a1'), 1,
+  'una cuenta ajena no puede quitar el favorito de otra' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select throws_ok(
+  $$update favoritos set creado_en = now()$$, '42501', null,
+  'un favorito no se actualiza: se guarda o se quita' );
+delete from favoritos where publicacion_id = '00000000-0000-0000-0000-00000000dea1';
+select is(
+  (select count(*)::int from favoritos), 0,
+  'la dueña quita su favorito' );
+
+-- El tope de 200, en la base. 199 ya guardados (de publicaciones inactivas, preparados con
+-- privilegios de servicio) + la visible = 200 exactos: pasa. La 201 se rechaza.
+select actuar_como_servicio();
+update publicaciones set activa = true where id = '00000000-0000-0000-0000-00000000dea2';
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta,
+                           whatsapp, latitud, longitud, permite_mascotas, activa)
+select ('00000000-0000-0000-f000-' || lpad(i::text, 12, '0'))::uuid,
+       '00000000-0000-0000-0000-0000000000b2', 'Relleno ' || i, 'depa', 'Calle ' || i, 2000,
+       '5512345678', 19.29, -99.56, false, false
+  from generate_series(1, 199) i;
+insert into favoritos (usuario_id, publicacion_id)
+select '00000000-0000-0000-0000-0000000000a1', id from publicaciones where titulo like 'Relleno %';
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+insert into favoritos (usuario_id, publicacion_id)
+values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000dea1');
+select is(
+  (select count(*)::int from favoritos), 200,
+  'la favorita número 200 todavía pasa' );
+select throws_ok(
+  $$insert into favoritos (usuario_id, publicacion_id)
+    values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000dea2')$$,
+  'CP004', null, 'la 201 se rechaza con CP004: tope de 200 por cuenta' );
+
+-- Cascadas: borrar la publicación o la cuenta borra los favoritos que dependían de ellas.
+select actuar_como_servicio();
+delete from publicaciones where id = ('00000000-0000-0000-f000-' || lpad('1', 12, '0'))::uuid;
+select is(
+  (select count(*)::int from favoritos
+    where publicacion_id = ('00000000-0000-0000-f000-' || lpad('1', 12, '0'))::uuid), 0,
+  'borrar una publicación borra los favoritos que la guardaban' );
+
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data)
+values ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000d8',
+        'authenticated', 'authenticated', 'd8@test.mx', '', now(), now(),
+        '{"nombre_usuario":"usuario_d8","nombre_completo":"Dani Prueba"}');
+insert into favoritos (usuario_id, publicacion_id)
+values ('00000000-0000-0000-0000-0000000000d8', '00000000-0000-0000-0000-00000000dea1');
+delete from auth.users where id = '00000000-0000-0000-0000-0000000000d8';
+select is(
+  (select count(*)::int from favoritos where usuario_id = '00000000-0000-0000-0000-0000000000d8'), 0,
+  'borrar la cuenta borra sus favoritos' );
+
+
+-- ═══════ 134 a 141 · cuántas personas guardaron una publicación (Cuervo 360) ═══════
+-- Se ve el NÚMERO y nunca quién: la función devuelve solo el id y el total. No se guarda ningún
+-- contador en `publicaciones` (sería copiar un dato que se puede calcular y se desincronizaría).
+-- Cuenta lo visible, o lo propio. Una publicación ajena y oculta y una que no existe dan lo mismo
+-- —ninguna fila—, así que preguntar el conteo no sirve de sonda.
+select actuar_como_servicio();
+delete from favoritos;
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta,
+                           whatsapp, latitud, longitud, permite_mascotas)
+values ('00000000-0000-0000-0000-00000000dea3', '00000000-0000-0000-0000-0000000000b2',
+        'Depa B3', 'depa', 'Calle Falsa 789', 3200, '5512345678', 19.29, -99.56, false);
+insert into favoritos (usuario_id, publicacion_id) values
+  ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000dea1'),
+  ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-00000000dea1');
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is(
+  (select total from favoritos_por_publicacion(array['00000000-0000-0000-0000-00000000dea1']::uuid[])),
+  2,
+  'cuenta las personas que guardaron una publicación visible' );
+
+select is(
+  (select proargnames from pg_proc where proname = 'favoritos_por_publicacion'),
+  array['p_ids', 'publicacion_id', 'total'],
+  'la función solo devuelve el id y el total: ninguna columna sobre PERSONAS' );
+
+select is(
+  (select total from favoritos_por_publicacion(array['00000000-0000-0000-0000-00000000dea3']::uuid[])),
+  0,
+  'una publicación visible que nadie guardó devuelve 0, no «sin fila»' );
+
+-- Ajena y oculta, e inexistente: lo mismo.
+select actuar_como_servicio();
+update publicaciones set activa = false where id = '00000000-0000-0000-0000-00000000dea2';
+insert into favoritos (usuario_id, publicacion_id)
+values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000dea2');
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is(
+  (select count(*)::int from favoritos_por_publicacion(array[
+     '00000000-0000-0000-0000-00000000dea2', '00000000-0000-0000-0000-00000000ffff']::uuid[])),
+  0,
+  'una publicación ajena oculta y una inexistente dan lo mismo: ninguna fila' );
+
+-- La dueña sí ve el conteo de la suya, aunque esté inactiva.
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is(
+  (select total from favoritos_por_publicacion(array['00000000-0000-0000-0000-00000000dea2']::uuid[])),
+  1,
+  'la dueña ve el conteo de su propia publicación aunque esté inactiva' );
+
+-- Límites.
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select throws_ok(
+  $$select * from favoritos_por_publicacion((select array_agg(gen_random_uuid()) from generate_series(1, 51)))$$,
+  '54000', null, 'más de 50 ids en una llamada se rechaza: no sirve para barrer la base' );
+
+select actuar_como_servicio();
+select throws_ok(
+  $$select * from favoritos_por_publicacion(array['00000000-0000-0000-0000-00000000dea1']::uuid[])$$,
+  '28000', null, 'sin sesión no se puede preguntar' );
+
+select is(
+  has_function_privilege('anon', 'public.favoritos_por_publicacion(uuid[])', 'execute'),
+  false,
+  'anon no puede ejecutar el conteo' );
 
 select * from finish();
 rollback;

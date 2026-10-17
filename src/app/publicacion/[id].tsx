@@ -17,6 +17,8 @@ import { CampoFicha } from '@/components/ficha/CampoFicha';
 import { DesgloseCalificacion } from '@/components/ficha/DesgloseCalificacion';
 import { Seccion } from '@/components/ficha/Seccion';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
+import { BotonFavorito } from '@/components/BotonFavorito';
+import { ConteoFavoritos } from '@/components/ConteoFavoritos';
 import { MapaUbicacion } from '@/components/MapaUbicacion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -373,15 +375,22 @@ export default function DetallePublicacionScreen() {
           </Seccion>
         )}
 
+        {/* Cuervo 360 · el corazón va junto al contacto, no sobre la foto: así está siempre, haya
+            fotos o no, y queda al alcance del pulgar. */}
         <View style={estilos.sello}>
-          <BotonVerContacto
-            publicacionId={publicacion.id}
-            titulo={publicacion.titulo}
-            score={afinidad?.scoreFinal ?? null}
-            onRevelar={revelarContacto}
-            onError={(mensaje) => toast.error(mensaje)}
-          />
+          <BotonFavorito publicacionId={publicacion.id} />
+          <View style={estilos.contacto}>
+            <BotonVerContacto
+              publicacionId={publicacion.id}
+              titulo={publicacion.titulo}
+              score={afinidad?.scoreFinal ?? null}
+              onRevelar={revelarContacto}
+              onError={(mensaje) => toast.error(mensaje)}
+            />
+          </View>
         </View>
+        {/* Cuántas personas la guardaron: el número, nunca quién. */}
+        <ConteoFavoritos publicacionId={publicacion.id} />
 
         {/* §28: esta app no verifica identidades. Decirlo es mejor ingeniería
             que fingir que el riesgo no existe. */}
@@ -443,7 +452,8 @@ const estilos = StyleSheet.create({
   cuerpo: { padding: Spacing.three, gap: Spacing.three },
   rejilla: { flexDirection: 'row', gap: Spacing.three },
   descripcion: { lineHeight: 24 },
-  sello: { marginTop: Spacing.two },
+  sello: { marginTop: Spacing.two, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  contacto: { flex: 1 },
   advertencia: {
     flexDirection: 'row',
     gap: Spacing.two,

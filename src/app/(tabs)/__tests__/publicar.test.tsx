@@ -21,6 +21,7 @@ import { useToastStore } from '@/store/useToastStore';
 // primer toque no debe mutar nada.
 
 const mockMisPublicaciones = jest.fn();
+const mockConteo = jest.fn();
 const mockContactos = jest.fn();
 const mockMutar = jest.fn();
 
@@ -30,6 +31,8 @@ jest.mock('@/hooks/queries/usePublicaciones', () => ({
   useContactosRecibidos: (...a: unknown[]) => mockContactos(...a),
   useCambiarEstadoPublicacion: () => ({ mutateAsync: mockMutar }),
 }));
+// Cuervo 360 · cuántas personas guardaron cada publicación (el número, nunca quién).
+jest.mock('@/hooks/queries/useFavoritos', () => ({ useConteoFavoritos: (...a: unknown[]) => mockConteo(...a) }));
 jest.mock('@/hooks/use-fotos-firmadas', () => ({
   useFotosFirmadas: (rutas: (string | null | undefined)[]) => ({
     urls: new Map(rutas.filter(Boolean).map((r) => [r, `https://firmada.test/${r}`])),
@@ -66,6 +69,7 @@ const publicacion = (extra: Record<string, unknown> = {}) => ({
 });
 
 beforeEach(() => {
+  mockConteo.mockReturnValue({ conteos: new Map(), cargando: false, fallo: false });
   jest.clearAllMocks();
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   useToastStore.setState({ actual: null });
@@ -228,4 +232,52 @@ test('una publicación sin contactos dice cero, no undefined', async () => {
   mockContactos.mockReturnValue(new Map());
   await render(<PublicacionesScreen />);
   expect(screen.getByText('0 personas pidieron tu contacto')).toBeTruthy();
+});
+
+// ── Cuervo 360 · cuántas personas guardaron cada publicación ─────────────────
+
+const conConteo = (mapa: Record<string, number>) =>
+  mockConteo.mockReturnValue({ conteos: new Map(Object.entries(mapa)), cargando: false, fallo: false });
+
+test('el dueño ve cuántas personas guardaron su publicación', async () => {
+  mockMisPublicaciones.mockReturnValue({ datos: [publicacion()], cargando: false });
+  mockContactos.mockReturnValue(new Map());
+  conConteo({ p1: 4 });
+  await render(<PublicacionesScreen />);
+  expect(await screen.findByText('4 personas la guardaron')).toBeTruthy();
+});
+
+test('con una usa el singular', async () => {
+  mockMisPublicaciones.mockReturnValue({ datos: [publicacion()], cargando: false });
+  mockContactos.mockReturnValue(new Map());
+  conConteo({ p1: 1 });
+  await render(<PublicacionesScreen />);
+  expect(await screen.findByText('1 persona la guardó')).toBeTruthy();
+});
+
+// Para el dueño un cero es un dato verdadero (como «0 personas pidieron tu contacto»)...
+test('un cero de verdad se dice', async () => {
+  mockMisPublicaciones.mockReturnValue({ datos: [publicacion()], cargando: false });
+  mockContactos.mockReturnValue(new Map());
+  conConteo({ p1: 0 });
+  await render(<PublicacionesScreen />);
+  expect(await screen.findByText('0 personas la guardaron')).toBeTruthy();
+});
+
+// ...pero un fallo o una carga NO se convierten en cero (END-11).
+test('sin dato (cargando o falló) no se afirma un cero', async () => {
+  mockMisPublicaciones.mockReturnValue({ datos: [publicacion()], cargando: false });
+  mockContactos.mockReturnValue(new Map());
+  conConteo({});
+  await render(<PublicacionesScreen />);
+  await screen.findByText('Depa centro');
+  expect(screen.queryByText(/la guard/)).toBeNull();
+});
+
+test('pide el conteo de TODAS sus publicaciones en una sola consulta', async () => {
+  mockMisPublicaciones.mockReturnValue({ datos: [publicacion({ id: 'p1' }), publicacion({ id: 'p2' })], cargando: false });
+  mockContactos.mockReturnValue(new Map());
+  await render(<PublicacionesScreen />);
+  await screen.findAllByText('Depa centro');
+  expect(mockConteo).toHaveBeenCalledWith(['p1', 'p2']);
 });

@@ -282,6 +282,14 @@ export interface RolUsuario {
   desde: string;
 }
 
+/** Una publicación que esta cuenta guardó (migración 0044). Privado: solo su dueña lo lee. */
+export interface Favorito {
+  [key: string]: unknown;
+  usuario_id: string;
+  publicacion_id: string;
+  creado_en: string;
+}
+
 type Tabla<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relationships: [] };
 // Las vistas de §13 son de solo lectura, pero supabase-js exige la misma forma
 // que una tabla para poder inferir el tipo de `select()`; sin Insert/Update el
@@ -301,6 +309,7 @@ export interface Database {
       reportes: Tabla<Reporte>;
       push_tokens: Tabla<PushToken>;
       roles_usuario: Tabla<RolUsuario>;
+      favoritos: Tabla<Favorito>;
       geocodificaciones: Tabla<{
         [key: string]: unknown;
         consulta: string;
@@ -343,6 +352,12 @@ export interface Database {
       sugerencias_roomies: {
         Args: { p_limite?: number };
         Returns: RoomieSugerido[];
+      };
+      // Cuántas personas guardaron cada publicación: solo (id, total), nunca quién (migración 0045).
+      // Una publicación que no se puede ver no devuelve fila, igual que una inexistente.
+      favoritos_por_publicacion: {
+        Args: { p_ids: string[] };
+        Returns: { publicacion_id: string; total: number }[];
       };
       // Solo comerciante o arrendador, siempre en sin_verificar. admin y estudiante → CP003.
       agregar_funcion: {

@@ -429,6 +429,7 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
             }
           >
             <FilaPublicacion
+              publicacionId={item.id}
               titulo={item.titulo}
               tipo={item.tipo}
               precio={item.precio_renta}

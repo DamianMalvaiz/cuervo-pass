@@ -1,6 +1,14 @@
 import { render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
+// El corazón tiene sus propias pruebas; aquí solo importa que la fila lo monte cuando recibe el id.
+jest.mock('../BotonFavorito', () => ({
+  BotonFavorito: ({ publicacionId }: { publicacionId: string }) => {
+    const { Text } = require('react-native');
+    return <Text>{`CORAZON:${publicacionId}`}</Text>;
+  },
+}));
+
 import { ALTO_FILA, FilaPublicacion } from '../FilaPublicacion';
 
 // END-33 · La densidad contradecía el posicionamiento.
@@ -111,4 +119,16 @@ test('las tres columnas se reparten el ancho y no se salen de una pantalla de 36
     expect(estilo.flex).toBe(1);
     expect(estilo.minWidth).toBe(0);
   }
+});
+
+// Cuervo 360 · Favoritos. La fila pinta el corazón solo si sabe de qué publicación es.
+test('con el id de la publicación, la fila pinta el corazón de favoritos', async () => {
+  await render(<FilaPublicacion publicacionId="p9" titulo="Depa" precio={2800} score={0.9} distanciaKm={1} />);
+  expect(await screen.findByText('CORAZON:p9', {}, { timeout: 5000 })).toBeTruthy();
+});
+
+test('sin el id (una fila de solo lectura) no hay corazón', async () => {
+  await render(<FilaPublicacion titulo="Depa" precio={2800} score={0.9} distanciaKm={1} />);
+  await screen.findByText('AJUSTE', {}, { timeout: 5000 });
+  expect(screen.queryByText(/CORAZON:/)).toBeNull();
 });

@@ -98,6 +98,10 @@ export default function TabsLayout() {
         options={{ title: 'Inicio', tabBarIcon: crearIcono('home', 'home-outline') }}
       />
       <Tabs.Screen
+        name="favoritos"
+        options={{ title: 'Favoritos', tabBarIcon: crearIcono('heart', 'heart-outline') }}
+      />
+      <Tabs.Screen
         name="publicar"
         options={{
           title: 'Publicar',

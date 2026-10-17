@@ -29,6 +29,8 @@ jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) => sel({ session: { user: { id: 'u1' } } }),
 }));
 jest.mock('@/lib/tacto', () => ({ toque: jest.fn(), sello: jest.fn() }));
+// El corazón de Favoritos tiene sus propias pruebas (necesita un cliente de consultas); aquí solo importa la lista.
+jest.mock('@/components/BotonFavorito', () => ({ BotonFavorito: () => null }));
 jest.mock('@/lib/registro', () => ({ aviso: jest.fn(), fallo: jest.fn() }));
 // La vista de Roomies tiene sus propias pruebas; aquí solo importa que Inicio la monte y le pase el selector.
 jest.mock('@/components/vistas/VistaRoomies', () => ({

@@ -35,7 +35,14 @@ jest.mock('react-native-reanimated', () => {
     createAnimatedComponent: (C) => C,
     FadeIn: paso(), FadeOut: paso(), FadeInDown: paso(), FadeInUp: paso(), FadeOutUp: paso(),
     SlideInRight: paso(), SlideOutLeft: paso(), Layout: paso(), LinearTransition: paso(),
-    useSharedValue: (v) => ({ value: v }),
+    // `.get()` y `.set()` son la forma de Reanimated 4 compatible con el compilador de React, que no deja
+    // modificar `.value` desde un manejador; el doble debe conocerlos igual que a `.value`.
+    useSharedValue: (v) => {
+      const o = { value: v };
+      o.get = () => o.value;
+      o.set = (x) => { o.value = typeof x === 'function' ? x(o.value) : x; };
+      return o;
+    },
     useAnimatedStyle: (fn) => (typeof fn === 'function' ? fn() : {}),
     withTiming: (v) => v, withSpring: (v) => v, withDelay: (_, v) => v,
     // El pulso de los esqueletos (END-38). `withRepeat` devuelve su valor para

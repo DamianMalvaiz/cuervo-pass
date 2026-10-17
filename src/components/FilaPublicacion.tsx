@@ -1,3 +1,4 @@
+import { BotonFavorito } from '@/components/BotonFavorito';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
@@ -53,6 +54,7 @@ const PALABRA_ACCESIBLE: Record<TipoPublicacion, string> = {
 };
 
 export function FilaPublicacion({
+  publicacionId,
   titulo,
   tipo,
   precio,
@@ -62,6 +64,8 @@ export function FilaPublicacion({
   similitud,
   onPress,
 }: {
+  /** Con el id, la fila pinta el corazón de Favoritos; sin él (una fila de solo lectura), no. */
+  publicacionId?: string;
   titulo: string;
   /** D.11 · El tipo no aparecía en la lista, solo en la ficha. Con los chips de
    *  B.3 se podía filtrar por algo que la lista nunca decía. */
@@ -119,7 +123,7 @@ export function FilaPublicacion({
       </View>
 
       <View style={estilos.derecha}>
-        <ThemedText type="small" numberOfLines={2} style={estilos.titulo}>
+        <ThemedText type="small" numberOfLines={2} style={[estilos.titulo, publicacionId ? estilos.tituloConCorazon : null]}>
           {titulo}
         </ThemedText>
 
@@ -141,6 +145,11 @@ export function FilaPublicacion({
           </ThemedText>
         )}
       </View>
+      {publicacionId ? (
+        <View style={estilos.corazon}>
+          <BotonFavorito publicacionId={publicacionId} />
+        </View>
+      ) : null}
     </Pulsable>
   );
 }
@@ -196,6 +205,9 @@ const estilos = StyleSheet.create({
   selloTipo: { position: 'absolute', left: 4, bottom: 4 },
   derecha: { flex: 1, justifyContent: 'space-between', minHeight: 96, gap: Spacing.half },
   titulo: { lineHeight: 18 },
+  // El corazón (44 pt) va arriba a la derecha: el título deja ese sitio libre para no pasar por debajo.
+  tituloConCorazon: { paddingRight: 36 },
+  corazon: { position: 'absolute', top: 0, right: 0 },
   columnas: { flexDirection: 'row', gap: Spacing.one },
   // `flex: 1` con base 0, no un ancho fijo. Los 86 pt de antes sumaban 274 con los
   // huecos y se salían de una pantalla de 360 pt (visto en un teléfono real). Con

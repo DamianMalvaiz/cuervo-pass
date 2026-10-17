@@ -19,6 +19,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { folioDe } from '@/lib/folio';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
+import { useConteoFavoritos } from '@/hooks/queries/useFavoritos';
 import { useCambiarEstadoPublicacion, useContactosRecibidos, useMisPublicaciones } from '@/hooks/queries/usePublicaciones';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
 import { toast } from '@/lib/toast';
@@ -35,6 +36,9 @@ function MisPublicaciones() {
   const { datos: publicaciones, cargando } = useMisPublicaciones(miId);
   const contactos = useContactosRecibidos(Boolean(miId));
   const cambiarEstado = useCambiarEstadoPublicacion(miId);
+  // Cuántas personas guardaron cada una (el número, nunca quién). Una sola consulta para todas. Si no hay
+  // dato —cargando o falló— no se afirma un cero (END-11): el mapa viene vacío y no se pinta la línea.
+  const { conteos: guardadas } = useConteoFavoritos(publicaciones.map((p) => p.id));
 
   const { urls: urlsFirmadas } = useFotosFirmadas(publicaciones.map((p) => p.fotos?.[0]));
 
@@ -161,6 +165,15 @@ function MisPublicaciones() {
                       {recibidos === 1 ? '1 persona pidió tu contacto' : `${recibidos} personas pidieron tu contacto`}
                     </ThemedText>
                   </View>
+
+                  {guardadas.has(item.id) && (
+                    <View style={estilos.aviso}>
+                      <Ionicons name="heart-outline" size={14} color={theme.textSecondary} />
+                      <ThemedText type="small" themeColor="textSecondary" style={estilos.textoAviso}>
+                        {guardadas.get(item.id) === 1 ? '1 persona la guardó' : `${guardadas.get(item.id)} personas la guardaron`}
+                      </ThemedText>
+                    </View>
+                  )}
 
                   <FileteHoja />
 

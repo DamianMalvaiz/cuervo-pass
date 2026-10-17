@@ -55,6 +55,19 @@ jest.mock('@/store/usePerfilStore', () => ({
   },
 }));
 jest.mock('@/lib/tacto', () => ({ sello: jest.fn(), toque: jest.fn() }));
+jest.mock('@/components/ConteoFavoritos', () => ({
+  ConteoFavoritos: ({ publicacionId }: { publicacionId: string }) => {
+    const { Text } = require('react-native');
+    return <Text>{`CONTEO:${publicacionId}`}</Text>;
+  },
+}));
+// El corazón tiene sus propias pruebas; aquí solo importa que la ficha lo monte con SU id.
+jest.mock('@/components/BotonFavorito', () => ({
+  BotonFavorito: ({ publicacionId }: { publicacionId: string }) => {
+    const { Text } = require('react-native');
+    return <Text>{`CORAZON:${publicacionId}`}</Text>;
+  },
+}));
 
 import DetalleScreen from '../[id]';
 
@@ -320,4 +333,25 @@ test('sin descripción no se pinta esa sección vacía', async () => {
 test('sin afinidad no se pinta el desglose', async () => {
   await pintar();
   expect(screen.queryByText(/POR QUÉ/i)).toBeNull();
+});
+
+// ── Cuervo 360 · Favoritos ───────────────────────────────────────────────────
+
+// El corazón va junto a «Ver contacto», no sobre la foto: así está siempre, haya fotos o no, y queda
+// al alcance del pulgar. Recibe el id de ESTA publicación y no otro.
+test('la ficha pinta el corazón de favoritos con el id de la publicación', async () => {
+  await pintar();
+  expect(await screen.findByText(`CORAZON:${PUBLICACION.id}`)).toBeTruthy();
+});
+
+test('el corazón no desplaza «Ver contacto»: los dos están', async () => {
+  await pintar();
+  expect(await screen.findByLabelText('Ver contacto')).toBeTruthy();
+  expect(screen.getByText(`CORAZON:${PUBLICACION.id}`)).toBeTruthy();
+});
+
+// Cuervo 360 · se ve cuántas personas la guardaron (el número, nunca quién).
+test('la ficha pinta el conteo de favoritos con el id de la publicación', async () => {
+  await pintar();
+  expect(await screen.findByText(`CONTEO:${PUBLICACION.id}`)).toBeTruthy();
 });
