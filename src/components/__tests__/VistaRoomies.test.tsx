@@ -40,7 +40,7 @@ jest.mock('@/store/useAuthStore', () => ({
 }));
 jest.mock('@/lib/registro', () => ({ aviso: jest.fn(), fallo: jest.fn() }));
 
-import RoomiesScreen from '../roomies';
+import { VistaRoomies } from '../vistas/VistaRoomies';
 
 const DESCRIPCION = 'Busco cerca de la UTVT, no fumo, tengo gato.';
 
@@ -62,7 +62,7 @@ const encender = async (valor = true) => {
 // El caso que importa: se niega. Antes de exigir esto, la comprobación podía
 // avisar y guardar igual, y el aviso se leería como un consejo.
 test('activar sin descripción avisa y NO guarda', async () => {
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   await encender();
   // Paso 3 · se AVISA, no se pregunta: no hay nada que decidir, solo que escribir.
   await waitFor(() => expect(useToastStore.getState().actual).not.toBeNull());
@@ -75,14 +75,14 @@ test('activar sin descripción avisa y NO guarda', async () => {
 // Diez caracteres es el umbral. «Hola» pasaría una comprobación de «no vacío».
 test('una descripción demasiado corta tampoco activa', async () => {
   mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: 'Hola', estado: 'cerrado' } });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   await encender();
   expect(mockMutar).not.toHaveBeenCalled();
 });
 
 test('con descripción suficiente, activar guarda como activo', async () => {
   mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'cerrado' } });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   await encender();
   expect(mockMutar).toHaveBeenCalledWith({ descripcionBusqueda: DESCRIPCION, estado: 'activo' });
 });
@@ -90,7 +90,7 @@ test('con descripción suficiente, activar guarda como activo', async () => {
 // Apagar no exige descripción: cerrar la ficha siempre debe poder hacerse.
 test('apagar guarda como cerrado sin exigir nada', async () => {
   mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'activo' } });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   await encender(false);
   expect(mockMutar).toHaveBeenCalledWith({ descripcionBusqueda: DESCRIPCION, estado: 'cerrado' });
   expect(Alert.alert).not.toHaveBeenCalled();
@@ -99,7 +99,7 @@ test('apagar guarda como cerrado sin exigir nada', async () => {
 test('si guardar falla, el interruptor vuelve y se dice', async () => {
   mockMutar.mockRejectedValue(new Error('caido'));
   mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'cerrado' } });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   await encender();
 
   await waitFor(() => expect(useToastStore.getState().actual).not.toBeNull());
@@ -116,7 +116,7 @@ test('si guardar falla, el interruptor vuelve y se dice', async () => {
 // Paso 3 · antes, activar o apagar la búsqueda solo movía el interruptor.
 test('activar la búsqueda se confirma con un aviso de éxito', async () => {
   mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'cerrado' } });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   await encender();
 
   expect(useToastStore.getState().actual).toMatchObject({
@@ -127,7 +127,7 @@ test('activar la búsqueda se confirma con un aviso de éxito', async () => {
 
 test('apagar la búsqueda también se confirma', async () => {
   mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'activo' } });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   await encender(false);
 
   expect(useToastStore.getState().actual).toMatchObject({
@@ -142,7 +142,7 @@ test('apagar la búsqueda también se confirma', async () => {
 test('si guardar la descripción al salir del campo falla, se avisa', async () => {
   mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'activo' } });
   mockMutar.mockRejectedValue(new Error('sin red'));
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
 
   await act(async () => {
     fireEvent(screen.getByPlaceholderText(/Zona, presupuesto/), 'blur');
@@ -159,7 +159,7 @@ test('si guardar la descripción al salir del campo falla, se avisa', async () =
 // salida del campo sería ruido.
 test('guardar la descripción bien NO lanza aviso: ya lo dice el indicador', async () => {
   mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'activo' } });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
 
   await act(async () => {
     fireEvent(screen.getByPlaceholderText(/Zona, presupuesto/), 'blur');
@@ -173,7 +173,7 @@ test('guardar la descripción bien NO lanza aviso: ya lo dice el indicador', asy
 // está escribiendo.
 test('un refresco no pisa lo que el usuario acaba de teclear', async () => {
   mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'activo' } });
-  const vista = await render(<RoomiesScreen />);
+  const vista = await render(<VistaRoomies />);
   const campo = screen.getByPlaceholderText(/Zona, presupuesto/);
   expect(campo.props.value).toBe(DESCRIPCION);
 
@@ -185,7 +185,7 @@ test('un refresco no pisa lo que el usuario acaba de teclear', async () => {
   // Llega otra respuesta del servidor con el texto ANTERIOR — es lo que ocurre
   // cuando la consulta se refresca mientras se escribe.
   await act(async () => {
-    vista.rerender(<RoomiesScreen />);
+    vista.rerender(<VistaRoomies />);
   });
   expect(screen.getByPlaceholderText(/Zona, presupuesto/).props.value).toBe(nuevo);
 });
@@ -193,7 +193,7 @@ test('un refresco no pisa lo que el usuario acaba de teclear', async () => {
 // El estado se dice, no se adivina.
 test('distingue «sin guardar» de «guardado»', async () => {
   mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'activo' } });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   expect(screen.getByText('Guardado')).toBeTruthy();
 
   await act(async () => {
@@ -206,7 +206,7 @@ test('distingue «sin guardar» de «guardado»', async () => {
 // afinidad seguiría calculándose contra el texto anterior.
 test('salir del campo guarda la descripción nueva', async () => {
   mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: DESCRIPCION, estado: 'activo' } });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   const campo = screen.getByPlaceholderText(/Zona, presupuesto/);
   const nuevo = 'Busco en el centro, con estacionamiento, sin fumadores.';
   // Dos `act` y no uno: en uno solo, React agrupa el cambio y el blur en el
@@ -229,14 +229,14 @@ test('salir del campo guarda la descripción nueva', async () => {
 });
 
 test('sin registros lo dice en vez de dejar la lista muda', async () => {
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   expect(screen.getByText('SIN REGISTROS')).toBeTruthy();
 });
 
 // Vacío y cargando son estados distintos: §27.
 test('mientras carga no afirma que no hay nadie', async () => {
   mockRoomies.mockReturnValue({ roomies: [], cargando: true });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   expect(screen.queryByText('SIN REGISTROS')).toBeNull();
 });
 
@@ -245,7 +245,7 @@ test('el conteo de personas concuerda en número', async () => {
     roomies: [{ id: 'r1', usuario_id: 'o1', nombre_completo: 'Ana', descripcion_busqueda: 'Hola', foto_url: null, similitud: 0.9 }],
     cargando: false,
   });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   expect(screen.getByText('1 PERSONA BUSCANDO')).toBeTruthy();
 });
 
@@ -256,7 +256,7 @@ test('el conteo de personas concuerda en número', async () => {
 // el campo mostraría «null» como texto y el contador diría 4/2000.
 test('una descripción nula se siembra como vacía, no como «null»', async () => {
   mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: null, estado: 'activo' } });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   expect(screen.getByPlaceholderText(/Zona, presupuesto/).props.value).toBe('');
   expect(screen.getByText('0/2000')).toBeTruthy();
 });
@@ -266,7 +266,7 @@ test('una descripción nula se siembra como vacía, no como «null»', async () 
 // que esa ficha apareciera al final de la lista de todo el mundo para siempre.
 test('al apagar sin descripción se guarda un texto por omisión', async () => {
   mockMiRoomie.mockReturnValue({ miRoomie: { descripcion_busqueda: '', estado: 'activo' } });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   await encender(false);
   expect(mockMutar).toHaveBeenCalledWith({ descripcionBusqueda: 'Busco roomie.', estado: 'cerrado' });
 });
@@ -276,6 +276,15 @@ test('un roomie con foto se pinta con su tarjeta completa', async () => {
     roomies: [{ id: 'r1', usuario_id: 'o1', nombre_completo: 'Ana', descripcion_busqueda: 'Hola', foto_url: 'o1/a.jpg', similitud: 0.9 }],
     cargando: false,
   });
-  await render(<RoomiesScreen />);
+  await render(<VistaRoomies />);
   expect(screen.getByText('Ana')).toBeTruthy();
+});
+
+// Cuervo 360 · la vista vive dentro de Inicio y recibe el selector de módulo. Sin él, quien
+// entra a Roomies no tiene forma de volver a Depas: una vista sin salida.
+test('pinta el selector que le pasa Inicio, arriba de su encabezado', async () => {
+  const { Text } = require('react-native');
+  await render(<VistaRoomies selector={<Text>SELECTOR DE PRUEBA</Text>} />);
+  expect(await screen.findByText('SELECTOR DE PRUEBA')).toBeTruthy();
+  expect(screen.getByText('REGISTRO DE ROOMIES')).toBeTruthy();
 });

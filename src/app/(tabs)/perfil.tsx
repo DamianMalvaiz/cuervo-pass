@@ -17,6 +17,7 @@ import {
 import { Campo } from '@/components/Campo';
 import { CampoFicha, FileteHoja } from '@/components/ficha/CampoFicha';
 import { SeccionFunciones } from '@/components/SeccionFunciones';
+import { useModuloStore } from '@/store/useModuloStore';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { FilaAjuste } from '@/components/ficha/FilaAjuste';
 import { Pulsable } from '@/components/ficha/Pulsable';
@@ -496,7 +497,11 @@ export default function PerfilScreen() {
                         ? 'Pausado: no apareces en la lista.'
                         : 'Sin crear. Nadie te encuentra como roomie.'
                   }
-                  onPress={() => router.push('/(tabs)/roomies')}
+                  onPress={() => {
+                    // Roomies vive dentro de Inicio: se elige el módulo y se navega.
+                    useModuloStore.getState().setModulo('roomies');
+                    router.push('/(tabs)/inicio');
+                  }}
                 />
               </View>
             </Seccion>

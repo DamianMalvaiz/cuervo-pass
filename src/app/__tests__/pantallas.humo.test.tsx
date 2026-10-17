@@ -96,7 +96,7 @@ const pintar = async (Pantalla: () => React.ReactElement) => {
 };
 
 test('Roomies monta con lista vacia y muestra su encabezado', async () => {
-  const Pantalla = require('../(tabs)/roomies').default;
+  const Pantalla = require('@/components/vistas/VistaRoomies').VistaRoomies;
   await pintar(Pantalla);
   expect(await screen.findByText('Roomies', {}, { timeout: 5000 })).toBeTruthy();
   expect(await screen.findByText('REGISTRO DE ROOMIES', {}, { timeout: 5000 })).toBeTruthy();

@@ -118,11 +118,11 @@ test('engancha el enlace profundo de notificaciones', async () => {
 // El orden es el del producto: primero lo que se consulta, al final lo propio.
 // Una pestaña de menos o en otro sitio es un cambio de navegación, y esto lo
 // deja por escrito en vez de en la memoria de quien lo escribió.
-test('declara las cinco pestañas en orden', async () => {
+test('declara las cuatro pestañas en orden', async () => {
   await render(<TabsLayout />);
-  expect(pantallas.map((p) => p.name)).toEqual(['inicio', 'publicaciones', 'roomies', 'chats', 'perfil']);
+  expect(pantallas.map((p) => p.name)).toEqual(['inicio', 'publicaciones', 'chats', 'perfil']);
   expect(pantallas.map((p) => p.options.title)).toEqual([
-    'Sugerencias', 'Publicaciones', 'Roomies', 'Chats', 'Perfil',
+    'Sugerencias', 'Publicaciones', 'Chats', 'Perfil',
   ]);
 });
 
@@ -172,7 +172,6 @@ test('la pestaña activa lleva el icono relleno y la inactiva el de contorno', a
 test('cada pestaña tiene su par relleno/contorno', async () => {
   for (const [nombre, base] of [
     ['publicaciones', 'business'],
-    ['roomies', 'people'],
     ['chats', 'chatbubble'],
     ['perfil', 'person-circle'],
   ] as const) {

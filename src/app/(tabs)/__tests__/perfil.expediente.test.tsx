@@ -56,6 +56,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 
 import { clienteDePrueba } from '@pruebas/consultas';
 
+import { useModuloStore } from '@/store/useModuloStore';
+
 import PerfilScreen from '../perfil';
 
 const envolver = ({ children }: { children: React.ReactNode }) => (
@@ -94,7 +96,9 @@ describe('los renglones llevan a donde dicen', () => {
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/publicaciones');
 
     await act(async () => { fireEvent.press(screen.getByText('Mi anuncio de roomie')); });
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/roomies');
+    // Roomies vive dentro de Inicio: abre Inicio y deja elegido el módulo Roomies.
+    expect(mockPush).toHaveBeenCalledWith('/(tabs)/inicio');
+    expect(useModuloStore.getState().modulo).toBe('roomies');
   });
 });
 

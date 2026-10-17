@@ -1,11 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ANCHO_FICHA_COMPACTA, FichaCompacta } from '@/components/FichaCompacta';
 import { FilaPublicacion } from '@/components/FilaPublicacion';
+import { SelectorModulo } from '@/components/SelectorModulo';
+import { VistaRoomies } from '@/components/vistas/VistaRoomies';
+import { useModuloStore } from '@/store/useModuloStore';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { Carrusel } from '@/components/ficha/Carrusel';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
@@ -226,7 +229,7 @@ function ControlOrden({
   );
 }
 
-export default function InicioScreen() {
+function VistaDepas({ selector }: { selector?: ReactNode }) {
   const session = useAuthStore((s) => s.session);
   const cargarPerfil = usePerfilStore((s) => s.cargarPerfil);
   // Dos números y no una bandera: en una misma lista conviven publicaciones
@@ -317,6 +320,7 @@ export default function InicioScreen() {
         }
         ListHeaderComponent={
           <View style={estilos.cabecera}>
+            {selector ? <View style={estilos.margen}>{selector}</View> : null}
             <View style={estilos.margen}>
               <Encabezado
                 kicker={
@@ -522,3 +526,16 @@ const estilos = StyleSheet.create({
   fileteOrden: { height: Filete.grueso },
   fileteLista: { height: Filete.fino },
 });
+
+/**
+ * Inicio reúne los módulos · Cuervo 360. Hoy Depas y Roomies; Servicios se suma en la Semana 2.
+ *
+ * Roomies dejó de ser una pestaña: el menú es de cinco accesos. Cada vista pinta el selector
+ * arriba de su propio encabezado, así comparte el margen superior y el desplazamiento.
+ */
+export default function InicioScreen() {
+  const modulo = useModuloStore((s) => s.modulo);
+  const setModulo = useModuloStore((s) => s.setModulo);
+  const selector = <SelectorModulo valor={modulo} onCambiar={setModulo} />;
+  return modulo === 'roomies' ? <VistaRoomies selector={selector} /> : <VistaDepas selector={selector} />;
+}

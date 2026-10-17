@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { FlatList, StyleSheet, Switch, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
@@ -26,7 +26,7 @@ import { useGuardarMiRoomie, useMiRoomie, useRoomiesSugeridos } from '@/hooks/qu
 // `sugerencias_roomies` devuelve la lista ordenada, con los datos públicos del
 // dueño unidos. Aquí no hay "Nivel 1" de filtros duros —ambos lados ya buscan
 // cerca de la misma universidad— así que el orden es directamente la similitud.
-export default function RoomiesScreen() {
+export function VistaRoomies({ selector }: { selector?: ReactNode }) {
   const theme = useTheme();
   const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
@@ -123,6 +123,7 @@ export default function RoomiesScreen() {
         // en un teléfono pequeño.
         ListHeaderComponent={
           <View style={estilos.encabezado}>
+            {selector}
             <Encabezado
               kicker="REGISTRO DE ROOMIES"
               titulo="Roomies"
