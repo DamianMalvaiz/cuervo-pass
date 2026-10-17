@@ -18,7 +18,15 @@ const capturado: {
   desplazador?: { alNodo?: unknown };
 } = {};
 
-jest.mock('expo-router', () => ({ router: { replace: (...a: unknown[]) => mockReplace(...a) } }));
+jest.mock('expo-router', () => ({ router: { replace: (...a: unknown[]) => mockReplace(...a), push: jest.fn() } }));
+// Cuervo 360 · la pantalla pasa por `GuardaPublicar`; estas pruebas son del formulario, así que se le
+// da una cuenta con una función aprobada. La guarda tiene sus propias pruebas.
+jest.mock('@/hooks/queries/useRoles', () => ({
+  useMisRoles: () => ({
+    roles: [{ usuario_id: 'u1', rol: 'arrendador', estado: 'aprobado', origen: 'solicitud', desde: 'x' }],
+    cargando: false, fallo: false, reintentar: jest.fn(),
+  }),
+}));
 jest.mock('@/components/FormularioPublicacion', () => ({
   FormularioPublicacion: (props: {
     onGuardar: (datos: unknown) => Promise<void>;

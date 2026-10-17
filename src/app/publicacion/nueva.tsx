@@ -17,9 +17,10 @@ import { useTheme } from '@/hooks/use-theme';
 import { crearPublicacion } from '@/services/publicaciones.service';
 import { sello } from '@/lib/tacto';
 import { toast } from '@/lib/toast';
+import { GuardaPublicar } from '@/components/GuardaPublicar';
 import { useAuthStore } from '@/store/useAuthStore';
 
-export default function NuevaPublicacionScreen() {
+function NuevaPublicacion() {
   const formulario = useRef<ControlPublicacion>(null);
   const [guardando, setGuardando] = useState(false);
   const theme = useTheme();
@@ -102,6 +103,15 @@ export default function NuevaPublicacionScreen() {
         </PieFijo>
       </KeyboardAvoidingView>
     </ThemedView>
+  );
+}
+
+/** Crear una publicación exige una función de vendedor aprobada (ver GuardaPublicar). */
+export default function NuevaPublicacionScreen() {
+  return (
+    <GuardaPublicar>
+      <NuevaPublicacion />
+    </GuardaPublicar>
   );
 }
 

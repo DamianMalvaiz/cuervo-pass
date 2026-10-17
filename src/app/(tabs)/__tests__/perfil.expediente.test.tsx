@@ -93,7 +93,7 @@ describe('los renglones llevan a donde dicen', () => {
   it('«Mis publicaciones» y «Mi anuncio de roomie» llevan a su pestaña', async () => {
     await montar();
     await act(async () => { fireEvent.press(screen.getByText('Mis publicaciones')); });
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/publicaciones');
+    expect(mockPush).toHaveBeenCalledWith('/(tabs)/publicar');
 
     await act(async () => { fireEvent.press(screen.getByText('Mi anuncio de roomie')); });
     // Roomies vive dentro de Inicio: abre Inicio y deja elegido el módulo Roomies.

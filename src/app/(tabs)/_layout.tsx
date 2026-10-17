@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AltoBarraPestanas, Filete, Spacing, Tipografia } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useMisRoles } from '@/hooks/queries/useRoles';
+import { puedePublicar } from '@/lib/funciones';
 import { registrarTokenPush, useAbrirChatDesdeNotificacion } from '@/lib/pushNotifications';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -39,6 +41,11 @@ export default function TabsLayout() {
   const theme = useTheme();
   const miId = useAuthStore((s) => s.session?.user.id);
   const { bottom } = useSafeAreaInsets();
+  // «Publicar» solo con una función de vendedor aprobada. Mientras se comprueba, o si la lectura
+  // falla, `roles` viene vacío y la pestaña queda oculta: ante la duda, cerrada. Es una regla de
+  // interfaz; la de la base llega con la verificación de vendedor.
+  const { roles } = useMisRoles(miId);
+  const verPublicar = puedePublicar(roles);
   useAbrirChatDesdeNotificacion();
 
   useEffect(() => {
@@ -88,11 +95,17 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="inicio"
-        options={{ title: 'Sugerencias', tabBarIcon: crearIcono('home', 'home-outline') }}
+        options={{ title: 'Inicio', tabBarIcon: crearIcono('home', 'home-outline') }}
       />
       <Tabs.Screen
-        name="publicaciones"
-        options={{ title: 'Publicaciones', tabBarIcon: crearIcono('business', 'business-outline') }}
+        name="publicar"
+        options={{
+          title: 'Publicar',
+          // `href: null` la esconde de la barra sin quitar la ruta; la propia pantalla se guarda
+          // por si se llega por un enlace directo.
+          href: verPublicar ? undefined : null,
+          tabBarIcon: crearIcono('add-circle', 'add-circle-outline'),
+        }}
       />
       <Tabs.Screen
         name="chats"

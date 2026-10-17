@@ -59,6 +59,15 @@ jest.mock('@/lib/pushNotifications', () => ({
   useAbrirChatDesdeNotificacion: (...a: unknown[]) => mockUsarNotificacion(...a),
 }));
 
+// Cuervo 360 · «Publicar» depende de los roles de la cuenta.
+const mockRoles: { valor: { roles: unknown[]; cargando: boolean; fallo: boolean } } = {
+  valor: { roles: [], cargando: false, fallo: false },
+};
+jest.mock('@/hooks/queries/useRoles', () => ({
+  useMisRoles: () => ({ ...mockRoles.valor, reintentar: jest.fn() }),
+}));
+const aprobado = (rol: string, estado = 'aprobado') => ({ usuario_id: 'u1', rol, estado, origen: 'solicitud', desde: 'x' });
+
 const sesion: { id: string | undefined } = { id: 'u1' };
 jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) =>
@@ -78,6 +87,7 @@ beforeEach(() => {
   pantallas.length = 0;
   opcionesTabs.length = 0;
   sesion.id = 'u1';
+  mockRoles.valor = { roles: [], cargando: false, fallo: false };
   conInsetInferior(0);
 });
 
@@ -120,9 +130,9 @@ test('engancha el enlace profundo de notificaciones', async () => {
 // deja por escrito en vez de en la memoria de quien lo escribió.
 test('declara las cuatro pestañas en orden', async () => {
   await render(<TabsLayout />);
-  expect(pantallas.map((p) => p.name)).toEqual(['inicio', 'publicaciones', 'chats', 'perfil']);
+  expect(pantallas.map((p) => p.name)).toEqual(['inicio', 'publicar', 'chats', 'perfil']);
   expect(pantallas.map((p) => p.options.title)).toEqual([
-    'Sugerencias', 'Publicaciones', 'Chats', 'Perfil',
+    'Inicio', 'Publicar', 'Chats', 'Perfil',
   ]);
 });
 
@@ -171,7 +181,7 @@ test('la pestaña activa lleva el icono relleno y la inactiva el de contorno', a
 // un par dejaría una pestaña que nunca parece activa.
 test('cada pestaña tiene su par relleno/contorno', async () => {
   for (const [nombre, base] of [
-    ['publicaciones', 'business'],
+    ['publicar', 'add-circle'],
     ['chats', 'chatbubble'],
     ['perfil', 'person-circle'],
   ] as const) {
@@ -230,4 +240,46 @@ test('sin área segura la barra conserva su alto base', async () => {
 test('el alto base alcanza para la barra, el icono y la etiqueta', () => {
   // marca (Filete.grueso) + icono (22) + etiqueta (10 + interlineado) + holguras.
   expect(AltoBarraPestanas).toBeGreaterThanOrEqual(64);
+});
+
+// ── «Publicar» solo con una función aprobada ─────────────────────────────────
+
+// `href: null` esconde la pestaña de la barra; `undefined` la deja. Fallar cerrado: si no se sabe
+// (cargando, falló la lectura), NO se muestra. Es una regla de interfaz: la de la base llega con
+// la verificación de vendedor.
+const hrefDePublicar = () => pantallas.find((p) => p.name === 'publicar')?.options.href;
+
+test('una cuenta sin funciones NO ve la pestaña Publicar', async () => {
+  await render(<TabsLayout />);
+  expect(hrefDePublicar()).toBeNull();
+});
+
+test('una función sin verificar tampoco la muestra', async () => {
+  mockRoles.valor = { roles: [aprobado('arrendador', 'sin_verificar')], cargando: false, fallo: false };
+  await render(<TabsLayout />);
+  expect(hrefDePublicar()).toBeNull();
+});
+
+test('un arrendador aprobado SÍ la ve', async () => {
+  mockRoles.valor = { roles: [aprobado('arrendador')], cargando: false, fallo: false };
+  await render(<TabsLayout />);
+  expect(hrefDePublicar()).toBeUndefined();
+});
+
+test('un comerciante aprobado SÍ la ve', async () => {
+  mockRoles.valor = { roles: [aprobado('comerciante')], cargando: false, fallo: false };
+  await render(<TabsLayout />);
+  expect(hrefDePublicar()).toBeUndefined();
+});
+
+test('mientras se comprueba la oculta: ante la duda, cerrada', async () => {
+  mockRoles.valor = { roles: [], cargando: true, fallo: false };
+  await render(<TabsLayout />);
+  expect(hrefDePublicar()).toBeNull();
+});
+
+test('si falló la lectura de roles la oculta', async () => {
+  mockRoles.valor = { roles: [], cargando: false, fallo: true };
+  await render(<TabsLayout />);
+  expect(hrefDePublicar()).toBeNull();
 });

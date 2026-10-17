@@ -45,6 +45,14 @@ jest.mock('@/store/useAuthStore', () => ({
 jest.mock('@/store/usePerfilStore', () => ({
   usePerfilStore: () => ({ perfil: { id: 'u1', consiente_analisis_ia: true }, cargando: false, cargarPerfil: jest.fn(), actualizarPerfil: jest.fn() }),
 }));
+// Cuervo 360 · «Publicar» pasa por `GuardaPublicar`; esta prueba solo comprueba que la pantalla del
+// dueño monta, así que se le da una cuenta con una función aprobada.
+jest.mock('@/hooks/queries/useRoles', () => ({
+  useMisRoles: () => ({
+    roles: [{ usuario_id: 'u1', rol: 'arrendador', estado: 'aprobado', origen: 'solicitud', desde: 'x' }],
+    cargando: false, fallo: false, reintentar: jest.fn(),
+  }),
+}));
 jest.mock('@/services/roomies.service', () => ({
   listarRoomiesSugeridos: jest.fn().mockResolvedValue([]),
   obtenerMiRoomie: jest.fn().mockResolvedValue(null),
@@ -103,7 +111,7 @@ test('Roomies monta con lista vacia y muestra su encabezado', async () => {
 });
 
 test('Mis publicaciones monta con lista vacia y muestra su encabezado', async () => {
-  const Pantalla = require('../(tabs)/publicaciones').default;
+  const Pantalla = require('../(tabs)/publicar').default;
   await pintar(Pantalla);
   expect(await screen.findByText('Mis publicaciones', {}, { timeout: 5000 })).toBeTruthy();
   expect(await screen.findByText('REGISTRO PROPIO', {}, { timeout: 5000 })).toBeTruthy();

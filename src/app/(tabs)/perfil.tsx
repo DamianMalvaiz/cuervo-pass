@@ -484,7 +484,7 @@ export default function PerfilScreen() {
                   icono="documents-outline"
                   etiqueta="Mis publicaciones"
                   descripcion={descripcionPublicaciones}
-                  onPress={() => router.push('/(tabs)/publicaciones')}
+                  onPress={() => router.push('/(tabs)/publicar')}
                 />
                 <FileteHoja />
                 <FilaAjuste

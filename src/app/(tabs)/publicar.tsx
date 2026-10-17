@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { FichaPublicacion } from '@/components/FichaPublicacion';
+import { GuardaPublicar } from '@/components/GuardaPublicar';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Sello } from '@/components/ficha/Sello';
@@ -23,7 +24,7 @@ import { CP, esCodigo } from '@/lib/erroresPostgres';
 import { toast } from '@/lib/toast';
 
 // Documento maestro v5 · §25 y §27.
-export default function PublicacionesScreen() {
+function MisPublicaciones() {
   const theme = useTheme();
   const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
@@ -227,3 +228,12 @@ const estilos = StyleSheet.create({
   acciones: { flexDirection: 'row', gap: Spacing.four, paddingTop: Spacing.two },
   accion: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, minHeight: 44 },
 });
+
+/** La pestaña «Publicar» · Cuervo 360. Solo con una función de vendedor aprobada (ver GuardaPublicar). */
+export default function PublicarScreen() {
+  return (
+    <GuardaPublicar>
+      <MisPublicaciones />
+    </GuardaPublicar>
+  );
+}
