@@ -11,13 +11,13 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 
 import { BotonVerContacto } from '@/components/BotonVerContacto';
 import { CampoFicha } from '@/components/ficha/CampoFicha';
 import { DesgloseCalificacion } from '@/components/ficha/DesgloseCalificacion';
 import { Seccion } from '@/components/ficha/Seccion';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
+import { MapaUbicacion } from '@/components/MapaUbicacion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import {Filete, Radios, Spacing } from '@/constants/theme';
@@ -358,29 +358,12 @@ export default function DetallePublicacionScreen() {
 
         {tieneUbicacion && (
           <Seccion titulo="UBICACIÓN">
-            <View style={[estilos.marcoMapa, { borderColor: theme.border }]}>
-              <MapView
-                style={estilos.mapa}
-                initialRegion={{
-                  latitude: publicacion.latitud as number,
-                  longitude: publicacion.longitud as number,
-                  latitudeDelta: 0.01,
-                  longitudeDelta: 0.01,
-                }}
-                zoomEnabled
-                scrollEnabled
-                rotateEnabled
-                zoomControlEnabled
-              >
-                <Marker
-                  coordinate={{
-                    latitude: publicacion.latitud as number,
-                    longitude: publicacion.longitud as number,
-                  }}
-                  title={publicacion.titulo}
-                />
-              </MapView>
-            </View>
+            <MapaUbicacion
+              latitud={publicacion.latitud as number}
+              longitud={publicacion.longitud as number}
+              titulo={publicacion.titulo}
+              direccion={publicacion.direccion}
+            />
             {/* Obligación de atribución de la licencia ODbL (§9, AUD-02). No es
                 decorativa: es la condición bajo la que podemos guardar estas
                 coordenadas en la base. */}
@@ -460,8 +443,6 @@ const estilos = StyleSheet.create({
   cuerpo: { padding: Spacing.three, gap: Spacing.three },
   rejilla: { flexDirection: 'row', gap: Spacing.three },
   descripcion: { lineHeight: 24 },
-  marcoMapa: { borderWidth: Filete.fino, borderRadius: Radios.hoja, overflow: 'hidden' },
-  mapa: { height: 220 },
   sello: { marginTop: Spacing.two },
   advertencia: {
     flexDirection: 'row',
