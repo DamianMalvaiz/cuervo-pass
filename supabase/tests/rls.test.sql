@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(98);
+select plan(116);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1079,6 +1079,7 @@ select is(
     'abrir_conversacion',
     'afinidad_de',
     'afinidad_roomie_de',
+    'agregar_funcion',
     'consumir_cuota',
     'contactos_de_mis_publicaciones',
     'distancia_km',
@@ -1425,6 +1426,141 @@ select is(
   (select allowed_mime_types from storage.buckets where id = 'fotos'),
   array['image/jpeg']::text[],
   'el bucket de fotos solo admite image/jpeg, que es lo unico que sube la app' );
+
+
+-- ═══════ 99 a 116 · roles de usuario (Cuervo 360) ═══════
+-- Todo usuario es ESTUDIANTE por defecto y eso NO se guarda: «estudiante verificado» ya se
+-- deriva del correo confirmado (0026), y un dato que se puede consultar no se copia. La tabla
+-- guarda solo las funciones que se AGREGAN: comerciante, arrendador y admin.
+--
+-- Quien se beneficia de un rol no se lo escribe: el cliente solo LEE sus filas. Agregarse
+-- una función pasa por `agregar_funcion`, que solo crea comerciante o arrendador en
+-- `sin_verificar`; cambiar el estado o crear un admin es cosa del servidor.
+select actuar_como_servicio();
+
+select is(
+  (select relrowsecurity from pg_class where oid = 'public.roles_usuario'::regclass),
+  true,
+  'roles_usuario tiene RLS activo' );
+
+select is(
+  has_table_privilege('anon', 'public.roles_usuario', 'select'),
+  false,
+  'anon no puede leer roles_usuario' );
+
+select is(
+  (select bool_or(has_table_privilege('authenticated', 'public.roles_usuario', p))
+     from unnest(array['insert', 'update', 'delete', 'truncate']) p),
+  false,
+  'authenticated no puede escribir en roles_usuario: ni insertar, ni actualizar, ni borrar' );
+
+select is(
+  has_table_privilege('authenticated', 'public.roles_usuario', 'select'),
+  true,
+  'authenticated sí puede leer sus roles (la policy acota las filas)' );
+
+-- Agregarse una función: nace sin verificar, por solicitud.
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select agregar_funcion('arrendador');
+select is(
+  (select estado from roles_usuario
+    where usuario_id = '00000000-0000-0000-0000-0000000000a1' and rol = 'arrendador'),
+  'sin_verificar',
+  'agregar_funcion deja la función en sin_verificar' );
+select is(
+  (select origen from roles_usuario
+    where usuario_id = '00000000-0000-0000-0000-0000000000a1' and rol = 'arrendador'),
+  'solicitud',
+  'y con origen solicitud' );
+
+-- Repetir NO duplica y NO degrada: si el servidor ya la aprobó, volver a pedirla no la
+-- devuelve a sin_verificar (sería quitarle a alguien una aprobación pulsando un botón).
+select actuar_como_servicio();
+update roles_usuario set estado = 'aprobado'
+ where usuario_id = '00000000-0000-0000-0000-0000000000a1' and rol = 'arrendador';
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select agregar_funcion('arrendador');
+select is(
+  (select count(*)::int from roles_usuario
+    where usuario_id = '00000000-0000-0000-0000-0000000000a1' and rol = 'arrendador'),
+  1,
+  'pedir la misma función dos veces no crea una segunda fila' );
+select is(
+  (select estado from roles_usuario
+    where usuario_id = '00000000-0000-0000-0000-0000000000a1' and rol = 'arrendador'),
+  'aprobado',
+  'volver a pedirla no degrada una aprobación' );
+
+-- Aislamiento entre cuentas: la ajena no ve nada de la dueña.
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is(
+  (select count(*)::int from roles_usuario
+    where usuario_id = '00000000-0000-0000-0000-0000000000a1'),
+  0,
+  'una cuenta ajena no ve los roles de otra' );
+select is(
+  (select count(*)::int from roles_usuario),
+  0,
+  'y sin haber pedido ninguno, no ve ninguna fila' );
+
+-- Lo que no se puede pedir.
+select throws_ok(
+  $$select agregar_funcion('admin')$$, 'CP003', null,
+  'nadie se agrega admin' );
+select throws_ok(
+  $$select agregar_funcion('estudiante')$$, 'CP003', null,
+  'estudiante es implícito: no se agrega' );
+
+select actuar_como_servicio();
+select throws_ok(
+  $$select agregar_funcion('comerciante')$$, '28000', null,
+  'sin sesión no se agrega ninguna función' );
+
+-- Y el cliente no escribe la tabla por la API aunque lo intente.
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select throws_ok(
+  $$insert into roles_usuario (usuario_id, rol, estado)
+    values ('00000000-0000-0000-0000-0000000000b2', 'admin', 'aprobado')$$,
+  '42501', null,
+  'no se puede insertar un admin directamente' );
+select throws_ok(
+  $$update roles_usuario set estado = 'aprobado'
+     where usuario_id = '00000000-0000-0000-0000-0000000000a1'$$,
+  '42501', null,
+  'no se puede cambiar el estado directamente' );
+select throws_ok(
+  $$delete from roles_usuario where usuario_id = '00000000-0000-0000-0000-0000000000a1'$$,
+  '42501', null,
+  'no se puede borrar un rol directamente' );
+
+-- El criterio del backfill de la migración 0043: quien ya es dueño de una publicación se
+-- migra como arrendador aprobado, con origen `migracion` para que no pase por solicitado.
+select actuar_como_servicio();
+insert into roles_usuario (usuario_id, rol, estado, origen)
+select distinct usuario_id, 'arrendador', 'aprobado', 'migracion'
+  from publicaciones
+on conflict do nothing;
+select is(
+  (select origen from roles_usuario
+    where usuario_id = '00000000-0000-0000-0000-0000000000b2' and rol = 'arrendador'),
+  'migracion',
+  'el dueño de una publicación queda como arrendador migrado' );
+
+-- Borrar la cuenta borra sus roles (eliminar-cuenta borra auth.users y todo cae en cascada).
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data)
+values ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000c7',
+        'authenticated', 'authenticated', 'c7@test.mx', '', now(), now(),
+        '{"nombre_usuario":"usuario_c7","nombre_completo":"Cata Prueba"}');
+select actuar_como('00000000-0000-0000-0000-0000000000c7');
+select agregar_funcion('comerciante');
+select actuar_como_servicio();
+delete from auth.users where id = '00000000-0000-0000-0000-0000000000c7';
+select is(
+  (select count(*)::int from roles_usuario
+    where usuario_id = '00000000-0000-0000-0000-0000000000c7'),
+  0,
+  'borrar la cuenta borra sus roles' );
 
 select * from finish();
 rollback;

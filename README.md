@@ -106,7 +106,7 @@ uvicorn main:app --reload     # desde ai-service/, no desde la raíz.
 
 # ── Antes de exponer ───────────────────────────────────
 node scripts/verificar.mjs   # túnel, secrets, vectores, RPCs — ver docs/verificacion-pre-demo.md
-npx supabase test db         # 98 aserciones de RLS (local, contra el esquema reconstruido)
+npx supabase test db         # 116 aserciones de RLS (local, contra el esquema reconstruido)
 node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs   # las barreras, contra PRODUCCIÓN y por HTTP
 npm run verificar:bucket     # que Storage APLIQUE los límites de las fotos (sube sondas y las borra)
 npx tsc --noEmit && npx expo lint && npm test -- --coverage   # los umbrales rompen el build si baja
