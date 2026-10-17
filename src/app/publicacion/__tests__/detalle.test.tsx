@@ -55,6 +55,12 @@ jest.mock('@/store/usePerfilStore', () => ({
   },
 }));
 jest.mock('@/lib/tacto', () => ({ sello: jest.fn(), toque: jest.fn() }));
+jest.mock('@/components/BotonEscribir', () => ({
+  BotonEscribir: ({ otroUsuarioId }: { otroUsuarioId: string }) => {
+    const { Text } = require('react-native');
+    return <Text>{`ESCRIBIR_A:${otroUsuarioId}`}</Text>;
+  },
+}));
 jest.mock('@/components/ConteoFavoritos', () => ({
   ConteoFavoritos: ({ publicacionId }: { publicacionId: string }) => {
     const { Text } = require('react-native');
@@ -77,6 +83,7 @@ const PUBLICACION = {
   tipo: 'depa',
   direccion: 'Calle 1, Lerma',
   descripcion: 'Bien iluminado y cerca del transporte.',
+  usuario_id: 'dueno-9',
   precio_renta: 3500,
   fotos: [],
   permite_mascotas: false,
@@ -354,4 +361,16 @@ test('el corazón no desplaza «Ver contacto»: los dos están', async () => {
 test('la ficha pinta el conteo de favoritos con el id de la publicación', async () => {
   await pintar();
   expect(await screen.findByText(`CONTEO:${PUBLICACION.id}`)).toBeTruthy();
+});
+
+// Cuervo 360 · contactar DENTRO de la app es el camino principal; WhatsApp es la segunda opción.
+test('la ficha ofrece escribir en la app, al dueño de ESTA publicación', async () => {
+  await pintar();
+  expect(await screen.findByText('ESCRIBIR_A:dueno-9')).toBeTruthy();
+});
+
+test('«Ver contacto» (WhatsApp) sigue ahí como segunda opción', async () => {
+  await pintar();
+  await screen.findByText('ESCRIBIR_A:dueno-9');
+  expect(screen.getByLabelText('Ver contacto')).toBeTruthy();
 });

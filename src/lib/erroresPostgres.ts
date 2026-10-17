@@ -27,6 +27,8 @@ export const SQL = {
   FOREIGN_KEY_VIOLATION: '23503',
   /** No se puede inferir un índice parcial sin repetir su predicado. */
   INVALID_ON_CONFLICT: '42P10',
+  /** `raise exception` sin código propio. Lo usa `abrir_conversacion` cuando el destinatario no es válido o ya no está activo. */
+  RAISE_EXCEPTION: 'P0001',
 } as const;
 
 /**

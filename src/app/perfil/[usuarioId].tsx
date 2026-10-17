@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -19,7 +19,7 @@ import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { folioDe } from '@/lib/folio';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
-import { abrirConversacion } from '@/services/mensajes.service';
+import { abrirChatCon } from '@/lib/abrirChat';
 import { obtenerAfinidadRoomie, obtenerPerfilPublico, reportarUsuario } from '@/services/usuarios.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { PerfilPublico } from '@/types/database.types';
@@ -105,11 +105,7 @@ export default function PerfilRoomieScreen() {
     if (!usuarioId || abriendoChat) return;
     setAbriendoChat(true);
     try {
-      const conversacionId = await abrirConversacion(usuarioId);
-      router.push(`/chat/${conversacionId}`);
-    } catch (e) {
-      aviso('abrirConversacion falló', undefined, e);
-      toast.error('No se pudo abrir el chat. Esta persona ya no está disponible.');
+      await abrirChatCon(usuarioId);
     } finally {
       setAbriendoChat(false);
     }

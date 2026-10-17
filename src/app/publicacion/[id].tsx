@@ -17,6 +17,7 @@ import { CampoFicha } from '@/components/ficha/CampoFicha';
 import { DesgloseCalificacion } from '@/components/ficha/DesgloseCalificacion';
 import { Seccion } from '@/components/ficha/Seccion';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
+import { BotonEscribir } from '@/components/BotonEscribir';
 import { BotonFavorito } from '@/components/BotonFavorito';
 import { ConteoFavoritos } from '@/components/ConteoFavoritos';
 import { MapaUbicacion } from '@/components/MapaUbicacion';
@@ -377,18 +378,21 @@ export default function DetallePublicacionScreen() {
 
         {/* Cuervo 360 · el corazón va junto al contacto, no sobre la foto: así está siempre, haya
             fotos o no, y queda al alcance del pulgar. */}
+        {/* Contactar DENTRO de la app es lo principal: la conversación se queda aquí, se puede moderar
+            y no se expone ningún teléfono. «Ver contacto» (WhatsApp) es la segunda opción, con su cuota. */}
         <View style={estilos.sello}>
           <BotonFavorito publicacionId={publicacion.id} />
           <View style={estilos.contacto}>
-            <BotonVerContacto
-              publicacionId={publicacion.id}
-              titulo={publicacion.titulo}
-              score={afinidad?.scoreFinal ?? null}
-              onRevelar={revelarContacto}
-              onError={(mensaje) => toast.error(mensaje)}
-            />
+            <BotonEscribir otroUsuarioId={publicacion.usuario_id} />
           </View>
         </View>
+        <BotonVerContacto
+          publicacionId={publicacion.id}
+          titulo={publicacion.titulo}
+          score={afinidad?.scoreFinal ?? null}
+          onRevelar={revelarContacto}
+          onError={(mensaje) => toast.error(mensaje)}
+        />
         {/* Cuántas personas la guardaron: el número, nunca quién. */}
         <ConteoFavoritos publicacionId={publicacion.id} />
 

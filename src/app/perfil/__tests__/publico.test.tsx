@@ -188,8 +188,9 @@ test('dos toques abren una sola conversación', async () => {
 
 // Un fallo al abrir se dice y NO se navega: llevar a `/chat/undefined` dejaría a
 // la persona en una pantalla vacía después de haber pulsado.
-test('si no se puede abrir el chat se dice y no se navega', async () => {
-  mockAbrirConversacion.mockRejectedValue(new Error('rls lo bloqueó'));
+test('si la persona ya no está disponible se dice así y no se navega', async () => {
+  // `abrir_conversacion` falla con `raise exception` (P0001) cuando el destinatario ya no está activo.
+  mockAbrirConversacion.mockRejectedValue({ code: 'P0001', message: 'usuario no disponible' });
   await pintar();
   const boton = await screen.findByLabelText('Iniciar chat con Ana Pérez');
   await act(async () => { fireEvent.press(boton); });
@@ -200,6 +201,19 @@ test('si no se puede abrir el chat se dice y no se navega', async () => {
     tipo: 'error',
     mensaje: 'No se pudo abrir el chat. Esta persona ya no está disponible.',
   });
+  expect(mockPush).not.toHaveBeenCalled();
+});
+
+// END-11 · antes TODO fallo decía «esta persona ya no está disponible», incluida una caída de red.
+test('un fallo de red NO dice que la persona ya no está disponible', async () => {
+  mockAbrirConversacion.mockRejectedValue(new Error('Network request failed'));
+  await pintar();
+  const boton = await screen.findByLabelText('Iniciar chat con Ana Pérez');
+  await act(async () => { fireEvent.press(boton); });
+  await waitFor(() => expect(useToastStore.getState().actual).not.toBeNull());
+  const mensaje = String((useToastStore.getState().actual as { mensaje: string }).mensaje);
+  expect(mensaje).toMatch(/conexi/i);
+  expect(mensaje).not.toMatch(/ya no está disponible/i);
   expect(mockPush).not.toHaveBeenCalled();
 });
 
