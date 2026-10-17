@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import { ALTO_FILA, FilaPublicacion } from '../FilaPublicacion';
 
@@ -90,4 +91,24 @@ test('la nota no repite lo que ya dicen las columnas', async () => {
   await render(<FilaPublicacion titulo="Depa" precio={2800} score={0.9} distanciaKm={1.2} similitud={0.8} />);
   expect(screen.queryByText(/tu tope/)).toBeNull();
   expect(await screen.findByText('afinidad 0.80', {}, { timeout: 5000 })).toBeTruthy();
+});
+
+// Reproducido en un Android real (17/10/2026): «DISTANCIA» y «0.2 km» salían
+// cortados contra el borde derecho. Tres columnas de 86 pt más dos huecos suman
+// 274, y en una pantalla de 360 pt a la derecha de la foto quedan ~240. Fijar
+// el ancho a ojo para un teléfono es fijarlo contra los demás.
+//
+// La alineación entre filas no se pierde: con `flex: 1` y `minWidth: 0` las tres
+// columnas se reparten el mismo ancho en TODAS las filas, que es lo que importa
+// —lo que se evita es que el contenido ensanche una columna, y con base 0 no lo hace.
+test('las tres columnas se reparten el ancho y no se salen de una pantalla de 360 pt', async () => {
+  await render(<FilaPublicacion titulo="Depa" precio={2800} score={0.94} distanciaKm={1.24} />);
+
+  for (const etiqueta of ['AJUSTE', 'RENTA', 'DISTANCIA']) {
+    const columna = (await screen.findByText(etiqueta, {}, { timeout: 5000 })).parent!;
+    const estilo = StyleSheet.flatten(columna.props.style);
+    expect(estilo.width).toBeUndefined();
+    expect(estilo.flex).toBe(1);
+    expect(estilo.minWidth).toBe(0);
+  }
 });

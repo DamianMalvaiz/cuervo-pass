@@ -65,13 +65,20 @@ jest.mock('@/store/useAuthStore', () => ({
     sel({ session: sesion.id ? { user: { id: sesion.id } } : null }),
 }));
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { AltoBarraPestanas } from '@/constants/theme';
 import TabsLayout from '../_layout';
+
+const conInsetInferior = (bottom: number) =>
+  (useSafeAreaInsets as jest.Mock).mockReturnValue({ top: 0, left: 0, right: 0, bottom });
 
 beforeEach(() => {
   jest.clearAllMocks();
   pantallas.length = 0;
   opcionesTabs.length = 0;
   sesion.id = 'u1';
+  conInsetInferior(0);
 });
 
 // ── El token push ────────────────────────────────────────────────────────────
@@ -195,4 +202,33 @@ test('la barra de encima ocupa su sitio esté activa o no', async () => {
   expect(alto(activa)).toContain('height');
   expect(alto(inactiva)).toContain('height');
   expect(alto(activa)).not.toEqual(alto(inactiva));
+});
+
+// ── Área segura inferior ─────────────────────────────────────────────────────
+
+// Reproducido en un Android real (17/10/2026): con navegación por gestos, los
+// iconos de la barra quedaban pegados al borde y las etiquetas, cortadas por
+// debajo de la pantalla. Un `height` fijo en `tabBarStyle` REEMPLAZA el que
+// React Navigation calcula —49 más el área segura inferior—, y la barra del
+// sistema se comía parte de esos 64 puntos. Con botones de tres teclas el inset
+// es otro, y en iPhone con muesca también: la altura tiene que sumarlo, no
+// suponerlo.
+test('la altura de la barra suma el área segura inferior', async () => {
+  conInsetInferior(34);
+  await render(<TabsLayout />);
+  const barra = opcionesTabs.at(-1)!.tabBarStyle as Record<string, number>;
+  expect(barra.height).toBe(AltoBarraPestanas + 34);
+  expect(barra.paddingBottom).toBe(34);
+});
+
+test('sin área segura la barra conserva su alto base', async () => {
+  conInsetInferior(0);
+  await render(<TabsLayout />);
+  const barra = opcionesTabs.at(-1)!.tabBarStyle as Record<string, number>;
+  expect(barra.height).toBe(AltoBarraPestanas);
+});
+
+test('el alto base alcanza para la barra, el icono y la etiqueta', () => {
+  // marca (Filete.grueso) + icono (22) + etiqueta (10 + interlineado) + holguras.
+  expect(AltoBarraPestanas).toBeGreaterThanOrEqual(64);
 });

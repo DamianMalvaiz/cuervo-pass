@@ -341,5 +341,10 @@ export const Tramas = {
 
 export type NombreTrama = keyof typeof Tramas;
 
+/** Alto de la barra de pestañas SIN el área segura inferior. El alto real es este
+ *  más el inset (ver `(tabs)/_layout.tsx`): un alto fijo se come el icono y la
+ *  etiqueta bajo la barra del sistema. */
+export const AltoBarraPestanas = 64;
+
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;

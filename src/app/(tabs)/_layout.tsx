@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet, View, type ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {Filete, Spacing, Tipografia } from '@/constants/theme';
+import { AltoBarraPestanas, Filete, Spacing, Tipografia } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { registrarTokenPush, useAbrirChatDesdeNotificacion } from '@/lib/pushNotifications';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -37,6 +38,7 @@ function crearIcono(activo: NombreIcono, inactivo: NombreIcono) {
 export default function TabsLayout() {
   const theme = useTheme();
   const miId = useAuthStore((s) => s.session?.user.id);
+  const { bottom } = useSafeAreaInsets();
   useAbrirChatDesdeNotificacion();
 
   useEffect(() => {
@@ -61,7 +63,12 @@ export default function TabsLayout() {
           borderTopWidth: Filete.fino,
           borderTopColor: theme.border,
           elevation: 0,
-          height: 64,
+          // El alto SUMA el área segura inferior. Un `height` fijo reemplaza el
+          // que calcula React Navigation (49 + inset), y en Android con
+          // navegación por gestos la barra del sistema se comía el icono y
+          // la etiqueta: se vio en un teléfono real, no en las pruebas.
+          height: AltoBarraPestanas + bottom,
+          paddingBottom: bottom,
           paddingTop: Spacing.one,
         },
         tabBarLabelStyle: {

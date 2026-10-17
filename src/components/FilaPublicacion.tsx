@@ -148,7 +148,13 @@ export function FilaPublicacion({
 function Columna({ etiqueta, valor, atenuado = false }: { etiqueta: string; valor: string; atenuado?: boolean }) {
   return (
     <View style={estilos.columna}>
-      <ThemedText type="etiqueta" themeColor="textSecondary" numberOfLines={1}>
+      <ThemedText
+        type="etiqueta"
+        themeColor="textSecondary"
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+      >
         {etiqueta}
       </ThemedText>
       <ThemedText
@@ -190,10 +196,12 @@ const estilos = StyleSheet.create({
   selloTipo: { position: 'absolute', left: 4, bottom: 4 },
   derecha: { flex: 1, justifyContent: 'space-between', minHeight: 96, gap: Spacing.half },
   titulo: { lineHeight: 18 },
-  columnas: { flexDirection: 'row', gap: Spacing.two },
-  // Ancho FIJO, no `flex`. Con flex, la columna se ensancha con su contenido y
-  // las cifras de filas distintas dejan de caer una debajo de otra — que es
-  // exactamente lo que esta pantalla existe para permitir.
-  columna: { width: 86, gap: 1 },
+  columnas: { flexDirection: 'row', gap: Spacing.one },
+  // `flex: 1` con base 0, no un ancho fijo. Los 86 pt de antes sumaban 274 con los
+  // huecos y se salían de una pantalla de 360 pt (visto en un teléfono real). Con
+  // base 0 las tres columnas se reparten el MISMO ancho en todas las filas, así que
+  // las cifras siguen cayendo una debajo de otra: lo que rompía la alineación era
+  // un `flex` que creciera con el contenido, y con base 0 el contenido no cuenta.
+  columna: { flex: 1, minWidth: 0, gap: 1 },
   cifra: { ...Texto.cifra },
 });
