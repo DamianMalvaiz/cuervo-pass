@@ -66,3 +66,11 @@ test('el tema trae la paleta de Cuervo 360', () => {
   expect(tema).toMatch(/lima: '#A5D83E'/);
   expect(tema).toMatch(/bosque: '#477451'/);
 });
+
+// El sello (carbón con texto lima en claro, blanco hueso con texto carbón en oscuro) y el
+// texto sobre el verde bosque (casilla marcada, insignia de cámara) también se miden.
+test('mide el texto del sello sobre el sello, y el texto sobre el bosque, en los dos modos', () => {
+  const { salida } = correr();
+  expect(salida.match(/selloTexto \/ sello/g)?.length).toBe(2);
+  expect(salida.match(/bosqueTexto \/ bosque/g)?.length).toBe(2);
+});

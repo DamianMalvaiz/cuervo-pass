@@ -16,7 +16,7 @@ import { BurbujaMensaje } from '@/components/BurbujaMensaje';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
@@ -289,14 +289,14 @@ export default function ConversacionScreen() {
           <Pressable
             onPress={onEnviar}
             disabled={!texto.trim()}
-            style={[styles.botonEnviar, { opacity: !texto.trim() ? 0.5 : 1 }]}
+            style={[styles.botonEnviar, { backgroundColor: theme.sello, opacity: !texto.trim() ? 0.5 : 1 }]}
             accessibilityRole="button"
             accessibilityLabel="Enviar mensaje"
           >
             {/* Enviar un mensaje SÍ compromete: escribe una fila inmutable que
                 no se puede editar ni borrar (trigger de la 0012). Por eso lleva
-                sello, y es el único ámbar de esta pantalla. */}
-            <Ionicons name="send" size={18} color={AppColors.selloTexto} />
+                sello (`theme.sello`), y es el único de esta pantalla. */}
+            <Ionicons name="send" size={18} color={theme.selloTexto} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -350,7 +350,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: Radios.full,
-    backgroundColor: AppColors.sello,
     alignItems: 'center',
     justifyContent: 'center',
   },

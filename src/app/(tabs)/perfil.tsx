@@ -23,7 +23,7 @@ import { Seccion } from '@/components/ficha/Seccion';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AppColors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
@@ -259,11 +259,11 @@ export default function PerfilScreen() {
                 )}
                 {/* La afordancia va SOBRE la foto, no como texto debajo: ahí es
                     donde la mano espera encontrarla. */}
-                <View style={[estilos.insigniaCamara, { backgroundColor: AppColors.sello, borderColor: theme.background }]}>
+                <View style={[estilos.insigniaCamara, { backgroundColor: theme.bosque, borderColor: theme.background }]}>
                   {subiendoFoto ? (
-                    <ActivityIndicator size="small" color={AppColors.selloTexto} />
+                    <ActivityIndicator size="small" color={theme.bosqueTexto} />
                   ) : (
-                    <Ionicons name="camera" size={16} color={AppColors.selloTexto} />
+                    <Ionicons name="camera" size={16} color={theme.bosqueTexto} />
                   )}
                 </View>
               </Pulsable>

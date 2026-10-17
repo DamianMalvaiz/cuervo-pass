@@ -80,6 +80,12 @@ export const Colors = {
     limaTexto: '#171A18',
     /** Cuervo 360. Verde bosque: iconos y botón secundario (control, no texto). */
     bosque: '#477451',
+    /** Cuervo 360. EL SELLO: la única acción que compromete algo (revelar un contacto, enviar un mensaje, contratar). Carbón con texto lima en claro. Nunca se parece al relleno lima del botón primario. */
+    sello: '#171A18',
+    /** Texto sobre el sello. */
+    selloTexto: '#A5D83E',
+    /** Texto o icono sobre un relleno de `bosque`. */
+    bosqueTexto: '#FFFFFF',
   },
   /**
    * La tinta.
@@ -118,6 +124,12 @@ export const Colors = {
     limaTexto: '#171A18',
     /** Cuervo 360. Verde bosque: iconos y botón secundario (control, no texto). */
     bosque: '#6FA97B',
+    /** Cuervo 360. EL SELLO: la única acción que compromete algo (revelar un contacto, enviar un mensaje, contratar). Blanco hueso con texto carbón en oscuro (un botón carbón desaparecería sobre el fondo carbón). Nunca se parece al relleno lima del botón primario. */
+    sello: '#F4F6F2',
+    /** Texto sobre el sello. */
+    selloTexto: '#171A18',
+    /** Texto o icono sobre un relleno de `bosque`. */
+    bosqueTexto: '#171A18',
   },
 } as const;
 
@@ -134,9 +146,6 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
  * un relleno que compromete, `theme.acento` cuando es texto.
  */
 export const AppColors = {
-  /** Tinta de sello. Va de RELLENO, con `selloTexto` encima. Nunca como texto. */
-  sello: '#E8A33D',
-  selloTexto: '#12100E',
   /** Prestado de WhatsApp porque el destino literalmente es WhatsApp. Es un
    *  RELLENO con `selloTexto` encima: como texto no se usa nunca. */
   whatsappGreen: '#25D366',

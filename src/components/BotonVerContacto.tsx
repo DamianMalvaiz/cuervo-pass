@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet } from 'react-native';
 
-import { AppColors, Radios, Spacing, Texto } from '@/constants/theme';
+import { Radios, Spacing, Texto } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
 import { sello } from '@/lib/tacto';
@@ -28,6 +29,7 @@ interface Props {
 // deja registro, y recién entonces se abre el deep link. Cambia el modelo de
 // privacidad completo y cuesta una llamada de más.
 export function BotonVerContacto({ publicacionId, titulo, score, onRevelar, onError }: Props) {
+  const theme = useTheme();
   const [cargando, setCargando] = useState(false);
 
   const abrir = async () => {
@@ -62,7 +64,7 @@ export function BotonVerContacto({ publicacionId, titulo, score, onRevelar, onEr
 
   return (
     <Pressable
-      style={styles.boton}
+      style={[styles.boton, { backgroundColor: theme.sello }]}
       onPress={abrir}
       disabled={cargando}
       accessibilityRole="button"
@@ -71,7 +73,7 @@ export function BotonVerContacto({ publicacionId, titulo, score, onRevelar, onEr
       accessibilityState={{ disabled: cargando, busy: cargando }}
     >
       {cargando ? (
-        <ActivityIndicator color={AppColors.selloTexto} />
+        <ActivityIndicator color={theme.selloTexto} />
       ) : (
         <>
           {/* El glifo va en TINTA, no en verde de WhatsApp. Se intentó dejarlo
@@ -80,8 +82,8 @@ export function BotonVerContacto({ publicacionId, titulo, score, onRevelar, onEr
               La pista del destino la sigue dando la FORMA del logotipo, que se
               reconoce en cualquier color; lo que no se recupera es un glifo que
               no se ve. */}
-          <Ionicons name="logo-whatsapp" size={20} color={AppColors.selloTexto} />
-          <ThemedText style={styles.texto}>Ver contacto</ThemedText>
+          <Ionicons name="logo-whatsapp" size={20} color={theme.selloTexto} />
+          <ThemedText style={[styles.texto, { color: theme.selloTexto }]}>Ver contacto</ThemedText>
         </>
       )}
     </Pressable>
@@ -95,14 +97,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.two,
     // EL SELLO. Es la única acción de toda la app que compromete algo —revela
-    // un teléfono ajeno y consume cuota— así que es la única que lleva ámbar.
+    // un teléfono ajeno y consume cuota— así que es la única con `theme.sello`
+    // (carbón en claro, blanco hueso en oscuro), que no se parece al botón primario lima.
     // Antes iba en verde de WhatsApp: prestaba el color del destino, pero dejaba
     // la acción que de verdad compromete sin la tinta que la marca, y ponía un
     // segundo color de marca en el lugar exacto que el sello reserva.
-    backgroundColor: AppColors.sello,
     borderRadius: Radios.control,
     paddingHorizontal: Spacing.four,
     minHeight: 48,
   },
-  texto: { color: AppColors.selloTexto, ...Texto.pesoFuerte },
+  texto: { ...Texto.pesoFuerte },
 });

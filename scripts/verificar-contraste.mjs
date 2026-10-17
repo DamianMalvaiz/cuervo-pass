@@ -63,6 +63,9 @@ const PARES = [
   ['texto', 'errorTexto', 'error'],
   // Cuervo 360 · el relleno lima solo se usa con el texto carbón encima.
   ['texto', 'limaTexto', 'lima'],
+  // El sello y el texto sobre el bosque (casilla marcada, insignia de cámara).
+  ['texto', 'selloTexto', 'sello'],
+  ['texto', 'bosqueTexto', 'bosque'],
   // Bordes de control.
   ['control', 'border', 'background'],
   ['control', 'border', 'backgroundElement'],

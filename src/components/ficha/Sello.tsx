@@ -2,24 +2,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { AppColors, Radios, Spacing, Texto } from '@/constants/theme';
+import { Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
- * El sello: la única cosa con color en la hoja.
+ * El botón PRIMARIO de la app (guardar, entrar, crear cuenta, reintentar).
  *
- * En un documento oficial el sello es lo que lo valida, y es lo único impreso en
- * otra tinta. Aquí igual: el ámbar aparece SOLO sobre la acción que compromete
- * —pedir un contacto, guardar, crear la cuenta— y en ningún otro lugar. Un
- * segundo ámbar en la misma pantalla es un error, no una variante.
+ * Cuervo 360: relleno lima con texto carbón (10.4:1 en los dos modos). El nombre
+ * viene del sistema anterior, donde este botón era el sello ámbar; EL sello
+ * —la única acción que compromete algo— ahora es otra cosa, con su propio token
+ * (`theme.sello`), y no se parece a este a propósito: si lo hiciera dejaría de
+ * señalar «esto compromete». Ver `BotonVerContacto`.
  *
- * El texto va en tinta, no en blanco: blanco sobre #E8A33D da 1.98:1 y reprueba.
- * Tinta sobre ámbar da 8.8:1.
- *
- * Pero eso vale solo para la variante RELLENA. La de contorno no tiene ámbar
- * debajo: su fondo es el de la app, y ahí la tinta daba 1.00:1 en modo oscuro —
- * el botón desaparecía por completo. Cada variante toma su color del fondo que
- * de verdad tiene detrás, no del que tiene la otra.
+ * El lima solo sirve de RELLENO: sobre blanco da 1.68:1 y no vale para texto ni
+ * para iconos. La variante de contorno no tiene relleno debajo: su fondo es el
+ * de la app, y ahí el texto va en el acento del tema, medido en cada modo. Cada
+ * variante toma su color del fondo que de verdad tiene detrás.
  */
 export function Sello({
   children,
@@ -42,9 +40,9 @@ export function Sello({
   const theme = useTheme();
   const inactivo = deshabilitado || cargando;
   const esSello = variante === 'sello';
-  // Relleno ámbar → tinta encima (8.8:1). Contorno → el acento del tema, que ya
-  // está medido contra el fondo de cada modo (5.5:1 claro, 8.8:1 oscuro).
-  const colorTexto = esSello ? AppColors.selloTexto : theme.acento;
+  // Relleno lima → carbón encima (10.4:1). Contorno → el acento del tema, que ya
+  // está medido contra el fondo de cada modo (7.0:1 claro, 10.4:1 oscuro).
+  const colorTexto = esSello ? theme.limaTexto : theme.acento;
 
   return (
     <Pressable
@@ -55,7 +53,7 @@ export function Sello({
       accessibilityState={{ disabled: inactivo, busy: cargando }}
       style={({ pressed }) => [
         estilos.base,
-        esSello ? estilos.relleno : [estilos.contorno, { borderColor: theme.acento }],
+        esSello ? [estilos.relleno, { backgroundColor: theme.lima }] : [estilos.contorno, { borderColor: theme.acento }],
         inactivo && estilos.inactivo,
         // Sin sombras: Android ignora `shadowColor` y este mundo separa con
         // filete. La respuesta al toque es opacidad, que sí se ve en los dos.
@@ -82,7 +80,7 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  relleno: { backgroundColor: AppColors.sello },
+  relleno: {},
   contorno: { backgroundColor: 'transparent', borderWidth: 2 },
   inactivo: { opacity: 0.45 },
   presionado: { opacity: 0.75 },

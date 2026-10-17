@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Platform, StyleSheet, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
-import { AppColors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { Sello } from '@/components/ficha/Sello';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
 
@@ -72,17 +73,11 @@ export function MapaUbicacion({
 
   return (
     <View style={[estilos.marco, estilos.sustituto, { borderColor: theme.border }]}>
-      <Ionicons name="location-outline" size={24} color={AppColors.sello} />
+      <Ionicons name="location-outline" size={24} color={theme.bosque} />
       <ThemedText style={estilos.direccion}>{direccion}</ThemedText>
-      <Pressable
-        style={estilos.boton}
-        onPress={abrir}
-        accessibilityRole="button"
-        accessibilityLabel="Abrir en Maps"
-        accessibilityHint="Abre la ubicación de esta publicación en la app de mapas"
-      >
-        <ThemedText style={estilos.textoBoton}>Abrir en Maps</ThemedText>
-      </Pressable>
+      <Sello onPress={abrir} icono="map-outline" accessibilityLabel="Abrir en Maps">
+        Abrir en Maps
+      </Sello>
     </View>
   );
 }
@@ -92,12 +87,4 @@ const estilos = StyleSheet.create({
   mapa: { height: 220 },
   sustituto: { padding: Spacing.three, gap: Spacing.two, alignItems: 'flex-start' },
   direccion: { ...Texto.cuerpo },
-  boton: {
-    backgroundColor: AppColors.sello,
-    borderRadius: Radios.control,
-    paddingHorizontal: Spacing.four,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  textoBoton: { color: AppColors.selloTexto, ...Texto.pesoFuerte },
 });

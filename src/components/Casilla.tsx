@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppColors, Radios, Spacing } from '@/constants/theme';
+import { Radios, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
 
@@ -35,11 +35,11 @@ export function Casilla({ valor, onCambiar, etiqueta, ayuda, accessibilityLabel 
       <View
         style={[
           styles.caja,
-          { borderColor: valor ? AppColors.sello : theme.border },
-          valor && { backgroundColor: AppColors.sello },
+          { borderColor: valor ? theme.bosque : theme.border },
+          valor && { backgroundColor: theme.bosque },
         ]}
       >
-        {valor && <Ionicons name="checkmark" size={16} color={AppColors.selloTexto} />}
+        {valor && <Ionicons name="checkmark" size={16} color={theme.bosqueTexto} />}
       </View>
       <View style={styles.textos}>
         <ThemedText type="small">{etiqueta}</ThemedText>
