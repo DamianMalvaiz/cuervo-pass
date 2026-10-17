@@ -41,3 +41,28 @@ test('mide superficie contra superficie, que es lo que faltaba', () => {
   expect(salida).toMatch(/backgroundSelected \/ background/);
   expect(salida).toMatch(/backgroundElement \/ background/);
 });
+
+// ── Cuervo 360 · paleta nueva ─────────────────────────────────────────────────
+// Verde lima #A5D83E es SOLO relleno: sobre blanco da 1.68:1 y no sirve para texto
+// ni iconos. Por eso el verificador mide lo que SÍ se hace con él —el texto
+// carbón encima— y el verde bosque como control (icono, botón secundario).
+
+test('mide el texto carbón sobre el relleno lima, en los dos modos', () => {
+  const { salida } = correr();
+  expect(salida.match(/limaTexto \/ lima/g)?.length).toBe(2);
+});
+
+test('mide el verde bosque como control sobre el fondo y sobre la tarjeta', () => {
+  const { salida } = correr();
+  expect(salida.match(/bosque \/ background\b/g)?.length).toBe(2);
+  expect(salida.match(/bosque \/ backgroundElement/g)?.length).toBe(2);
+});
+
+test('el tema trae la paleta de Cuervo 360', () => {
+  const tema = require('node:fs').readFileSync('src/constants/theme.ts', 'utf8') as string;
+  // Carbón como fondo del modo oscuro, y el fondo de pantalla claro que distingue las tarjetas blancas.
+  expect(tema).toMatch(/background: '#171A18'/);
+  expect(tema).toMatch(/background: '#F4F6F2'/);
+  expect(tema).toMatch(/lima: '#A5D83E'/);
+  expect(tema).toMatch(/bosque: '#477451'/);
+});

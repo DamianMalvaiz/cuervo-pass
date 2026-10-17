@@ -32,8 +32,12 @@ import type { TextStyle } from 'react-native';
  * comprobable.
  *
  * Contrastes declarados:
- *   tinta/papel 16.9:1 · secundario/papel 6.5:1 · acento/papel 5.5:1
- *   tinta/sello 8.8:1  · borde de campo 3.4:1 (claro) y 3.5:1 (oscuro)
+ *   tinta/papel 16.1:1 · secundario/papel 6.0:1 · acento/papel 7.0:1
+ *   carbón/lima 10.4:1 · borde de campo 3.5:1 (claro) y 3.9:1 (oscuro)
+ *
+ * NOTA (Cuervo 360): los valores de color de este archivo son los de la paleta nueva. El
+ * texto conceptual de este encabezado («La Ficha», el ámbar como tinta de sello) describe el
+ * sistema anterior y se reescribe junto con DESIGN.md; las cifras de arriba sí son las vigentes.
  */
 
 import '@/global.css';
@@ -43,33 +47,39 @@ import { Platform } from 'react-native';
 export const Colors = {
   /** El papel. */
   light: {
-    text: '#12100E',
-    background: '#F5F1EA',
-    backgroundElement: '#EAE4D9',
-    backgroundSelected: '#DED6C8',
-    textSecondary: '#5C554B',
+    text: '#171A18',
+    background: '#F4F6F2',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#DCE3D7',
+    textSecondary: '#55605A',
     /** Borde de CAMPO. Es un componente de interfaz, así que cumple 3:1 (WCAG 1.4.11). */
-    border: '#8A8177',
+    border: '#7A857B',
     /** Filete de separación entre renglones. Decorativo: no le aplica el 3:1. */
-    filete: '#C9C0B0',
-    /** Ámbar legible como TEXTO sobre papel. El #E8A33D del sello da 1.9:1 aquí. */
-    acento: '#8A5606',
+    filete: '#D3DACF',
+    /** Verde bosque oscuro, legible como TEXTO sobre el fondo (7.0:1). */
+    acento: '#2F5D3A',
     /**
      * Lavado del sello, para el bloque que la hoja quiere destacar.
      *
      * END-29 · El #FBF0DC anterior daba **1.00** contra el papel: exactamente
      * la misma luminancia, un cambio de matiz con cero cambio de valor. El
      * bloque destacado no destacaba bajo el sol, con reflejo, en escala de
-     * grises, ni para alguien con daltonismo. Medido ahora: 1.36.
+     * grises, ni para alguien con daltonismo. Medido ahora: 1.13, y lo salva su borde.
      */
-    tintedSurface: '#F1CC88',
-    /** Delinea el lavado. 3.21 contra el papel: es un borde, le aplica el 3:1. */
-    tintedBorder: '#A58133',
-    error: '#A81E12',
-    /** Texto sobre un relleno de `error`. Blanco da 7.3:1 sobre este rojo. */
+    tintedSurface: '#DDEFB5',
+    /** Delinea el lavado. 3.58 contra el fondo: es un borde, le aplica el 3:1. */
+    tintedBorder: '#6B8C1E',
+    error: '#B3261E',
+    /** Texto sobre un relleno de `error`. Blanco da 6.5:1 sobre este rojo. */
     errorTexto: '#FFFFFF',
-    /** Confirmación. Medido: 4.8:1 sobre papel. El #1a9d5c anterior daba 3.10. */
-    exito: '#146B3E',
+    /** Confirmación. Medido: 6.0:1 sobre el fondo. El #1a9d5c anterior daba 3.10. */
+    exito: '#1F6B33',
+    /** Cuervo 360. Verde lima: SOLO relleno de botones y chips (sobre blanco da 1.68:1; no es texto ni icono). */
+    lima: '#A5D83E',
+    /** Cuervo 360. Texto sobre el relleno lima: siempre carbón. */
+    limaTexto: '#171A18',
+    /** Cuervo 360. Verde bosque: iconos y botón secundario (control, no texto). */
+    bosque: '#477451',
   },
   /**
    * La tinta.
@@ -79,29 +89,35 @@ export const Colors = {
    * negro cálido. La imagen era bonita y llevaba a decisiones equivocadas:
    * invita a tratar el oscuro como una versión atenuada del claro, cuando es una
    * superficie con su propia paleta medida. No atenúa nada — tiene su propio
-   * `acento` (8.80 contra 5.46) y su propio `errorTexto`, porque los umbrales
+   * `acento` (10.43 contra 7.03) y su propio `errorTexto`, porque los umbrales
    * cambian cuando el fondo cambia de lado.
    */
   dark: {
-    text: '#F5F1EA',
-    background: '#12100E',
-    backgroundElement: '#1C1916',
-    backgroundSelected: '#302A1F',
-    textSecondary: '#A39A8C',
-    border: '#726960',
-    filete: '#322D27',
-    acento: '#E8A33D',
-    /** Mismo defecto que en claro: 1.12 contra el fondo. Ahora 1.37. */
-    tintedSurface: '#382A17',
-    /** 3.21 contra el fondo oscuro. */
-    tintedBorder: '#8A6529',
-    error: '#F08074',
-    // En oscuro el rojo es CLARO, así que el blanco daría 2.6:1 y reprobaría.
-    // La tinta sobre él da 7.3:1. Mismo patrón que el sello: el relleno trae
+    text: '#F4F6F2',
+    background: '#171A18',
+    backgroundElement: '#232823',
+    backgroundSelected: '#323A32',
+    textSecondary: '#A3ADA4',
+    border: '#6F7A70',
+    filete: '#2C332C',
+    acento: '#A5D83E',
+    /** Mismo defecto que en claro (1.12 contra el fondo). Medido ahora: 1.43. */
+    tintedSurface: '#2B3A12',
+    /** 4.69 contra el fondo oscuro. */
+    tintedBorder: '#6E8F25',
+    error: '#F2B8B5',
+    // En oscuro el rojo es CLARO, así que el blanco no alcanzaría el mínimo.
+    // El carbón sobre él da 10.3:1. Mismo patrón que el sello: el relleno trae
     // su propio color de texto en vez de asumir que siempre es blanco.
-    errorTexto: '#12100E',
+    errorTexto: '#171A18',
     /** En oscuro el verde tiene que aclararse para separarse de la tinta. */
-    exito: '#4FBF85',
+    exito: '#7BCB8A',
+    /** Cuervo 360. Verde lima: SOLO relleno de botones y chips (sobre blanco da 1.68:1; no es texto ni icono). */
+    lima: '#A5D83E',
+    /** Cuervo 360. Texto sobre el relleno lima: siempre carbón. */
+    limaTexto: '#171A18',
+    /** Cuervo 360. Verde bosque: iconos y botón secundario (control, no texto). */
+    bosque: '#6FA97B',
   },
 } as const;
 

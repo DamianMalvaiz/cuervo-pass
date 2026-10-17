@@ -61,9 +61,14 @@ const PARES = [
   ['texto', 'error', 'background'],
   ['texto', 'exito', 'background'],
   ['texto', 'errorTexto', 'error'],
+  // Cuervo 360 · el relleno lima solo se usa con el texto carbón encima.
+  ['texto', 'limaTexto', 'lima'],
   // Bordes de control.
   ['control', 'border', 'background'],
   ['control', 'border', 'backgroundElement'],
+  // Cuervo 360 · el verde bosque es icono y botón secundario: control, no texto.
+  ['control', 'bosque', 'background'],
+  ['control', 'bosque', 'backgroundElement'],
   // El borde y el icono del aviso (éxito y error) sobre su superficie.
   ['control', 'exito', 'backgroundElement'],
   ['control', 'error', 'backgroundElement'],
