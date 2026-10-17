@@ -16,6 +16,7 @@ import {
 
 import { Campo } from '@/components/Campo';
 import { CampoFicha, FileteHoja } from '@/components/ficha/CampoFicha';
+import { SeccionFunciones } from '@/components/SeccionFunciones';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { FilaAjuste } from '@/components/ficha/FilaAjuste';
 import { Pulsable } from '@/components/ficha/Pulsable';
@@ -499,6 +500,9 @@ export default function PerfilScreen() {
                 />
               </View>
             </Seccion>
+
+            {/* ── Funciones (Cuervo 360) ───────────────────────────────── */}
+            <SeccionFunciones usuarioId={session?.user.id} />
 
             {/* ── Cuenta ───────────────────────────────────────────────── */}
             {/* Lista de navegación con chevron: cada renglón dice "esto lleva a

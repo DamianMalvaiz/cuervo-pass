@@ -269,6 +269,19 @@ export interface PushToken {
   actualizado_en: string;
 }
 
+/** Funciones que se AGREGAN a una cuenta (migración 0043). «Estudiante» es implícito y no se guarda. */
+export type Rol = 'comerciante' | 'arrendador' | 'admin';
+export type EstadoRol = 'sin_verificar' | 'pendiente' | 'aprobado' | 'rechazado';
+export interface RolUsuario {
+  [key: string]: unknown;
+  usuario_id: string;
+  rol: Rol;
+  estado: EstadoRol;
+  /** `migracion`: heredada al introducir los roles, NO una aprobación revisada. */
+  origen: 'solicitud' | 'migracion' | 'sembrado';
+  desde: string;
+}
+
 type Tabla<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relationships: [] };
 // Las vistas de §13 son de solo lectura, pero supabase-js exige la misma forma
 // que una tabla para poder inferir el tipo de `select()`; sin Insert/Update el
@@ -287,6 +300,7 @@ export interface Database {
       notificaciones: Tabla<Notificacion>;
       reportes: Tabla<Reporte>;
       push_tokens: Tabla<PushToken>;
+      roles_usuario: Tabla<RolUsuario>;
       geocodificaciones: Tabla<{
         [key: string]: unknown;
         consulta: string;
@@ -329,6 +343,11 @@ export interface Database {
       sugerencias_roomies: {
         Args: { p_limite?: number };
         Returns: RoomieSugerido[];
+      };
+      // Solo comerciante o arrendador, siempre en sin_verificar. admin y estudiante → CP003.
+      agregar_funcion: {
+        Args: { p_rol: 'comerciante' | 'arrendador' };
+        Returns: undefined;
       };
       abrir_conversacion: {
         Args: { p_otro: string };

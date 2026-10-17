@@ -38,6 +38,8 @@ export const SQL = {
 export const CP = {
   CUOTA_AGOTADA: 'CP001',
   LIMITE_PUBLICACIONES: 'CP002',
+  /** `agregar_funcion` con un rol que no se puede pedir (admin, o estudiante, que es implícito). */
+  ROL_NO_PERMITIDO: 'CP003',
 } as const;
 
 /** El `code` de un error de PostgREST/supabase-js, si lo trae. */
