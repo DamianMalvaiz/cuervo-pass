@@ -12,6 +12,8 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+import { clasificarRespuesta, secretsFaltantes } from './politica.ts';
+
 const RUTAS_PERMITIDAS = ['parsear-perfil', 'generar-embedding'] as const;
 
 // Cuota diaria por usuario, por recurso. El parseo cuesta dinero (API de
@@ -46,6 +48,17 @@ Deno.serve(async (req) => {
 
   const auth = req.headers.get('Authorization');
   if (!auth) return json({ error: 'no autorizado' }, 401);
+
+  // Falla CERRADO y ANTES de cobrar nada. Sin AI_SERVICE_URL el fetch iba a
+  // `undefined/parsear-perfil`; sin AI_SHARED_TOKEN mandaba «Bearer undefined» y
+  // el microservicio contestaba 401. Se registran los NOMBRES, nunca los valores.
+  // Va después de comprobar que hay sesión: quien no la tiene no se entera de la
+  // configuración. La app trata el 503 como cualquier degradación (Nivel 1).
+  const faltantes = secretsFaltantes((n) => Deno.env.get(n));
+  if (faltantes.length > 0) {
+    console.error('ai-proxy: faltan secrets', { faltantes });
+    return json({ degradado: true, motivo: 'sin-configurar' }, 503);
+  }
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -105,12 +118,12 @@ Deno.serve(async (req) => {
   const control = AbortSignal.timeout(12_000);   // nunca cuelgues al cliente
 
   try {
-    const r = await fetch(`${Deno.env.get('AI_SERVICE_URL')}/${ruta}`, {
+    const r = await fetch(`${Deno.env.get('AI_SERVICE_URL')!.trim()}/${ruta}`, {
       method: 'POST',
       signal: control,
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${Deno.env.get('AI_SHARED_TOKEN')}`,
+        Authorization: `Bearer ${Deno.env.get('AI_SHARED_TOKEN')!.trim()}`,
         'x-usuario-id': user.id,        // clave del limitador del microservicio · AUD-03
         'x-peticion-id': peticionId,    // traza extremo a extremo · AUD-19
       },
@@ -121,23 +134,28 @@ Deno.serve(async (req) => {
 
     // END-14 · Dos correcciones en el mismo punto.
     //
-    // 1. La cuota se DEVUELVE cuando el microservicio falla. Antes se cobraba
+    // 1. La cuota se DEVUELVE cuando el microservicio no entrega. Antes se cobraba
     //    antes del fetch y no se devolvía nunca: con el túnel muerto, treinta
-    //    reintentos agotaban el día sin una sola llamada al modelo.
+    //    reintentos agotaban el día sin una sola llamada al modelo. Qué respuestas
+    //    cuentan como «no entregó» lo decide `clasificarRespuesta`: no solo los
+    //    5xx, también un 401/403/404 (token o URL mal puestos) o un 429 propio del
+    //    microservicio, que tampoco son culpa de quien llama.
     //
     // 2. El cuerpo ajeno NO se reenvía. Se sanitizaban con cuidado los errores
     //    propios —el comentario de `motivo` de abajo es de eso— y se dejaba
     //    pasar un traceback entero de FastAPI, con rutas del contenedor. El
     //    cuerpo real va al registro del servidor, que es donde sirve.
-    if (r.status >= 500) {
+    const veredicto = clasificarRespuesta(r.status);
+    if (veredicto.tipo === 'degradar') {
       await servicio.rpc('devolver_cuota', { p_usuario: user.id, p_recurso: recurso });
-      console.error('ai-proxy: el microservicio respondió con error', {
+      console.error('ai-proxy: el microservicio no entregó', {
         peticionId,
         ruta,
         estado: r.status,
+        motivo: veredicto.motivo,
         cuerpo: cuerpo.slice(0, 500),
       });
-      return json({ degradado: true, motivo: 'servicio-error' }, 503, {
+      return json({ degradado: true, motivo: veredicto.motivo }, 503, {
         'x-peticion-id': peticionId,
       });
     }
