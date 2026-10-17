@@ -18,7 +18,7 @@ export async function abrirAjustes(): Promise<void> {
     await Linking.openSettings();
   } catch (e) {
     aviso('No se pudieron abrir los ajustes', undefined, e);
-    toast.info('Abre los Ajustes de tu teléfono y permite el acceso a Fotos para Cuervo Pass.');
+    toast.info('Abre los Ajustes de tu teléfono y permite el acceso a Fotos para Cuervo 360.');
   }
 }
 

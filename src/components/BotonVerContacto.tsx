@@ -43,7 +43,7 @@ export function BotonVerContacto({ publicacionId, titulo, score, onRevelar, onEr
       // llamada falla, habría confirmado algo que no pasó.
       sello();
       const mensaje = encodeURIComponent(
-        `Hola, vi tu publicación "${titulo}" en Cuervo Pass y me interesa.`
+        `Hola, vi tu publicación "${titulo}" en Cuervo 360 y me interesa.`
       );
       // AUD-17: el prefijo 52 fija México. Es una decisión de alcance declarada
       // en el README y en docs/modelo-amenazas.md, no un descuido.

@@ -1,3 +1,4 @@
+import { LogoMarca } from '@/components/LogoMarca';
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
@@ -89,12 +90,14 @@ export default function LoginScreen() {
               <ThemedText type="etiqueta" themeColor="textSecondary">
                 UNIVERSIDAD TECNOLÓGICA DEL VALLE DE TOLUCA
               </ThemedText>
+              {/* En pantallas de poco alto el logo sobra, igual que el lema: lo prescindible se recorta primero. */}
+              {!altoApretado && <LogoMarca />}
               <ThemedText type="title" style={escalarTexto(Texto.tituloHoja, escalaTitulo)}>
-                Cuervo Pass
+                Cuervo 360
               </ThemedText>
               {!altoApretado && (
                 <ThemedText type="small" themeColor="textSecondary">
-                  Encuentra dónde vivir cerca de tu campus.
+                  Todo en un solo lugar.
                 </ThemedText>
               )}
               <View style={[estilos.filete, { backgroundColor: theme.text }]} />

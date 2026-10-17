@@ -44,6 +44,21 @@ beforeEach(() => {
   mockSingle.mockResolvedValue({ data: { universidad: 'UTVT' } });
 });
 
+// Cuervo 360 · la portada de entrada lleva el logo y el nombre nuevo, y ya no el anterior.
+describe('la marca en la portada', () => {
+  it('muestra el logo y el nombre Cuervo 360', async () => {
+    await render(<LoginScreen />);
+    expect(screen.getByLabelText('Cuervo 360')).toBeTruthy();
+    expect(screen.getByText('Cuervo 360')).toBeTruthy();
+    expect(screen.getByText('Todo en un solo lugar.')).toBeTruthy();
+  });
+
+  it('ya no dice Cuervo Pass', async () => {
+    await render(<LoginScreen />);
+    expect(screen.queryByText('Cuervo Pass')).toBeNull();
+  });
+});
+
 describe('a dónde lleva entrar', () => {
   it('con el cuestionario terminado, a Sugerencias', async () => {
     await entrar();

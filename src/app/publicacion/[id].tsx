@@ -401,7 +401,7 @@ export default function DetallePublicacionScreen() {
         <View style={[estilos.advertencia, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}>
           <Ionicons name="alert-circle-outline" size={18} color={theme.textSecondary} />
           <ThemedText type="small" themeColor="textSecondary" style={estilos.textoAdvertencia}>
-            No adelantes dinero antes de visitar el lugar. Cuervo Pass no verifica la identidad de
+            No adelantes dinero antes de visitar el lugar. Cuervo 360 no verifica la identidad de
             quien publica.
           </ThemedText>
         </View>

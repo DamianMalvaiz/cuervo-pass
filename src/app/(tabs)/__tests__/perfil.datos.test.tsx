@@ -106,7 +106,7 @@ test('exportar entrega LO QUE DEVUELVE el servidor, no un resumen', async () => 
 
   await waitFor(() => expect(Share.share).toHaveBeenCalled());
   const [{ message, title }] = (Share.share as jest.Mock).mock.calls[0];
-  expect(title).toBe('Mis datos en Cuervo Pass');
+  expect(title).toBe('Mis datos en Cuervo 360');
   // Se comprueba el contenido y no solo que se compartió algo: un `Share` con
   // un mensaje vacío satisfaría el derecho de ACCESO sobre el papel y no en la
   // realidad. Y que sea JSON válido, porque se promete «una copia en JSON».

@@ -139,7 +139,7 @@ export default function PerfilScreen() {
     try {
       const datos = await exportarMisDatos();
       await Share.share({
-        title: 'Mis datos en Cuervo Pass',
+        title: 'Mis datos en Cuervo 360',
         message: JSON.stringify(datos, null, 2),
       });
     } catch (e) {
