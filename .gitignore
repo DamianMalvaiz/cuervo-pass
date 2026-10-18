@@ -70,3 +70,6 @@ supabase/.temp/
 # Dominio del túnel en curso: cambia en cada arranque.
 .tunel-actual
 coverage/
+
+# Imágenes de MUESTRA de la demo (scripts/generar-muestras-demo.py): se regeneran.
+demo-material/
