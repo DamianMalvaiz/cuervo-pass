@@ -55,7 +55,7 @@ Tamaños: S = horas, M = una sesión larga, L = varias sesiones. **Congelar func
 |---|---|---|---|---|
 | 0.1 | **IA fuera de tu laptop**: servicio contenedorizado en un anfitrión con URL fija (propuesta: Hugging Face Space con Docker, gratuito, o Fly.io). El proxy y los secretos ya existen | L | B1 | Crear la cuenta y dar el token |
 | 0.2 | **Registro de errores propio**: `lib/registro.ts` ya es el único sumidero; se le añade envío (sin datos personales, con límite de tasa) a una tabla, y el panel de admin los lista | M | B2 | — |
-| 0.3 | **Higiene del asesor**: `search_path` fijo en las 13 funciones, `correo_verificado` como columna mantenida por trigger (se quita `auth.users` de la vista), fusionar políticas de `roomies` | S–M | B6 | Aplicar la migración |
+| 0.3 | **Higiene del asesor** (0067, escrita y probada, **sin aplicar**): `search_path` fijo en las 13 funciones y una prueba que lo exige a toda función futura; `correo_verificado` como columna mantenida por trigger y protegida contra escritura propia (la vista ya no toca `auth.users`); una sola política de lectura en `roomies` | S–M | B6 | Aplicar la migración |
 | 0.4 | **Miniaturas**: subir dos tamaños, derivar la ruta (`x.jpg` → `x_t.jpg`), rellenar las 422 existentes con un script; las listas piden la miniatura | M | B4 | Aplicar y correr el script |
 | 0.5 | **Pruebas de lo crítico poco cubierto**: chat (`mensajes.service`), subida de fotos (`storage.ts`), sugerencias | M | B3 | — |
 | 0.6 | Análisis del paquete de 17 MB y recorte de lo que sobre | M | B4 | — |

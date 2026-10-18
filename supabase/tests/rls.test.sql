@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(466);
+select plan(475);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -3008,6 +3008,33 @@ select is((select similitud from sugerencias_roomies(100) where usuario_id = '00
 select is((select count(*)::int from sugerencias_roomies(100) where usuario_id = '00000000-0000-0000-0000-00000000cc01'), 0, 'roomies: nunca te sugiere a ti mismo' );
 select throws_ok($$select vector_busqueda from sugerencias_roomies(1)$$, '42703', null, 'roomies: la firma sigue sin exponer el vector' );
 select is(has_function_privilege('anon', 'public.sugerencias_roomies(integer)', 'execute'), false, 'roomies: anon no la ejecuta' );
+
+-- ── Higiene del asesor (0067) ───────────────────────────────────────────────
+select actuar_como_servicio();
+select is(
+  (select count(*)::int from pg_proc p
+    where p.pronamespace = 'public'::regnamespace
+      and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+      -- Los tres auxiliares de ESTE archivo (ver más arriba) viven solo dentro de la transacción de la prueba.
+      and p.proname not in ('actuar_como', 'actuar_como_servicio', 'ejecutables_por')
+      and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')),
+  0, 'higiene: TODA función propia de public fija su search_path (las futuras también: esta prueba falla si una nueva no lo hace)' );
+select is((select count(*)::int from pg_policies where schemaname = 'public' and tablename = 'roomies' and policyname = 'roomies_select_propio'), 0,
+  'higiene: la policy de lectura redundante de roomies ya no existe' );
+select is((select count(*)::int from pg_policies where schemaname = 'public' and tablename = 'roomies' and cmd in ('SELECT', 'ALL')), 1,
+  'higiene: roomies queda con UNA sola policy de lectura por rol' );
+select ok(pg_get_viewdef('public.perfiles_publicos'::regclass) !~ 'auth\.users', 'higiene: perfiles_publicos ya no depende de auth.users' );
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, created_at, updated_at, raw_user_meta_data)
+values ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000cc05', 'authenticated', 'authenticated', 'cc05@test.mx', '', now(), now(), '{"nombre_usuario":"usuario_cc05"}');
+select is((select correo_verificado from perfiles_publicos where id = '00000000-0000-0000-0000-00000000cc05'), false, 'correo: una cuenta sin confirmar no aparece como verificada' );
+update auth.users set email_confirmed_at = now() where id = '00000000-0000-0000-0000-00000000cc05';
+select is((select correo_verificado from perfiles_publicos where id = '00000000-0000-0000-0000-00000000cc05'), true, 'correo: al confirmar el correo, el trigger lo marca' );
+update auth.users set email_confirmed_at = null where id = '00000000-0000-0000-0000-00000000cc05';
+select is((select correo_verificado from perfiles_publicos where id = '00000000-0000-0000-0000-00000000cc05'), false, 'correo: y si se desconfirma, vuelve a falso' );
+select actuar_como('00000000-0000-0000-0000-00000000cc05');
+select throws_ok($$update usuarios set correo_verificado = true where id = '00000000-0000-0000-0000-00000000cc05'$$, 'P0001', null,
+  'correo: una cuenta NO puede ponerse el sello de correo verificado' );
+select lives_ok($$update usuarios set biografia = 'hola' where id = '00000000-0000-0000-0000-00000000cc05'$$, 'correo: pero sigue pudiendo editar el resto de su perfil' );
 
 select * from finish();
 rollback;
