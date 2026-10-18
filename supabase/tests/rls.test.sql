@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(182);
+select plan(185);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1971,6 +1971,18 @@ select actuar_como_servicio();
 select is(
   has_table_privilege('anon', 'public.verificaciones_vendedor', 'select'),
   false, 'anon no puede leer verificaciones' );
+
+-- ── Barrido de la INE (0050) ────────────────────────────────────────────────
+select actuar_como_servicio();
+select is(
+  (select count(*)::int from cron.job where jobname = 'barrer-verificaciones'),
+  1, 'el borrado de la INE está programado' );
+select is(
+  has_function_privilege('authenticated', 'public.barrer_verificaciones_programado()', 'execute'),
+  false, 'authenticated no puede ejecutar el barrido de la INE' );
+select is(
+  has_function_privilege('anon', 'public.barrer_verificaciones_programado()', 'execute'),
+  false, 'anon no puede ejecutar el barrido de la INE' );
 
 select * from finish();
 rollback;
