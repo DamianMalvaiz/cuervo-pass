@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(318);
+select plan(336);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2581,6 +2581,79 @@ select is(
 -- Sin sesión no devuelve nada.
 select actuar_como_servicio();
 select is((select count(*)::int from negocios_ordenados(null, null)), 0, 'sin sesión no devuelve nada');
+
+-- ── Verificación de rostro (0056) ───────────────────────────────────────────
+-- e9 recibe la función de comerciante y la envía; queda pendiente. b2 es ajena.
+select actuar_como_servicio();
+insert into roles_usuario (usuario_id, rol) values ('00000000-0000-0000-0000-0000000000e9', 'comerciante');
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select enviar_verificacion('comerciante', 'Eva Prueba Soto', 'Calle 9, Lerma',
+  '00000000-0000-0000-0000-0000000000e9/ine-frente.jpg', '00000000-0000-0000-0000-0000000000e9/ine-reverso.jpg', array['00000000-0000-0000-0000-0000000000e9/local-1.jpg'], 'v3');
+select throws_ok(
+  $$select reservar_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'v3')$$,
+  '42501', null, 'biometría: el cliente autenticado no puede reservar intentos (los reserva el servicio)' );
+select throws_ok(
+  $$select registrar_resultado_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'coincide', 0.9, 0.99, 'buffalo_l')$$,
+  '42501', null, 'biometría: ni escribir un resultado propio (sería aprobarse a sí misma)' );
+select throws_ok(
+  $$select count(*) from verificaciones_biometria$$,
+  '42501', null, 'biometría: la persona NO lee la tabla (las cifras serían un oráculo para afinar un ataque)' );
+
+select actuar_como_servicio();
+select throws_ok(
+  $$select reservar_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', '  ')$$,
+  '22023', null, 'biometría: sin versión del aviso no hay consentimiento y no se reserva' );
+select throws_ok(
+  $$select reservar_intento_biometria('00000000-0000-0000-0000-0000000000b2', 'comerciante', 'v3')$$,
+  'CP005', null, 'biometría: sin verificación pendiente no hay nada que comparar' );
+select is(reservar_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'v3'), 1::smallint,
+  'biometría: el primer intento cuenta 1' );
+select is(
+  (select estado || ':' || version_aviso from verificaciones_biometria where usuario_id = '00000000-0000-0000-0000-0000000000e9'),
+  'pendiente_de_foto:v3', 'biometría: queda el consentimiento con su versión y sin resultado todavía' );
+select lives_ok(
+  $$select registrar_resultado_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'no_vivo', 0.61, 0.12, 'buffalo_l')$$,
+  'biometría: el servicio registra el resultado' );
+select is(
+  (select estado || ':' || identidad::text || ':' || vivo::text from verificaciones_biometria where usuario_id = '00000000-0000-0000-0000-0000000000e9'),
+  'no_vivo:0.61:0.12', 'biometría: estado y cifras quedan guardados' );
+select throws_ok(
+  $$select registrar_resultado_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'aprobado', 1, 1, 'x')$$,
+  '23514', null, 'biometría: un estado inventado se rechaza' );
+select throws_ok(
+  $$select registrar_resultado_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'coincide', 2, 1, 'x')$$,
+  '23514', null, 'biometría: una similitud fuera de [-1, 1] se rechaza' );
+select throws_ok(
+  $$select registrar_resultado_biometria('00000000-0000-0000-0000-0000000000b2', 'comerciante', 'coincide', 0.5, 0.95, 'x')$$,
+  'CP005', null, 'biometría: no se registra un resultado sin intento reservado' );
+
+select reservar_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'v3');
+select reservar_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'v3');
+select reservar_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'v3');
+select reservar_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'v3');
+select throws_ok(
+  $$select reservar_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'v3')$$,
+  'CP013', null, 'biometría: el sexto intento se rechaza (tope de 5 por envío)' );
+select is(
+  (select consentimiento_en = (select consentimiento_en from verificaciones_biometria where usuario_id = '00000000-0000-0000-0000-0000000000e9')
+     from verificaciones_biometria where usuario_id = '00000000-0000-0000-0000-0000000000e9'),
+  true, 'biometría: reintentar no reescribe el consentimiento original' );
+
+-- Reenviar la verificación descarta el resultado anterior y reinicia los intentos.
+update roles_usuario set estado = 'rechazado' where usuario_id = '00000000-0000-0000-0000-0000000000e9' and rol = 'comerciante';
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select enviar_verificacion('comerciante', 'Eva Prueba Soto', 'Calle 9, Lerma',
+  '00000000-0000-0000-0000-0000000000e9/ine-frente-2.jpg', '00000000-0000-0000-0000-0000000000e9/ine-reverso-2.jpg', array['00000000-0000-0000-0000-0000000000e9/local-2.jpg'], 'v3');
+select actuar_como_servicio();
+select is((select count(*)::int from verificaciones_biometria where usuario_id = '00000000-0000-0000-0000-0000000000e9'), 0,
+  'biometría: reenviar la verificación descarta el resultado de la evidencia anterior' );
+select is(reservar_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'v3'), 1::smallint,
+  'biometría: tras reenviar, los intentos empiezan de nuevo' );
+select is(
+  (select count(*)::int from pg_trigger where tgname = 'verif_reinicia_biometria'), 1, 'el trigger que reinicia la biometría existe' );
+select is(
+  has_function_privilege('authenticated', 'public.reiniciar_biometria()', 'execute'), false,
+  'authenticated no puede ejecutar la función del trigger' );
 
 select * from finish();
 rollback;
