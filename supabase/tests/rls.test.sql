@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(452);
+select plan(466);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2966,6 +2966,48 @@ update negocios set oculto_por_reportes = true where id = '00000000-0000-0000-00
 select actuar_como('00000000-0000-0000-0000-0000000000a1');
 select is((select count(*)::int from negocios_ordenados('bus', 'clavos')), 0, 'búsqueda: un negocio oculto no aparece ni por su producto' );
 select throws_ok($$select normalizar_busqueda('x')$$, '42501', null, 'normalizar_busqueda: no la ejecuta el cliente' );
+
+-- ── Compatibilidad de Roomies con razones (0066) ────────────────────────────
+-- cc01 = quien busca (ruido bajo, no fuma, sin mascotas, diurno, presupuesto 2000–3500).
+-- cc02 compatible en todo; cc03 opuesto en todo; cc04 sin ruido declarado y horario «mixto».
+select actuar_como_servicio();
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, created_at, updated_at, raw_user_meta_data) values
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000cc01', 'authenticated', 'authenticated', 'cc01@test.mx', '', now(), now(), '{"nombre_usuario":"usuario_cc01"}'),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000cc02', 'authenticated', 'authenticated', 'cc02@test.mx', '', now(), now(), '{"nombre_usuario":"usuario_cc02"}'),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000cc03', 'authenticated', 'authenticated', 'cc03@test.mx', '', now(), now(), '{"nombre_usuario":"usuario_cc03"}'),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000cc04', 'authenticated', 'authenticated', 'cc04@test.mx', '', now(), now(), '{"nombre_usuario":"usuario_cc04"}');
+update usuarios set nivel_ruido = 'bajo', fuma = false, mascotas = false, horario_predominante = 'diurno', presupuesto_min = 2000, presupuesto_max = 3500 where id = '00000000-0000-0000-0000-00000000cc01';
+update usuarios set nivel_ruido = 'bajo', fuma = false, mascotas = false, horario_predominante = 'diurno' where id = '00000000-0000-0000-0000-00000000cc02';
+update usuarios set nivel_ruido = 'alto', fuma = true, mascotas = true, horario_predominante = 'nocturno' where id = '00000000-0000-0000-0000-00000000cc03';
+update usuarios set nivel_ruido = null, fuma = false, mascotas = false, horario_predominante = 'mixto' where id = '00000000-0000-0000-0000-00000000cc04';
+insert into roomies (usuario_id, descripcion_busqueda, presupuesto_aportacion, estado) values
+  ('00000000-0000-0000-0000-00000000cc02', 'Busco roomie tranquilo', 3000, 'activo'),
+  ('00000000-0000-0000-0000-00000000cc03', 'Busco fiesta', 5000, 'activo'),
+  ('00000000-0000-0000-0000-00000000cc04', 'Busco roomie', null, 'activo');
+select actuar_como('00000000-0000-0000-0000-00000000cc01');
+select is((select compatibilidad from sugerencias_roomies(100) where usuario_id = '00000000-0000-0000-0000-00000000cc02'), 1.000::numeric, 'roomies: todo coincide → compatibilidad 1' );
+select is((select coincidencias from sugerencias_roomies(100) where usuario_id = '00000000-0000-0000-0000-00000000cc02'),
+  array['Mismo nivel de ruido', 'Ninguno fuma', 'Ninguno tiene mascotas', 'Mismo horario', 'Su aportación entra en tu presupuesto'],
+  'roomies: dice POR QUÉ coincide, con frases legibles' );
+select is((select cardinality(diferencias) from sugerencias_roomies(100) where usuario_id = '00000000-0000-0000-0000-00000000cc02'), 0, 'roomies: sin diferencias cuando no las hay' );
+select is((select compatibilidad from sugerencias_roomies(100) where usuario_id = '00000000-0000-0000-0000-00000000cc03'), 0.081::numeric, 'roomies: opuesto en casi todo → compatibilidad baja (0.081)' );
+select is((select diferencias from sugerencias_roomies(100) where usuario_id = '00000000-0000-0000-0000-00000000cc03'),
+  array['Nivel de ruido muy distinto', 'Uno fuma y el otro no', 'Uno tiene mascotas y el otro no', 'Horarios opuestos', 'Su aportación queda fuera de tu presupuesto'],
+  'roomies: dice POR QUÉ no, también' );
+select is((select cardinality(coincidencias) from sugerencias_roomies(100) where usuario_id = '00000000-0000-0000-0000-00000000cc03'), 0, 'roomies: ninguna coincidencia inventada' );
+select is((select compatibilidad from sugerencias_roomies(100) where usuario_id = '00000000-0000-0000-0000-00000000cc04'), 0.864::numeric,
+  'roomies: lo que no tiene dato se IGNORA y los pesos se re-normalizan (no se castiga ni se premia)' );
+select is((select coincidencias from sugerencias_roomies(100) where usuario_id = '00000000-0000-0000-0000-00000000cc04'), array['Ninguno fuma', 'Ninguno tiene mascotas'],
+  'roomies: sin dato de ruido no hay razón de ruido (ni a favor ni en contra)' );
+select is((select array_agg(usuario_id order by ord) from (select usuario_id, row_number() over () as ord from sugerencias_roomies(100)
+   where usuario_id in ('00000000-0000-0000-0000-00000000cc02', '00000000-0000-0000-0000-00000000cc03', '00000000-0000-0000-0000-00000000cc04')) t), array['00000000-0000-0000-0000-00000000cc02', '00000000-0000-0000-0000-00000000cc04', '00000000-0000-0000-0000-00000000cc03']::uuid[],
+  'roomies: ordena por puntaje (compatible, luego sin ruido, luego opuesto)' );
+select is((select puntaje from sugerencias_roomies(100) where usuario_id = '00000000-0000-0000-0000-00000000cc02'), 0.5000::numeric,
+  'roomies: sin vector la afinidad aporta 0 (puntaje = la mitad de la compatibilidad), no desaparece' );
+select is((select similitud from sugerencias_roomies(100) where usuario_id = '00000000-0000-0000-0000-00000000cc02'), null, 'roomies: la similitud sigue siendo nula sin vectores (no se inventa)' );
+select is((select count(*)::int from sugerencias_roomies(100) where usuario_id = '00000000-0000-0000-0000-00000000cc01'), 0, 'roomies: nunca te sugiere a ti mismo' );
+select throws_ok($$select vector_busqueda from sugerencias_roomies(1)$$, '42703', null, 'roomies: la firma sigue sin exponer el vector' );
+select is(has_function_privilege('anon', 'public.sugerencias_roomies(integer)', 'execute'), false, 'roomies: anon no la ejecuta' );
 
 select * from finish();
 rollback;

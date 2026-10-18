@@ -207,6 +207,11 @@ export interface RoomieSugerido {
   foto_url: string | null;
   biografia: string | null;
   similitud: number | null;
+  /** Compatibilidad por reglas (0066): null = no hay dato que comparar. `undefined` = el servidor aún no la manda. */
+  compatibilidad?: number | null;
+  puntaje?: number;
+  coincidencias?: string[];
+  diferencias?: string[];
 }
 
 export interface Conversacion {

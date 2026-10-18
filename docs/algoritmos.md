@@ -61,16 +61,36 @@ final  = 0.6·score + 0.4·similitud        (si no hay vector de alguna de las d
 - **novedad** baja a 0 en 30 días. **similitud** = coseno entre embeddings de perfil y publicación (servicio de IA).
 - **Se explica en la app:** la ficha enseña «1.2 km · $500 bajo tu tope · afinidad 0.87» (`PorQue`) y las razones (`PorQueEsBuena`).
 
-## Roomies (`sugerencias_roomies`, 0024)
+## Roomies (`sugerencias_roomies`, 0024; compatibilidad y razones desde la 0066)
 
-Orden: `similitud desc nulls last`, luego `creado_en desc`. La similitud es el coseno entre el vector del perfil y el de la búsqueda
-del roomie; quien aún no tiene vector sale al final, no desaparece. Solo roomies `activo` y distintos de ti.
+**Medido en producción antes de cambiarlo (18/10/2026):** el orden era solo el coseno entre el perfil y la búsqueda del roomie, y no podía decir por qué. Los cosenos de
+150 pares (5 perfiles × 30 roomies) van de 0.16 a 0.56 (mediana 0.39); la tarjeta etiquetaba «Alta» desde 0.75, que **nunca ocurría**. En los 30 roomies de demostración
+`nivel_ruido` era nulo, el horario «mixto» y `presupuesto_aportacion` nulo en todos.
 
-- **Se muestra como etiqueta** (Alta ≥ 0.75, Media ≥ 0.55, resto sin etiqueta), no como calificación, para no aparentar precisión.
+**Ahora:**
+```
+compatibilidad = promedio ponderado de lo que SÍ se puede comparar (nulo si falta el dato de alguno de los dos):
+    ruido 0.30      igual 1 · contiguo (bajo–medio, medio–alto) 0.5 · bajo–alto 0
+    tabaco 0.25     igual 1 · distinto 0
+    horario 0.15    igual 1 · alguno «mixto» 0.5 · diurno–nocturno 0
+    mascotas 0.15   igual 1 · distinto 0.4
+    aportación 0.15 dentro de TU presupuesto 1 · fuera: decae con la distancia relativa al máximo
+afinidad       = coseno reescalado a [0, 1] con una banda FIJA [0.15, 0.60] (la observada)
+puntaje        = 0.5·compatibilidad + 0.5·afinidad      (orden de la lista)
+```
+- Lo que **no tiene dato se ignora** y los pesos se re-normalizan: ni castiga ni premia. Sin ningún dato la compatibilidad es nula (vale 0.5 en el puntaje) y la tarjeta dice
+  «sin datos para comparar», **no** «baja».
+- Sin vector, la afinidad aporta 0: el roomie baja en la lista pero no desaparece (lo que ya hacía `nulls last`).
+- El servidor devuelve además **frases legibles** (`coincidencias`, `diferencias`): «Mismo nivel de ruido», «Ninguno fuma», «Uno tiene mascotas y el otro no», «Horarios
+  opuestos», «Su aportación queda fuera de tu presupuesto». La tarjeta las enseña, hasta 3.
+- La **etiqueta** («Compatibilidad alta/media/baja», cortes 0.75 / 0.5) sale de la compatibilidad por reglas —la que se explica—, y el coseno solo ordena.
+- Seguridad: sigue `security definer` por `vector_busqueda`, que no sale. Del otro lado solo usa lo ya público (`perfiles_publicos` y la aportación del anuncio).
 
-### Brecha honesta de explicabilidad
-Servicios y Depas dicen *por qué* (distancia, precio, reseñas). **Roomies no puede**: el orden sale de un embedding de texto
-libre y no se descompone en razones legibles. Se declara así en lugar de inventar razones. Umbrales 0.75/0.55 sin calibrar con datos reales.
+### Límites honestos
+- Pesos, banda y cortes son **decisiones de producto, no validadas** con personas ni con convivencia real. La banda sale de 150 pares de demostración.
+- No predice que dos personas se lleven bien: ordena por señales **declaradas** y dice cuáles.
+- Las frases dependen de que la persona haya llenado el cuestionario: quien no lo hizo aparece con menos razones.
+- Los roomies de demostración no tenían ruido, horario ni aportación; `scripts/completar-roomies-demo.mjs` (fabricados, deterministas) los completa para que la demo enseñe razones.
 
 ## Verificación de rostro (fase 6: `/verificar-rostro`, Edge Function `verificar-rostro`, migración 0056)
 

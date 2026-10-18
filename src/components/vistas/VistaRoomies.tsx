@@ -192,6 +192,9 @@ export function VistaRoomies({ selector }: { selector?: ReactNode }) {
             descripcionBusqueda={item.descripcion_busqueda}
             fotoUrl={item.foto_url ? urlsFirmadas.get(item.foto_url) : null}
             afinidad={item.similitud}
+            compatibilidad={item.compatibilidad}
+            coincidencias={item.coincidencias}
+            diferencias={item.diferencias}
             onPress={() => router.push(`/perfil/${item.usuario_id}`)}
           />
         )}
