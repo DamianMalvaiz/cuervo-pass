@@ -333,6 +333,10 @@ export interface NegocioItem {
   /** Nulo = «consulta el precio». Nunca se inventa uno. */
   precio: number | null;
   orden: number;
+  seccion: string | null;
+  descripcion: string | null;
+  /** Ruta de Storage de la foto del producto (dentro de la carpeta de su negocio). */
+  foto: string | null;
 }
 
 /** Verificación de vendedor · 0049. Privado: solo su dueña lee su fila. */
@@ -438,6 +442,11 @@ export interface Database {
           p_fotos: string[];
           p_version_aviso: string;
         };
+        Returns: undefined;
+      };
+      // Guarda el menú ENTERO en una transacción (migración 0053). CP009 si excede el tope del plan.
+      guardar_menu: {
+        Args: { p_negocio: string; p_items: unknown };
         Returns: undefined;
       };
       abrir_conversacion: {

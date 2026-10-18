@@ -18,7 +18,7 @@ import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
 import { geocodificarDireccion } from '@/lib/geocoding';
-import { MAX_FOTOS_NEGOCIO, MAX_ITEMS_MENU, validarNegocio, type ErroresNegocio, type ItemEditable } from '@/lib/negocio';
+import { MAX_FOTOS_NEGOCIO, validarNegocio, type ErroresNegocio } from '@/lib/negocio';
 import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -60,9 +60,6 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
   const [fotos, setFotos] = useState<FotoEnForm[]>(
     (n?.fotos ?? []).map((ruta) => ({ clave: ruta, ruta, uri: '' }))
   );
-  const [items, setItems] = useState<ItemEditable[]>(
-    (inicial?.items ?? []).map((i) => ({ id: i.id, nombre: i.nombre, precio: i.precio == null ? '' : String(i.precio) }))
-  );
   const [errores, setErrores] = useState<ErroresNegocio>({});
   const [guardando, setGuardando] = useState(false);
 
@@ -82,7 +79,7 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
 
   const onGuardar = async () => {
     const e = validarNegocio({
-      categoriaId, nombre, descripcion, direccion, rangoPrecio, horario, fotos: fotos.map((f) => f.clave), items,
+      categoriaId, nombre, descripcion, direccion, rangoPrecio, horario, fotos: fotos.map((f) => f.clave),
     });
     setErrores(e);
     if (Object.keys(e).length > 0 || !categoriaId) return;
@@ -117,7 +114,6 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
           fotosConservadas: conservadas,
           fotosQuitadas: rutasIniciales.filter((r) => !conservadas.includes(r)),
           fotosNuevas: fotos.filter((f) => !f.ruta).map((f) => f.uri),
-          items,
         },
         {
           onSuccess: () => {
@@ -133,8 +129,8 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
             toast.error(
               esCodigo(err, CP.LIMITE_NEGOCIOS)
                 ? 'Ya tienes un negocio visible. Pausa el otro para activar este.'
-                : esCodigo(err, CP.LIMITE_ITEMS_MENU)
-                  ? `Llegaste al tope de ${MAX_ITEMS_MENU} productos en el menú.`
+                : esCodigo(err, CP.LIMITE_FOTOS_PLAN)
+                  ? 'Tu plan permite menos fotos de galería. Quita algunas para guardar.'
                   : 'No pudimos guardar tu negocio. Revisa tu conexión e intenta de nuevo.'
             );
           },
@@ -170,9 +166,6 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
       ]
     );
   };
-
-  const cambiarItem = (i: number, cambio: Partial<ItemEditable>) =>
-    setItems((xs) => xs.map((x, j) => (j === i ? { ...x, ...cambio } : x)));
 
   return (
     <ThemedView style={estilos.pantalla}>
@@ -277,47 +270,28 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
             {errores.fotos ? <ThemedText type="small" style={{ color: theme.error }}>{errores.fotos}</ThemedText> : null}
           </View>
 
-          <View style={estilos.bloque}>
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              Menú y precios ({items.length}/{MAX_ITEMS_MENU})
-            </ThemedText>
-            {items.map((it, i) => (
-              <View key={it.id ?? `nuevo-${i}`} style={estilos.filaItem}>
-                <View style={estilos.crece}>
-                  <Campo etiqueta={`Producto ${i + 1}`} value={it.nombre} onChangeText={(t) => cambiarItem(i, { nombre: t })} maxLength={80} />
-                </View>
-                <View style={estilos.precio}>
-                  <Campo
-                    etiqueta={`Precio ${i + 1}`}
-                    value={it.precio}
-                    onChangeText={(t) => cambiarItem(i, { precio: t })}
-                    keyboardType="decimal-pad"
-                    placeholder="Consultar"
-                  />
-                </View>
-                <Pulsable
-                  onPress={() => setItems((xs) => xs.filter((_, j) => j !== i))}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Quitar el producto ${i + 1}`}
-                  style={estilos.quitar}
-                >
-                  <Ionicons name="close-circle-outline" size={24} color={theme.textSecondary} />
-                </Pulsable>
+          {/* El menú tiene su propia pantalla (secciones, búsqueda y un editor por producto): con decenas o cientos de
+              productos, un formulario único no se puede manejar. Solo se puede abrir cuando el negocio YA existe. */}
+          {n ? (
+            <Pulsable
+              onPress={() => router.push({ pathname: '/negocio/menu/[id]', params: { id: n.id } })}
+              accessibilityRole="button"
+              accessibilityLabel={`Editar el menú, ${inicial?.items.length ?? 0} productos`}
+              style={[estilos.fila, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
+            >
+              <View style={estilos.crece}>
+                <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>Menú y precios</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {inicial?.items.length ? `${inicial.items.length} productos` : 'Todavía no tiene productos'}
+                </ThemedText>
               </View>
-            ))}
-            {items.length < MAX_ITEMS_MENU ? (
-              <Pulsable
-                onPress={() => setItems((xs) => [...xs, { nombre: '', precio: '' }])}
-                accessibilityRole="button"
-                accessibilityLabel="Agregar un producto al menú"
-                style={[estilos.agregar, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
-              >
-                <Ionicons name="add" size={20} color={theme.bosque} />
-                <ThemedText style={Texto.pesoFuerte}>Agregar producto</ThemedText>
-              </Pulsable>
-            ) : null}
-            {errores.items ? <ThemedText type="small" style={{ color: theme.error }}>{errores.items}</ThemedText> : null}
-          </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+            </Pulsable>
+          ) : (
+            <ThemedText type="small" themeColor="textSecondary">
+              Cuando publiques tu negocio podrás agregar su menú, con secciones, precios y fotos.
+            </ThemedText>
+          )}
 
           <View style={[estilos.fila, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
             <View style={estilos.crece}>
@@ -372,8 +346,6 @@ const estilos = StyleSheet.create({
   filaFoto: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   miniatura: { width: 56, height: 56, borderRadius: Radios.control },
   crece: { flex: 1 },
-  precio: { width: 110 },
-  filaItem: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.two },
   quitar: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   agregar: {
     flexDirection: 'row',

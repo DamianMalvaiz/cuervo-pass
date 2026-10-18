@@ -45,7 +45,7 @@ export async function obtenerMiNegocio(
   if (!negocio) return null;
   const { data: items, error: errorItems } = await supabase
     .from('negocio_items')
-    .select('id, negocio_id, nombre, precio, orden')
+    .select('id, negocio_id, nombre, precio, orden, seccion, descripcion, foto')
     .eq('negocio_id', id)
     .order('orden', { ascending: true });
   if (errorItems) throw errorItems;
@@ -72,47 +72,41 @@ export interface ItemParaGuardar {
   id?: string;
   nombre: string;
   precio: number | null;
+  seccion: string | null;
+  descripcion: string | null;
+  foto: string | null;
 }
 
 /**
- * Deja el menú como se pidió: borra los que ya no están, actualiza los que siguen (con su nuevo orden) e inserta los
- * nuevos. No es atómico —son varias peticiones—, pero cada paso es idempotente: repetirlo tras un corte llega al mismo
- * resultado. LANZA con el primer error.
+ * Guarda el menú ENTERO en una sola llamada y una sola transacción (`guardar_menu`, 0053): borra lo que ya no está,
+ * actualiza lo que sigue —con su orden— e inserta lo nuevo. Si un producto falla (por ejemplo, pasar del tope del plan,
+ * CP009), TODO se deshace y el menú no queda a medias. El orden de la lista es el orden del menú.
  */
 export async function guardarMenu(negocioId: string, items: ItemParaGuardar[]): Promise<void> {
-  const { data: actuales, error } = await supabase.from('negocio_items').select('id').eq('negocio_id', negocioId);
+  const { error } = await supabase.rpc('guardar_menu', {
+    p_negocio: negocioId,
+    p_items: items.map((i) => ({
+      id: i.id,
+      nombre: i.nombre,
+      precio: i.precio,
+      seccion: i.seccion,
+      descripcion: i.descripcion,
+      foto: i.foto,
+    })),
+  });
   if (error) throw error;
-
-  const quedan = new Set(items.filter((i) => i.id).map((i) => i.id as string));
-  const sobran = ((actuales ?? []) as { id: string }[]).map((a) => a.id).filter((id) => !quedan.has(id));
-  if (sobran.length > 0) {
-    const { error: e } = await supabase.from('negocio_items').delete().in('id', sobran);
-    if (e) throw e;
-  }
-
-  for (const [orden, it] of items.entries()) {
-    if (it.id) {
-      const { error: e } = await supabase
-        .from('negocio_items')
-        .update({ nombre: it.nombre, precio: it.precio, orden })
-        .eq('id', it.id);
-      if (e) throw e;
-    } else {
-      const { error: e } = await supabase
-        .from('negocio_items')
-        .insert({ negocio_id: negocioId, nombre: it.nombre, precio: it.precio, orden });
-      if (e) throw e;
-    }
-  }
 }
 
 /**
- * Borra el negocio y, ANTES, sus fotos de Storage: no hay cola de limpieza para ellas (como sí la hay para las
- * publicaciones), así que si se borrara primero la fila quedarían huérfanas para siempre. Si borrar las fotos falla,
- * `borrarFotos` avisa y sigue; el negocio se borra igual (la persona pidió borrarlo).
+ * Borra el negocio y, ANTES, sus fotos de Storage —las de la galería Y las de sus productos—: no hay cola de limpieza para
+ * ellas (como sí la hay para las publicaciones), así que si se borrara primero la fila quedarían huérfanas para siempre. Si
+ * borrar las fotos falla, `borrarFotos` avisa y sigue; el negocio se borra igual (la persona pidió borrarlo).
  */
 export async function borrarNegocio(id: string, fotos: string[]): Promise<void> {
-  await borrarFotos(fotos);
+  const { data: items, error: errorItems } = await supabase.from('negocio_items').select('foto').eq('negocio_id', id);
+  if (errorItems) throw errorItems;
+  const deProductos = ((items ?? []) as { foto: string | null }[]).map((i) => i.foto).filter((f): f is string => Boolean(f));
+  await borrarFotos([...fotos, ...deProductos]);
   const { error } = await supabase.from('negocios').delete().eq('id', id);
   if (error) throw error;
 }

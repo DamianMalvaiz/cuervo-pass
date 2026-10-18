@@ -4,16 +4,8 @@
 // vuelve a validar lo suyo (longitudes, topes, rutas de foto); esto evita mandar lo que ya se sabe mal y dice QUÉ falla.
 // Los límites son los de la base (0047 y 0052).
 
-export const MAX_FOTOS_NEGOCIO = 8;
-export const MAX_ITEMS_MENU = 40;
-
-export interface ItemEditable {
-  /** Presente si el producto ya existe en la base; ausente si es nuevo. */
-  id?: string;
-  nombre: string;
-  /** Texto tal como se escribió («35», «35.50», «35,50»); vacío = «consultar precio». */
-  precio: string;
-}
+/** Cota técnica de la base (0053). Lo que manda es el límite del plan (4 / 20 / 60), que la base hace cumplir (CP012). */
+export const MAX_FOTOS_NEGOCIO = 60;
 
 export interface DatosNegocioForm {
   categoriaId: string | null;
@@ -23,15 +15,6 @@ export interface DatosNegocioForm {
   rangoPrecio: number | null;
   horario: string;
   fotos: string[];
-  items: ItemEditable[];
-}
-
-/** «35» → 35, «35,50» → 35.5, «» → null (consultar precio), «abc» o negativo → NaN (error). */
-export function parsearPrecio(texto: string): number | null {
-  const t = texto.trim().replace(',', '.');
-  if (t === '') return null;
-  if (!/^\d+(\.\d{1,2})?$/.test(t)) return Number.NaN;
-  return Number(t);
 }
 
 export interface ErroresNegocio {
@@ -41,7 +24,6 @@ export interface ErroresNegocio {
   direccion?: string;
   horario?: string;
   fotos?: string;
-  items?: string;
 }
 
 export function validarNegocio(d: DatosNegocioForm): ErroresNegocio {
@@ -57,19 +39,5 @@ export function validarNegocio(d: DatosNegocioForm): ErroresNegocio {
   if (d.horario.trim().length > 120) e.horario = 'El horario es demasiado largo (máximo 120)';
   if (d.fotos.length > MAX_FOTOS_NEGOCIO) e.fotos = `Máximo ${MAX_FOTOS_NEGOCIO} fotos`;
 
-  if (d.items.length > MAX_ITEMS_MENU) e.items = `Máximo ${MAX_ITEMS_MENU} productos`;
-  else {
-    for (const it of d.items) {
-      const n = it.nombre.trim();
-      if (n.length < 1 || n.length > 80) {
-        e.items = 'Cada producto necesita un nombre (máximo 80 letras)';
-        break;
-      }
-      if (Number.isNaN(parsearPrecio(it.precio))) {
-        e.items = `El precio de «${n}» no es válido. Escribe solo números, por ejemplo 35 o 35.50`;
-        break;
-      }
-    }
-  }
   return e;
 }

@@ -28,7 +28,7 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
-import { borrarFotos, subirEvidenciaVerificacion, subirFotoNegocio, subirFotoPerfil, subirFotoPublicacion } from '../storage';
+import { borrarFotos, subirEvidenciaVerificacion, subirFotoNegocio, subirFotoProducto, subirFotoPerfil, subirFotoPublicacion } from '../storage';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -187,5 +187,18 @@ describe('subirFotoNegocio', () => {
   it('si Storage rechaza, LANZA', async () => {
     mockSubir.mockResolvedValue({ error: { message: 'rechazado' } });
     await expect(subirFotoNegocio('n1', 'file:///x.jpg')).rejects.toMatchObject({ message: 'rechazado' });
+  });
+});
+
+describe('subirFotoProducto', () => {
+  it('sube bajo la carpeta del negocio, en `p/`, con nombre único', async () => {
+    const a = await subirFotoProducto('n1', 'file:///x.jpg');
+    const b = await subirFotoProducto('n1', 'file:///x.jpg');
+    expect(a).toMatch(/^negocios\/n1\/p\/\d+-[a-z0-9]+\.jpg$/);
+    expect(a).not.toBe(b);
+  });
+  it('comprime a 800 px: es una miniatura de menú, no una galería', async () => {
+    await subirFotoProducto('n1', 'file:///x.jpg');
+    expect(mockResize).toHaveBeenCalledWith({ width: 800 });
   });
 });

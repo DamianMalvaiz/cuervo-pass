@@ -2,7 +2,8 @@
 
 const mockDesde = jest.fn();
 const mockBorrarFotos = jest.fn();
-jest.mock('@/lib/supabase', () => ({ supabase: { from: (...a: unknown[]) => mockDesde(...a) } }));
+const mockRpc = jest.fn();
+jest.mock('@/lib/supabase', () => ({ supabase: { from: (...a: unknown[]) => mockDesde(...a), rpc: (...a: unknown[]) => mockRpc(...a) } }));
 jest.mock('@/lib/storage', () => ({ borrarFotos: (...a: unknown[]) => mockBorrarFotos(...a) }));
 
 import {
@@ -24,6 +25,7 @@ const DATOS = {
 beforeEach(() => {
   mockDesde.mockReset();
   mockBorrarFotos.mockReset().mockResolvedValue(undefined);
+  mockRpc.mockReset();
 });
 
 describe('listarMisNegocios', () => {
@@ -97,53 +99,57 @@ describe('actualizarNegocio', () => {
 });
 
 describe('guardarMenu', () => {
-  test('borra los que ya no están, actualiza los que siguen con su orden e inserta los nuevos', async () => {
-    const lectura = cadena({ data: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] });
-    const borrado = cadena({ error: null });
-    const update = cadena({ error: null });
-    const insert = cadena({ error: null });
-    const secuencia = [lectura, borrado, update, insert];
-    mockDesde.mockImplementation(() => secuencia.shift());
-    await guardarMenu('n1', [{ id: 'b', nombre: 'B2', precio: 10 }, { nombre: 'Nuevo', precio: null }]);
-    expect(borrado.delete).toHaveBeenCalled();
-    expect(borrado.in).toHaveBeenCalledWith('id', ['a', 'c']);
-    expect(update.update).toHaveBeenCalledWith({ nombre: 'B2', precio: 10, orden: 0 });
-    expect(update.eq).toHaveBeenCalledWith('id', 'b');
-    expect(insert.insert).toHaveBeenCalledWith({ negocio_id: 'n1', nombre: 'Nuevo', precio: null, orden: 1 });
+  const items = [
+    { id: 'a', nombre: 'Taco', precio: 20, seccion: 'Tacos', descripcion: null, foto: null },
+    { nombre: 'Agua', precio: null, seccion: null, descripcion: 'Fresca', foto: 'negocios/n1/p/a.jpg' },
+  ];
+
+  test('manda el menú ENTERO en una sola llamada a la RPC, en orden', async () => {
+    mockRpc.mockResolvedValue({ error: null });
+    await guardarMenu('n1', items);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith('guardar_menu', { p_negocio: 'n1', p_items: items });
+    expect(mockDesde).not.toHaveBeenCalled();
   });
-  test('si no sobra ninguno, no hace borrado', async () => {
-    const lectura = cadena({ data: [{ id: 'a' }] });
-    const update = cadena({ error: null });
-    const secuencia = [lectura, update];
-    mockDesde.mockImplementation(() => secuencia.shift());
-    await guardarMenu('n1', [{ id: 'a', nombre: 'A', precio: 1 }]);
-    expect(secuencia).toHaveLength(0);
+
+  test('un menú vacío también se manda: así se borra lo que había', async () => {
+    mockRpc.mockResolvedValue({ error: null });
+    await guardarMenu('n1', []);
+    expect(mockRpc).toHaveBeenCalledWith('guardar_menu', { p_negocio: 'n1', p_items: [] });
   });
-  test('un fallo al leer el menú actual LANZA y no toca nada', async () => {
-    mockDesde.mockReturnValue(cadena({ error: { message: 'sin red' } }));
-    await expect(guardarMenu('n1', [])).rejects.toMatchObject({ message: 'sin red' });
-    expect(mockDesde).toHaveBeenCalledTimes(1);
+
+  test('el tope del plan (CP009) llega con su código', async () => {
+    mockRpc.mockResolvedValue({ error: { code: 'CP009', message: 'tope' } });
+    await expect(guardarMenu('n1', items)).rejects.toMatchObject({ code: 'CP009' });
   });
-  test('el tope de 40 productos (CP009) llega con su código', async () => {
-    const lectura = cadena({ data: [] });
-    const insert = cadena({ error: { code: 'CP009', message: 'tope' } });
-    const secuencia = [lectura, insert];
-    mockDesde.mockImplementation(() => secuencia.shift());
-    await expect(guardarMenu('n1', [{ nombre: 'X', precio: 1 }])).rejects.toMatchObject({ code: 'CP009' });
+
+  test('cualquier otro error se lanza', async () => {
+    mockRpc.mockResolvedValue({ error: { message: 'sin red' } });
+    await expect(guardarMenu('n1', items)).rejects.toMatchObject({ message: 'sin red' });
   });
 });
 
 describe('borrarNegocio', () => {
-  test('borra las fotos de Storage ANTES de la fila', async () => {
-    const c = cadena({ error: null });
-    mockDesde.mockReturnValue(c);
+  test('borra las fotos de la galería Y las de los productos ANTES de la fila', async () => {
+    const items = cadena({ data: [{ foto: 'negocios/n1/p/a.jpg' }, { foto: null }] });
+    const fila = cadena({ error: null });
+    const secuencia = [items, fila];
+    mockDesde.mockImplementation(() => secuencia.shift());
     await borrarNegocio('n1', ['negocios/n1/a.jpg']);
-    expect(mockBorrarFotos).toHaveBeenCalledWith(['negocios/n1/a.jpg']);
-    expect(mockBorrarFotos.mock.invocationCallOrder[0]).toBeLessThan((c.delete as jest.Mock).mock.invocationCallOrder[0]);
-    expect(c.eq).toHaveBeenCalledWith('id', 'n1');
+    expect(mockBorrarFotos).toHaveBeenCalledWith(['negocios/n1/a.jpg', 'negocios/n1/p/a.jpg']);
+    expect(mockBorrarFotos.mock.invocationCallOrder[0]).toBeLessThan((fila.delete as jest.Mock).mock.invocationCallOrder[0]);
+    expect(fila.eq).toHaveBeenCalledWith('id', 'n1');
+  });
+  test('si no se pueden leer las fotos de productos, LANZA y no borra nada', async () => {
+    mockDesde.mockReturnValue(cadena({ error: { message: 'sin red' } }));
+    await expect(borrarNegocio('n1', ['x'])).rejects.toMatchObject({ message: 'sin red' });
+    expect(mockBorrarFotos).not.toHaveBeenCalled();
   });
   test('si falla borrar la fila, LANZA', async () => {
-    mockDesde.mockReturnValue(cadena({ error: { message: 'x' } }));
+    const items = cadena({ data: [] });
+    const fila = cadena({ error: { message: 'x' } });
+    const secuencia = [items, fila];
+    mockDesde.mockImplementation(() => secuencia.shift());
     await expect(borrarNegocio('n1', [])).rejects.toBeTruthy();
   });
 });

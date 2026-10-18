@@ -15,8 +15,9 @@ const mockExito = jest.fn();
 const mockError = jest.fn();
 const mockInfo = jest.fn();
 
+const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
-  router: { back: (...a: unknown[]) => mockBack(...a), replace: (...a: unknown[]) => mockReplace(...a) },
+  router: { back: (...a: unknown[]) => mockBack(...a), replace: (...a: unknown[]) => mockReplace(...a), push: (...a: unknown[]) => mockPush(...a) },
 }));
 jest.mock('@/hooks/queries/useMisNegocios', () => {
   class ErrorParcial extends Error {
@@ -130,12 +131,12 @@ describe('negocio nuevo', () => {
     expect(mockBack).not.toHaveBeenCalled();
   });
 
-  it('CP009 se explica por código: tope del menú', async () => {
-    mockMutate.mockImplementation((_e, { onError }) => onError({ code: 'CP009' }));
+  it('CP012 se explica por código: tu plan permite menos fotos', async () => {
+    mockMutate.mockImplementation((_e, { onError }) => onError({ code: 'CP012' }));
     await render(<FormularioNegocio />);
     await llenarNuevo();
     await pulsar('Publicar negocio');
-    expect(String(mockError.mock.calls[0][0])).toMatch(/40 productos/);
+    expect(String(mockError.mock.calls[0][0])).toMatch(/menos fotos/);
   });
 
   it('un fallo de red se dice como fallo, sin éxito', async () => {
@@ -156,6 +157,12 @@ describe('negocio nuevo', () => {
     expect(mockReplace).toHaveBeenCalledWith({ pathname: '/negocio/editar/[id]', params: { id: 'n-creado' } });
   });
 
+  it('un negocio nuevo no abre el menú todavía: dice que se agrega después de publicar', async () => {
+    await render(<FormularioNegocio />);
+    expect(screen.getByText(/podrás agregar su menú/)).toBeTruthy();
+    expect(screen.queryByLabelText(/Editar el menú/)).toBeNull();
+  });
+
   it('no hay botón de borrar en un negocio nuevo', async () => {
     await render(<FormularioNegocio />);
     expect(screen.queryByLabelText('Borrar mi negocio')).toBeNull();
@@ -169,7 +176,7 @@ describe('fotos y menú', () => {
     expect(screen.getByLabelText('Quitar la foto 1')).toBeTruthy();
     await pulsar('Quitar la foto 1');
     expect(screen.queryByLabelText('Quitar la foto 1')).toBeNull();
-    for (let i = 0; i < 8; i++) await pulsar('Agregar una foto del negocio');
+    for (let i = 0; i < 60; i++) await pulsar('Agregar una foto del negocio');
     expect(screen.queryByLabelText('Agregar una foto del negocio')).toBeNull();
   });
 
@@ -187,29 +194,6 @@ describe('fotos y menú', () => {
     await pulsar('Agregar una foto del negocio');
     expect(screen.queryByLabelText('Quitar la foto 1')).toBeNull();
   });
-
-  it('agrega, edita y quita productos del menú', async () => {
-    await render(<FormularioNegocio />);
-    await pulsar('Agregar un producto al menú');
-    await escribir('Producto 1', 'Taco');
-    await escribir('Precio 1', '18');
-    await llenarNuevo();
-    await pulsar('Publicar negocio');
-    expect(mockMutate.mock.calls[0][0].items).toEqual([{ nombre: 'Taco', precio: '18' }]);
-    await pulsar('Quitar el producto 1');
-    expect(screen.queryByLabelText('Producto 1')).toBeNull();
-  });
-
-  it('un precio inválido NO guarda y lo señala', async () => {
-    await render(<FormularioNegocio />);
-    await pulsar('Agregar un producto al menú');
-    await escribir('Producto 1', 'Taco');
-    await escribir('Precio 1', 'mucho');
-    await llenarNuevo();
-    await pulsar('Publicar negocio');
-    expect(mockMutate).not.toHaveBeenCalled();
-    expect(screen.getByText(/El precio de «Taco» no es válido/)).toBeTruthy();
-  });
 });
 
 describe('editar un negocio', () => {
@@ -217,8 +201,6 @@ describe('editar un negocio', () => {
     await render(<FormularioNegocio inicial={{ negocio: NEGOCIO as never, items: ITEMS as never }} />);
     expect(screen.getByDisplayValue('Tacos')).toBeTruthy();
     expect(screen.getByDisplayValue('Calle 1, Lerma')).toBeTruthy();
-    expect(screen.getByDisplayValue('Taco')).toBeTruthy();
-    expect(screen.getByDisplayValue('18')).toBeTruthy();
     expect(screen.getByLabelText('Quitar la foto 2')).toBeTruthy();
     expect(screen.getByLabelText('Guardar cambios')).toBeTruthy();
   });
@@ -249,13 +231,18 @@ describe('editar un negocio', () => {
     expect(e.fotosNuevas).toEqual(['file:///f-1.jpg']);
   });
 
-  it('los productos existentes conservan su id', async () => {
+  it('el menú ya NO se edita aquí: hay un renglón que lo abre en su propia pantalla', async () => {
+    await render(<FormularioNegocio inicial={{ negocio: NEGOCIO as never, items: ITEMS as never }} />);
+    expect(screen.queryByLabelText('Agregar un producto al menú')).toBeNull();
+    expect(screen.getByText('2 productos')).toBeTruthy();
+    await pulsar('Editar el menú, 2 productos');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/negocio/menu/[id]', params: { id: 'n1' } });
+  });
+
+  it('lo que se manda al guardar ya no lleva productos', async () => {
     await render(<FormularioNegocio inicial={{ negocio: NEGOCIO as never, items: ITEMS as never }} />);
     await pulsar('Guardar cambios');
-    expect(mockMutate.mock.calls[0][0].items).toEqual([
-      { id: 'i1', nombre: 'Taco', precio: '18' },
-      { id: 'i2', nombre: 'Revisión', precio: '' },
-    ]);
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('items');
   });
 
   it('al guardar bien dice «Cambios guardados»', async () => {

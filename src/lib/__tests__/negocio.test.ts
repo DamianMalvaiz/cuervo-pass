@@ -1,22 +1,9 @@
-import { MAX_FOTOS_NEGOCIO, MAX_ITEMS_MENU, parsearPrecio, validarNegocio, type DatosNegocioForm } from '../negocio';
+import { MAX_FOTOS_NEGOCIO, validarNegocio, type DatosNegocioForm } from '../negocio';
 
 const completo: DatosNegocioForm = {
   categoriaId: 'comida', nombre: 'Tacos La Esquina', descripcion: 'Tacos al pastor', direccion: 'Calle 1, Lerma',
-  rangoPrecio: 1, horario: 'Lun a sáb · 6 pm a 11 pm', fotos: [], items: [{ nombre: 'Taco', precio: '18' }],
+  rangoPrecio: 1, horario: 'Lun a sáb · 6 pm a 11 pm', fotos: [],
 };
-
-describe('parsearPrecio', () => {
-  it.each([['35', 35], ['35.5', 35.5], ['35.50', 35.5], ['35,50', 35.5], [' 12 ', 12], ['0', 0]])('«%s» → %s', (t, n) => {
-    expect(parsearPrecio(t)).toBe(n);
-  });
-  it('vacío es «consultar precio» (null), nunca un cero inventado', () => {
-    expect(parsearPrecio('')).toBeNull();
-    expect(parsearPrecio('   ')).toBeNull();
-  });
-  it.each(['abc', '-5', '1.234', '1.2.3', '$35', '35 pesos'])('«%s» no es un precio', (t) => {
-    expect(parsearPrecio(t)).toBeNaN();
-  });
-});
 
 describe('validarNegocio', () => {
   it('completo, no falta nada', () => expect(validarNegocio(completo)).toEqual({}));
@@ -40,23 +27,13 @@ describe('validarNegocio', () => {
     expect(validarNegocio({ ...completo, direccion: 'a'.repeat(201) }).direccion).toBeTruthy();
   });
 
+  it('la cota técnica de fotos es la del plan más alto (60)', () => {
+    expect(MAX_FOTOS_NEGOCIO).toBe(60);
+  });
+
   it('sin fotos se puede guardar; con más del máximo no', () => {
     expect(validarNegocio({ ...completo, fotos: [] }).fotos).toBeUndefined();
     const demasiadas = Array.from({ length: MAX_FOTOS_NEGOCIO + 1 }, (_, i) => `f${i}`);
     expect(validarNegocio({ ...completo, fotos: demasiadas }).fotos).toBeTruthy();
-  });
-
-  it('un producto sin nombre o con precio inválido se señala', () => {
-    expect(validarNegocio({ ...completo, items: [{ nombre: '  ', precio: '10' }] }).items).toMatch(/nombre/);
-    expect(validarNegocio({ ...completo, items: [{ nombre: 'Taco', precio: 'mucho' }] }).items).toMatch(/Taco/);
-  });
-
-  it('un producto sin precio es válido: se dirá «Consultar precio»', () => {
-    expect(validarNegocio({ ...completo, items: [{ nombre: 'Revisión', precio: '' }] }).items).toBeUndefined();
-  });
-
-  it('más de 40 productos no', () => {
-    const muchos = Array.from({ length: MAX_ITEMS_MENU + 1 }, (_, i) => ({ nombre: `P${i}`, precio: '1' }));
-    expect(validarNegocio({ ...completo, items: muchos }).items).toMatch(/40/);
   });
 });

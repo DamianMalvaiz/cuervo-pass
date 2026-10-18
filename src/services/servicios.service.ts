@@ -57,7 +57,7 @@ export async function obtenerNegocio(id: string): Promise<{ negocio: Negocio; it
 
   const { data: items, error: errorItems } = await supabase
     .from('negocio_items_publicos')
-    .select('id, negocio_id, nombre, precio, orden')
+    .select('id, negocio_id, nombre, precio, orden, seccion, descripcion, foto')
     .eq('negocio_id', id)
     .order('orden', { ascending: true });
   if (errorItems) throw errorItems;

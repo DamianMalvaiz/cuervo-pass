@@ -98,6 +98,11 @@ export function subirFotoNegocio(negocioId: string, uriLocal: string): Promise<s
   return subirArchivo(`negocios/${negocioId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`, uriLocal, 1024);
 }
 
+/** Foto de un PRODUCTO del menú: vive en la carpeta de su negocio, bajo `p/` (la política de Storage de la 0052 la cubre). */
+export function subirFotoProducto(negocioId: string, uriLocal: string): Promise<string> {
+  return subirArchivo(`negocios/${negocioId}/p/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`, uriLocal, 800);
+}
+
 export function subirFotoPerfil(usuarioId: string, uriLocal: string): Promise<string> {
   return subirArchivo(`perfiles/${usuarioId}.jpg`, uriLocal, 512);
 }

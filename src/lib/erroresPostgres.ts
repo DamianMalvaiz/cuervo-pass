@@ -48,8 +48,10 @@ export const CP = {
   VERIFICACION_NO_ENVIABLE: 'CP005',
   /** Tope de negocios ACTIVOS por cuenta (migración 0052). */
   LIMITE_NEGOCIOS: 'CP008',
-  /** Tope de 40 productos en el menú de un negocio (migración 0052). */
+  /** Tope de productos del menú de un negocio, según su plan (migraciones 0052 y 0053). */
   LIMITE_ITEMS_MENU: 'CP009',
+  /** Más fotos de galería de las que permite el plan (migración 0053). */
+  LIMITE_FOTOS_PLAN: 'CP012',
 } as const;
 
 /** El `code` de un error de PostgREST/supabase-js, si lo trae. */
