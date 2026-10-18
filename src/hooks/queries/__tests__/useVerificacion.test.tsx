@@ -13,6 +13,7 @@ jest.mock('@/services/verificacion.service', () => ({
 
 import { clienteDePrueba } from '@pruebas/consultas';
 import { useEnviarVerificacion, useMiVerificacion } from '../useVerificacion';
+import { VERSION_AVISO } from '@/lib/verificacion';
 
 const envolver = () => {
   const cliente = clienteDePrueba({ queries: { retry: false } });
@@ -43,7 +44,7 @@ describe('useEnviarVerificacion', () => {
     expect(mockEnviar).toHaveBeenCalledWith(
       expect.objectContaining({
         rol: 'comerciante', ineFrente: 'u1/comerciante/ine-frente.jpg', ineReverso: 'u1/comerciante/ine-reverso.jpg',
-        fotos: ['u1/comerciante/lugar-1.jpg', 'u1/comerciante/lugar-2.jpg'], versionAviso: 'v2',
+        fotos: ['u1/comerciante/lugar-1.jpg', 'u1/comerciante/lugar-2.jpg'], versionAviso: VERSION_AVISO,
       })
     );
     expect(mockSubir.mock.invocationCallOrder.at(-1)!).toBeLessThan(mockEnviar.mock.invocationCallOrder[0]);

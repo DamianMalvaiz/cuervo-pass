@@ -31,14 +31,14 @@ export interface Seccion {
   bloques: Bloque[];
 }
 
-export const AVISO_TITULO = 'Aviso de privacidad integral — Cuervo Pass';
+export const AVISO_TITULO = 'Aviso de privacidad integral — Cuervo 360';
 
-export const AVISO_ACTUALIZACION = '18 de septiembre de 2026 · Versión 2';
+export const AVISO_ACTUALIZACION = '17 de octubre de 2026 · Versión 3';
 
 export const AVISO_INTRO =
-  'Emitido conforme a los artículos 15, 16 y 17 de la Ley Federal de Protección ' +
-  'de Datos Personales en Posesión de los Particulares (LFPDPPP) y a los ' +
-  'artículos 24 a 30 de su Reglamento.';
+  'Emitido conforme a la Ley Federal de Protección de Datos Personales en ' +
+  'Posesión de los Particulares (LFPDPPP), publicada en el Diario Oficial de la ' +
+  'Federación el 20 de marzo de 2025, y a las demás disposiciones aplicables.';
 
 export const CORREO_RESPONSABLE = 'al222211405@gmail.com';
 
@@ -76,9 +76,10 @@ export const SECCIONES: Seccion[] = [
       {
         tipo: 'parrafo',
         texto:
-          'Cuervo Pass es un proyecto académico desarrollado dentro del programa ' +
-          'integrador de la UTVT. No es un servicio comercial, no se cobra por su uso ' +
-          'y no persigue fines de lucro.',
+          'Cuervo 360 es un proyecto académico desarrollado dentro del programa ' +
+          'integrador de la UTVT y no persigue fines de lucro. Para quien ofrece ' +
+          'servicios o viviendas existen planes de suscripción; **en esta etapa los ' +
+          'cobros son simulados: no se procesa ninguna tarjeta ni se recibe dinero.**',
       },
     ],
   },
@@ -93,6 +94,16 @@ export const SECCIONES: Seccion[] = [
           'Nombre completo y nombre de usuario',
           'Correo electrónico (lo administra Supabase Auth como encargado; tu contraseña no se guarda, ver sección 9)',
           'Número de WhatsApp, **únicamente si publicas** un departamento',
+          'Las funciones de tu cuenta (comerciante, arrendador) y el estado de su verificación',
+        ],
+      },
+      { tipo: 'parrafo', texto: '**Lo que generas al usar la app:**' },
+      {
+        tipo: 'lista',
+        puntos: [
+          'Tus favoritos. **Son privados:** la app muestra cuántas personas guardaron una publicación, nunca quiénes.',
+          'Tus conversaciones con otras personas dentro de la app.',
+          'Tus reseñas de negocios y viviendas. **Las ve cualquier usuario con sesión, junto con tu nombre de usuario.**',
         ],
       },
       { tipo: 'parrafo', texto: '**Preferencias de vivienda (necesarios):**' },
@@ -111,20 +122,42 @@ export const SECCIONES: Seccion[] = [
       },
       {
         tipo: 'parrafo',
+        texto: '**Solo si ofreces servicios o viviendas (comerciante o arrendador):**',
+      },
+      {
+        tipo: 'lista',
+        puntos: [
+          'Tu **nombre legal** y tu **domicilio**, para verificar quién eres.',
+          'Fotografías de tu **INE** (frente y reverso).',
+          'Fotografías de tu local o de tu inmueble, su ubicación y los datos de contacto del negocio.',
+          'Los datos de tu **suscripción**: plan, fechas y estado. **La app no ve datos de tarjeta**, y por ahora los pagos son simulados.',
+        ],
+      },
+      {
+        tipo: 'parrafo',
         texto:
-          '**Lo que NO recabamos, a propósito** (principio de minimización, art. 6 ' +
-          'LFPDPPP): fecha de nacimiento, CURP, RFC, matrícula escolar, domicilio ' +
-          'actual, datos financieros ni tu ubicación en tiempo real. Ninguno hace ' +
-          'falta para lo que la app hace.',
+          '**Lo que NO recabamos, a propósito** (principio de minimización): fecha de ' +
+          'nacimiento, RFC, matrícula escolar, datos financieros ni tu ubicación en ' +
+          'tiempo real. A los estudiantes que solo buscan tampoco les pedimos CURP ni ' +
+          'domicilio. **La INE de quien vende contiene más datos de los que ' +
+          'necesitamos** (por ejemplo la CURP y la clave de elector): no los extraemos ' +
+          'ni los guardamos como datos aparte; se guarda solo la imagen, que revisa una persona.',
       },
       { tipo: 'subtitulo', texto: 'Datos sensibles' },
       {
         tipo: 'parrafo',
         texto:
-          '**Cuervo Pass no solicita datos sensibles** en el sentido del artículo 3, ' +
-          'fracción VI de la LFPDPPP: origen racial o étnico, estado de salud, ' +
-          'información genética, creencias religiosas, filosóficas o morales, ' +
-          'afiliación sindical, opiniones políticas o preferencia sexual.',
+          '**Cuervo 360 no solicita datos sensibles** en el sentido de la LFPDPPP ' +
+          '(origen racial o étnico, estado de salud, información genética, creencias ' +
+          'religiosas, filosóficas o morales, afiliación sindical, opiniones políticas ' +
+          'o preferencia sexual).',
+      },
+      {
+        tipo: 'parrafo',
+        texto:
+          '**Hoy no tratamos datos biométricos.** Si en el futuro se ofrece una ' +
+          'verificación con tu rostro, se te avisará con un aviso nuevo y te pediremos ' +
+          'un consentimiento aparte, expreso y opcional. No empezará a funcionar antes.',
       },
       {
         tipo: 'parrafo',
@@ -155,6 +188,15 @@ export const SECCIONES: Seccion[] = [
           'Mostrar tu perfil público a otros usuarios con sesión iniciada, para que puedan decidir si te contactan.',
           'Permitirte conversar con otros usuarios dentro de la app.',
           'Prevenir abusos: registrar quién solicita un número de contacto y cuándo, aplicar cuotas de uso y atender reportes.',
+          'Mostrar a todos los usuarios con sesión las reseñas que escribes, con tu nombre de usuario, y permitir que la persona reseñada responda o reporte.',
+        ],
+      },
+      { tipo: 'subtitulo', texto: 'Primarias solo para quien ofrece servicios o viviendas' },
+      {
+        tipo: 'lista',
+        puntos: [
+          '**Verificar que quien publica es quien dice ser**, con una revisión hecha por una persona del equipo, para proteger a quienes buscan vivienda o servicios. Sin esta verificación no se puede publicar.',
+          'Gestionar tu suscripción y los límites de tu plan.',
         ],
       },
       { tipo: 'subtitulo', texto: 'Secundaria (opcional)' },
@@ -206,7 +248,7 @@ export const SECCIONES: Seccion[] = [
       {
         tipo: 'lista',
         puntos: [
-          'La casilla **no viene premarcada**, conforme al artículo 8 de la LFPDPPP.',
+          'La casilla **no viene premarcada**: tu consentimiento tiene que ser un acto tuyo.',
           'Si no la marcas, **no se llama al modelo y no se genera el vector**.',
           'Al **retirar** el consentimiento, el vector se **borra**. No se conserva "por si acaso": un dato derivado de un consentimiento retirado no tiene fundamento para seguir existiendo.',
           'Los registros del microservicio guardan **la longitud del texto, nunca el texto**.',
@@ -225,8 +267,9 @@ export const SECCIONES: Seccion[] = [
         tipo: 'parrafo',
         texto:
           'Estas empresas tratan datos **por cuenta nuestra y bajo nuestras ' +
-          'instrucciones**. Conforme al artículo 36 de la LFPDPPP **esto no ' +
-          'constituye una transferencia** y no requiere consentimiento adicional:',
+          'instrucciones**. Conforme a la LFPDPPP **esto no constituye una ' +
+          'transferencia** y no requiere consentimiento adicional. Cada uno recibe ' +
+          'solo lo que necesita para su tarea:',
       },
       {
         tipo: 'filas',
@@ -244,6 +287,18 @@ export const SECCIONES: Seccion[] = [
             titulo: 'OpenStreetMap / Nominatim',
             detalle: 'La dirección que escribes al publicar, para convertirla en coordenadas.',
           },
+          {
+            titulo: 'Mapbox',
+            detalle: 'Lo que escribes en el campo de dirección, para autocompletarla.',
+          },
+          {
+            titulo: 'Cloudflare',
+            detalle: 'Transporta, cifrado, el tráfico hacia nuestro servicio de inteligencia artificial. Solo pasa texto si diste tu consentimiento para el análisis con IA.',
+          },
+          {
+            titulo: 'Expo',
+            detalle: 'El identificador de tu dispositivo, para enviarte avisos en el teléfono.',
+          },
         ],
       },
       { tipo: 'subtitulo', texto: 'Transferencias' },
@@ -251,16 +306,16 @@ export const SECCIONES: Seccion[] = [
         tipo: 'parrafo',
         texto:
           '**No realizamos transferencias de datos personales a terceros** en el ' +
-          'sentido del artículo 3, fracción XVIII de la LFPDPPP. Es decir: no ' +
-          'entregamos tus datos a nadie que los trate para sus propios fines.',
+          'sentido de la LFPDPPP. Es decir: no entregamos tus datos a nadie que los ' +
+          'trate para sus propios fines.',
       },
       {
         tipo: 'parrafo',
         texto:
-          'Las únicas excepciones serían las del artículo 37 de la LFPDPPP —por ' +
-          'ejemplo, un requerimiento de autoridad competente—, que no requieren tu ' +
-          'consentimiento pero que, de ocurrir, te serían notificadas al correo de tu ' +
-          'cuenta salvo que la autoridad lo prohíba.',
+          'La única excepción serían las que la propia ley permite sin tu ' +
+          'consentimiento —por ejemplo, un requerimiento de autoridad competente—, que, ' +
+          'de ocurrir, te serían notificadas al correo de tu cuenta salvo que la ' +
+          'autoridad lo prohíba.',
       },
       { tipo: 'subtitulo', texto: 'Lo que otros usuarios ven' },
       {
@@ -280,6 +335,11 @@ export const SECCIONES: Seccion[] = [
           {
             titulo: 'Usuarios que ven tus publicaciones',
             detalle: 'Todo el contenido de la publicación **menos tu teléfono**.',
+          },
+          {
+            titulo: 'Quien ve tus negocios o publicaciones de vendedor',
+            detalle:
+              'Las fotos, la descripción, el horario y la ubicación que tú publicas. **No** tu INE, **no** tu domicilio legal ni tu nombre legal: eso solo lo ve quien revisa tu verificación.',
           },
           {
             titulo: 'Usuarios que piden tu contacto',
@@ -312,6 +372,22 @@ export const SECCIONES: Seccion[] = [
           {
             titulo: 'Registro de contactos solicitados',
             detalle: 'Mientras la cuenta exista: es lo que permite detectar abuso. Se elimina con la cuenta.',
+          },
+          {
+            titulo: 'Favoritos y reseñas',
+            detalle: 'Mientras la cuenta exista. Se eliminan con ella.',
+          },
+          {
+            titulo: 'INE de una verificación aprobada',
+            detalle: '**30 días** después de aprobarla. Se borra del almacenamiento; queda solo el estado, la fecha y quién aprobó.',
+          },
+          {
+            titulo: 'INE de una verificación rechazada',
+            detalle: '**7 días** después del rechazo. Si reenvías antes, los archivos de la entrega anterior se borran en el barrido siguiente (se revisan cada hora, con un día de gracia).',
+          },
+          {
+            titulo: 'Fotos de tu local o inmueble, y datos de tu suscripción',
+            detalle: 'Mientras la cuenta exista. Las fotos son parte de tu publicación.',
           },
           { titulo: 'Cuotas de uso', detalle: '90 días. Limpieza programada.' },
           {
@@ -383,7 +459,7 @@ export const SECCIONES: Seccion[] = [
       {
         tipo: 'parrafo',
         texto:
-          '**Plazos** (artículo 32 de la LFPDPPP): responderemos en un máximo de ' +
+          '**Plazos** (artículo 31 de la LFPDPPP): responderemos en un máximo de ' +
           '**20 días hábiles** y, si procede, lo haremos efectivo dentro de los ' +
           '**15 días hábiles** siguientes.',
       },
@@ -392,10 +468,10 @@ export const SECCIONES: Seccion[] = [
         tipo: 'parrafo',
         texto:
           'Si consideras que tu derecho a la protección de datos personales fue ' +
-          'vulnerado, puedes acudir al **Instituto Nacional de Transparencia, Acceso ' +
-          'a la Información y Protección de Datos Personales (INAI)**:',
+          'vulnerado, puedes acudir a la **Secretaría Anticorrupción y Buen Gobierno**, ' +
+          'que es la autoridad en la materia desde la entrada en vigor de la ley ' +
+          'vigente (el INAI, que antes ejercía esa función, se extinguió).',
       },
-      { tipo: 'enlace', texto: 'home.inai.org.mx', url: 'https://home.inai.org.mx' },
     ],
   },
   {
@@ -456,6 +532,15 @@ export const SECCIONES: Seccion[] = [
           'Solo tú puedes subir, reemplazar o borrar archivos en tus propias rutas.',
         ],
       },
+      { tipo: 'subtitulo', texto: 'Tu INE: la más cuidada, y aun así no es invulnerable' },
+      {
+        tipo: 'lista',
+        puntos: [
+          'Va a un **almacenamiento privado aparte**, distinto del de las fotos de perfil. Solo tú puedes subirla y leerla desde tu cuenta; otros usuarios no pueden.',
+          'Quien revisa tu verificación la ve mediante **enlaces que caducan a los 10 minutos** y que no se guardan.',
+          'Se borra a los plazos de la sección 6. Mientras exista, **cualquier persona con acceso administrativo a la infraestructura podría leerla**: es una limitación real que preferimos decirte.',
+        ],
+      },
       { tipo: 'subtitulo', texto: 'El resto de los controles' },
       {
         tipo: 'lista',
@@ -472,7 +557,7 @@ export const SECCIONES: Seccion[] = [
         texto:
           'Ninguna medida de seguridad es absoluta. Si detectamos una vulneración que ' +
           'afecte de forma significativa tus derechos, te lo comunicaremos al correo ' +
-          'de tu cuenta conforme al artículo 20 de la LFPDPPP.',
+          'de tu cuenta, como exige la ley.',
       },
     ],
   },
@@ -491,7 +576,9 @@ export const SECCIONES: Seccion[] = [
         tipo: 'parrafo',
         texto:
           'Si el cambio afecta a las finalidades del tratamiento, te lo comunicaremos ' +
-          'al correo asociado a tu cuenta antes de aplicarlo.',
+          'al correo asociado a tu cuenta antes de aplicarlo. Cuando cambie este ' +
+          'aviso, la app te lo mostrará y tendrás que aceptarlo de nuevo; la versión ' +
+          'que aceptaste queda registrada.',
       },
     ],
   },

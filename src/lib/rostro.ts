@@ -4,8 +4,9 @@
 // y guarda lo demás, y a propósito no le dice ni la identidad, ni el puntaje, ni por qué falló: eso serviría para afinar una suplantación.
 
 /**
- * Apagado hasta que el aviso de privacidad v3 (que ya habla de la INE y del rostro) esté publicado en la app. Se enciende junto con
- * `VERSION_AVISO` en `verificacion.ts`; `rostro.test.ts` falla si se enciende dejando 'v2'. Un consentimiento sobre un aviso que no
+ * Apagado hasta que el aviso de privacidad cubra la biometría. La v3 vigente habla de la INE pero dice «Hoy no tratamos datos
+ * biométricos»: para encender esto hace falta una versión nueva (v4) que describa el tratamiento y pida el consentimiento aparte, y
+ * subir `VERSION_AVISO`. `rostro.test.ts` falla si se enciende con el aviso aún negándolo. Un consentimiento sobre un aviso que no
  * menciona el rostro no es un consentimiento informado.
  */
 export const BIOMETRIA_HABILITADA = false;

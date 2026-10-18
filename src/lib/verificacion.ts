@@ -4,9 +4,10 @@
 // completo. El servidor valida lo suyo (longitudes, rutas dentro de la carpeta propia); esto evita mandar un envío
 // que ya se sabe incompleto y dice QUÉ falta, en lenguaje de persona.
 
-/** Versión del aviso de privacidad que se registra con el consentimiento. Es la que la app muestra hoy; cuando salga
- *  el aviso v3 (borrador en docs/aviso-privacidad-v3-borrador.md, que ya contempla la INE) se cambia aquí. */
-export const VERSION_AVISO = 'v2';
+/** Versión del aviso de privacidad que se registra con el consentimiento. Es la que la app muestra hoy
+ *  (`AVISO_ACTUALIZACION` en avisoPrivacidad.ts); una prueba falla si dejan de coincidir. La v3 ya menciona la INE y NO trata
+ *  la biometría: para encenderla hace falta una versión que la cubra (ver `BIOMETRIA_HABILITADA`). */
+export const VERSION_AVISO = 'v3';
 
 export const MAX_FOTOS_LUGAR = 6;
 

@@ -1,14 +1,25 @@
 import { BIOMETRIA_HABILITADA, GUIA_SELFIE, TEXTO_CONSENTIMIENTO, interpretarRespuestaRostro } from '../rostro';
+import { AVISO_ACTUALIZACION, SECCIONES } from '../avisoPrivacidad';
 import { VERSION_AVISO } from '../verificacion';
 
 // La verificación de rostro es una ayuda para el admin. Aquí se fija lo que la PERSONA llega a saber del resultado (nada de cifras
 // ni de la causa) y que el paso no se enciende con un aviso de privacidad que no lo menciona.
 
 describe('BIOMETRIA_HABILITADA', () => {
-  it('no puede estar encendida con un aviso de privacidad que no menciona la biometría (v2)', () => {
-    // Si alguien enciende la bandera, esta prueba obliga a subir también VERSION_AVISO: un consentimiento sobre un aviso que no
-    // habla del rostro no es un consentimiento informado.
-    expect(BIOMETRIA_HABILITADA && VERSION_AVISO === 'v2').toBe(false);
+  // El aviso vigente dice «Hoy no tratamos datos biométricos». Encender la verificación de rostro con ESA frase en el aviso sería
+  // tratar datos que el aviso niega: la prueba obliga a publicar un aviso que la cubra (y a quitar la frase) antes o a la vez.
+  it('no puede estar encendida mientras el aviso afirme que no se tratan datos biométricos', () => {
+    const aviso = JSON.stringify(SECCIONES);
+    const niegaBiometria = aviso.includes('Hoy no tratamos datos biométricos');
+    expect(BIOMETRIA_HABILITADA && niegaBiometria).toBe(false);
+  });
+
+  it('con la bandera apagada, el aviso sí lo dice (si no, el aviso quedó desfasado de la app)', () => {
+    if (!BIOMETRIA_HABILITADA) expect(JSON.stringify(SECCIONES)).toContain('Hoy no tratamos datos biométricos');
+  });
+
+  it('la versión que se registra al consentir es la que el aviso muestra', () => {
+    expect(AVISO_ACTUALIZACION).toContain(`Versión ${VERSION_AVISO.replace('v', '')}`);
   });
 });
 

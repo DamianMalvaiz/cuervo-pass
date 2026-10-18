@@ -1,6 +1,8 @@
 # Aviso de privacidad integral — Cuervo 360 · BORRADOR de la versión 3
 
-> **ESTADO: BORRADOR. No es el aviso vigente.** El aviso que está en vigor en la app es el de
+> **ESTADO (17/10/2026): la versión 3 SIN biometría ya está redactada en `docs/aviso-privacidad.md` y `src/lib/avisoPrivacidad.ts`. Este archivo queda como borrador de la parte de BIOMETRÍA (v4) y como registro de lo que falta revisar.**
+>
+> **ESTADO ANTERIOR: BORRADOR. No es el aviso vigente.** El aviso que está en vigor en la app es el de
 > `docs/aviso-privacidad.md` (versión 2) y su copia en `src/lib/avisoPrivacidad.ts`.
 >
 > **Esto no es asesoría legal y no está validado.** Lo redactó una IA a partir de lo que la

@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import {
+  AVISO_ACTUALIZACION,
   CORREO_RESPONSABLE,
   DOMICILIO_RESPONSABLE,
   SECCIONES,
@@ -60,7 +61,7 @@ describe('elementos exigidos por la LFPDPPP', () => {
     ['encargados', /[Ee]ncargado/],
     ['procedimiento para ejercer derechos ARCO', /ARCO/],
     ['plazos de respuesta', /20 días\s+hábiles/],
-    ['autoridad (INAI)', /INAI/],
+    ['autoridad (Secretaría Anticorrupción y Buen Gobierno)', /Secretaría Anticorrupción y Buen Gobierno/],
     ['revocación del consentimiento', /[Rr]evoca/],
     ['datos sensibles', /[Ss]ensibles/],
     ['procedimiento de cambios al aviso', /Cambios a este aviso/],
@@ -95,4 +96,32 @@ test('ninguna sección quedó vacía', () => {
   for (const seccion of SECCIONES) {
     expect(seccion.bloques.length).toBeGreaterThan(0);
   }
+});
+
+// Plazos de borrado de la INE: el aviso los promete y el código los fija (migraciones 0049/0053/0057). Si alguien cambia un plazo en la
+// base y no aquí, el aviso miente sobre el dato más sensible.
+test('el aviso promete los mismos plazos de borrado de la INE que fija la base (30 días aprobada, 7 rechazada)', () => {
+  const conservacion = JSON.stringify(SECCIONES.find((s) => s.numero === 6));
+  expect(conservacion).toMatch(/INE de una verificación aprobada[^}]*30 días\*\*/);
+  expect(conservacion).toMatch(/INE de una verificación rechazada[^}]*7 días\*\*/);
+  const migracion = readFileSync(join(__dirname, '..', '..', '..', 'supabase', 'migrations', '0057_borrado_de_ine_rechazada.sql'), 'utf-8');
+  expect(migracion).toContain("interval '7 days'");
+  expect(migracion).toContain("interval '30 days'");
+});
+
+// Referencias que dejaron de ser ciertas: la ley de 2010 se abrogó y el INAI se extinguió. No deben volver a colarse.
+test('el aviso no cita al INAI ni artículos de la ley abrogada', () => {
+  const todo = JSON.stringify(SECCIONES) + markdown;
+  expect(todo).not.toMatch(/INAI\)\*\*|home\.inai/);
+  expect(todo).not.toMatch(/artículos 15, 16 y 17|artículos 24 a 30|artículo 3, fracción|artículo 36|artículo 37/);
+});
+
+test('el aviso es la versión 3 y lo dice en las dos copias', () => {
+  expect(AVISO_ACTUALIZACION).toContain('Versión 3');
+  expect(markdown).toContain('**Versión:** 3');
+});
+
+test('el aviso dice que hoy no se tratan datos biométricos, en las dos copias', () => {
+  expect(JSON.stringify(SECCIONES)).toContain('Hoy no tratamos datos biométricos');
+  expect(markdown).toContain('Hoy no tratamos datos biométricos');
 });

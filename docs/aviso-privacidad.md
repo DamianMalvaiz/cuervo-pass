@@ -1,10 +1,10 @@
-# Aviso de privacidad integral — Cuervo Pass
+# Aviso de privacidad integral — Cuervo 360
 
-**Última actualización:** 18 de septiembre de 2026 · **Versión:** 2
+**Última actualización:** 17 de octubre de 2026 · **Versión:** 3
 
-Emitido conforme a los artículos 15, 16 y 17 de la **Ley Federal de Protección
-de Datos Personales en Posesión de los Particulares** (LFPDPPP) y a los
-artículos 24 a 30 de su Reglamento.
+Emitido conforme a la **Ley Federal de Protección de Datos Personales en
+Posesión de los Particulares** (LFPDPPP), publicada en el Diario Oficial de la
+Federación el 20 de marzo de 2025, y a las demás disposiciones aplicables.
 
 ## 1. Responsable y domicilio
 
@@ -17,9 +17,10 @@ Toluca (UTVT), es el responsable del tratamiento de tus datos personales.
   donde se desarrolla el proyecto académico)
 - **Correo del responsable:** al222211405@gmail.com
 
-Cuervo Pass es un proyecto académico desarrollado dentro del programa integrador
-de la UTVT. No es un servicio comercial, no se cobra por su uso y no persigue
-fines de lucro.
+Cuervo 360 es un proyecto académico desarrollado dentro del programa integrador
+de la UTVT y no persigue fines de lucro. Para quien ofrece servicios o viviendas
+existen planes de suscripción; **en esta etapa los cobros son simulados: no se
+procesa ninguna tarjeta ni se recibe dinero.**
 
 ## 2. Qué datos personales tratamos
 
@@ -29,6 +30,16 @@ fines de lucro.
 - Correo electrónico (lo administra Supabase Auth como encargado; tu contraseña
   no se guarda, ver sección 9)
 - Número de WhatsApp, **únicamente si publicas** un departamento
+- Las funciones de tu cuenta (comerciante, arrendador) y el estado de su
+  verificación
+
+**Lo que generas al usar la app:**
+
+- Tus favoritos. **Son privados:** la app muestra cuántas personas guardaron una
+  publicación, nunca quiénes.
+- Tus conversaciones con otras personas dentro de la app.
+- Tus reseñas de negocios y viviendas. **Las ve cualquier usuario con sesión,
+  junto con tu nombre de usuario.**
 
 **Preferencias de vivienda (necesarios):**
 
@@ -42,17 +53,32 @@ fines de lucro.
 - Texto libre sobre ti y sobre lo que buscas
 - Fotos de tus publicaciones
 
-**Lo que NO recabamos, a propósito** (principio de minimización, art. 6
-LFPDPPP): fecha de nacimiento, CURP, RFC, matrícula escolar, domicilio actual,
-datos financieros ni tu ubicación en tiempo real. Ninguno hace falta para lo que
-la app hace.
+**Solo si ofreces servicios o viviendas (comerciante o arrendador):**
+
+- Tu **nombre legal** y tu **domicilio**, para verificar quién eres.
+- Fotografías de tu **INE** (frente y reverso).
+- Fotografías de tu local o de tu inmueble, su ubicación y los datos de contacto
+  del negocio.
+- Los datos de tu **suscripción**: plan, fechas y estado. **La app no ve datos de
+  tarjeta**, y por ahora los pagos son simulados.
+
+**Lo que NO recabamos, a propósito** (principio de minimización): fecha de
+nacimiento, RFC, matrícula escolar, datos financieros ni tu ubicación en tiempo
+real. A los estudiantes que solo buscan tampoco les pedimos CURP ni domicilio.
+**La INE de quien vende contiene más datos de los que necesitamos** (por ejemplo
+la CURP y la clave de elector): no los extraemos ni los guardamos como datos
+aparte; se guarda solo la imagen, que revisa una persona.
 
 ### Datos sensibles
 
-**Cuervo Pass no solicita datos sensibles** en el sentido del artículo 3,
-fracción VI de la LFPDPPP: origen racial o étnico, estado de salud, información
-genética, creencias religiosas, filosóficas o morales, afiliación sindical,
-opiniones políticas o preferencia sexual.
+**Cuervo 360 no solicita datos sensibles** en el sentido de la LFPDPPP (origen
+racial o étnico, estado de salud, información genética, creencias religiosas,
+filosóficas o morales, afiliación sindical, opiniones políticas o preferencia
+sexual).
+
+**Hoy no tratamos datos biométricos.** Si en el futuro se ofrece una
+verificación con tu rostro, se te avisará con un aviso nuevo y te pediremos un
+consentimiento aparte, expreso y opcional. No empezará a funcionar antes.
 
 Ahora bien, el **texto libre** es un campo abierto: si escribes ahí información
 sensible, la estaremos tratando sin habértela pedido. Te pedimos expresamente
@@ -76,10 +102,19 @@ oponerse a ellos conservando la cuenta:
 4. Permitirte conversar con otros usuarios dentro de la app.
 5. Prevenir abusos: registrar quién solicita un número de contacto y cuándo,
    aplicar cuotas de uso y atender reportes.
+6. Mostrar a todos los usuarios con sesión las reseñas que escribes, con tu
+   nombre de usuario, y permitir que la persona reseñada responda o reporte.
+
+**Primarias solo para quien ofrece servicios o viviendas:**
+
+- **Verificar que quien publica es quien dice ser**, con una revisión hecha por
+  una persona del equipo, para proteger a quienes buscan vivienda o servicios.
+  Sin esta verificación no se puede publicar.
+- Gestionar tu suscripción y los límites de tu plan.
 
 ### 3.2 Secundaria (opcional)
 
-6. **Análisis del texto libre con inteligencia artificial** para mejorar la
+7. **Análisis del texto libre con inteligencia artificial** para mejorar la
    precisión de las sugerencias. Ver la sección 4.
 
 ### 3.3 Cómo negarte a la finalidad secundaria
@@ -108,7 +143,7 @@ Si —y solo si— otorgas tu consentimiento marcando la casilla correspondiente
 
 Garantías concretas:
 
-- La casilla **no viene premarcada**, conforme al artículo 8 de la LFPDPPP.
+- La casilla **no viene premarcada**: tu consentimiento tiene que ser un acto tuyo.
 - Si no la marcas, **no se llama al modelo y no se genera el vector**.
 - Al **retirar** el consentimiento, el vector se **borra**. No se conserva "por
   si acaso": un dato derivado de un consentimiento retirado no tiene fundamento
@@ -123,25 +158,28 @@ Garantías concretas:
 ### 5.1 Encargados
 
 Estas empresas tratan datos **por cuenta nuestra y bajo nuestras
-instrucciones**. Conforme al artículo 36 de la LFPDPPP **esto no constituye una
-transferencia** y no requiere consentimiento adicional:
+instrucciones**. Conforme a la LFPDPPP **esto no constituye una transferencia** y
+no requiere consentimiento adicional. Cada uno recibe solo lo que necesita para
+su tarea:
 
 | Encargado | Qué trata | Para qué |
 |---|---|---|
 | **Supabase** | Base de datos, autenticación y almacenamiento de fotos | Es la infraestructura sobre la que corre la app |
 | **Anthropic** | Únicamente tu texto libre, y solo si consentiste | Extraer atributos para las sugerencias (sección 4) |
 | **OpenStreetMap / Nominatim** | La dirección que escribes al publicar | Convertirla en coordenadas |
+| **Mapbox** | Lo que escribes en el campo de dirección | Autocompletarla |
+| **Cloudflare** | El tráfico hacia nuestro servicio de IA | Transportarlo cifrado. Solo pasa texto si diste tu consentimiento para el análisis con IA |
+| **Expo** | El identificador de tu dispositivo | Enviarte avisos en el teléfono |
 
 ### 5.2 Transferencias
 
-**No realizamos transferencias de datos personales a terceros** en el sentido
-del artículo 3, fracción XVIII de la LFPDPPP. Es decir: no entregamos tus datos
-a nadie que los trate para sus propios fines.
+**No realizamos transferencias de datos personales a terceros** en el sentido de
+la LFPDPPP. Es decir: no entregamos tus datos a nadie que los trate para sus
+propios fines.
 
-Las únicas excepciones serían las del artículo 37 de la LFPDPPP —por ejemplo, un
-requerimiento de autoridad competente—, que no requieren tu consentimiento pero
-que, de ocurrir, te serían notificadas al correo de tu cuenta salvo que la
-autoridad lo prohíba.
+La única excepción serían las que la propia ley permite sin tu consentimiento
+—por ejemplo, un requerimiento de autoridad competente—, que, de ocurrir, te
+serían notificadas al correo de tu cuenta salvo que la autoridad lo prohíba.
 
 ### 5.3 Lo que otros usuarios ven
 
@@ -151,6 +189,7 @@ Esto no es una transferencia: es el funcionamiento del servicio que solicitaste.
 |---|---|
 | Cualquier usuario con sesión | Solo lo que expone la vista `perfiles_publicos`: nombre, usuario, foto, biografía, mascotas, tabaco, nivel de ruido y horario. **No** tu presupuesto, **no** tu universidad, **no** tu texto libre, **no** tu vector. |
 | Usuarios que ven tus publicaciones | Todo el contenido de la publicación **menos tu teléfono** |
+| Quien ve tus negocios o publicaciones de vendedor | Las fotos, la descripción, el horario y la ubicación que tú publicas. **No** tu INE, **no** tu domicilio legal ni tu nombre legal: eso solo lo ve quien revisa tu verificación. |
 | Usuarios que piden tu contacto | Tu WhatsApp, **solo** al tocar "Ver contacto". Queda registrado quién lo pidió y cuándo, y hay un límite diario por persona. |
 
 ## 6. Conservación de los datos
@@ -163,6 +202,10 @@ Esto no es una transferencia: es el funcionamiento del servicio que solicitaste.
 | Publicaciones y sus fotos | Mientras la cuenta exista o hasta que las elimines | Tú |
 | Mensajes | Mientras la cuenta exista | Tú |
 | Registro de contactos solicitados | Mientras la cuenta exista. Es lo que permite detectar abuso | Se elimina con la cuenta |
+| Favoritos y reseñas | Mientras la cuenta exista | Se eliminan con la cuenta |
+| INE de una verificación aprobada | **30 días** después de aprobarla. Queda solo el estado, la fecha y quién aprobó | Borrado programado |
+| INE de una verificación rechazada | **7 días** después del rechazo. Si reenvías antes, los archivos de la entrega anterior se borran en el barrido siguiente (cada hora, con un día de gracia) | Borrado programado |
+| Fotos de tu local o inmueble, y datos de tu suscripción | Mientras la cuenta exista. Las fotos son parte de tu publicación | Tú, o al eliminar la cuenta |
 | Cuotas de uso | 90 días | Limpieza programada |
 | Registros del microservicio | 7 días, y **no contienen el texto**: solo su longitud y el resultado | Rotación automática |
 | Texto enviado al proveedor del modelo | Fuera de nuestro control; según la política de Anthropic | Nadie desde esta app |
@@ -195,15 +238,16 @@ de la sección 1 indicando:
 3. La descripción clara de los datos sobre los que ejerces el derecho.
 4. Cualquier elemento que facilite localizar los datos.
 
-**Plazos** (artículo 32 de la LFPDPPP): responderemos en un máximo de **20 días
+**Plazos** (artículo 31 de la LFPDPPP): responderemos en un máximo de **20 días
 hábiles** y, si procede, lo haremos efectivo dentro de los **15 días hábiles**
 siguientes.
 
 ### 7.3 Ante la autoridad
 
 Si consideras que tu derecho a la protección de datos personales fue vulnerado,
-puedes acudir al **Instituto Nacional de Transparencia, Acceso a la Información
-y Protección de Datos Personales (INAI)**: <https://home.inai.org.mx>
+puedes acudir a la **Secretaría Anticorrupción y Buen Gobierno**, que es la
+autoridad en la materia desde la entrada en vigor de la ley vigente (el INAI,
+que antes ejercía esa función, se extinguió).
 
 ## 8. Revocación del consentimiento
 
@@ -247,6 +291,16 @@ Una foto de perfil existe para que otros usuarios la vean. Lo que sí hay:
   usuario.
 - Solo tú puedes subir, reemplazar o borrar archivos en tus propias rutas.
 
+### Tu INE: la más cuidada, y aun así no es invulnerable
+
+- Va a un **almacenamiento privado aparte**, distinto del de las fotos de perfil.
+  Solo tú puedes subirla y leerla desde tu cuenta; otros usuarios no pueden.
+- Quien revisa tu verificación la ve mediante **enlaces que caducan a los 10
+  minutos** y que no se guardan.
+- Se borra a los plazos de la sección 6. Mientras exista, **cualquier persona con
+  acceso administrativo a la infraestructura podría leerla**: es una limitación
+  real que preferimos decirte.
+
 ### El resto de los controles
 
 - Todo el tráfico viaja cifrado por **HTTPS**.
@@ -261,7 +315,7 @@ Una foto de perfil existe para que otros usuarios la vean. Lo que sí hay:
 
 Ninguna medida de seguridad es absoluta. Si detectamos una vulneración que
 afecte de forma significativa tus derechos, te lo comunicaremos al correo de tu
-cuenta conforme al artículo 20 de la LFPDPPP.
+cuenta, como exige la ley.
 
 ## 10. Cambios a este aviso
 
@@ -270,4 +324,6 @@ dentro del repositorio del proyecto, con su historial completo de versiones en
 Git, y se refleja en la pantalla *Aviso de privacidad* dentro de la app.
 
 Si el cambio afecta a las finalidades del tratamiento, te lo comunicaremos al
-correo asociado a tu cuenta antes de aplicarlo.
+correo asociado a tu cuenta antes de aplicarlo. Cuando cambie este aviso, la app
+te lo mostrará y tendrás que aceptarlo de nuevo; la versión que aceptaste queda
+registrada.
