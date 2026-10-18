@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(557);
+select plan(573);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1094,6 +1094,7 @@ select is(
     'negocio_abierto_en',
     'negocios_ordenados',
     'nuevas_esta_semana',
+    'publicaciones_parecidas',
     'puede_subir_evidencia',
     'registrar_error_app',
     'reportar_resena',
@@ -3206,6 +3207,71 @@ select throws_ok($$select guardar_horario((select id from negocios where usuario
   'guardar: OTRA cuenta no puede poner el horario de un negocio ajeno' );
 select actuar_como_servicio();
 select is(has_function_privilege('anon', 'public.guardar_horario(uuid, jsonb)', 'execute'), false, 'guardar: anon no puede' );
+
+-- ═══════ Personalización con favoritos y «Parecidos a este» (0071) ═══════
+-- Vectores en 2 dimensiones (el resto en cero): perfil de a1 = (1,0); favorito F = (0,1); A es casi F; B es casi el perfil.
+select actuar_como_servicio();
+update publicaciones set activa = false;
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, created_at, updated_at, raw_user_meta_data)
+values ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000fa', 'authenticated', 'authenticated', 'fa@test.mx', '', now(), now(),
+        '{"nombre_usuario":"usuario_fa","nombre_completo":"Fabiola Prueba"}');
+create function pg_temp.v2(x float8, y float8) returns vector language sql as $$
+  select ('[' || x || ',' || y || ',' || array_to_string(array_fill(0::float8, array[382]), ',') || ']')::vector $$;
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta, whatsapp, latitud, longitud, vector_embedding) values
+  ('00000000-0000-0000-0000-0000fe5a0001', '00000000-0000-0000-0000-0000000000fa', 'Fav E1',  'depa', 'Calle E9 1', 2800, '5512345678', 19.29, -99.56, pg_temp.v2(0, 1)),
+  ('00000000-0000-0000-0000-0000fe5a0002', '00000000-0000-0000-0000-0000000000fa', 'Cerca de la favorita', 'depa', 'Calle E9 2', 2800, '5512345678', 19.29, -99.56, pg_temp.v2(0.1, 0.99499)),
+  ('00000000-0000-0000-0000-0000fe5a0003', '00000000-0000-0000-0000-0000000000fa', 'Cerca de mi perfil', 'depa', 'Calle E9 3', 2800, '5512345678', 19.29, -99.56, pg_temp.v2(0.99499, 0.1));
+update usuarios set perfil_vector = pg_temp.v2(1, 0) where id = '00000000-0000-0000-0000-0000000000a1';
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+select is((select count(*)::int from sugerencias_con_ranking(30) where parecido_a is not null), 0, 'sin favoritos NO hay «parecido a»' );
+create temp table sim_antes as
+  select id, similitud from sugerencias_con_ranking(30);
+grant select on sim_antes to authenticated;
+
+select actuar_como_servicio();
+insert into favoritos (usuario_id, publicacion_id) values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000fe5a0001');
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+
+select cmp_ok((select similitud from sugerencias_con_ranking(30) where id = '00000000-0000-0000-0000-0000fe5a0002'),
+              '>', (select similitud from sim_antes where id = '00000000-0000-0000-0000-0000fe5a0002'),
+              'guardar un favorito SUBE la similitud de lo parecido a él' );
+select cmp_ok((select similitud from sugerencias_con_ranking(30) where id = '00000000-0000-0000-0000-0000fe5a0003'),
+              '<', (select similitud from sim_antes where id = '00000000-0000-0000-0000-0000fe5a0003'),
+              'y BAJA la de lo que se parece a tu perfil pero no a lo que guardaste' );
+select is((select similitud from sugerencias_con_ranking(30) where id = '00000000-0000-0000-0000-0000fe5a0001'),
+          (select similitud from sim_antes where id = '00000000-0000-0000-0000-0000fe5a0001'),
+          'una publicación YA guardada no se auto-refuerza' );
+select is((select parecido_a from sugerencias_con_ranking(30) where id = '00000000-0000-0000-0000-0000fe5a0002'), 'Fav E1',
+          '«parecido a» nombra tu favorito más cercano (coseno ≥ 0.70)' );
+select is((select parecido_a from sugerencias_con_ranking(30) where id = '00000000-0000-0000-0000-0000fe5a0003'), null,
+          'lo que no se parece a ningún favorito no inventa explicación' );
+select is((select parecido_a from sugerencias_con_ranking(30) where id = '00000000-0000-0000-0000-0000fe5a0001'), null,
+          'una publicación no es «parecida» a sí misma' );
+select is((select score_final from afinidad_de('00000000-0000-0000-0000-0000fe5a0002'::uuid)),
+          (select score_final from sugerencias_con_ranking(30) where id = '00000000-0000-0000-0000-0000fe5a0002'),
+          'la ficha y la lista dan el MISMO número también con favoritos' );
+select is((select parecido_a from afinidad_de('00000000-0000-0000-0000-0000fe5a0002'::uuid)), 'Fav E1', 'la ficha dice el mismo «parecido a»' );
+
+-- Los favoritos son PRIVADOS: los de a1 no mueven la lista de otra cuenta.
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is((select count(*)::int from sugerencias_con_ranking(30) where parecido_a is not null), 0, 'los favoritos de a1 no producen «parecido a» para b2' );
+
+-- Parecidos a este.
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is((select array_agg(id order by similitud desc) from publicaciones_parecidas('00000000-0000-0000-0000-0000fe5a0001'::uuid)),
+          array['00000000-0000-0000-0000-0000fe5a0002']::uuid[],
+          'parecidas: solo lo que pasa el umbral 0.60 (B, a 0.1, queda fuera), sin la misma' );
+select is((select count(*)::int from publicaciones_parecidas('00000000-0000-0000-0000-0000fe5a0001'::uuid, 0)), 1, 'parecidas: el límite se acota por abajo a 1' );
+select actuar_como('00000000-0000-0000-0000-0000000000fa');
+select is((select count(*)::int from publicaciones_parecidas('00000000-0000-0000-0000-0000fe5a0001'::uuid)), 0, 'parecidas: nunca devuelve las publicaciones de quien pregunta' );
+select actuar_como_servicio();
+update publicaciones set activa = false where id = '00000000-0000-0000-0000-0000fe5a0002';
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is((select count(*)::int from publicaciones_parecidas('00000000-0000-0000-0000-0000fe5a0001'::uuid)), 0, 'parecidas: una publicación inactiva no aparece' );
+select is(has_function_privilege('anon', 'public.publicaciones_parecidas(uuid, int)', 'execute'), false, 'parecidas: anon no puede' );
+select actuar_como_servicio();
+select is(has_function_privilege('authenticated', 'public.afinidad_de_para(uuid, uuid)', 'execute'), false, 'afinidad_de_para sigue cerrada al cliente' );
 
 select * from finish();
 rollback;
