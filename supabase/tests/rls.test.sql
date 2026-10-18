@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(593);
+select plan(610);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2842,7 +2842,7 @@ select is(has_table_privilege('authenticated', 'public.perfiles_publicos', 'upda
 select actuar_como('00000000-0000-0000-0000-0000000000f7');
 select is(
   (select array_agg(k order by k) from jsonb_object_keys(exportar_mis_datos()) k),
-  array['contactos','favoritos','funciones','generado_en','mensajes','menu','negocios','pagos','perfil','publicaciones','resenas','roomie','suscripciones','verificaciones'],
+  array['contactos','favoritos','favoritos_negocios','funciones','generado_en','mensajes','menu','negocios','pagos','perfil','publicaciones','resenas','roomie','suscripciones','verificaciones'],
   'exportar: trae todas las secciones, también las nuevas' );
 select is(jsonb_array_length(exportar_mis_datos()->'funciones'), (select count(*)::int from roles_usuario where usuario_id = '00000000-0000-0000-0000-0000000000f7'),
   'exportar: las funciones son las propias' );
@@ -3335,6 +3335,56 @@ select is((select array_agg(contenido order by contenido) from notificaciones wh
   array['de hace 40 días', 'reciente']::text[], 'retención: avisos de mensaje a los 14 días, el resto a los 90' );
 select is(has_table_privilege('anon', 'public.notificaciones', 'select'), false, 'anon no lee notificaciones' );
 select is(has_function_privilege('authenticated', 'public.limpiar_notificaciones()', 'execute'), false, 'la limpieza no es del cliente' );
+
+-- ═══════ Favoritos de negocios (0073) ═══════
+select actuar_como_servicio();
+create temp table neg_fav as select (select id from negocios_publicos order by nombre limit 1) as visible,
+                                    '00000000-0000-0000-0000-00000000d007'::uuid as oculto;
+grant select on neg_fav to authenticated;
+select ok((select visible from neg_fav) is not null, 'fixture: hay un negocio visible' );
+select is((select count(*)::int from negocios_publicos where id = (select oculto from neg_fav)), 0, 'fixture: el otro NO es visible' );
+select is((select relrowsecurity from pg_class where oid = 'public.favoritos_negocios'::regclass), true, 'favoritos_negocios tiene RLS activo' );
+select is(has_table_privilege('anon', 'public.favoritos_negocios', 'select'), false, 'anon no lee favoritos de negocios' );
+select is((select bool_or(has_table_privilege('authenticated', 'public.favoritos_negocios', p)) from unnest(array['update', 'truncate']) p), false,
+  'authenticated no puede actualizar ni truncar favoritos de negocios' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select lives_ok($$insert into favoritos_negocios (usuario_id, negocio_id) select '00000000-0000-0000-0000-0000000000a1', visible from neg_fav$$,
+  'se guarda un negocio visible' );
+select is((select count(*)::int from favoritos_negocios), 1, 'y la cuenta lo ve' );
+select throws_ok($$insert into favoritos_negocios (usuario_id, negocio_id) select '00000000-0000-0000-0000-0000000000a1', visible from neg_fav$$,
+  '23505', null, 'guardar dos veces el mismo negocio se rechaza por clave única' );
+select throws_ok($$insert into favoritos_negocios (usuario_id, negocio_id) select '00000000-0000-0000-0000-0000000000a1', oculto from neg_fav$$,
+  '42501', null, 'un negocio oculto se rechaza con 42501' );
+select throws_ok($$insert into favoritos_negocios (usuario_id, negocio_id) values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000ffff')$$,
+  '42501', null, 'uno que no existe da el MISMO error: guardar no sirve de sonda' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is((select count(*)::int from favoritos_negocios), 0, 'otra cuenta no ve los favoritos de negocios de a1' );
+select throws_ok($$insert into favoritos_negocios (usuario_id, negocio_id) select '00000000-0000-0000-0000-0000000000a1', visible from neg_fav$$,
+  '42501', null, 'no se puede guardar a nombre de otra cuenta' );
+select lives_ok($$delete from favoritos_negocios where usuario_id = '00000000-0000-0000-0000-0000000000a1'$$, 'borrar los de otra cuenta no falla...' );
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is((select count(*)::int from favoritos_negocios), 1, '...pero no borra nada' );
+
+-- La fila se conserva si el negocio deja de ser visible.
+select actuar_como_servicio();
+update negocios set activo = false where id = (select visible from neg_fav);
+select is((select count(*)::int from favoritos_negocios where usuario_id = '00000000-0000-0000-0000-0000000000a1'), 1, 'si el negocio se oculta, el favorito se conserva' );
+update negocios set activo = true where id = (select visible from neg_fav);
+
+-- Tope de 200 con CP004.
+insert into negocios (categoria_id, nombre, direccion, origen, activo, oculto_por_reportes)
+select 'comida', 'Tope ' || n, 'Calle T ' || n, 'sembrado', true, false from generate_series(1, 200) n;
+insert into favoritos_negocios (usuario_id, negocio_id)
+select '00000000-0000-0000-0000-0000000000b2', id from negocios where nombre like 'Tope %' limit 200;
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select throws_ok($$insert into favoritos_negocios (usuario_id, negocio_id) select '00000000-0000-0000-0000-0000000000b2', visible from neg_fav$$,
+  'CP004', null, 'el favorito 201 se rechaza con CP004' );
+
+-- Exportación (derecho de acceso).
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is(jsonb_array_length(exportar_mis_datos() -> 'favoritos_negocios'), 1, 'exportar_mis_datos incluye los favoritos de negocios' );
 
 select * from finish();
 rollback;
