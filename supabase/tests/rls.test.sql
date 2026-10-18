@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(155);
+select plan(158);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1842,6 +1842,26 @@ select is(
   has_table_privilege('authenticated', 'public.negocios', 'insert'),
   false,
   'authenticated no tiene insert sobre negocios' );
+
+-- ── Fotos de negocios (0048) ────────────────────────────────────────────────
+select actuar_como_servicio();
+insert into storage.objects (bucket_id, name) values
+  ('fotos', 'negocios/00000000-0000-0000-0000-00000000b001/0.jpg'),
+  ('fotos', 'negocios/00000000-0000-0000-0000-00000000b002/0.jpg'),
+  ('fotos', 'negocios/00000000-0000-0000-0000-00000000b003/0.jpg');
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is(
+  (select count(*)::int from storage.objects where name = 'negocios/00000000-0000-0000-0000-00000000b001/0.jpg'),
+  1,
+  'storage: la foto de un negocio visible SI se lee (si no, Servicios se ve sin fotos)' );
+select is(
+  (select count(*)::int from storage.objects where name = 'negocios/00000000-0000-0000-0000-00000000b002/0.jpg'),
+  0,
+  'storage: no se lee la foto de un negocio inactivo' );
+select is(
+  (select count(*)::int from storage.objects where name = 'negocios/00000000-0000-0000-0000-00000000b003/0.jpg'),
+  0,
+  'storage: no se lee la foto de un negocio oculto por reportes' );
 
 select * from finish();
 rollback;
