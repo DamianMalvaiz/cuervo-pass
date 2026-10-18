@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(360);
+select plan(391);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2742,6 +2742,56 @@ select is((select version_aviso_aceptada from usuarios where id = '00000000-0000
 select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000b2'), 'v4',
   'aceptar_aviso: la fila de quien llama sí cambió' );
 select is(has_function_privilege('anon', 'public.aceptar_aviso(text)', 'execute'), false, 'aceptar_aviso: anon no puede ejecutarla' );
+
+-- ── Acciones de admin (0060) ────────────────────────────────────────────────
+-- a1 es admin aprobado (bloque de la 0049). e9 y b2 NO lo son. b001 es un negocio visible de ejemplo.
+select actuar_como_servicio();
+insert into resenas (id, usuario_id, negocio_id, estrellas, texto)
+values ('00000000-0000-0000-0000-00000000c001', '00000000-0000-0000-0000-0000000000e9', '00000000-0000-0000-0000-00000000b001', 1, 'Reseña de prueba para moderar');
+insert into resenas_reportes (resena_id, reportado_por, motivo) values ('00000000-0000-0000-0000-00000000c001', '00000000-0000-0000-0000-0000000000b2', 'prueba');
+
+select is(es_admin_aprobado('00000000-0000-0000-0000-0000000000a1'), true, 'admin: un admin aprobado lo es');
+select is(es_admin_aprobado('00000000-0000-0000-0000-0000000000e9'), false, 'admin: una cuenta normal no lo es');
+select is(es_admin_aprobado(null), false, 'admin: null no es admin');
+select throws_ok($$select * from admin_resumen('00000000-0000-0000-0000-0000000000e9')$$, 'CP007', null, 'admin_resumen: una cuenta que no es admin recibe CP007' );
+select throws_ok($$select * from admin_listar_moderacion('00000000-0000-0000-0000-0000000000e9')$$, 'CP007', null, 'admin_listar_moderacion: idem' );
+select throws_ok($$select * from admin_listar_verificaciones('00000000-0000-0000-0000-0000000000e9')$$, 'CP007', null, 'admin_listar_verificaciones: idem' );
+select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000e9', 'resena', '00000000-0000-0000-0000-00000000c001', true, 'x quiero')$$, 'CP007', null,
+  'moderar: quien no es admin no oculta nada' );
+select throws_ok($$select fijar_demo_mode('00000000-0000-0000-0000-0000000000e9', true)$$, 'CP007', null, 'modo demo: quien no es admin no lo enciende' );
+select ok((select verificaciones_pendientes >= 0 and cuentas > 0 from admin_resumen('00000000-0000-0000-0000-0000000000a1')), 'admin_resumen: devuelve cifras a un admin' );
+select ok((select count(*) from admin_listar_moderacion('00000000-0000-0000-0000-0000000000a1') where id = '00000000-0000-0000-0000-00000000c001' and reportes = 1 and not oculto) = 1,
+  'moderación: la reseña reportada aparece con su número de reportes' );
+select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a1', 'resena', '00000000-0000-0000-0000-00000000c001', true, '  ')$$, 'CP006', null,
+  'moderar: ocultar exige motivo' );
+select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a1', 'usuario', '00000000-0000-0000-0000-00000000c001', true, 'no se puede')$$, '22023', null,
+  'moderar: un tipo que no existe se rechaza' );
+select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a1', 'resena', '00000000-0000-0000-0000-00000000dead', true, 'no existe')$$, 'P0002', null,
+  'moderar: lo que no existe se dice' );
+select lives_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a1', 'resena', '00000000-0000-0000-0000-00000000c001', true, 'Insulta al negocio')$$, 'moderar: un admin oculta una reseña con motivo' );
+select is((select oculta_por_reportes from resenas where id = '00000000-0000-0000-0000-00000000c001'), true, 'moderar: la reseña queda oculta' );
+select lives_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a1', 'resena', '00000000-0000-0000-0000-00000000c001', false, null)$$, 'moderar: restaurar no exige motivo' );
+select is((select oculta_por_reportes from resenas where id = '00000000-0000-0000-0000-00000000c001'), false, 'moderar: la reseña vuelve a verse' );
+select is((select count(*)::int from resenas_reportes where resena_id = '00000000-0000-0000-0000-00000000c001'), 1, 'moderar: restaurar NO borra los reportes (son evidencia)' );
+select lives_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a1', 'negocio', '00000000-0000-0000-0000-00000000b001', true, 'Dirección falsa')$$, 'moderar: un admin oculta un negocio' );
+select is((select count(*)::int from negocios_publicos where id = '00000000-0000-0000-0000-00000000b001'), 0, 'moderar: un negocio oculto ya no sale en la lista pública' );
+select moderar_contenido('00000000-0000-0000-0000-0000000000a1', 'negocio', '00000000-0000-0000-0000-00000000b001', false, null);
+select is((select count(*)::int from negocios_publicos where id = '00000000-0000-0000-0000-00000000b001'), 1, 'moderar: restaurado, vuelve a salir' );
+select is(fijar_demo_mode('00000000-0000-0000-0000-0000000000a1', true), true, 'modo demo: un admin lo enciende' );
+select is((select valor from configuracion_app where clave = 'demo_mode'), 'true', 'modo demo: queda en la configuración' );
+select is(fijar_demo_mode('00000000-0000-0000-0000-0000000000a1', false), false, 'modo demo: y lo apaga' );
+select is((select string_agg(accion, ',' order by creado_en, accion) from acciones_admin where admin_id = '00000000-0000-0000-0000-0000000000a1'
+           and accion in ('ocultar_resena','restaurar_resena','ocultar_negocio','restaurar_negocio','modo_demo')) is not null, true,
+  'bitácora: cada acción dejó su fila' );
+select is((select count(*)::int from acciones_admin where admin_id = '00000000-0000-0000-0000-0000000000a1'), 6,
+  'bitácora: exactamente 6 acciones (ocultar y restaurar una reseña, ocultar y restaurar un negocio, encender y apagar el modo demo), ninguna de más' );
+select is((select detalle from acciones_admin where accion = 'ocultar_resena'), 'Insulta al negocio', 'bitácora: queda el motivo' );
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select throws_ok($$select * from acciones_admin$$, '42501', null, 'bitácora: el cliente autenticado no la lee' );
+select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a1', 'resena', '00000000-0000-0000-0000-00000000c001', true, 'intento desde el cliente')$$, '42501', null,
+  'moderar: el cliente autenticado no puede ejecutarla, ni diciendo que es admin' );
+select throws_ok($$select * from admin_resumen('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_resumen: el cliente autenticado no puede ejecutarla' );
+select throws_ok($$select fijar_demo_mode('00000000-0000-0000-0000-0000000000a1', true)$$, '42501', null, 'modo demo: el cliente autenticado no puede ejecutarla' );
 
 select * from finish();
 rollback;
