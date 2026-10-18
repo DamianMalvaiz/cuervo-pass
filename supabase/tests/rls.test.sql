@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(516);
+select plan(557);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1088,8 +1088,10 @@ select is(
     'enviar_verificacion',
     'exportar_mis_datos',
     'favoritos_por_publicacion',
+    'guardar_horario',
     'guardar_menu',
     'mi_suscripcion',
+    'negocio_abierto_en',
     'negocios_ordenados',
     'nuevas_esta_semana',
     'puede_subir_evidencia',
@@ -3125,6 +3127,85 @@ select throws_ok($$insert into codigos_postales (cp, estado, municipio, asentami
 select is(has_function_privilege('anon', 'public.buscar_codigo_postal(text)', 'execute'), false, 'cp: anon no la ejecuta' );
 select actuar_como_servicio();
 select throws_ok($$insert into codigos_postales (cp, estado, municipio, asentamiento) values ('1234', 'x', 'x', 'x')$$, '23514', null, 'cp: un código mal formado no entra a la tabla' );
+
+-- ── Horario estructurado y «Abierto ahora» (0070) ───────────────────────────
+-- Fechas FIJAS (la regla recibe el instante): lun 19/10/2026, vie 23/10, sáb 24/10, dom 25/10. Hora de México.
+select actuar_como_servicio();
+insert into categorias_servicio (id, nombre, icono, orden, activa) values ('bus', 'Búsqueda', 'search-outline', 9, true) on conflict (id) do nothing;
+insert into negocios (id, categoria_id, nombre, direccion, origen, activo, oculto_por_reportes) values
+  ('00000000-0000-0000-0000-00000000d001', 'bus', 'H-Oficina', 'Calle H1', 'sembrado', true, false),
+  ('00000000-0000-0000-0000-00000000d002', 'bus', 'H-Bar', 'Calle H2', 'sembrado', true, false),
+  ('00000000-0000-0000-0000-00000000d003', 'bus', 'H-Domingo', 'Calle H3', 'sembrado', true, false),
+  ('00000000-0000-0000-0000-00000000d004', 'bus', 'H-24h', 'Calle H4', 'sembrado', true, false),
+  ('00000000-0000-0000-0000-00000000d005', 'bus', 'H-SinHorario', 'Calle H5', 'sembrado', true, false),
+  ('00000000-0000-0000-0000-00000000d006', 'bus', 'H-Partido', 'Calle H6', 'sembrado', true, false),
+  ('00000000-0000-0000-0000-00000000d007', 'bus', 'H-Oculto', 'Calle H7', 'sembrado', true, true);
+-- Oficina: lun–vie 09:00–18:00. Bar: vie 20:00–02:00 (cruza). Domingo: dom 22:00–03:00 (cruza hacia el LUNES). 24h: todos los días 00:00–23:59.
+-- Partido: lun 09:00–14:00 y 16:00–20:00. Oculto: lun 09:00–18:00 (pero no es visible).
+insert into negocio_horarios (negocio_id, dia, abre, cierra)
+select '00000000-0000-0000-0000-00000000d001', d, '09:00', '18:00' from generate_series(1, 5) d;
+insert into negocio_horarios (negocio_id, dia, abre, cierra) values
+  ('00000000-0000-0000-0000-00000000d002', 5, '20:00', '02:00'),
+  ('00000000-0000-0000-0000-00000000d003', 7, '22:00', '03:00'),
+  ('00000000-0000-0000-0000-00000000d006', 1, '09:00', '14:00'), ('00000000-0000-0000-0000-00000000d006', 1, '16:00', '20:00'),
+  ('00000000-0000-0000-0000-00000000d007', 1, '09:00', '18:00');
+insert into negocio_horarios (negocio_id, dia, abre, cierra) select '00000000-0000-0000-0000-00000000d004', d, '00:00', '23:59' from generate_series(1, 7) d;
+
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d001', (timestamp '2026-10-19 10:00' at time zone 'America/Mexico_City')), true, 'horario: lunes 10:00 la oficina está ABIERTA' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d001', (timestamp '2026-10-19 09:00' at time zone 'America/Mexico_City')), true, 'horario: a la hora exacta de apertura ya está abierta' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d001', (timestamp '2026-10-19 18:00' at time zone 'America/Mexico_City')), false, 'horario: a la hora exacta de cierre YA está cerrada (el cierre es exclusivo)' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d001', (timestamp '2026-10-19 08:59' at time zone 'America/Mexico_City')), false, 'horario: un minuto antes de abrir, cerrada' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d001', (timestamp '2026-10-24 10:00' at time zone 'America/Mexico_City')), false, 'horario: sábado 10:00 la oficina (solo lun–vie) está cerrada' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d002', (timestamp '2026-10-23 21:00' at time zone 'America/Mexico_City')), true, 'horario: el bar abre el viernes 20:00 y a las 21:00 está abierto' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d002', (timestamp '2026-10-24 01:00' at time zone 'America/Mexico_City')), true, 'horario: y el SÁBADO a la 01:00 sigue abierto (turno del viernes que cruza la medianoche)' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d002', (timestamp '2026-10-24 02:00' at time zone 'America/Mexico_City')), false, 'horario: a las 02:00 cierra' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d002', (timestamp '2026-10-24 21:00' at time zone 'America/Mexico_City')), false, 'horario: el sábado por la noche NO abre (solo declaró el viernes)' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d002', (timestamp '2026-10-23 19:59' at time zone 'America/Mexico_City')), false, 'horario: el viernes antes de las 20:00, cerrado' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d003', (timestamp '2026-10-25 23:00' at time zone 'America/Mexico_City')), true, 'horario: domingo 23:00 abierto' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d003', (timestamp '2026-10-26 01:00' at time zone 'America/Mexico_City')), true, 'horario: y el LUNES 01:00 sigue abierto (el domingo cruza hacia el lunes: la semana se cierra en círculo)' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d003', (timestamp '2026-10-26 03:00' at time zone 'America/Mexico_City')), false, 'horario: lunes 03:00 cerrado' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d004', (timestamp '2026-10-21 03:00' at time zone 'America/Mexico_City')), true, 'horario: 24 horas, de madrugada, abierto' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d005', (timestamp '2026-10-19 10:00' at time zone 'America/Mexico_City')), null, 'horario: sin horario estructurado devuelve NULO (no sé), no «cerrado»' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d006', (timestamp '2026-10-19 12:00' at time zone 'America/Mexico_City')), true, 'horario: dos turnos en el día, dentro del primero' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d006', (timestamp '2026-10-19 15:00' at time zone 'America/Mexico_City')), false, 'horario: en el hueco entre turnos, cerrado' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d006', (timestamp '2026-10-19 17:00' at time zone 'America/Mexico_City')), true, 'horario: dentro del segundo turno' );
+select is(negocio_abierto_en(gen_random_uuid(), now()), null, 'horario: un negocio que no existe devuelve nulo' );
+
+-- La zona horaria es la de México, no la del servidor: 16:00 UTC del lunes son las 10:00 en México.
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d001', timestamptz '2026-10-19 16:00:00+00'), true, 'zona: 16:00 UTC = 10:00 en México (abierto)' );
+select is(negocio_abierto_en('00000000-0000-0000-0000-00000000d001', timestamptz '2026-10-19 10:00:00+00'), false, 'zona: 10:00 UTC = 04:00 en México (cerrado, aunque «10:00» sea la hora de apertura en otro huso)' );
+
+-- La vista pública y la lista.
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select ok(exists (select 1 from information_schema.columns where table_name = 'negocios_publicos' and column_name = 'abierto_ahora'), 'vista: negocios_publicos expone abierto_ahora' );
+select is((select count(*)::int from negocio_horarios_publicos where negocio_id = '00000000-0000-0000-0000-00000000d001'), 5, 'vista: los turnos de un negocio visible se leen' );
+select is((select count(*)::int from negocio_horarios_publicos where negocio_id = '00000000-0000-0000-0000-00000000d007'), 0, 'vista: los turnos de un negocio OCULTO no' );
+select is((select abierto_ahora from negocios_ordenados('bus', 'H-SinHorario')), null, 'lista: sin horario, abierto_ahora es nulo' );
+select is((select count(*)::int from negocios_ordenados('bus', 'H-', 100, true) where abierto_ahora is not true), 0, 'filtro: «solo abiertos» NUNCA devuelve uno cerrado ni uno sin horario' );
+select is((select count(*)::int from negocios_ordenados('bus', 'H-Oculto', 100)), 0, 'lista: un negocio oculto no aparece' );
+select is((select count(*)::int from negocio_horarios), 0, 'tabla: RLS deja a la persona leer SOLO los turnos de sus propios negocios (de otros, cero filas: lo público va por la vista)' );
+
+-- Quién puede guardar el horario.
+select actuar_como_servicio();
+select is((select count(*)::int from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7'), (select count(*)::int from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7'), 'fixture: f7 tiene negocios (de la 0052)' );
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select lives_ok($$select guardar_horario((select id from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7' limit 1), '[{"dia":1,"abre":"09:00","cierra":"18:00"},{"dia":2,"abre":"20:00","cierra":"02:00"}]'::jsonb)$$,
+  'guardar: la dueña guarda su horario' );
+select is((select count(*)::int from negocio_horarios where negocio_id = (select id from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7' limit 1)), 2, 'guardar: quedan sus dos turnos' );
+select lives_ok($$select guardar_horario((select id from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7' limit 1), '[{"dia":3,"abre":"10:00","cierra":"12:00"}]'::jsonb)$$,
+  'guardar: volver a guardar REEMPLAZA (no acumula)' );
+select is((select count(*)::int from negocio_horarios where negocio_id = (select id from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7' limit 1)), 1, 'guardar: solo queda el último' );
+select lives_ok($$select guardar_horario((select id from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7' limit 1), '[]'::jsonb)$$, 'guardar: una lista vacía borra el horario (vuelve a «no sé»)' );
+select throws_ok($$select guardar_horario((select id from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7' limit 1), '[{"dia":8,"abre":"09:00","cierra":"18:00"}]'::jsonb)$$, '22023', null, 'guardar: un día fuera de 1–7 se rechaza' );
+select throws_ok($$select guardar_horario((select id from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7' limit 1), '[{"dia":1,"abre":"25:00","cierra":"18:00"}]'::jsonb)$$, '22023', null, 'guardar: una hora inválida se rechaza' );
+select throws_ok($$select guardar_horario((select id from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7' limit 1), '[{"dia":1,"abre":"09:00","cierra":"09:00"}]'::jsonb)$$, '22023', null, 'guardar: abrir y cerrar a la misma hora se rechaza' );
+select throws_ok($$select guardar_horario((select id from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7' limit 1), '{"dia":1}'::jsonb)$$, '22023', null, 'guardar: lo que no es una lista se rechaza' );
+select throws_ok($$select guardar_horario((select id from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7' limit 1), (select jsonb_agg(jsonb_build_object('dia', 1, 'abre', '09:00', 'cierra', '10:00')) from generate_series(1, 22)))$$, '22023', null, 'guardar: más de 21 turnos se rechaza' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select throws_ok($$select guardar_horario((select id from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7' limit 1), '[{"dia":1,"abre":"09:00","cierra":"18:00"}]'::jsonb)$$, '42501', null,
+  'guardar: OTRA cuenta no puede poner el horario de un negocio ajeno' );
+select actuar_como_servicio();
+select is(has_function_privilege('anon', 'public.guardar_horario(uuid, jsonb)', 'execute'), false, 'guardar: anon no puede' );
 
 select * from finish();
 rollback;
