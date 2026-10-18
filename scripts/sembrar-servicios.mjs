@@ -1,4 +1,4 @@
-// Siembra el catálogo de Servicios de DEMOSTRACIÓN: categorías y quince negocios INVENTADOS, con foto.
+// Siembra el catálogo de Servicios de DEMOSTRACIÓN: categorías y veinticinco negocios INVENTADOS, con foto.
 //
 // Ningún negocio de aquí existe. Los nombres, direcciones, horarios y precios son ficticios y cada fila se escribe
 // con `origen = 'sembrado'` y sin dueño (migración 0047), para que la app los rotule «Negocio de ejemplo». No hay
@@ -41,6 +41,8 @@ const CATEGORIAS = [
   { id: 'hogar', nombre: 'Hogar', icono: 'hammer-outline', orden: 4 },
   { id: 'papeleria', nombre: 'Papelería', icono: 'document-text-outline', orden: 5 },
   { id: 'belleza', nombre: 'Belleza', icono: 'cut-outline', orden: 6 },
+  { id: 'tecnologia', nombre: 'Tecnología', icono: 'phone-portrait-outline', orden: 7 },
+  { id: 'salud', nombre: 'Salud', icono: 'medkit-outline', orden: 8 },
 ];
 
 // `foto`: título EXACTO del archivo en Commons.
@@ -105,6 +107,46 @@ const NEGOCIOS = [
     descripcion: 'Corte, tinte y peinado. Con cita o sin ella.', direccion: 'Calle Allende 12, Lerma', ...punto(-0.0039, -0.0006),
     foto: 'File:Hair Today Beauty Today salon.jpg',
     items: [['Corte', 120], ['Tinte', 450], ['Peinado', 200]] },
+  { categoria_id: 'comida', nombre: 'Hamburguesas Black Crow', rango_precio: 2, horario: 'Todos los días · 2 pm a 11 pm',
+    descripcion: 'Hamburguesas de res con papas, hechas al momento.', direccion: 'Av. Las Torres 330, Lerma', ...punto(0.0041, -0.0027),
+    foto: 'File:Lunch in Starfish Fast Food Restaurant.jpg',
+    items: [['Hamburguesa sencilla', 65], ['Hamburguesa doble', 95], ['Papas a la francesa', 35]] },
+  { categoria_id: 'comida', nombre: 'Tamales Doña Chela', rango_precio: 1, horario: 'Lun a sáb · 7 am a 12 pm',
+    descripcion: 'Tamales de rajas, de mole y dulces, con atole para el desayuno.', direccion: 'Calle Hidalgo 12, Lerma', ...punto(-0.0042, 0.0033),
+    foto: 'File:Tamales Mexicanos sweet corn tamales 03.jpg',
+    items: [['Tamal', 18], ['Atole', 20], ['Combo (2 tamales y atole)', 50]] },
+  { categoria_id: 'comida', nombre: 'Jugos y Licuados Vita', rango_precio: 1, horario: 'Lun a sáb · 8 am a 6 pm',
+    descripcion: 'Jugos naturales, licuados y ensaladas de fruta.', direccion: 'Calle Allende 140, Lerma', ...punto(0.0011, 0.0051),
+    foto: 'File:DFC 4435 Freshly squeezed and ready to go rows of vibrant orange juice cups with matching fruit garnishes and colorful straws at a lively market stall.jpg',
+    items: [['Jugo de naranja', 30], ['Licuado de plátano', 40], ['Ensalada de fruta', 45]] },
+  { categoria_id: 'cafes', nombre: 'Nevería Polar', rango_precio: 1, horario: 'Todos los días · 12 pm a 9 pm',
+    descripcion: 'Helados artesanales de sabores de temporada.', direccion: 'Calle Morelos 75, Lerma', ...punto(-0.0016, 0.0047),
+    foto: 'File:Venice - Ice cream parlor - 4017.jpg',
+    items: [['Helado de una bola', 25], ['Helado de dos bolas', 40], ['Paleta', 20]] },
+  { categoria_id: 'tecnologia', nombre: 'TecnoFix Celulares', rango_precio: 2, horario: 'Lun a sáb · 10 am a 7 pm',
+    descripcion: 'Cambio de pantalla y batería, y accesorios.', direccion: 'Av. Las Torres 190, Lerma', ...punto(0.0023, -0.0052),
+    foto: 'File:Mobile-phone-repair-Gatewalk.jpg',
+    items: [['Revisión', null], ['Cambio de batería', 280], ['Mica protectora', 60]] },
+  { categoria_id: 'tecnologia', nombre: 'Cyber Net Campus', rango_precio: 1, horario: 'Lun a sáb · 9 am a 9 pm',
+    descripcion: 'Computadoras por hora, impresiones y escaneo.', direccion: 'Calle Juárez 8, Lerma', ...punto(-0.0031, -0.0045),
+    foto: 'File:Internet Cafe, Apizaco, Mexico.JPG',
+    items: [['Computadora por hora', 12], ['Impresión B/N', 2], ['Escaneo', 3]] },
+  { categoria_id: 'hogar', nombre: 'Taller de Bicicletas La Rodada', rango_precio: 1, horario: 'Lun a sáb · 9 am a 7 pm',
+    descripcion: 'Ajuste de frenos y cambios, parches y refacciones.', direccion: 'Calle Reforma 140, Lerma', ...punto(0.0048, 0.0008),
+    foto: 'File:Bike workshop - bicycle repair shop.jpg',
+    items: [['Ajuste general', 120], ['Parche de cámara', 40], ['Cambio de cámara', 90]] },
+  { categoria_id: 'salud', nombre: 'Farmacia San Rafael', rango_precio: 1, horario: 'Todos los días · 8 am a 10 pm',
+    descripcion: 'Medicamentos, artículos de higiene y servicio de inyecciones.', direccion: 'Av. Las Torres 60, Lerma', ...punto(-0.0009, -0.0021),
+    foto: 'File:Pharmacy and convenience store - geograph.org.uk - 7916164.jpg',
+    items: [['Aplicación de inyección', 30], ['Toma de presión', null]] },
+  { categoria_id: 'salud', nombre: 'Consultorio Dental Sonrisa', rango_precio: 2, horario: 'Lun a vie · 10 am a 7 pm · con cita',
+    descripcion: 'Limpieza, resinas y revisión general. Descuento a estudiantes.', direccion: 'Calle Allende 33, Lerma', ...punto(0.0035, 0.0042),
+    foto: 'File:Dental chair in a dentist clinic.jpg',
+    items: [['Consulta', 200], ['Limpieza', 450]] },
+  { categoria_id: 'belleza', nombre: 'Uñas Glam', rango_precio: 2, horario: 'Mar a sáb · 11 am a 7 pm',
+    descripcion: 'Manicure, pedicure y uñas de gel.', direccion: 'Calle Hidalgo 77, Lerma', ...punto(-0.0045, 0.0012),
+    foto: 'File:DZ6 0587 A nail technician carefully files a customers nails at a salon surrounded by color samples and manicure tools.jpg',
+    items: [['Manicure', 150], ['Uñas de gel', 320]] },
 ];
 
 const quitarHtml = (s) => (s ?? '').replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
