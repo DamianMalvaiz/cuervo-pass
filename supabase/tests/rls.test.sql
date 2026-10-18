@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(190);
+select plan(217);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1814,15 +1814,15 @@ select is(
     where table_name = 'negocios_publicos' and column_name = 'usuario_id'),
   0,
   'la vista pública no expone quién es el dueño' );
-select throws_ok(
-  $$select * from negocios$$, '42501', null,
-  'la tabla de negocios está cerrada: solo se lee por la vista' );
+select is(
+  (select count(*)::int from negocios), 0,
+  'la tabla de negocios solo deja leer los PROPIOS (los de ejemplo no tienen dueño: se leen por la vista)' );
 select throws_ok(
   $$insert into negocios (categoria_id, nombre, direccion, origen) values ('comida', 'Mio', 'Calle 9', 'sembrado')$$,
   '42501', null, 'el cliente no puede crear negocios (todavía)' );
-select throws_ok(
-  $$select * from negocio_items$$, '42501', null,
-  'la tabla de productos está cerrada' );
+select is(
+  (select count(*)::int from negocio_items), 0,
+  'la tabla de productos solo deja leer los de los negocios propios' );
 select is(
   (select array_agg(id order by id) from categorias_servicio),
   array['comida'],
@@ -2016,6 +2016,126 @@ select throws_ok(
 select lives_ok(
   $$update publicaciones set titulo = 'Ya aprobada (editada)' where usuario_id = '00000000-0000-0000-0000-0000000000f7'$$,
   'la dueña sigue pudiendo editar lo suyo' );
+
+-- ── Publicar un negocio (0052) ──────────────────────────────────────────────
+-- f7: comerciante APROBADO. e9: sin la función. b2: ajena.
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select lives_ok(
+  $$insert into negocios (usuario_id, categoria_id, nombre, direccion)
+    values ('00000000-0000-0000-0000-0000000000f7', 'comida', 'Tienda F7', 'Calle 7, Lerma')$$,
+  'negocio: un comerciante aprobado crea su negocio' );
+select is(
+  (select origen from negocios where nombre = 'Tienda F7'), 'solicitud',
+  'negocio: nace con origen solicitud (no se puede fingir «sembrado»)' );
+select is(
+  (select destacado from negocios where nombre = 'Tienda F7'), false,
+  'negocio: nace sin destacar' );
+select is(
+  (select count(*)::int from negocios), 1,
+  'negocio: la dueña lee el suyo desde la tabla' );
+
+select throws_ok(
+  $$insert into negocios (usuario_id, categoria_id, nombre, direccion, destacado)
+    values ('00000000-0000-0000-0000-0000000000f7', 'comida', 'Quiero destacar', 'Calle 8', true)$$,
+  '42501', null, 'negocio: el cliente NO puede fijar «destacado»' );
+select throws_ok(
+  $$insert into negocios (usuario_id, categoria_id, nombre, direccion, origen)
+    values ('00000000-0000-0000-0000-0000000000f7', 'comida', 'Finjo ejemplo', 'Calle 9', 'sembrado')$$,
+  '42501', null, 'negocio: el cliente NO puede fijar «origen»' );
+select throws_ok(
+  $$update negocios set destacado = true where nombre = 'Tienda F7'$$,
+  '42501', null, 'negocio: tampoco puede destacarse editando' );
+select throws_ok(
+  $$update negocios set oculto_por_reportes = false where nombre = 'Tienda F7'$$,
+  '42501', null, 'negocio: ni quitarse la ocultación por reportes' );
+select throws_ok(
+  $$update negocios set usuario_id = '00000000-0000-0000-0000-0000000000b2' where nombre = 'Tienda F7'$$,
+  '42501', null, 'negocio: ni regalarlo a otra cuenta' );
+select lives_ok(
+  $$update negocios set descripcion = 'Tacos y más', horario = 'Lun a vie · 9 a 6' where nombre = 'Tienda F7'$$,
+  'negocio: la dueña edita lo suyo' );
+select throws_ok(
+  $$update negocios set fotos = array['negocios/00000000-0000-0000-0000-00000000b001/0.jpg'] where nombre = 'Tienda F7'$$,
+  '23514', null, 'negocio: una ruta de foto de OTRO negocio se rechaza' );
+select throws_ok(
+  $$insert into negocios (usuario_id, categoria_id, nombre, direccion)
+    values ('00000000-0000-0000-0000-0000000000f7', 'comida', 'Segundo activo', 'Calle 10')$$,
+  'CP008', null, 'negocio: un segundo negocio ACTIVO supera el tope del plan Básico' );
+select lives_ok(
+  $$insert into negocios (usuario_id, categoria_id, nombre, direccion, activo)
+    values ('00000000-0000-0000-0000-0000000000f7', 'comida', 'Segundo inactivo', 'Calle 10', false)$$,
+  'negocio: uno INACTIVO sí cabe (desactivar no sube el número)' );
+select throws_ok(
+  $$update negocios set activo = true where nombre = 'Segundo inactivo'$$,
+  'CP008', null, 'negocio: activarlo sí lo sube, y se rechaza' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select throws_ok(
+  $$insert into negocios (usuario_id, categoria_id, nombre, direccion)
+    values ('00000000-0000-0000-0000-0000000000e9', 'comida', 'Sin función', 'Calle 11')$$,
+  '42501', null, 'negocio: sin la función de comerciante aprobada, la base rechaza' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is(
+  (select count(*)::int from negocios where nombre = 'Tienda F7'), 0,
+  'negocio: otra cuenta no lee el negocio ajeno desde la tabla' );
+-- Intentos ajenos de editar y borrar: no fallan (RLS filtra filas en silencio), así que se comprueba que NO surtieron efecto.
+update negocios set nombre = 'Robado' where nombre = 'Tienda F7';
+delete from negocios where nombre = 'Tienda F7';
+select actuar_como_servicio();
+select is(
+  (select count(*)::int from negocios where nombre = 'Tienda F7'), 1,
+  'negocio: otra cuenta no editó ni borró el negocio ajeno' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is(
+  (select count(*)::int from negocios_publicos where nombre = 'Tienda F7'), 1,
+  'negocio: el activo de f7 SÍ se ve para todos por la vista pública' );
+
+-- Menú.
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select lives_ok(
+  $$insert into negocio_items (negocio_id, nombre, precio)
+    select id, 'Taco', 20 from negocios where nombre = 'Tienda F7'$$,
+  'menú: la dueña agrega un producto' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select throws_ok(
+  $$insert into negocio_items (negocio_id, nombre, precio)
+    select id, 'Intruso', 1 from negocios_publicos where nombre = 'Tienda F7'$$,
+  '42501', null, 'menú: otra cuenta no agrega productos al negocio ajeno' );
+select actuar_como_servicio();
+select throws_ok(
+  $$insert into negocio_items (negocio_id, nombre, precio)
+    select n.id, 'P' || g, 1 from negocios n, generate_series(1, 40) g where n.nombre = 'Tienda F7'$$,
+  'CP009', null, 'menú: pasar de 40 productos se rechaza' );
+
+-- Storage.
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select lives_ok(
+  $$insert into storage.objects (bucket_id, name)
+    select 'fotos', 'negocios/' || id || '/0.jpg' from negocios where nombre = 'Tienda F7'$$,
+  'storage: la dueña sube la foto de su negocio' );
+select is(
+  (select count(*)::int from storage.objects where name like 'negocios/%' and name in
+     (select 'negocios/' || id || '/0.jpg' from negocios where nombre = 'Tienda F7')),
+  1, 'storage: la dueña lee su foto' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name)
+    select 'fotos', 'negocios/' || id || '/1.jpg' from negocios_publicos where nombre = 'Tienda F7'$$,
+  '42501', null, 'storage: otra cuenta no sube fotos al negocio ajeno' );
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name)
+    values ('fotos', 'negocios/00000000-0000-0000-0000-00000000b001/9.jpg')$$,
+  '42501', null, 'storage: sin ser dueña de ese negocio no se sube nada' );
+
+select actuar_como_servicio();
+select is(
+  has_column_privilege('authenticated', 'public.negocios', 'destacado', 'insert'), false,
+  'authenticated no tiene insert sobre la columna destacado' );
+select is(
+  has_column_privilege('authenticated', 'public.negocios', 'nombre', 'update'), true,
+  'authenticated sí edita el nombre de lo suyo (la política acota las filas)' );
 
 select * from finish();
 rollback;
