@@ -162,7 +162,7 @@ la ley permite condicionar el servicio y qué alternativa debe ofrecerse.]**
 | Cuenta, preferencias, favoritos | Mientras tengas la cuenta; se borran al eliminarla | Ya funciona (`eliminar-cuenta`) |
 | Mensajes | Mientras exista la conversación; se borran al eliminar la cuenta | Ya funciona |
 | **Foto del INE** | **30 días después de aprobada la verificación** | **Por confirmar con el responsable.** Queda solo el estado, la fecha y quién aprobó |
-| Foto del INE de una verificación **rechazada** | **Por definir** (propuesta: 30 días tras el rechazo) | **[VERIFICAR]** |
+| Foto del INE de una verificación **rechazada** | **7 días tras el rechazo** (decidido por el responsable) | Migración 0057 (escrita; aplicar). Quedan sin resolver las pendientes sin revisar y los archivos huérfanos al reenviar |
 | Fotografía del rostro y huella numérica | **No se guardan** | Diseño |
 | Resultado de la verificación (puntaje, quién y cuándo) | **Por definir** | **[VERIFICAR]** |
 | Registro de pagos y suscripciones | **Por definir:** puede haber obligaciones fiscales de conservación | **[VERIFICAR con una persona contadora]** |

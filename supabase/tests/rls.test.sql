@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(336);
+select plan(342);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2654,6 +2654,33 @@ select is(
 select is(
   has_function_privilege('authenticated', 'public.reiniciar_biometria()', 'execute'), false,
   'authenticated no puede ejecutar la función del trigger' );
+
+-- ── Borrado de la INE rechazada y intento devuelto (0057) ───────────────────
+-- e9 tiene la verificación de comerciante PENDIENTE y 1 intento biométrico reservado (bloque de la 0056).
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select throws_ok(
+  $$select devolver_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante')$$,
+  '42501', null, 'devolver intento: el cliente autenticado no puede (devolverse intentos sería saltarse el tope)' );
+select actuar_como_servicio();
+select is(devolver_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante'), 0::smallint,
+  'devolver intento: el servicio lo restituye' );
+select is(devolver_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante'), 0::smallint,
+  'devolver intento: nunca baja de cero' );
+select resolver_verificacion('00000000-0000-0000-0000-0000000000e9', 'comerciante', false, 'La INE no se lee', '00000000-0000-0000-0000-0000000000a1');
+select ok(
+  (select ine_borrar_en between now() + interval '6 days 23 hours' and now() + interval '7 days 1 hour'
+     from verificaciones_vendedor where usuario_id = '00000000-0000-0000-0000-0000000000e9' and rol = 'comerciante'),
+  'rechazar: la INE queda programada para borrarse a los 7 días' );
+select is(
+  (select ine_borrada_en from verificaciones_vendedor where usuario_id = '00000000-0000-0000-0000-0000000000e9' and rol = 'comerciante'),
+  null, 'rechazar: no se marca como borrada todavía (la borra el barrido, no esta función)' );
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select enviar_verificacion('comerciante', 'Eva Prueba Soto', 'Calle 9, Lerma',
+  '00000000-0000-0000-0000-0000000000e9/ine-frente-3.jpg', '00000000-0000-0000-0000-0000000000e9/ine-reverso-3.jpg', array['00000000-0000-0000-0000-0000000000e9/local-3.jpg'], 'v3');
+select actuar_como_servicio();
+select is(
+  (select ine_borrar_en from verificaciones_vendedor where usuario_id = '00000000-0000-0000-0000-0000000000e9' and rol = 'comerciante'),
+  null, 'reenviar tras un rechazo: la entrega nueva no hereda la fecha de borrado de la anterior' );
 
 select * from finish();
 rollback;

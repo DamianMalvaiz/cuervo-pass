@@ -93,9 +93,17 @@ Deno.serve(async (req) => {
   }
   const intentosUsados = typeof usados === 'number' ? usados : MAX_INTENTOS;
 
+  // Si el fallo es del SISTEMA (no se pudo bajar la INE, el servicio de IA no respondió o contestó algo inesperado), el intento
+  // reservado se devuelve: la persona no tiene la culpa. Un error al devolverlo solo se registra.
+  const devolverIntento = async () => {
+    const { error } = await servicio.rpc('devolver_intento_biometria', { p_usuario: user.id, p_rol: cuerpo.rol });
+    if (error) console.error('verificar-rostro: no se pudo devolver el intento', error.code);
+  };
+
   const { data: archivo, error: eIne } = await servicio.storage.from('verificacion').download(ruta);
   if (eIne || !archivo) {
     console.error('verificar-rostro: no se pudo bajar la INE', eIne?.message);
+    await devolverIntento();
     return json({ degradado: true, motivo: 'sin-ine' }, 503);
   }
   const ine = aBase64(new Uint8Array(await archivo.arrayBuffer()));
@@ -118,11 +126,13 @@ Deno.serve(async (req) => {
       // 503 = apagada o sin motor (estado previsto); otros códigos = el servicio no entregó. En ambos casos la app sigue con la
       // revisión manual. El cuerpo ajeno no se reenvía (puede traer rutas del contenedor).
       console.error('verificar-rostro: el servicio no entregó', { peticionId, estado: r.status });
+      await devolverIntento();
       return json({ degradado: true, motivo: r.status === 503 ? 'no-disponible' : 'servicio' }, 503);
     }
     resultadoIA = await r.json();
   } catch (e) {
     console.error('verificar-rostro: no alcanzó el servicio', { peticionId, nombre: e instanceof Error ? e.name : typeof e });
+    await devolverIntento();
     return json({ degradado: true, motivo: 'sin-conexion' }, 503);
   }
 
@@ -130,6 +140,7 @@ Deno.serve(async (req) => {
   // Un estado que el servicio no declara NO se interpreta: ni se guarda ni se muestra como éxito.
   if (!paraLaPersona) {
     console.error('verificar-rostro: estado desconocido del servicio', { peticionId });
+    await devolverIntento();
     return json({ error: 'respuesta inesperada' }, 502);
   }
 

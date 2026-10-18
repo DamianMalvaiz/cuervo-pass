@@ -105,7 +105,7 @@ Rondas del 17/10/2026, `buffalo_l`, la credencial de una sola persona como refer
 - **Un parecido entre estudiantes de la misma universidad** puede dar similitudes más altas que las de LFW (figuras públicas, mayoría de otros países).
 - **Licencias:** código de InsightFace MIT; los modelos `buffalo_*` son **solo para investigación no comercial**; el addon de liveness **no declara licencia**.
   Es un proyecto académico sin fines de lucro. Para una producción comercial habría que cambiar de modelo y repetir las mediciones.
-- **Intento perdido:** si el ai-service falla tras reservar el intento, la persona pierde uno de sus 5 (haría falta una migración 0057 para devolverlo).
+- **Intento perdido:** si el ai-service falla tras reservar el intento, la Edge Function lo devuelve (`devolver_intento_biometria`, 0057). Sin verificar de punta a punta.
 
 ### Cómo se comprueba
 - `cd ai-service && .venv/bin/python -m pytest tests/test_rostro.py` (reglas con un motor falso; CI no instala InsightFace).
