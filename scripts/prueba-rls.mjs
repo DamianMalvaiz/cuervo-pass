@@ -57,6 +57,11 @@ try {
   A = await crearCuenta('a');
   B = await crearCuenta('b');
 
+  // Desde la 0051 solo publica quien tiene la función de arrendador APROBADA. Esta prueba no verifica identidades: se la da el servicio a B
+  // (se borra en cascada con la cuenta). Sin esto la prueba moría al publicar y ya no probaba nada.
+  const { error: eRol } = await admin.from('roles_usuario').insert({ usuario_id: B.id, rol: 'arrendador', estado: 'aprobado', origen: 'migracion' });
+  if (eRol) throw new Error('no se pudo dar la función de arrendador a B: ' + eRol.message);
+
   // B se pone datos sensibles y publica. Todo con SU sesión, por el camino normal.
   await B.cliente.from('usuarios').update({
     presupuesto_min: 2000, presupuesto_max: 7777,
@@ -114,6 +119,18 @@ try {
   });
   comprobar('A no puede publicar HACIÉNDOSE PASAR por B',
     !!eSupl, eSupl ? eSupl.message.slice(0, 58) : 'SE INSERTÓ — la policy no comprueba usuario_id');
+
+  // Las VISTAS públicas se crearon con security_invoker = false y eran actualizables: escribir a través de ellas se saltaba RLS (hallazgo del
+  // 18/10/2026, migración 0061). Aquí se comprueba por HTTP, que es el camino de la app. Un error de permiso o cero filas son las dos formas de «no».
+  const { data: updVista, error: eUpdVista } = await A.cliente.from('publicaciones_publicas').update({ titulo: 'HACKEADA' }).eq('id', pubB.id).select();
+  comprobar('A no puede MODIFICAR la publicación de B a través de la vista pública',
+    !!eUpdVista || (updVista?.length ?? 0) === 0, eUpdVista ? `rechazado: ${eUpdVista.code}` : `filas afectadas: ${updVista?.length ?? 0}`);
+  const { data: delVista, error: eDelVista } = await A.cliente.from('publicaciones_publicas').delete().eq('id', pubB.id).select();
+  comprobar('A no puede BORRAR la publicación de B a través de la vista pública',
+    !!eDelVista || (delVista?.length ?? 0) === 0, eDelVista ? `rechazado: ${eDelVista.code}` : `filas afectadas: ${delVista?.length ?? 0}`);
+  const { data: delRoomie, error: eDelRoomie } = await A.cliente.from('roomies_publicos').delete().neq('usuario_id', A.id).select();
+  comprobar('A no puede BORRAR anuncios de roomie ajenos a través de la vista pública',
+    !!eDelRoomie || (delRoomie?.length ?? 0) === 0, eDelRoomie ? `rechazado: ${eDelRoomie.code}` : `filas afectadas: ${delRoomie?.length ?? 0}`);
 
   const { data: updPerfil } = await A.cliente.from('usuarios')
     .update({ presupuesto_max: 1 }).eq('id', B.id).select();
