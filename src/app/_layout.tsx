@@ -148,6 +148,7 @@ export default function RootLayout() {
         <Stack.Screen name="verificacion/[rol]" options={{ ...encabezado, title: 'Verificación' }} />
         <Stack.Screen name="planes/[rol]" options={{ ...encabezado, title: 'Planes' }} />
         <Stack.Screen name="pagos" options={{ ...encabezado, title: 'Pagos y facturación' }} />
+        <Stack.Screen name="notificaciones" options={{ ...encabezado, title: 'Avisos' }} />
         <Stack.Screen name="configuracion" options={{ ...encabezado, title: 'Configuración' }} />
         <Stack.Screen name="aviso-privacidad" options={{ ...encabezado, title: 'Aviso de privacidad' }} />
       </Stack>

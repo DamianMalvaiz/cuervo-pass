@@ -67,7 +67,7 @@ Tamaños: S = horas, M = una sesión larga, L = varias sesiones. **Congelar func
 | 1.2 | **(hecho en código, con `tsc`, lint, 1874 pruebas de Jest y 573 de pgTAP en verde; la migración 0071 está **aplicada en producción** (18/10/2026)) Personalización real**: el vector del perfil se mueve hacia lo que guardas (Rocchio sobre `favoritos`) y «Parecidos a este» en la ficha (pgvector entre publicaciones). Explicable: «te lo mostramos porque guardaste X» | M | B7 |
 | 1.3 | **(herramienta lista; faltan las etiquetas de la persona responsable) Conjunto de evaluación etiquetado** (`scripts/evaluacion-depas.mjs`: 4 personas fabricadas, 40 pares con pooling de 4 variantes del orden, página `evaluacion/etiquetar.html`, NDCG@4; probado de punta a punta solo con etiquetas aleatorias): tú calificas ~40 pares (perfil, publicación) y medimos NDCG de cada versión del orden. Lo único que permite decir «mejoramos» con honestidad | M | B7 |
 | 1.4 | Calibrar Depas (afinidad reescalada, ruido ordinal), con la métrica de 1.3 | S | B7 |
-| 1.5 | **Centro de notificaciones** con insignia (la tabla ya existe) | M | B8 |
+| 1.5 | **Centro de notificaciones** con insignia (hecho en código, `tsc`, lint, 1922 pruebas de Jest y 593 de pgTAP en verde; la migración 0072 está **sin aplicar**). Además cierra un hallazgo: `authenticated` podía reescribir `tipo` y `contenido` de sus propios avisos (ahora solo `leida`), y los avisos de mensaje crecían sin límite (ahora 14 días; el resto 90). Nuevos avisos: verificación resuelta, reseña nueva, reseña respondida | M | B8 |
 | 1.6 | **Favoritos de negocios** | M | B8 |
 | 1.7 | Revisión visual completa en el teléfono (ver §5) | M | B5 |
 

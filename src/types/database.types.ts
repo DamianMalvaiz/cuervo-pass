@@ -261,10 +261,19 @@ export interface Notificacion {
   [key: string]: unknown;
   id: string;
   usuario_id: string;
-  tipo: 'nuevo_mensaje' | 'nuevo_contacto' | 'publicacion_oculta';
+  tipo:
+    | 'nuevo_mensaje'
+    | 'nuevo_contacto'
+    | 'publicacion_oculta'
+    | 'cuenta_suspendida'
+    | 'verificacion_resuelta'
+    | 'resena_nueva'
+    | 'resena_respondida';
   contenido: string | null;
   leida: boolean;
   creado_en: string;
+  /** «clase:id» a donde lleva tocarla (0072). Solo se sigue si la clase es conocida: ver `rutaDeDestino`. */
+  destino?: string | null;
 }
 
 export interface Reporte {

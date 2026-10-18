@@ -6,6 +6,7 @@ import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } fro
 
 import { ANCHO_FICHA_COMPACTA, FichaCompacta } from '@/components/FichaCompacta';
 import { FilaPublicacion } from '@/components/FilaPublicacion';
+import { CampanaAvisos } from '@/components/CampanaAvisos';
 import { SelectorModulo } from '@/components/SelectorModulo';
 import { VistaRoomies } from '@/components/vistas/VistaRoomies';
 import { VistaServicios } from '@/components/vistas/VistaServicios';
@@ -391,6 +392,8 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
 }
 
 const estilos = StyleSheet.create({
+  filaSelector: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  selectorFlex: { flex: 1 },
   columna: { width: '100%', alignSelf: 'center' },
   pantalla: { flex: 1 },
   lista: { paddingBottom: Spacing.six },
@@ -450,7 +453,14 @@ const estilos = StyleSheet.create({
 export default function InicioScreen() {
   const modulo = useModuloStore((s) => s.modulo);
   const setModulo = useModuloStore((s) => s.setModulo);
-  const selector = <SelectorModulo valor={modulo} onCambiar={setModulo} />;
+  const selector = (
+    <View style={estilos.filaSelector}>
+      <View style={estilos.selectorFlex}>
+        <SelectorModulo valor={modulo} onCambiar={setModulo} />
+      </View>
+      <CampanaAvisos />
+    </View>
+  );
   if (modulo === 'roomies') return <VistaRoomies selector={selector} />;
   if (modulo === 'servicios') return <VistaServicios selector={selector} />;
   return <VistaDepas selector={selector} />;
