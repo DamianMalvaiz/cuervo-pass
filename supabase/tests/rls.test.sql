@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(475);
+select plan(502);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1092,6 +1092,7 @@ select is(
     'negocios_ordenados',
     'nuevas_esta_semana',
     'puede_subir_evidencia',
+    'registrar_error_app',
     'reportar_resena',
     'responder_resena',
     'resumen_conversaciones',
@@ -3035,6 +3036,68 @@ select actuar_como('00000000-0000-0000-0000-00000000cc05');
 select throws_ok($$update usuarios set correo_verificado = true where id = '00000000-0000-0000-0000-00000000cc05'$$, 'P0001', null,
   'correo: una cuenta NO puede ponerse el sello de correo verificado' );
 select lives_ok($$update usuarios set biografia = 'hola' where id = '00000000-0000-0000-0000-00000000cc05'$$, 'correo: pero sigue pudiendo editar el resto de su perfil' );
+
+-- ── Registro de errores de la app (0068) ────────────────────────────────────
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select lives_ok($$select registrar_error_app('error', 'No se pudo cargar la lista (usuario ana@correo.mx, token eyJabcdefghij.klmnopqrstu.vwxyz123456, tel 7221234567)', 'Bearer abc.def-123 falló', '1.0.0', 'android')$$,
+  'errores: una cuenta con sesión registra un error' );
+select actuar_como_servicio();
+select is((select count(*)::int from errores_app), 1, 'errores: queda UNA fila' );
+select is((select mensaje from errores_app limit 1),
+  'No se pudo cargar la lista (usuario [correo], token [token], tel [tel])',
+  'errores: el servidor limpia correos, tokens y teléfonos aunque el cliente no lo haya hecho' );
+select is((select detalle from errores_app limit 1), 'Bearer [token] falló', 'errores: también el detalle' );
+select ok(not exists (select 1 from information_schema.columns where table_name = 'errores_app' and column_name ~ 'usuario|correo|ip|dispositivo'),
+  'errores: la tabla NO tiene ninguna columna que identifique a quién (minimización)' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select registrar_error_app('error', 'No se pudo cargar la lista (usuario x@y.mx, token eyJabcdefghij.klmnopqrstu.vwxyz123456, tel 7229999999)', null, '1.0.0', 'android');
+select actuar_como_servicio();
+select is((select conteo from errores_app limit 1), 2, 'errores: el mismo problema con distintos números e ids se AGRUPA y cuenta' );
+select is((select count(*)::int from errores_app), 1, 'errores: sigue siendo una sola fila (crece con los problemas distintos, no con las repeticiones)' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select registrar_error_app('error', 'No se pudo cargar la lista (usuario x@y.mx, token eyJabcdefghij.klmnopqrstu.vwxyz123456, tel 7229999999)', null, '1.1.0', 'android');
+select registrar_error_app('aviso', '   ', null, '1.0.0', 'android');
+select registrar_error_app('inventado', 'Otro problema 42', null, '', 'playstation');
+select actuar_como_servicio();
+select is((select count(*)::int from errores_app), 3, 'errores: otra versión es otro grupo; un mensaje vacío no crea nada; un nivel desconocido se trata como error' );
+select is((select plataforma from errores_app where mensaje = 'Otro problema 42'), 'otro', 'errores: una plataforma desconocida queda como «otro»' );
+select is((select version_app from errores_app where mensaje = 'Otro problema 42'), '?', 'errores: una versión vacía queda como «?»' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select registrar_error_app('error', repeat('x', 5000), repeat('y', 5000), '1.0.0', 'ios');
+select actuar_como_servicio();
+select is((select char_length(mensaje) from errores_app where plataforma = 'ios'), 300, 'errores: el mensaje se acota a 300' );
+select is((select char_length(detalle) from errores_app where plataforma = 'ios'), 500, 'errores: el detalle se acota a 500' );
+
+-- Sin sesión no se registra; el cliente anónimo ni siquiera puede ejecutarla.
+select is(has_function_privilege('anon', 'public.registrar_error_app(text, text, text, text, text)', 'execute'), false, 'errores: anon no puede registrar' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select throws_ok($$select * from errores_app$$, '42501', null, 'errores: el cliente NO lee la tabla' );
+select throws_ok($$select * from admin_listar_errores('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'errores: ni el listado del panel (es de servicio)' );
+
+-- Cuota diaria: pasado el tope no se registra más y no se produce un error nuevo.
+select actuar_como_servicio();
+delete from cuotas_uso where usuario_id = '00000000-0000-0000-0000-0000000000e9' and recurso = 'error_app';
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select lives_ok($$select registrar_error_app('error', 'bucle ' || g, null, '2.0.0', 'android') from generate_series(1, 60) g$$,
+  'errores: 60 llamadas seguidas no revientan (la cuota las absorbe)' );
+select actuar_como_servicio();
+select is((select coalesce(sum(conteo), 0)::int from errores_app where version_app = '2.0.0'), 40, 'errores: la cuota de 40 por cuenta y día se cumple (los 60 «bucle N» son UN problema agrupado, contado 40 veces)' );
+
+-- Panel de admin.
+select is((select count(*)::int from admin_listar_errores('00000000-0000-0000-0000-0000000000a1')), (select count(*)::int from errores_app where ultima_vez > now() - interval '7 days'), 'panel: un admin ve los errores de la última semana' );
+select throws_ok($$select * from admin_listar_errores('00000000-0000-0000-0000-0000000000e9')$$, 'CP007', null, 'panel: quien no es admin recibe CP007' );
+select lives_ok($$select admin_borrar_error('00000000-0000-0000-0000-0000000000a1', (select id from errores_app where mensaje = 'Otro problema 42'))$$, 'panel: un admin borra un grupo' );
+select is((select count(*)::int from errores_app where mensaje = 'Otro problema 42'), 0, 'panel: y desaparece' );
+select is((select count(*)::int from acciones_admin where accion = 'borrar_error'), 1, 'panel: queda en la bitácora' );
+select throws_ok($$select admin_borrar_error('00000000-0000-0000-0000-0000000000a1', gen_random_uuid())$$, 'P0002', null, 'panel: borrar lo que no existe se dice' );
+select throws_ok($$select admin_borrar_error('00000000-0000-0000-0000-0000000000e9', gen_random_uuid())$$, 'CP007', null, 'panel: quien no es admin no borra' );
+
+-- Limpieza programada.
+update errores_app set ultima_vez = now() - interval '31 days' where version_app = '1.1.0';
+select limpiar_errores_app();
+select is((select count(*)::int from errores_app where version_app = '1.1.0'), 0, 'limpieza: lo que no se repite en 30 días se borra' );
+select is((select coalesce(sum(conteo), 0)::int from errores_app where version_app = '2.0.0'), 40, 'limpieza: lo reciente se conserva' );
+select is((select count(*)::int from cron.job where jobname = 'limpiar-errores-app'), 1, 'limpieza: está programada' );
 
 select * from finish();
 rollback;

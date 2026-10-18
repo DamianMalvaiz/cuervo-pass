@@ -9,8 +9,8 @@ import { ErrorAdmin, esAdmin } from '@/lib/admin';
 import { useMisRoles } from '@/hooks/queries/useRoles';
 import { useAuthStore } from '@/store/useAuthStore';
 import {
-  type ItemModeracion, type ResumenAdmin, type VerificacionPendiente,
-  fijarModoDemo, listarModeracion, listarVerificaciones, moderar, obtenerResumen, resolverVerificacion,
+  type ErrorRegistrado, type ItemModeracion, type ResumenAdmin, type VerificacionPendiente,
+  borrarError, fijarModoDemo, listarErrores, listarModeracion, listarVerificaciones, moderar, obtenerResumen, resolverVerificacion,
 } from '@/services/admin.service';
 
 const claveResumen = ['admin', 'resumen'] as const;
@@ -40,6 +40,20 @@ export function useVerificacionesAdmin(habilitado: boolean) {
 
 export function useModeracionAdmin(habilitado: boolean) {
   return lectura<ItemModeracion[]>(useQuery({ queryKey: claveModeracion, queryFn: listarModeracion, enabled: habilitado, ...sinReintento }));
+}
+
+const claveErrores = ['admin', 'errores'] as const;
+
+export function useErroresAdmin(habilitado: boolean) {
+  return lectura<ErrorRegistrado[]>(useQuery({ queryKey: claveErrores, queryFn: listarErrores, enabled: habilitado, ...sinReintento }));
+}
+
+export function useBorrarError() {
+  const cliente = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => borrarError(id),
+    onSettled: () => void cliente.invalidateQueries({ queryKey: claveErrores }),
+  });
 }
 
 export function useResolverVerificacion() {

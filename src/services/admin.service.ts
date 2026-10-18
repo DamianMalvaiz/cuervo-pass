@@ -38,6 +38,18 @@ export interface ItemModeracion {
   creado_en: string;
 }
 
+export interface ErrorRegistrado {
+  id: string;
+  nivel: 'aviso' | 'error';
+  mensaje: string;
+  detalle: string | null;
+  version_app: string;
+  plataforma: string;
+  conteo: number;
+  primera_vez: string;
+  ultima_vez: string;
+}
+
 export interface DocumentoAdmin {
   etiqueta: string;
   url: string | null;
@@ -100,6 +112,15 @@ export async function resolverVerificacion(usuarioId: string, rol: Rol, aprobar:
 
 export async function moderar(tipo: 'resena' | 'negocio', id: string, ocultar: boolean, motivo: string | null): Promise<void> {
   await llamar({ accion: 'moderar', tipo, id, ocultar, motivo });
+}
+
+/** Los problemas que ha registrado la app en la última semana, agrupados (migración 0068). */
+export async function listarErrores(): Promise<ErrorRegistrado[]> {
+  return lista<ErrorRegistrado>(await llamar({ accion: 'errores' }), 'errores');
+}
+
+export async function borrarError(id: string): Promise<void> {
+  await llamar({ accion: 'borrar_error', id });
 }
 
 export async function fijarModoDemo(activo: boolean): Promise<boolean> {

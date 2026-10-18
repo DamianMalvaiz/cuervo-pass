@@ -3,7 +3,7 @@ jest.mock('@/lib/supabase', () => ({ supabase: { functions: { invoke: (...a: unk
 
 import { ErrorAdmin } from '@/lib/admin';
 
-import { documentosDe, fijarModoDemo, listarModeracion, listarVerificaciones, moderar, obtenerResumen, resolverVerificacion } from '../admin.service';
+import { borrarError, documentosDe, fijarModoDemo, listarErrores, listarModeracion, listarVerificaciones, moderar, obtenerResumen, resolverVerificacion } from '../admin.service';
 
 const UUID = '00000000-0000-0000-0000-0000000000f7';
 const httpError = (status: number, cuerpo: unknown) => ({
@@ -49,6 +49,21 @@ describe('el cuerpo que se manda', () => {
     mockInvoke.mockResolvedValue({ data: { modo_demo: true }, error: null });
     expect(await fijarModoDemo(true)).toBe(true);
     expect(mockInvoke).toHaveBeenCalledWith('admin', { body: { accion: 'modo_demo', activo: true } });
+  });
+});
+
+describe('errores registrados por la app', () => {
+  it('lista y borra por id', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: { errores: [{ id: UUID, mensaje: 'x' }] }, error: null });
+    expect(await listarErrores()).toEqual([{ id: UUID, mensaje: 'x' }]);
+    expect(mockInvoke).toHaveBeenLastCalledWith('admin', { body: { accion: 'errores' } });
+    mockInvoke.mockResolvedValueOnce({ data: { ok: true }, error: null });
+    await borrarError(UUID);
+    expect(mockInvoke).toHaveBeenLastCalledWith('admin', { body: { accion: 'borrar_error', id: UUID } });
+  });
+  it('una respuesta sin la lista NO es éxito', async () => {
+    mockInvoke.mockResolvedValue({ data: { otra: 1 }, error: null });
+    await expect(listarErrores()).rejects.toMatchObject({ tipo: 'desconocido' });
   });
 });
 

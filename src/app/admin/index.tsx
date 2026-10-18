@@ -107,6 +107,15 @@ export default function AdminInicioScreen() {
           />
         </GrupoAjustes>
 
+        <GrupoAjustes titulo="Salud de la app">
+          <FilaAjuste
+            icono="bug-outline"
+            etiqueta="Errores de la app"
+            descripcion="Lo que se rompe en los teléfonos, agrupado, sin datos de quién."
+            onPress={() => router.push('/admin/errores')}
+          />
+        </GrupoAjustes>
+
         <GrupoAjustes titulo="Demostración">
           <FilaAjuste
             icono="play-circle-outline"

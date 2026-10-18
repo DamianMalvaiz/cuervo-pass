@@ -7,6 +7,8 @@ export type Solicitud =
   | { accion: 'resumen' }
   | { accion: 'verificaciones' }
   | { accion: 'moderacion' }
+  | { accion: 'errores' }
+  | { accion: 'borrar_error'; id: string }
   | { accion: 'documentos'; usuarioId: string; rol: Rol }
   | { accion: 'resolver'; usuarioId: string; rol: Rol; aprobar: boolean; motivo: string | null }
   | { accion: 'moderar'; tipo: 'resena' | 'negocio'; id: string; ocultar: boolean; motivo: string | null }
@@ -43,7 +45,12 @@ export function validarSolicitud(c: unknown): Validacion {
     case 'resumen':
     case 'verificaciones':
     case 'moderacion':
+    case 'errores':
       return { ok: true, solicitud: { accion: d.accion } };
+
+    case 'borrar_error':
+      if (!esUuid(d.id)) return { ok: false, codigo: 'datos_invalidos' };
+      return { ok: true, solicitud: { accion: 'borrar_error', id: d.id } };
 
     case 'documentos':
       if (!esUuid(d.usuario_id) || !esRol(d.rol)) return { ok: false, codigo: 'datos_invalidos' };

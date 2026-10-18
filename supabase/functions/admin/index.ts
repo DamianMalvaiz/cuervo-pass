@@ -3,10 +3,11 @@
 // La app llama aquí con la sesión de la persona. La función comprueba en la base que es un admin aprobado y solo entonces ejecuta, con la
 // llave de servicio, funciones que ni `authenticated` ni `anon` pueden llamar. La llave de servicio nunca sale de aquí.
 //
-//   resumen · verificaciones · moderacion      lecturas
+//   resumen · verificaciones · moderacion · errores   lecturas (errores = los que registra la app, migración 0068)
 //   documentos                                 firma enlaces de 10 min a la evidencia y DEJA RASTRO de quién la miró
 //   resolver                                   aprobar / rechazar una verificación (`resolver_verificacion`)
 //   moderar                                    ocultar o restaurar una reseña o un negocio (con motivo y bitácora)
+//   borrar_error                               «ya lo vi»: quita un grupo de errores (queda en la bitácora)
 //   modo_demo                                  enciende o apaga los pagos simulados
 //
 // Quien llama NO manda su id: sale de la sesión. Cada función SQL repite la comprobación de admin, así que un error aquí no basta para
@@ -99,6 +100,16 @@ Deno.serve(async (req) => {
       const { data, error } = await servicio.rpc('admin_listar_moderacion', { p_admin: admin });
       if (error) return respuestaDeError(error);
       return json({ moderacion: data ?? [] }, 200);
+    }
+    case 'errores': {
+      const { data, error } = await servicio.rpc('admin_listar_errores', { p_admin: admin });
+      if (error) return respuestaDeError(error);
+      return json({ errores: data ?? [] }, 200);
+    }
+    case 'borrar_error': {
+      const { error } = await servicio.rpc('admin_borrar_error', { p_admin: admin, p_id: s.id });
+      if (error) return respuestaDeError(error);
+      return json({ ok: true }, 200);
     }
     case 'documentos': {
       // Primero el rastro: si no se puede registrar quién mira, no se muestra nada.

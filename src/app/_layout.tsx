@@ -23,6 +23,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLimpiarCacheAlCerrarSesion } from '@/hooks/queries/useLimpiarCacheAlCerrarSesion';
 import { crearClienteConsultas } from '@/lib/consultas';
 import { fallo, limpiar, textoDeError } from '@/lib/registro';
+import { iniciarRegistroRemoto } from '@/lib/registroRemoto';
 
 // La pantalla de arranque se sostiene hasta que Archivo esté en memoria. Sin
 // esto la app pinta un fotograma con la tipografía del sistema y luego salta a
@@ -74,6 +75,11 @@ export default function RootLayout() {
   const esOscuro = scheme === 'dark';
   const c = esOscuro ? Colors.dark : Colors.light;
 
+  // Los errores de la app llegan a la base y al panel de admin (migración 0068). Una sola vez; no envía nada en desarrollo.
+  useEffect(() => {
+    iniciarRegistroRemoto();
+  }, []);
+
   const [fuentesListas, errorFuentes] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -121,6 +127,7 @@ export default function RootLayout() {
         <Stack.Screen name="admin/index" options={{ ...encabezado, title: 'Administración' }} />
         <Stack.Screen name="admin/verificaciones" options={{ ...encabezado, title: 'Verificaciones' }} />
         <Stack.Screen name="admin/moderacion" options={{ ...encabezado, title: 'Moderación' }} />
+        <Stack.Screen name="admin/errores" options={{ ...encabezado, title: 'Errores de la app' }} />
         <Stack.Screen name="negocio/nuevo" options={{ ...encabezado, title: 'Publicar negocio' }} />
         <Stack.Screen name="negocio/editar/[id]" options={{ ...encabezado, title: 'Editar negocio' }} />
         <Stack.Screen name="negocio/menu/[id]" options={{ ...encabezado, title: 'Menú' }} />

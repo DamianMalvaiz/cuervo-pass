@@ -15,7 +15,7 @@ describe('validarSolicitud', () => {
     expect(validarSolicitud({ accion: 'borrar_todo' })).toEqual({ ok: false, codigo: 'accion_invalida' });
   });
 
-  it.each(['resumen', 'verificaciones', 'moderacion'])('«%s» no necesita más datos', (accion) => {
+  it.each(['resumen', 'verificaciones', 'moderacion', 'errores'])('«%s» no necesita más datos', (accion) => {
     expect(validarSolicitud({ accion })).toEqual({ ok: true, solicitud: { accion } });
   });
 
@@ -80,6 +80,15 @@ describe('validarSolicitud', () => {
     });
     it('el id tiene forma de uuid', () => {
       expect(validarSolicitud({ ...base, id: '1; select 1' }).ok).toBe(false);
+    });
+  });
+
+  describe('borrar_error', () => {
+    it('acepta un uuid', () => {
+      expect(validarSolicitud({ accion: 'borrar_error', id: U })).toEqual({ ok: true, solicitud: { accion: 'borrar_error', id: U } });
+    });
+    it.each([undefined, '', 'no-uuid', `${U}; drop table errores_app`, 5])('rechaza %p', (id) => {
+      expect(validarSolicitud({ accion: 'borrar_error', id }).ok).toBe(false);
     });
   });
 

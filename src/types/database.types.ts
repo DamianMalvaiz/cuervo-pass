@@ -488,6 +488,11 @@ export interface Database {
         Args: { p_ids: string[] };
         Returns: { publicacion_id: string; total: number }[];
       };
+      // Registra un error de la app (migración 0068). El servidor lo limpia, lo agrupa y no guarda quién. Falla en silencio si se pasó la cuota.
+      registrar_error_app: {
+        Args: { p_nivel: string; p_mensaje: string; p_detalle: string | null; p_version: string; p_plataforma: string };
+        Returns: undefined;
+      };
       // Registra que la cuenta aceptó esta versión del aviso de privacidad (migración 0059). 22023 si la versión no tiene forma `vN`.
       aceptar_aviso: {
         Args: { p_version: string };
