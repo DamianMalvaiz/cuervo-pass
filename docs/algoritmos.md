@@ -17,6 +17,13 @@ puntaje = 0.45·cercanía + 0.45·calidad + 0.10·novedad      (cada término en
 **Orden:** `destacado desc`, `puntaje desc`, `nombre asc`. Destacado es un NIVEL (lo promete el plan pagado), no una suma.
 **Límite** por llamada: 1–100 (por defecto 60). Búsqueda por nombre y categoría en el servidor (invariante 5).
 
+### Búsqueda de texto (0065, 18/10/2026)
+Medido en producción antes del cambio: «cafe» encontraba 0 negocios y «café», 1 (la búsqueda distinguía acentos); «tacos» encontraba el negocio que se llama así y
+ninguno de los que venden tacos (0 por producto, aunque el menú está en la base). Ahora la búsqueda ignora acentos y mayúsculas (`unaccent`) y mira el nombre, la
+descripción y los nombres de los productos visibles; si el **nombre** coincide, va antes que los que solo coinciden por producto o descripción (dentro de su nivel de
+«destacado»). El **puntaje no cambia**: la relevancia del texto reordena, no se mezcla con cercanía ni calidad.
+No tolera erratas («taqeria») ni sinónimos: eso pediría trigramas o un diccionario y, sin datos de búsquedas reales, sería adivinar.
+
 ### Límites honestos
 - Sin personalización: no existe historial de uso de Servicios; no se inventa.
 - Sin «abierto ahora»: el horario es texto libre.
@@ -114,3 +121,18 @@ Rondas del 17/10/2026, `buffalo_l`, la credencial de una sola persona como refer
 - Motor real: `experimentos/biometrico/probar_servicio.py` dentro de la imagen del experimento (local).
 - **Sin verificar de punta a punta:** la Edge Function desplegada llamando al ai-service real, y la pantalla en un teléfono. Está apagada
   (`BIOMETRIA_ACTIVA=false` en el servicio, `BIOMETRIA_HABILITADA=false` en la app) hasta que el aviso de privacidad v3 esté publicado.
+
+## Hallazgo de calibración en Depas (medido el 18/10/2026, sin cambiar nada todavía)
+
+Para `demo.estudiante` sobre las 114 publicaciones activas (consulta de solo lectura con `score_ajuste` y el coseno de los vectores):
+
+| | mínimo | promedio | máximo | desviación |
+|---|---|---|---|---|
+| `score` (distancia, presupuesto, compatibilidad, novedad) | 0.125 | 0.238 | 0.668 | 0.137 |
+| similitud semántica (coseno) | 0.147 | 0.356 | 0.491 | 0.085 |
+
+El orden final es `0.6·score + 0.4·similitud`. Lo que realmente mueve el orden es cada término multiplicado por su peso: 0.6·0.137 ≈ 0.082 contra 0.4·0.085 ≈ 0.034.
+**El peso declarado de la afinidad (40 %) no se cumple en la práctica:** como los cosenos viven en una banda estrecha (0.15–0.49), la afinidad explica alrededor del
+15 % de la variación del orden (ignorando la covarianza). Es un hallazgo de calibración, **no una prueba de que el orden sea peor**: no hay datos de relevancia
+etiquetados para saber qué orden prefieren las personas. Con 1 perfil y 114 publicaciones es una muestra pequeña. Cualquier cambio (por ejemplo reescalar el coseno a
+[0, 1] con una banda fija) debe presentarse como calibración de pesos, no como mejora de precisión.

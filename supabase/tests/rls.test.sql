@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(441);
+select plan(452);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2932,6 +2932,40 @@ select is(
 select actuar_como_servicio();
 delete from push_tokens where usuario_id = '00000000-0000-0000-0000-0000000000d9';
 select is((select estado from roles_usuario where usuario_id = '00000000-0000-0000-0000-0000000000e9' and rol = 'comerciante'), 'rechazado', 'aviso: la decisión quedó tomada aunque el aviso sea opcional' );
+
+-- ── Búsqueda de Servicios sin acentos y por producto (0065) ─────────────────
+select actuar_como_servicio();
+insert into categorias_servicio (id, nombre, icono, orden, activa) values ('bus', 'Búsqueda', 'search-outline', 9, true) on conflict (id) do nothing;
+insert into negocios (id, categoria_id, nombre, descripcion, direccion, origen, activo, oculto_por_reportes) values
+  ('00000000-0000-0000-0000-00000000f001', 'bus', 'Cafetería Ñandú', 'Café de especialidad', 'Calle S1', 'sembrado', true, false),
+  ('00000000-0000-0000-0000-00000000f002', 'bus', 'Tacos Beto', null, 'Calle S2', 'sembrado', true, false),
+  ('00000000-0000-0000-0000-00000000f003', 'bus', 'Panadería Lupe', null, 'Calle S3', 'sembrado', true, false),
+  ('00000000-0000-0000-0000-00000000f004', 'bus', 'Ferretería Oculta', null, 'Calle S4', 'sembrado', true, false);
+insert into negocio_items (negocio_id, nombre) values
+  ('00000000-0000-0000-0000-00000000f003', 'Tacos dorados de horno'),
+  ('00000000-0000-0000-0000-00000000f004', 'Clavos');
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is((select count(*)::int from negocios_ordenados('bus', 'cafeteria') where id = '00000000-0000-0000-0000-00000000f001'), 1,
+  'búsqueda: «cafeteria» (sin acento) encuentra «Cafetería»' );
+select is((select count(*)::int from negocios_ordenados('bus', 'CAFETERÍA') where id = '00000000-0000-0000-0000-00000000f001'), 1,
+  'búsqueda: mayúsculas y acento escrito también' );
+select is((select count(*)::int from negocios_ordenados('bus', 'nandu') where id = '00000000-0000-0000-0000-00000000f001'), 1,
+  'búsqueda: «nandu» encuentra «Ñandú»' );
+select is((select count(*)::int from negocios_ordenados('bus', 'cafe') where id = '00000000-0000-0000-0000-00000000f001'), 1,
+  'búsqueda: también por la descripción («Café de especialidad»)' );
+select is((select count(*)::int from negocios_ordenados('bus', 'clavos') where id = '00000000-0000-0000-0000-00000000f004'), 1,
+  'búsqueda: por el nombre de un PRODUCTO del menú' );
+select is((select array_agg(id::text order by ord) from (select id, row_number() over () as ord from negocios_ordenados('bus', 'tacos')) t),
+  array['00000000-0000-0000-0000-00000000f002', '00000000-0000-0000-0000-00000000f003'],
+  'búsqueda: «tacos» trae al que se llama así ANTES que al que solo los vende' );
+select is((select count(*)::int from negocios_ordenados('bus', 'zzzxxx')), 0, 'búsqueda: lo que no existe no devuelve nada' );
+select is((select count(*)::int from negocios_ordenados('bus', '%')), 0, 'búsqueda: «%» sigue sin ser «todo»' );
+select is((select count(*)::int from negocios_ordenados('bus', 'tacos', 100)), 2, 'búsqueda: los productos de un negocio NO visible no cuentan (solo los dos que sí lo son)' );
+select actuar_como_servicio();
+update negocios set oculto_por_reportes = true where id = '00000000-0000-0000-0000-00000000f004';
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is((select count(*)::int from negocios_ordenados('bus', 'clavos')), 0, 'búsqueda: un negocio oculto no aparece ni por su producto' );
+select throws_ok($$select normalizar_busqueda('x')$$, '42501', null, 'normalizar_busqueda: no la ejecuta el cliente' );
 
 select * from finish();
 rollback;
