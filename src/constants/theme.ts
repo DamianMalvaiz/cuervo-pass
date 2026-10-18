@@ -337,7 +337,11 @@ export const Filete = {
 /** Alto de la barra de pestañas SIN el área segura inferior. El alto real es este
  *  más el inset (ver `(tabs)/_layout.tsx`): un alto fijo se come el icono y la
  *  etiqueta bajo la barra del sistema. */
-export const AltoBarraPestanas = 64;
+export const AltoBarraPestanas = 68;
+
+/** La pastilla lima detrás del icono de la pestaña activa (56 × 32, la de la propuesta del 17/10/2026). */
+export const AnchoPastillaPestana = 56;
+export const AltoPastillaPestana = 32;
 
 /** Lo que se le resta al área segura inferior en iPhone. Con los 34 pt completos la barra queda más alta de lo
  *  natural (probado en un iPhone real el 17/10/2026). En Android NO se resta: ahí la barra del sistema se comía el

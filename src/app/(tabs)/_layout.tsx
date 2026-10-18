@@ -4,7 +4,16 @@ import { useEffect } from 'react';
 import { Platform, StyleSheet, View, type ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AltoBarraPestanas, DescuentoBarraIOS, Filete, Spacing, Tipografia } from '@/constants/theme';
+import {
+  AltoBarraPestanas,
+  AltoPastillaPestana,
+  AnchoPastillaPestana,
+  DescuentoBarraIOS,
+  Filete,
+  Radios,
+  Spacing,
+  Tipografia,
+} from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useMisRoles } from '@/hooks/queries/useRoles';
 import { puedePublicar } from '@/lib/funciones';
@@ -14,19 +23,21 @@ import { useAuthStore } from '@/store/useAuthStore';
 type NombreIcono = keyof typeof Ionicons.glyphMap;
 
 /**
- * La pestaña activa se marca con TRES señales, no con una.
- *
- * Navegar no compromete nada, así que la pestaña activa no gasta sello: se marca
- * con barra encima —como la pestaña levantada de un folder—, icono relleno en vez
- * de contorno, y contraste pleno frente al tono secundario. Tres señales, ninguna
- * dependiente solo del color.
+ * La pestaña activa se marca con una PASTILLA lima detrás del icono, el icono relleno en vez de contorno y la
+ * etiqueta más gruesa. Tres señales, ninguna dependiente solo del color. La pastilla ocupa su sitio siempre,
+ * activa o no (transparente): si apareciera solo al activarse, el icono brincaría en cada cambio de pestaña.
+ * El lima es RELLENO, nunca texto ni icono (1.68:1 sobre blanco), así que el icono va en carbón encima.
  */
 function crearIcono(activo: NombreIcono, inactivo: NombreIcono) {
   function Icono({ focused, color, size }: { focused: boolean; color: ColorValue; size: number }) {
+    const theme = useTheme();
     return (
-      <View style={estilos.envolturaIcono}>
-        <View style={[estilos.marca, focused && { backgroundColor: color as string }]} />
-        <Ionicons name={focused ? activo : inactivo} size={size - 2} color={color as string} />
+      <View style={[estilos.pastilla, { backgroundColor: focused ? theme.lima : 'transparent' }]}>
+        <Ionicons
+          name={focused ? activo : inactivo}
+          size={size - 2}
+          color={focused ? theme.limaTexto : (color as string)}
+        />
       </View>
     );
   }
@@ -82,8 +93,7 @@ export default function TabsLayout() {
         },
         tabBarLabelStyle: {
           fontFamily: Tipografia.semibold,
-          fontSize: 10,
-          letterSpacing: 0.6,
+          fontSize: 11,
           marginTop: Spacing.half,
         },
         tabBarItemStyle: { paddingVertical: Spacing.one },
@@ -126,8 +136,11 @@ export default function TabsLayout() {
 }
 
 const estilos = StyleSheet.create({
-  envolturaIcono: { alignItems: 'center', gap: Spacing.one },
-  // Siempre ocupa su espacio, activa o no: si apareciera solo al activarse,
-  // el icono brincaría dos píxeles en cada cambio de pestaña.
-  marca: { width: 18, height: Filete.grueso, backgroundColor: 'transparent' },
+  pastilla: {
+    width: AnchoPastillaPestana,
+    height: AltoPastillaPestana,
+    borderRadius: Radios.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

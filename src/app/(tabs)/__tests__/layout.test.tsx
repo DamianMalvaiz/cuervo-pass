@@ -76,9 +76,9 @@ jest.mock('@/store/useAuthStore', () => ({
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
-import { AltoBarraPestanas, DescuentoBarraIOS as DESCUENTO_IOS } from '@/constants/theme';
+import { AltoBarraPestanas, Colors, DescuentoBarraIOS as DESCUENTO_IOS, Radios } from '@/constants/theme';
 import TabsLayout from '../_layout';
 
 const conInsetInferior = (bottom: number) =>
@@ -196,24 +196,23 @@ test('cada pestaña tiene su par relleno/contorno', async () => {
   }
 });
 
-// La barra de encima reserva su espacio siempre, activa o no. Si apareciera solo
-// al activarse, el icono brincaría dos píxeles en cada cambio de pestaña — y ese
-// salto es de los defectos que se notan sin saber nombrarlos.
-test('la barra de encima ocupa su sitio esté activa o no', async () => {
+// La pastilla reserva su espacio siempre, activa o no. Si apareciera solo al activarse, el icono brincaría en cada
+// cambio de pestaña. Activa: fondo lima (relleno, nunca texto) con el icono en carbón; inactiva: transparente.
+test('la pastilla ocupa su sitio esté activa o no, y solo la activa lleva lima', async () => {
   const activa = await pintarIcono('inicio', true);
   const inactiva = await pintarIcono('inicio', false);
 
-  // `render` es asíncrono en este arnés, así que su `ReturnType` es una promesa
-  // y no lo que se recibe tras el `await`: de ahí `Awaited<>`. tsc lo atrapó.
-  const alto = (vista: Awaited<ReturnType<typeof render>>) => {
-    const raiz = vista.toJSON() as { children?: unknown[] };
-    const marca = (raiz.children as { props: { style: unknown } }[])[0];
-    return JSON.stringify(marca.props.style);
+  const pastilla = (vista: Awaited<ReturnType<typeof render>>) => {
+    const raiz = vista.toJSON() as unknown as { props: { style: unknown } };
+    return StyleSheet.flatten(raiz.props.style as never) as Record<string, unknown>;
   };
-  // Misma altura en los dos estados; lo que cambia es el color de fondo.
-  expect(alto(activa)).toContain('height');
-  expect(alto(inactiva)).toContain('height');
-  expect(alto(activa)).not.toEqual(alto(inactiva));
+  const a1 = pastilla(activa);
+  const i1 = pastilla(inactiva);
+  expect(a1.width).toBe(i1.width);
+  expect(a1.height).toBe(i1.height);
+  expect(a1.borderRadius).toBe(Radios.full);
+  expect(a1.backgroundColor).toBe(Colors.light.lima);
+  expect(i1.backgroundColor).toBe('transparent');
 });
 
 // ── Área segura inferior ─────────────────────────────────────────────────────
