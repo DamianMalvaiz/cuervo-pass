@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, View } from 'react-native';
 
+import { BotonFavoritoNegocio } from '@/components/BotonFavoritoNegocio';
 import { Estrellas } from '@/components/ficha/Estrellas';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
@@ -92,6 +93,7 @@ export function TarjetaNegocio({
         </View>
       ) : null}
       {textos}
+      {forma === 'fila' ? <BotonFavoritoNegocio negocioId={negocio.id} /> : null}
     </Pulsable>
   );
 }

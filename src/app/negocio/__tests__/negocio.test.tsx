@@ -9,6 +9,13 @@ const mockNegocio = jest.fn();
 const mockFotos = jest.fn();
 const mockMisNegocios = jest.fn();
 const mockSeccion = jest.fn();
+// El corazón de negocios tiene sus propias pruebas; aquí solo importa que se monte con el id correcto.
+jest.mock('@/components/BotonFavoritoNegocio', () => ({
+  BotonFavoritoNegocio: ({ negocioId }: { negocioId: string }) => {
+    const { Text } = require('react-native');
+    return <Text>{`CORAZON ${negocioId}`}</Text>;
+  },
+}));
 jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: 'n1' }) }));
 jest.mock('@/hooks/queries/useServicios', () => ({ useNegocio: (...a: unknown[]) => mockNegocio(...a) }));
 jest.mock('@/hooks/queries/useMisNegocios', () => ({ useMisNegocios: (...a: unknown[]) => mockMisNegocios(...a) }));
@@ -248,4 +255,9 @@ describe('horario estructurado (0070)', () => {
     expect(screen.queryByText(/Abierto ahora|Cerrado ahora/)).toBeNull();
     expect(screen.getByText('Lun a sáb · 8 am a 9 pm')).toBeTruthy();
   });
+});
+
+it('la ficha lleva el corazón de ESE negocio', async () => {
+  await render(<NegocioScreen />);
+  expect(screen.getByText('CORAZON n1')).toBeTruthy();
 });

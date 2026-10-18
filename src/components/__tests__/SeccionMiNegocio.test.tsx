@@ -5,6 +5,13 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 const mockPush = jest.fn();
 const mockMisNegocios = jest.fn();
+// El corazón de negocios tiene sus propias pruebas; aquí solo importa que se monte con el id correcto.
+jest.mock('@/components/BotonFavoritoNegocio', () => ({
+  BotonFavoritoNegocio: ({ negocioId }: { negocioId: string }) => {
+    const { Text } = require('react-native');
+    return <Text>{`CORAZON ${negocioId}`}</Text>;
+  },
+}));
 jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(...a) } }));
 jest.mock('@/hooks/queries/useMisNegocios', () => ({ useMisNegocios: (...a: unknown[]) => mockMisNegocios(...a) }));
 jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: () => ({ urls: new Map(), fallo: null }) }));

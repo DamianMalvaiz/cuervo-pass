@@ -4,6 +4,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Linking, ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 
+import { BotonFavoritoNegocio } from '@/components/BotonFavoritoNegocio';
 import { Estrellas } from '@/components/ficha/Estrellas';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { Pastilla } from '@/components/ficha/Pastilla';
@@ -135,7 +136,10 @@ export default function NegocioScreen() {
 
       <View style={[estilos.cuerpo, { backgroundColor: theme.background }]}>
         <View style={estilos.encabezado}>
-          <ThemedText type="title">{negocio.nombre}</ThemedText>
+          <View style={estilos.filaTitulo}>
+            <ThemedText type="title" style={estilos.tituloFlex}>{negocio.nombre}</ThemedText>
+            <BotonFavoritoNegocio negocioId={negocio.id} />
+          </View>
           <View style={estilos.fila}>
             {precio ? (
               <ThemedText type="small" style={Texto.pesoFuerte}>
@@ -223,6 +227,8 @@ export default function NegocioScreen() {
 }
 
 const estilos = StyleSheet.create({
+  filaTitulo: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
+  tituloFlex: { flex: 1 },
   pantalla: { flex: 1 },
   margen: { padding: Spacing.three },
   hoja: { width: '100%', alignSelf: 'center', paddingBottom: Spacing.six },

@@ -13,9 +13,13 @@ jest.mock('@/lib/supabase', () => ({
 
 import {
   guardarFavorito,
+  guardarFavoritoNegocio,
   listarMisFavoritos,
   listarMisFavoritosIds,
+  listarMisNegociosFavoritos,
+  listarMisNegociosFavoritosIds,
   quitarFavorito,
+  quitarFavoritoNegocio,
 } from '../favoritos.service';
 
 function cadena(resultado: { data?: unknown; error?: unknown }) {
@@ -167,5 +171,57 @@ describe('contarFavoritos', () => {
     const { contarFavoritos } = require('../favoritos.service');
     mockRpc.mockResolvedValue({ data: null, error: { message: 'sin red' } });
     await expect(contarFavoritos(['a'])).rejects.toMatchObject({ message: 'sin red' });
+  });
+});
+
+// ── Favoritos de negocios (0073) ────────────────────────────────────────────────────────────────────────────────
+describe('favoritos de negocios', () => {
+  test('los ids: solo de esta cuenta, recientes primero, y un fallo LANZA', async () => {
+    const c = cadena({ data: [{ negocio_id: 'b' }, { negocio_id: 'a' }] });
+    mockDesde.mockReturnValue(c);
+    await expect(listarMisNegociosFavoritosIds('u1')).resolves.toEqual(['b', 'a']);
+    expect(mockDesde).toHaveBeenCalledWith('favoritos_negocios');
+    expect(c.eq).toHaveBeenCalledWith('usuario_id', 'u1');
+    mockDesde.mockReturnValue(cadena({ error: { message: 'sin red' } }));
+    await expect(listarMisNegociosFavoritosIds('u1')).rejects.toMatchObject({ message: 'sin red' });
+  });
+
+  test('guardar es idempotente (23505 no es error) y el tope CP004 se lanza con su código', async () => {
+    mockDesde.mockReturnValue(cadena({ error: { code: '23505', message: 'dup' } }));
+    await expect(guardarFavoritoNegocio('u1', 'n1')).resolves.toBeUndefined();
+    mockDesde.mockReturnValue(cadena({ error: { code: 'CP004', message: 'tope' } }));
+    await expect(guardarFavoritoNegocio('u1', 'n1')).rejects.toMatchObject({ code: 'CP004' });
+  });
+
+  test('guardar manda cuenta y negocio; quitar filtra por los dos', async () => {
+    const g = cadena({});
+    mockDesde.mockReturnValue(g);
+    await guardarFavoritoNegocio('u1', 'n1');
+    expect(g.insert).toHaveBeenCalledWith({ usuario_id: 'u1', negocio_id: 'n1' });
+    const q = cadena({});
+    mockDesde.mockReturnValue(q);
+    await quitarFavoritoNegocio('u1', 'n1');
+    expect(q.eq).toHaveBeenCalledWith('usuario_id', 'u1');
+    expect(q.eq).toHaveBeenCalledWith('negocio_id', 'n1');
+  });
+
+  test('la lista sale de la VISTA pública, en el orden guardado, y dice cuántos ya no están', async () => {
+    mockDesde.mockImplementation((t: string) =>
+      t === 'favoritos_negocios' ? cadena({ data: [{ negocio_id: 'b' }, { negocio_id: 'x' }, { negocio_id: 'a' }] }) : cadena({ data: [{ id: 'a' }, { id: 'b' }] }));
+    const r = await listarMisNegociosFavoritos('u1');
+    expect(r.negocios.map((n) => n.id)).toEqual(['b', 'a']);
+    expect(r.noDisponibles).toBe(1);
+    expect(mockDesde).toHaveBeenCalledWith('negocios_publicos');
+  });
+
+  test('sin favoritos no consulta la vista', async () => {
+    mockDesde.mockReturnValue(cadena({ data: [] }));
+    await expect(listarMisNegociosFavoritos('u1')).resolves.toEqual({ negocios: [], noDisponibles: 0 });
+    expect(mockDesde).toHaveBeenCalledTimes(1);
+  });
+
+  test('si falla leer la vista, LANZA', async () => {
+    mockDesde.mockImplementation((t: string) => (t === 'favoritos_negocios' ? cadena({ data: [{ negocio_id: 'a' }] }) : cadena({ error: { message: 'x' } })));
+    await expect(listarMisNegociosFavoritos('u1')).rejects.toMatchObject({ message: 'x' });
   });
 });

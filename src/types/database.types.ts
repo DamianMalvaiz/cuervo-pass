@@ -470,6 +470,7 @@ export interface Database {
       pagos: Tabla<PagoRegistrado>;
       negocio_items: Tabla<NegocioItem>;
       negocio_horarios: Tabla<NegocioHorarioFila>;
+      favoritos_negocios: Tabla<{ [key: string]: unknown; usuario_id: string; negocio_id: string; creado_en: string }>;
       geocodificaciones: Tabla<{
         [key: string]: unknown;
         consulta: string;

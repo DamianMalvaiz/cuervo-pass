@@ -5,6 +5,8 @@
 // (inactiva u oculta por reportes) desaparece de la lista sin que nada se filtre.
 
 import { supabase } from '@/lib/supabase';
+import { COLUMNAS_NEGOCIO } from '@/services/servicios.service';
+import type { Negocio } from '@/types/database.types';
 import { SQL, esCodigo } from '@/lib/erroresPostgres';
 
 /**
@@ -93,4 +95,39 @@ export async function contarFavoritos(ids: string[]): Promise<Map<string, number
     for (const fila of data ?? []) conteos.set(fila.publicacion_id, fila.total);
   }
   return conteos;
+}
+
+// ── Favoritos de negocios (0073) ───────────────────────────────────────────────────────────────────────────────
+
+/** Los ids de negocios que esta cuenta guardó, los más recientes primero. LANZA si falla (END-11). */
+export async function listarMisNegociosFavoritosIds(usuarioId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('favoritos_negocios')
+    .select('negocio_id')
+    .eq('usuario_id', usuarioId)
+    .order('creado_en', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((f) => f.negocio_id as string);
+}
+
+/** Idempotente como `guardarFavorito`. CP004 = tope de 200. */
+export async function guardarFavoritoNegocio(usuarioId: string, negocioId: string): Promise<void> {
+  const { error } = await supabase.from('favoritos_negocios').insert({ usuario_id: usuarioId, negocio_id: negocioId });
+  if (error && !esCodigo(error, SQL.UNIQUE_VIOLATION)) throw error;
+}
+
+export async function quitarFavoritoNegocio(usuarioId: string, negocioId: string): Promise<void> {
+  const { error } = await supabase.from('favoritos_negocios').delete().eq('usuario_id', usuarioId).eq('negocio_id', negocioId);
+  if (error) throw error;
+}
+
+/** Los negocios guardados que SIGUEN visibles, en el orden en que se guardaron, y cuántos ya no están disponibles. */
+export async function listarMisNegociosFavoritos(usuarioId: string): Promise<{ negocios: Negocio[]; noDisponibles: number }> {
+  const ids = await listarMisNegociosFavoritosIds(usuarioId);
+  if (ids.length === 0) return { negocios: [], noDisponibles: 0 };
+  const { data, error } = await supabase.from('negocios_publicos').select(COLUMNAS_NEGOCIO).in('id', ids);
+  if (error) throw error;
+  const porId = new Map((data ?? []).map((n) => [(n as unknown as Negocio).id, n as unknown as Negocio]));
+  const negocios = ids.flatMap((id) => (porId.has(id) ? [porId.get(id) as Negocio] : []));
+  return { negocios, noDisponibles: ids.length - negocios.length };
 }

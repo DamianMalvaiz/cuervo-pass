@@ -1,5 +1,12 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
+// El corazón de negocios tiene sus propias pruebas; aquí solo importa que se monte con el id correcto.
+jest.mock('@/components/BotonFavoritoNegocio', () => ({
+  BotonFavoritoNegocio: ({ negocioId }: { negocioId: string }) => {
+    const { Text } = require('react-native');
+    return <Text>{`CORAZON ${negocioId}`}</Text>;
+  },
+}));
 import { TarjetaNegocio, signosDePrecio } from '../TarjetaNegocio';
 
 // La tarjeta de un negocio de Servicios. Lo que se fija: dice la distancia en lenguaje de persona, NUNCA enseña el puntaje del
@@ -88,5 +95,16 @@ describe('TarjetaNegocio · abierto ahora (0070)', () => {
     await render(<TarjetaNegocio negocio={negocio({ abierto_ahora: null }) as never} onPress={() => {}} />);
     expect(screen.queryByText(/Abierto ahora|Cerrado/)).toBeNull();
     expect(screen.getByText(/Lun a sáb/)).toBeTruthy();
+  });
+});
+
+describe('TarjetaNegocio · favoritos (0073)', () => {
+  it('la fila lleva el corazón de ESE negocio', async () => {
+    await render(<TarjetaNegocio negocio={negocio() as never} onPress={() => {}} />);
+    expect(screen.getByText('CORAZON n1')).toBeTruthy();
+  });
+  it('la forma destacada (carril) no lo lleva', async () => {
+    await render(<TarjetaNegocio negocio={negocio() as never} forma="destacado" onPress={() => {}} />);
+    expect(screen.queryByText(/CORAZON/)).toBeNull();
   });
 });

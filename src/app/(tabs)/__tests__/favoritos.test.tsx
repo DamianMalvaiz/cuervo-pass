@@ -8,6 +8,14 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 const mockFavoritos = jest.fn();
 jest.mock('@/hooks/queries/useFavoritos', () => ({ useMisFavoritos: (...a: unknown[]) => mockFavoritos(...a) }));
+const mockNegocios = jest.fn();
+jest.mock('@/hooks/queries/useFavoritosNegocios', () => ({ useMisNegociosFavoritos: (...a: unknown[]) => mockNegocios(...a) }));
+jest.mock('@/components/BotonFavoritoNegocio', () => ({
+  BotonFavoritoNegocio: ({ negocioId }: { negocioId: string }) => {
+    const { Text } = require('react-native');
+    return <Text>{`CORAZON_NEGOCIO:${negocioId}`}</Text>;
+  },
+}));
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(...a) } }));
 jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: () => ({ urls: new Map(), fallo: null }) }));
@@ -37,9 +45,13 @@ const estado = (extra: Record<string, unknown> = {}) => ({
   publicaciones: [], noDisponibles: 0, cargando: false, fallo: false, refrescando: false, reintentar: jest.fn(), ...extra,
 });
 
+const negocio = (id: string) => ({ id, categoria_id: 'comida', nombre: `Negocio ${id}`, descripcion: null, direccion: 'Calle 1', latitud: null, longitud: null, rango_precio: 1, horario: null, fotos: [], destacado: false, origen: 'solicitud' });
+const estadoNegocios = (extra: Record<string, unknown> = {}) => ({ negocios: [], noDisponibles: 0, cargando: false, fallo: false, reintentar: jest.fn(), ...extra });
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockFavoritos.mockReturnValue(estado());
+  mockNegocios.mockReturnValue(estadoNegocios());
 });
 
 test('sin nada guardado lo dice y explica cómo guardar', async () => {
@@ -95,4 +107,57 @@ test('si todas las guardadas dejaron de estar disponibles, no dice que no guarda
   await render(<FavoritosScreen />);
   expect(await screen.findByText(/3 publicaciones guardadas ya no están disponibles/i)).toBeTruthy();
   expect(screen.queryByText(/Aún no guardas ninguna publicación/i)).toBeNull();
+});
+
+describe('segmento Negocios (0073)', () => {
+  const irANegocios = async () => { await fireEvent.press(screen.getByLabelText('Negocios')); };
+
+  test('arranca en Publicaciones y el segmento activo se dice sin depender del color', async () => {
+    await render(<FavoritosScreen />);
+    expect(screen.getByLabelText('Publicaciones').props.accessibilityState?.selected).toBe(true);
+    expect(screen.getByLabelText('Negocios').props.accessibilityState?.selected).toBe(false);
+  });
+
+  test('muestra los negocios guardados con su corazón y tocar uno abre su ficha', async () => {
+    mockNegocios.mockReturnValue(estadoNegocios({ negocios: [negocio('n1'), negocio('n2')] }));
+    await render(<FavoritosScreen />);
+    await irANegocios();
+    expect(screen.getByText('Negocio n1')).toBeTruthy();
+    expect(screen.getByText('CORAZON_NEGOCIO:n2')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText(/Negocio n1/));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/negocio/[id]', params: { id: 'n1' } });
+  });
+
+  test('sin negocios guardados lo dice y explica cómo guardar', async () => {
+    await render(<FavoritosScreen />);
+    await irANegocios();
+    expect(screen.getByText(/Aún no guardas ningún negocio/)).toBeTruthy();
+  });
+
+  test('si falla, lo dice con reintento y NO dice que no hay nada', async () => {
+    const reintentar = jest.fn();
+    mockNegocios.mockReturnValue(estadoNegocios({ fallo: true, reintentar }));
+    await render(<FavoritosScreen />);
+    await irANegocios();
+    expect(screen.getByText('No pudimos cargar tus negocios guardados')).toBeTruthy();
+    expect(screen.queryByText(/Aún no guardas ningún negocio/)).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Reintentar'));
+    expect(reintentar).toHaveBeenCalled();
+  });
+
+  test('los que ya no están disponibles se DICEN', async () => {
+    mockNegocios.mockReturnValue(estadoNegocios({ noDisponibles: 2 }));
+    await render(<FavoritosScreen />);
+    await irANegocios();
+    expect(screen.getByText('2 negocios guardados ya no están disponibles.')).toBeTruthy();
+    expect(screen.queryByText(/Aún no guardas/)).toBeNull();
+  });
+
+  test('volver a Publicaciones muestra las publicaciones', async () => {
+    mockFavoritos.mockReturnValue(estado({ publicaciones: [pub('a')] }));
+    await render(<FavoritosScreen />);
+    await irANegocios();
+    await fireEvent.press(screen.getByLabelText('Publicaciones'));
+    expect(screen.getByText('Depa a')).toBeTruthy();
+  });
 });

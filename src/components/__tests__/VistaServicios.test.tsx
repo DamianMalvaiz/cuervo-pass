@@ -8,6 +8,8 @@ const mockPush = jest.fn();
 const mockNegocios = jest.fn();
 const mockCategorias = jest.fn();
 
+// El corazón de negocios tiene sus propias pruebas.
+jest.mock('@/components/BotonFavoritoNegocio', () => ({ BotonFavoritoNegocio: () => null }));
 jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(...a) } }));
 jest.mock('@/hooks/queries/useServicios', () => ({
   useNegocios: (...a: unknown[]) => mockNegocios(...a),

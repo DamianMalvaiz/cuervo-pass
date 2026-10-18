@@ -28,7 +28,7 @@ No tolera erratas («taqeria») ni sinónimos: eso pediría trigramas o un dicci
 El horario es estructurado (`negocio_horarios`: día ISO 1–7, `abre`, `cierra`, hasta 21 turnos; `cierra` < `abre` cruza la medianoche; `cierra` es exclusivo; zona
 `America/Mexico_City`). `negocio_abierto_en(negocio, instante)` mira el turno de HOY y el que empezó AYER y sigue abierto. **Tres estados**: abierto, cerrado y
 `null` (sin horario estructurado: no se sabe, y no se inventa). El filtro «Abierto ahora» (`p_solo_abiertos`) se aplica en el servidor y solo deja los que **se sabe**
-que están abiertos. El estado **no entra al puntaje**: filtra, no reordena. Se comprueba con `npx supabase test db` (593 aserciones) y con `npx jest src/lib/__tests__/horario.test.ts`.
+que están abiertos. El estado **no entra al puntaje**: filtra, no reordena. Se comprueba con `npx supabase test db` (610 aserciones) y con `npx jest src/lib/__tests__/horario.test.ts`.
 
 ### Límites honestos
 - Sin personalización en Servicios: no existe historial de uso de negocios; no se inventa (la de Depas, con favoritos, está abajo).
@@ -172,7 +172,7 @@ score_final = 0.6·score + 0.4·similitud                                       
 Rocchio en forma de **fusión tardía**: se mezclan los dos cosenos y no los vectores (pgvector no multiplica un vector por un escalar). n = favoritos con vector.
 w: 1 favorito 0.19 · 3 favoritos 0.38 · 10 favoritos 0.58 · tope 0.75 (el cuestionario siempre pesa al menos un cuarto). **Sin favoritos, w = 0 y el resultado es idéntico
 al de antes.** Una publicación que ya guardaste no se auto-refuerza (su similitud usa solo tu perfil). Lista y ficha usan la misma fórmula
-(`sugerencias_con_ranking` / `afinidad_de_para`); lo comprueba la aserción «la ficha y la lista dan el MISMO número también con favoritos» (`npx supabase test db`, 593).
+(`sugerencias_con_ranking` / `afinidad_de_para`); lo comprueba la aserción «la ficha y la lista dan el MISMO número también con favoritos» (`npx supabase test db`, 610).
 
 - **Explicación:** `parecido_a` nombra tu favorito más cercano si el coseno ≥ 0.70. Medido sobre las 114 publicaciones con vector (6 441 pares, 18/10/2026):
   mediana 0.42, p90 0.73, p99 0.95; 0.70 ≈ el 10 % más parecido. **Es una decisión de producto, no una medida de calidad.**

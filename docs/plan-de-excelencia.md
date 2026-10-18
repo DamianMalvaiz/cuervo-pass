@@ -68,7 +68,7 @@ Tamaños: S = horas, M = una sesión larga, L = varias sesiones. **Congelar func
 | 1.3 | **(herramienta lista; faltan las etiquetas de la persona responsable) Conjunto de evaluación etiquetado** (`scripts/evaluacion-depas.mjs`: 4 personas fabricadas, 40 pares con pooling de 4 variantes del orden, página `evaluacion/etiquetar.html`, NDCG@4; probado de punta a punta solo con etiquetas aleatorias): tú calificas ~40 pares (perfil, publicación) y medimos NDCG de cada versión del orden. Lo único que permite decir «mejoramos» con honestidad | M | B7 |
 | 1.4 | Calibrar Depas (afinidad reescalada, ruido ordinal), con la métrica de 1.3 | S | B7 |
 | 1.5 | **Centro de notificaciones** con insignia (hecho en código, `tsc`, lint, 1922 pruebas de Jest y 593 de pgTAP en verde; la migración 0072 está **sin aplicar**). Además cierra un hallazgo: `authenticated` podía reescribir `tipo` y `contenido` de sus propios avisos (ahora solo `leida`), y los avisos de mensaje crecían sin límite (ahora 14 días; el resto 90). Nuevos avisos: verificación resuelta, reseña nueva, reseña respondida | M | B8 |
-| 1.6 | **Favoritos de negocios** | M | B8 |
+| 1.6 | **Favoritos de negocios** (hecho en código, `tsc`, lint, 1948 pruebas de Jest y 610 de pgTAP en verde; la migración 0073 está **sin aplicar**): tabla privada `favoritos_negocios` (solo lo visible, tope de 200, se conserva si el negocio se oculta), corazón en la tarjeta y la ficha, y segmento «Negocios» en la pestaña Favoritos. Entra en `exportar_mis_datos` (derecho de acceso). Al recrear esa función se descubrió que `create or replace` borra su `search_path`: la prueba de higiene lo atrapó | M | B8 |
 | 1.7 | Revisión visual completa en el teléfono (ver §5) | M | B5 |
 
 ### Fase 2 — Distinguirse
