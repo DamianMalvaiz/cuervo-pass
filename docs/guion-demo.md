@@ -23,10 +23,13 @@ Después de la demo: `preparar-demo.mjs --limpiar --aplicar` quita las tres cuen
 ### 1. El estudiante busca (teléfono A, ~4 min)
 1. **Inicio → Depas.** Se ven las sugerencias ordenadas por ajuste. Abrir una: la ficha dice **por qué** (distancia, cuánto bajo tu tope, afinidad).
    *Decir:* distancia 30 %, presupuesto 30 %, compatibilidad 25 %, novedad 15 %, y 40 % de afinidad semántica (`docs/algoritmos.md`).
-2. **Roomies.** El orden es por similitud de texto y se muestra como Alta/Media. *Decir con honestidad:* aquí no se puede descomponer en razones.
+2. **Roomies.** Cada tarjeta dice su compatibilidad y **por qué**: «Mismo nivel de ruido», «Ninguno fuma», «Su aportación entra en tu presupuesto», o lo que no coincide
+   («Uno tiene mascotas y el otro no»). *Decir:* sale de reglas sobre ruido, tabaco, horario, mascotas y aportación; el parecido de texto solo ayuda a ordenar. Lo que una
+   persona no declaró **se ignora**, no cuenta en su contra. Los roomies de la demo son fabricados y rotulados (`scripts/completar-roomies-demo.mjs`).
 3. **Servicios.** Los destacados van primero; luego por cercanía y calidad. Las tarjetas dicen «a X km». Los 25 negocios de ejemplo llevan el rótulo
    **«Negocio de ejemplo»** y no tienen estrellas inventadas. *Decir:* hoy ninguno tiene reseñas, así que decide la cercanía
    (`node --env-file=.env --env-file=.env.server scripts/evaluar-ranking.mjs` lo muestra con números).
+   **Búsqueda:** probar «cafe» sin acento y «pizza» o «pan» (negocios que los venden sin llamarse así): la búsqueda ignora acentos y mira nombre, descripción y menú.
 4. Abrir «Taquería Demo 360» (la negocio real de `demo.comerciante`): ficha con menú, horario y **sin reseñas todavía**.
 
 ### 2. El vendedor se verifica (teléfono B, ~5 min)
