@@ -60,10 +60,10 @@ export function validarMenu(productos: ProductoEditable[], maxPlan: number = MAX
   return null;
 }
 
-export interface GrupoMenu {
+export interface GrupoMenu<T extends { seccion: string } = ProductoEditable> {
   /** Nombre de la sección; `null` agrupa los que no tienen. */
   seccion: string | null;
-  productos: ProductoEditable[];
+  productos: T[];
 }
 
 /**
@@ -71,10 +71,10 @@ export interface GrupoMenu {
  * productos sin sección van al final. La comparación ignora mayúsculas y espacios sobrantes («Tacos» y «tacos » son la
  * misma sección), y se conserva la escritura de la primera.
  */
-export function agruparPorSeccion(productos: ProductoEditable[]): GrupoMenu[] {
-  const grupos: GrupoMenu[] = [];
-  const indice = new Map<string, GrupoMenu>();
-  const sin: ProductoEditable[] = [];
+export function agruparPorSeccion<T extends { seccion: string }>(productos: T[]): GrupoMenu<T>[] {
+  const grupos: GrupoMenu<T>[] = [];
+  const indice = new Map<string, GrupoMenu<T>>();
+  const sin: T[] = [];
   for (const p of productos) {
     const nombre = p.seccion.trim();
     if (!nombre) {
@@ -95,7 +95,7 @@ export function agruparPorSeccion(productos: ProductoEditable[]): GrupoMenu[] {
 }
 
 /** Las secciones distintas que ya existen, en orden de aparición (para ofrecerlas al editar un producto). */
-export function seccionesDe(productos: ProductoEditable[]): string[] {
+export function seccionesDe<T extends { seccion: string }>(productos: T[]): string[] {
   return agruparPorSeccion(productos)
     .map((g) => g.seccion)
     .filter((s): s is string => s !== null);

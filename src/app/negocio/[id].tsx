@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
-import { Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Linking, ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { Pastilla } from '@/components/ficha/Pastilla';
@@ -12,6 +13,7 @@ import { ThemedView } from '@/components/themed-view';
 import { AltoFotoTarjeta, Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useNegocio } from '@/hooks/queries/useServicios';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { agruparPorSeccion } from '@/lib/menu';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -29,7 +31,9 @@ export default function NegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { anchoLista } = useTamanoPantalla();
   const { negocio, items, cargando, fallo, reintentar } = useNegocio(id);
-  const { urls } = useFotosFirmadas([negocio?.fotos[0]]);
+  const [foja, setFoja] = useState(0);
+  // Una sola firma EN LOTE para la galería y las fotos de los productos.
+  const { urls } = useFotosFirmadas([...(negocio?.fotos ?? []), ...items.map((i) => i.foto)]);
 
   if (cargando) {
     return (
@@ -66,7 +70,10 @@ export default function NegocioScreen() {
     );
   }
 
-  const urlFoto = negocio.fotos[0] ? urls.get(negocio.fotos[0]) : null;
+  const fotos = negocio.fotos;
+  const grupos = agruparPorSeccion(items.map((i) => ({ ...i, seccion: i.seccion ?? '' })));
+  // Divide por el ancho ACOTADO con el que se pintan las fotos (como en la ficha de un depa).
+  const alDesplazar = (e: NativeSyntheticEvent<NativeScrollEvent>) => setFoja(Math.round(e.nativeEvent.contentOffset.x / anchoLista));
   const precio = signosDePrecio(negocio.rango_precio);
   const hayMapa = negocio.latitud != null && negocio.longitud != null;
 
@@ -84,8 +91,33 @@ export default function NegocioScreen() {
       contentContainerStyle={[estilos.hoja, { maxWidth: anchoLista }]}
       showsVerticalScrollIndicator={false}
     >
-      {urlFoto ? (
-        <Image source={{ uri: urlFoto }} style={estilos.foto} contentFit="cover" transition={160} />
+      {fotos.length > 0 ? (
+        <View>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={alDesplazar}
+            accessibilityLabel={`${fotos.length} fotografías del negocio`}
+          >
+            {fotos.map((ruta) => {
+              const url = urls.get(ruta);
+              return url ? (
+                <Image key={ruta} source={{ uri: url }} style={[estilos.foto, { width: anchoLista }]} contentFit="cover" transition={160} />
+              ) : (
+                <View key={ruta} style={[estilos.foto, estilos.sinFoto, { width: anchoLista, backgroundColor: theme.backgroundSelected }]} />
+              );
+            })}
+          </ScrollView>
+          {fotos.length > 1 ? (
+            // «1 de 12» en una pastilla oscura sobre la foto: dice en cuál vas y cuántas faltan.
+            <View style={[estilos.foja, { backgroundColor: theme.text }]}>
+              <ThemedText type="smallBold" style={{ color: theme.background }}>
+                {foja + 1} de {fotos.length}
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
       ) : (
         <View style={[estilos.foto, estilos.sinFoto, { backgroundColor: theme.backgroundSelected }]}>
           <Ionicons name="storefront-outline" size={32} color={theme.textSecondary} />
@@ -119,23 +151,35 @@ export default function NegocioScreen() {
         {items.length > 0 ? (
           <View style={estilos.menu}>
             <ThemedText type="subtitle">Menú y precios</ThemedText>
-            <View style={[estilos.tarjetaMenu, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
-              {items.map((it, i) => (
-                <View
-                  key={it.id}
-                  style={[estilos.renglon, i > 0 && { borderTopWidth: Filete.fino, borderTopColor: theme.filete }]}
-                >
-                  <ThemedText style={[estilos.nombreItem, Texto.pesoFuerte]}>{it.nombre}</ThemedText>
-                  {it.precio != null ? (
-                    <ThemedText style={Texto.pesoFuerte}>{`$${formateadorPrecio.format(it.precio)}`}</ThemedText>
-                  ) : (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      Consultar precio
-                    </ThemedText>
-                  )}
+            {grupos.map((g) => (
+              <View key={g.seccion ?? 'sin-seccion'} style={estilos.menu}>
+                <ThemedText type="smallBold" themeColor="textSecondary">{g.seccion ?? 'Otros'}</ThemedText>
+                <View style={[estilos.tarjetaMenu, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
+                  {g.productos.map((it, i) => {
+                    const miniatura = it.foto ? urls.get(it.foto) : null;
+                    return (
+                      <View
+                        key={it.id}
+                        style={[estilos.renglon, i > 0 && { borderTopWidth: Filete.fino, borderTopColor: theme.filete }]}
+                      >
+                        {miniatura ? <Image source={{ uri: miniatura }} style={estilos.miniatura} contentFit="cover" /> : null}
+                        <View style={estilos.nombreItem}>
+                          <ThemedText style={Texto.pesoFuerte}>{it.nombre}</ThemedText>
+                          {it.descripcion ? (
+                            <ThemedText type="small" themeColor="textSecondary" numberOfLines={3}>{it.descripcion}</ThemedText>
+                          ) : null}
+                        </View>
+                        {it.precio != null ? (
+                          <ThemedText style={Texto.pesoFuerte}>{`$${formateadorPrecio.format(it.precio)}`}</ThemedText>
+                        ) : (
+                          <ThemedText type="small" themeColor="textSecondary">Consultar precio</ThemedText>
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
-              ))}
-            </View>
+              </View>
+            ))}
           </View>
         ) : null}
 
@@ -171,6 +215,8 @@ const estilos = StyleSheet.create({
   pastillas: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   menu: { gap: Spacing.two },
   tarjetaMenu: { borderWidth: Filete.fino, borderRadius: Radios.tarjeta, paddingHorizontal: Spacing.three },
-  renglon: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.three, minHeight: 52 },
+  renglon: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, minHeight: 52, paddingVertical: Spacing.two },
+  miniatura: { width: 56, height: 56, borderRadius: Radios.control },
+  foja: { position: 'absolute', right: Spacing.three, bottom: Spacing.five, borderRadius: Radios.full, paddingHorizontal: Spacing.three, paddingVertical: Spacing.one },
   nombreItem: { flex: 1 },
 });

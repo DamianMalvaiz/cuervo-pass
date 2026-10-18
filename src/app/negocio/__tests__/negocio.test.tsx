@@ -6,9 +6,10 @@ import { Linking } from 'react-native';
 // rotula. «Cómo llegar» solo existe si hay coordenadas.
 
 const mockNegocio = jest.fn();
+const mockFotos = jest.fn();
 jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: 'n1' }) }));
 jest.mock('@/hooks/queries/useServicios', () => ({ useNegocio: (...a: unknown[]) => mockNegocio(...a) }));
-jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: () => ({ urls: new Map(), fallo: null }) }));
+jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: (...a: unknown[]) => mockFotos(...a) }));
 
 import NegocioScreen from '../[id]';
 
@@ -28,6 +29,7 @@ const estado = (extra: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockNegocio.mockReturnValue(estado());
+  mockFotos.mockReturnValue({ urls: new Map(), fallo: null });
   jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
 });
 
@@ -104,4 +106,79 @@ test('un negocio que no existe o no es visible lo dice', async () => {
   mockNegocio.mockReturnValue(estado({ negocio: null, items: [] }));
   await render(<NegocioScreen />);
   expect(screen.getByText(/ya no está disponible/)).toBeTruthy();
+});
+
+// Cuervo 360 · galería y menú a escala real (0053).
+describe('la galería', () => {
+  const conFotos = (n: number) => {
+    const fotos = Array.from({ length: n }, (_, i) => `negocios/n1/${i}.jpg`);
+    mockNegocio.mockReturnValue(estado({ negocio: { ...NEGOCIO, fotos } }));
+    mockFotos.mockReturnValue({ urls: new Map(fotos.map((f) => [f, `https://f.test/${f}`])), fallo: null });
+  };
+
+  it('con varias fotos dice en cuál vas y cuántas hay', async () => {
+    conFotos(12);
+    await render(<NegocioScreen />);
+    expect(screen.getByText('1 de 12')).toBeTruthy();
+    expect(screen.getByLabelText('12 fotografías del negocio')).toBeTruthy();
+  });
+
+  it('con una sola foto no lleva contador', async () => {
+    conFotos(1);
+    await render(<NegocioScreen />);
+    expect(screen.queryByText(/^\d+ de \d+$/)).toBeNull();
+  });
+
+  it('sin fotos no hay contador ni carrusel', async () => {
+    await render(<NegocioScreen />);
+    expect(screen.queryByText(/^\d+ de \d+$/)).toBeNull();
+    expect(screen.queryByLabelText(/fotografías del negocio/)).toBeNull();
+  });
+
+  it('firma EN LOTE la galería y las fotos de los productos, una sola vez', async () => {
+    mockNegocio.mockReturnValue(estado({
+      negocio: { ...NEGOCIO, fotos: ['negocios/n1/a.jpg'] },
+      items: [{ id: 'i1', negocio_id: 'n1', nombre: 'Taco', precio: 20, orden: 0, seccion: null, descripcion: null, foto: 'negocios/n1/p/t.jpg' }],
+    }));
+    await render(<NegocioScreen />);
+    expect(mockFotos).toHaveBeenCalledWith(['negocios/n1/a.jpg', 'negocios/n1/p/t.jpg']);
+  });
+});
+
+describe('el menú por secciones', () => {
+  const item = (id: string, nombre: string, extra: Record<string, unknown> = {}) => ({
+    id, negocio_id: 'n1', nombre, precio: 10, orden: 0, seccion: null, descripcion: null, foto: null, ...extra,
+  });
+
+  it('agrupa por sección, en el orden del menú, y deja «Otros» al final', async () => {
+    mockNegocio.mockReturnValue(estado({
+      items: [item('a', 'Taco', { seccion: 'Tacos' }), item('b', 'Agua', { seccion: 'Bebidas' }), item('c', 'Revisión'), item('d', 'Gringa', { seccion: 'tacos' })],
+    }));
+    await render(<NegocioScreen />);
+    expect(screen.getByText('Tacos')).toBeTruthy();
+    expect(screen.getByText('Bebidas')).toBeTruthy();
+    expect(screen.getByText('Otros')).toBeTruthy();
+    // «Tacos» y «tacos» son una misma sección.
+    expect(screen.getAllByText(/^tacos$/i)).toHaveLength(1);
+  });
+
+  it('un menú sin secciones no inventa títulos: solo «Otros»', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco'), item('b', 'Agua')] }));
+    await render(<NegocioScreen />);
+    expect(screen.getByText('Otros')).toBeTruthy();
+  });
+
+  it('cada producto muestra su descripción', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco', { seccion: 'Tacos', descripcion: 'Con piña y cilantro' })] }));
+    await render(<NegocioScreen />);
+    expect(screen.getByText('Con piña y cilantro')).toBeTruthy();
+  });
+
+  it('un producto con foto la muestra; sin foto no deja un hueco', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco', { foto: 'negocios/n1/p/t.jpg' }), item('b', 'Agua')] }));
+    mockFotos.mockReturnValue({ urls: new Map([['negocios/n1/p/t.jpg', 'https://f.test/t']]), fallo: null });
+    await render(<NegocioScreen />);
+    expect(screen.getByText('Taco')).toBeTruthy();
+    expect(screen.getByText('Agua')).toBeTruthy();
+  });
 });
