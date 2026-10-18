@@ -31,6 +31,17 @@ describe('validarNegocio', () => {
     expect(MAX_FOTOS_NEGOCIO).toBe(60);
   });
 
+  it('respeta el límite del PLAN y dice cuántas quitar', () => {
+    const cinco = Array.from({ length: 5 }, (_, i) => `f${i}`);
+    expect(validarNegocio({ ...completo, fotos: cinco }, 4).fotos).toMatch(/hasta 4 fotos.*Quita 1/);
+    expect(validarNegocio({ ...completo, fotos: cinco }, 5).fotos).toBeUndefined();
+  });
+
+  it('un límite de plan mayor que la cota técnica no la rebasa', () => {
+    const muchas = Array.from({ length: MAX_FOTOS_NEGOCIO + 1 }, (_, i) => `f${i}`);
+    expect(validarNegocio({ ...completo, fotos: muchas }, 9999).fotos).toBeTruthy();
+  });
+
   it('sin fotos se puede guardar; con más del máximo no', () => {
     expect(validarNegocio({ ...completo, fotos: [] }).fotos).toBeUndefined();
     const demasiadas = Array.from({ length: MAX_FOTOS_NEGOCIO + 1 }, (_, i) => `f${i}`);

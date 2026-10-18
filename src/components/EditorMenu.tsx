@@ -11,12 +11,15 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useGuardarMenu } from '@/hooks/queries/useMisNegocios';
+import { useMiSuscripcion } from '@/hooks/queries/usePlanes';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTheme } from '@/hooks/use-theme';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
 import {
-  agruparPorSeccion, buscarEnMenu, parsearPrecio, productoVacio, seccionesDe, validarMenu, type ProductoEditable,
+  MAX_PRODUCTOS_TECNICO, agruparPorSeccion, buscarEnMenu, parsearPrecio, productoVacio, seccionesDe, validarMenu,
+  type ProductoEditable,
 } from '@/lib/menu';
+import { useAuthStore } from '@/store/useAuthStore';
 import { toast } from '@/lib/toast';
 import type { NegocioItem } from '@/types/database.types';
 
@@ -43,6 +46,10 @@ const desdeItem = (i: NegocioItem): ProductoEditable => ({
 export function EditorMenu({ negocioId, nombreNegocio, items }: { negocioId: string; nombreNegocio: string; items: NegocioItem[] }) {
   const theme = useTheme();
   const guardar = useGuardarMenu(negocioId);
+  const miId = useAuthStore((s) => s.session?.user.id);
+  // El límite REAL del plan; mientras no se sepa, rige la cota técnica y la base hace cumplir el plan (CP009).
+  const { suscripcion } = useMiSuscripcion(miId, 'comerciante');
+  const maxProductos = Math.min(suscripcion?.max_productos ?? MAX_PRODUCTOS_TECNICO, MAX_PRODUCTOS_TECNICO);
   const [productos, setProductos] = useState<ProductoEditable[]>(() => items.map(desdeItem));
   const [busqueda, setBusqueda] = useState('');
   const [editando, setEditando] = useState<{ producto: ProductoEditable; esNuevo: boolean } | null>(null);
@@ -68,7 +75,7 @@ export function EditorMenu({ negocioId, nombreNegocio, items }: { negocioId: str
   };
 
   const onGuardarMenu = () => {
-    const problema = validarMenu(productos);
+    const problema = validarMenu(productos, maxProductos);
     if (problema) {
       toast.error(problema);
       return;
@@ -95,7 +102,7 @@ export function EditorMenu({ negocioId, nombreNegocio, items }: { negocioId: str
       <View style={estilos.cabecera}>
         <ThemedText type="subtitle" numberOfLines={1}>Menú de {nombreNegocio}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          {productos.length === 1 ? '1 producto' : `${productos.length} productos`}
+          {suscripcion ? `${productos.length} de ${maxProductos} productos` : productos.length === 1 ? '1 producto' : `${productos.length} productos`}
         </ThemedText>
 
         <View style={[estilos.buscador, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
@@ -110,15 +117,28 @@ export function EditorMenu({ negocioId, nombreNegocio, items }: { negocioId: str
           />
         </View>
 
-        <Pulsable
-          onPress={() => setEditando({ producto: productoVacio(), esNuevo: true })}
-          accessibilityRole="button"
-          accessibilityLabel="Agregar un producto"
-          style={[estilos.agregar, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
-        >
-          <Ionicons name="add" size={20} color={theme.bosque} />
-          <ThemedText style={Texto.pesoFuerte}>Agregar producto</ThemedText>
-        </Pulsable>
+        {productos.length < maxProductos ? (
+          <Pulsable
+            onPress={() => setEditando({ producto: productoVacio(), esNuevo: true })}
+            accessibilityRole="button"
+            accessibilityLabel="Agregar un producto"
+            style={[estilos.agregar, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
+          >
+            <Ionicons name="add" size={20} color={theme.bosque} />
+            <ThemedText style={Texto.pesoFuerte}>Agregar producto</ThemedText>
+          </Pulsable>
+        ) : (
+          <Pulsable
+            onPress={() => router.push({ pathname: '/planes/[rol]', params: { rol: 'comerciante' } })}
+            accessibilityRole="link"
+            accessibilityLabel="Ver planes para agregar más productos"
+            style={estilos.enlacePlan}
+          >
+            <ThemedText type="small" themeColor="acento">
+              Llegaste al límite de tu plan ({maxProductos}). Ver planes
+            </ThemedText>
+          </Pulsable>
+        )}
       </View>
 
       <SectionList
@@ -229,5 +249,6 @@ const estilos = StyleSheet.create({
   crece: { flex: 1 },
   separador: { height: Spacing.two },
   vacio: { paddingVertical: Spacing.four, textAlign: 'center' },
+  enlacePlan: { minHeight: 44, justifyContent: 'center' },
   pie: { padding: Spacing.three, borderTopWidth: Filete.fino },
 });

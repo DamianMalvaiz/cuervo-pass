@@ -9,8 +9,11 @@ const mockExito = jest.fn();
 const mockError = jest.fn();
 const mockPermiso = jest.fn();
 const mockElegir = jest.fn();
+const mockSus = jest.fn();
+const mockPush = jest.fn();
 
-jest.mock('expo-router', () => ({ router: { back: (...a: unknown[]) => mockBack(...a) } }));
+jest.mock('expo-router', () => ({ router: { back: (...a: unknown[]) => mockBack(...a), push: (...a: unknown[]) => mockPush(...a) } }));
+jest.mock('@/hooks/queries/usePlanes', () => ({ useMiSuscripcion: (...a: unknown[]) => mockSus(...a) }));
 jest.mock('@/hooks/queries/useMisNegocios', () => ({
   useGuardarMenu: () => ({ mutate: (...a: unknown[]) => mockMutate(...a), isPending: false }),
 }));
@@ -42,6 +45,7 @@ const montar = () => render(<EditorMenu negocioId="n1" nombreNegocio="Tacos La E
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockSus.mockReturnValue({ suscripcion: { max_fotos: 60, max_productos: 250 }, cargando: false, fallo: false });
   mockPermiso.mockResolvedValue({ granted: true });
   mockElegir.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///nueva.jpg' }] });
 });
@@ -50,7 +54,7 @@ describe('la lista', () => {
   it('muestra el nombre del negocio y cuántos productos hay', async () => {
     await montar();
     expect(screen.getByText('Menú de Tacos La Esquina')).toBeTruthy();
-    expect(screen.getByText('3 productos')).toBeTruthy();
+    expect(screen.getByText('3 de 250 productos')).toBeTruthy();
   });
 
   it('agrupa por secciones y deja «Sin sección» al final', async () => {
@@ -117,7 +121,7 @@ describe('editar productos (todo local hasta guardar)', () => {
     await pulsar('Guardar producto');
     expect(screen.getByText('Quesadilla')).toBeTruthy();
     expect(screen.getByText('Antojitos')).toBeTruthy();
-    expect(screen.getByText('4 productos')).toBeTruthy();
+    expect(screen.getByText('4 de 250 productos')).toBeTruthy();
   });
 
   it('un producto sin nombre NO se agrega y dice por qué', async () => {
@@ -125,7 +129,7 @@ describe('editar productos (todo local hasta guardar)', () => {
     await pulsar('Agregar un producto');
     await pulsar('Guardar producto');
     expect(screen.getByText('Escribe el nombre del producto')).toBeTruthy();
-    expect(screen.getByText('3 productos')).toBeTruthy();
+    expect(screen.getByText('3 de 250 productos')).toBeTruthy();
   });
 
   it('un precio inválido NO se acepta', async () => {
@@ -142,7 +146,7 @@ describe('editar productos (todo local hasta guardar)', () => {
     await pulsar('Editar Revisión');
     await pulsar('Quitar el producto del menú');
     expect(screen.queryByText('Revisión')).toBeNull();
-    expect(screen.getByText('2 productos')).toBeTruthy();
+    expect(screen.getByText('2 de 250 productos')).toBeTruthy();
   });
 
   it('cancelar el editor no cambia nada', async () => {
@@ -221,5 +225,39 @@ describe('guardar el menú', () => {
     await pulsar('Guardar menú');
     expect(String(mockError.mock.calls[0][0])).toMatch(/conexión/);
     expect(mockExito).not.toHaveBeenCalled();
+  });
+});
+
+// Cuervo 360 · el límite REAL del plan, a la vista (0053).
+describe('el límite de productos del plan', () => {
+  it('el contador dice cuántos llevas del total', async () => {
+    mockSus.mockReturnValue({ suscripcion: { max_fotos: 20, max_productos: 80 }, cargando: false, fallo: false });
+    await montar();
+    expect(screen.getByText('3 de 80 productos')).toBeTruthy();
+    expect(screen.getByLabelText('Agregar un producto')).toBeTruthy();
+  });
+
+  it('al llegar al límite ya no ofrece agregar y lleva a los planes', async () => {
+    mockSus.mockReturnValue({ suscripcion: { max_fotos: 4, max_productos: 3 }, cargando: false, fallo: false });
+    await montar();
+    expect(screen.queryByLabelText('Agregar un producto')).toBeNull();
+    expect(screen.getByText(/Llegaste al límite de tu plan \(3\)/)).toBeTruthy();
+    await pulsar('Ver planes para agregar más productos');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/planes/[rol]', params: { rol: 'comerciante' } });
+  });
+
+  it('si aún no se sabe el plan, no inventa un límite: rige la cota técnica', async () => {
+    mockSus.mockReturnValue({ suscripcion: null, cargando: true, fallo: false });
+    await montar();
+    expect(screen.getByText('3 productos')).toBeTruthy();
+    expect(screen.queryByText(/Llegaste al límite/)).toBeNull();
+  });
+
+  it('un menú con más productos que su plan (bajó de plan) NO se manda y dice cuántos quitar', async () => {
+    mockSus.mockReturnValue({ suscripcion: { max_fotos: 4, max_productos: 2 }, cargando: false, fallo: false });
+    await montar();
+    await pulsar('Guardar menú');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(String(mockError.mock.calls[0][0])).toMatch(/hasta 2 productos.*Quita 1/);
   });
 });

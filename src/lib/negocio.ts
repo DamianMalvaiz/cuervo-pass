@@ -26,7 +26,8 @@ export interface ErroresNegocio {
   fotos?: string;
 }
 
-export function validarNegocio(d: DatosNegocioForm): ErroresNegocio {
+/** `maxFotos` es el límite del plan de la cuenta, si se conoce; si no, rige la cota técnica y la base hace cumplir el plan (CP012). */
+export function validarNegocio(d: DatosNegocioForm, maxFotos: number = MAX_FOTOS_NEGOCIO): ErroresNegocio {
   const e: ErroresNegocio = {};
   const nombre = d.nombre.trim();
   const direccion = d.direccion.trim();
@@ -37,7 +38,8 @@ export function validarNegocio(d: DatosNegocioForm): ErroresNegocio {
   else if (direccion.length > 200) e.direccion = 'La dirección es demasiado larga (máximo 200)';
   if (d.descripcion.trim().length > 600) e.descripcion = 'La descripción es demasiado larga (máximo 600)';
   if (d.horario.trim().length > 120) e.horario = 'El horario es demasiado largo (máximo 120)';
-  if (d.fotos.length > MAX_FOTOS_NEGOCIO) e.fotos = `Máximo ${MAX_FOTOS_NEGOCIO} fotos`;
+  const tope = Math.min(maxFotos, MAX_FOTOS_NEGOCIO);
+  if (d.fotos.length > tope) e.fotos = `Tu plan permite hasta ${tope} fotos. Quita ${d.fotos.length - tope} para guardar.`;
 
   return e;
 }

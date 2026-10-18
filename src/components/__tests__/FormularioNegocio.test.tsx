@@ -14,6 +14,7 @@ const mockElegir = jest.fn();
 const mockExito = jest.fn();
 const mockError = jest.fn();
 const mockInfo = jest.fn();
+const mockSus = jest.fn();
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -30,6 +31,7 @@ jest.mock('@/hooks/queries/useMisNegocios', () => {
     useBorrarNegocio: () => ({ mutate: (...a: unknown[]) => mockBorrarMutate(...a), isPending: false }),
   };
 });
+jest.mock('@/hooks/queries/usePlanes', () => ({ useMiSuscripcion: (...a: unknown[]) => mockSus(...a) }));
 jest.mock('@/hooks/queries/useServicios', () => ({
   useCategoriasServicio: () => ({
     categorias: [{ id: 'comida', nombre: 'Comida', icono: 'x', orden: 1 }, { id: 'cafes', nombre: 'Cafés', icono: 'x', orden: 2 }],
@@ -71,6 +73,7 @@ const llenarNuevo = async () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockSus.mockReturnValue({ suscripcion: { max_fotos: 60, max_productos: 250 }, cargando: false, fallo: false });
   mockGeocodificar.mockResolvedValue({ lat: 19.32, lng: -99.45, proveedor: 'osm' });
   mockPermiso.mockResolvedValue({ granted: true });
   let n = 0;
@@ -293,5 +296,40 @@ describe('borrar', () => {
     botones.find((b: { style?: string }) => b.style === 'destructive').onPress();
     expect(String(mockError.mock.calls[0][0])).toMatch(/No pudimos borrar/);
     expect(mockBack).not.toHaveBeenCalled();
+  });
+});
+
+// Cuervo 360 · el límite REAL del plan, a la vista (0053).
+describe('el límite de fotos del plan', () => {
+  it('el contador usa el límite del plan, no una cifra fija', async () => {
+    mockSus.mockReturnValue({ suscripcion: { max_fotos: 4, max_productos: 10 }, cargando: false, fallo: false });
+    await render(<FormularioNegocio />);
+    expect(screen.getByText(/Fotos \(0\/4\)/)).toBeTruthy();
+  });
+
+  it('al llegar al límite del plan ya no ofrece agregar y lleva a los planes', async () => {
+    mockSus.mockReturnValue({ suscripcion: { max_fotos: 2, max_productos: 10 }, cargando: false, fallo: false });
+    await render(<FormularioNegocio />);
+    await pulsar('Agregar una foto del negocio');
+    await pulsar('Agregar una foto del negocio');
+    expect(screen.queryByLabelText('Agregar una foto del negocio')).toBeNull();
+    expect(screen.getByText(/Llegaste al límite de tu plan \(2\)/)).toBeTruthy();
+    await pulsar('Ver planes para agregar más fotos');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/planes/[rol]', params: { rol: 'comerciante' } });
+  });
+
+  it('si aún no se sabe el plan, rige la cota técnica y NO se inventa un límite', async () => {
+    mockSus.mockReturnValue({ suscripcion: null, cargando: true, fallo: false });
+    await render(<FormularioNegocio />);
+    expect(screen.getByText(/Fotos \(0\/60\)/)).toBeTruthy();
+    expect(screen.queryByText(/Llegaste al límite/)).toBeNull();
+  });
+
+  it('un negocio con más fotos que su plan (bajó de plan) NO guarda y dice cuántas quitar', async () => {
+    mockSus.mockReturnValue({ suscripcion: { max_fotos: 1, max_productos: 10 }, cargando: false, fallo: false });
+    await render(<FormularioNegocio inicial={{ negocio: NEGOCIO as never, items: ITEMS as never }} />);
+    await pulsar('Guardar cambios');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText(/Tu plan permite hasta 1 fotos\. Quita 1 para guardar/)).toBeTruthy();
   });
 });

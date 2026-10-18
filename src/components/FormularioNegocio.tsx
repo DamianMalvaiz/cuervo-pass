@@ -12,6 +12,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { ErrorParcial, useBorrarNegocio, useGuardarNegocio } from '@/hooks/queries/useMisNegocios';
+import { useMiSuscripcion } from '@/hooks/queries/usePlanes';
 import { useCategoriasServicio } from '@/hooks/queries/useServicios';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
@@ -48,6 +49,9 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
   const { categorias } = useCategoriasServicio();
   const guardar = useGuardarNegocio(miId);
   const borrar = useBorrarNegocio(miId);
+  // El límite REAL del plan; mientras no se sepa, rige la cota técnica y la base hace cumplir el plan (CP012).
+  const { suscripcion } = useMiSuscripcion(miId, 'comerciante');
+  const maxFotos = Math.min(suscripcion?.max_fotos ?? MAX_FOTOS_NEGOCIO, MAX_FOTOS_NEGOCIO);
   const n = inicial?.negocio;
 
   const [categoriaId, setCategoriaId] = useState<string | null>(n?.categoria_id ?? null);
@@ -80,7 +84,7 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
   const onGuardar = async () => {
     const e = validarNegocio({
       categoriaId, nombre, descripcion, direccion, rangoPrecio, horario, fotos: fotos.map((f) => f.clave),
-    });
+    }, maxFotos);
     setErrores(e);
     if (Object.keys(e).length > 0 || !categoriaId) return;
 
@@ -236,7 +240,7 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
 
           <View style={estilos.bloque}>
             <ThemedText type="smallBold" themeColor="textSecondary">
-              Fotos ({fotos.length}/{MAX_FOTOS_NEGOCIO}) · la primera es la portada
+              Fotos ({fotos.length}/{maxFotos}) · la primera es la portada
             </ThemedText>
             {fotos.map((f, i) => (
               <View key={f.clave} style={estilos.filaFoto}>
@@ -256,7 +260,7 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
                 </Pulsable>
               </View>
             ))}
-            {fotos.length < MAX_FOTOS_NEGOCIO ? (
+            {fotos.length < maxFotos ? (
               <Pulsable
                 onPress={() => void agregarFoto()}
                 accessibilityRole="button"
@@ -265,6 +269,18 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
               >
                 <Ionicons name="add" size={20} color={theme.bosque} />
                 <ThemedText style={Texto.pesoFuerte}>Agregar foto</ThemedText>
+              </Pulsable>
+            ) : null}
+            {fotos.length >= maxFotos && suscripcion ? (
+              <Pulsable
+                onPress={() => router.push({ pathname: '/planes/[rol]', params: { rol: 'comerciante' } })}
+                accessibilityRole="link"
+                accessibilityLabel="Ver planes para agregar más fotos"
+                style={estilos.enlacePlan}
+              >
+                <ThemedText type="small" themeColor="acento">
+                  Llegaste al límite de tu plan ({maxFotos}). Ver planes
+                </ThemedText>
               </Pulsable>
             ) : null}
             {errores.fotos ? <ThemedText type="small" style={{ color: theme.error }}>{errores.fotos}</ThemedText> : null}
@@ -365,4 +381,5 @@ const estilos = StyleSheet.create({
     borderRadius: Radios.tarjeta,
   },
   borrar: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  enlacePlan: { minHeight: 44, justifyContent: 'center' },
 });
