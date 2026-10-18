@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(217);
+select plan(247);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1086,10 +1086,12 @@ select is(
     'enviar_verificacion',
     'exportar_mis_datos',
     'favoritos_por_publicacion',
+    'mi_suscripcion',
     'nuevas_esta_semana',
     'resumen_conversaciones',
     'revelar_contacto',
     'score_ajuste',
+    'simular_pago',
     'sugerencias_con_ranking',
     'sugerencias_publicaciones',
     'sugerencias_roomies',
@@ -2136,6 +2138,128 @@ select is(
 select is(
   has_column_privilege('authenticated', 'public.negocios', 'nombre', 'update'), true,
   'authenticated sí edita el nombre de lo suyo (la política acota las filas)' );
+
+-- ── Planes, prueba gratis y pagos simulados (0053) ──────────────────────────
+-- f7: comerciante y arrendador aprobados (la aprobación creó su prueba gratis). e9: sin funciones.
+select actuar_como_servicio();
+select ok(
+  (select prueba_hasta between now() + interval '14 days' and now() + interval '16 days'
+     from suscripciones where usuario_id = '00000000-0000-0000-0000-0000000000f7' and rol = 'comerciante'),
+  'prueba: aprobar la verificación inicia 15 días de prueba gratis' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select is(
+  (select plan_id || ':' || estado from mi_suscripcion('comerciante')),
+  'comerciante_basico:prueba', 'prueba: durante la prueba rigen los límites del plan Básico' );
+select is(
+  (select estado from mi_suscripcion('arrendador')), 'prueba', 'prueba: el arrendador también tiene la suya' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select is(
+  (select count(*)::int from mi_suscripcion('comerciante')), 0,
+  'suscripción: quien no tiene la función no tiene plan que mostrar' );
+
+-- Con el modo demostración APAGADO (valor por defecto) el pago simulado se rechaza.
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select throws_ok(
+  $$select simular_pago('comerciante_destacado')$$, 'CP010', null,
+  'simular_pago: con demo_mode apagado RECHAZA' );
+
+select actuar_como_servicio();
+update configuracion_app set valor = 'cualquier cosa' where clave = 'demo_mode';
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select throws_ok(
+  $$select simular_pago('comerciante_destacado')$$, 'CP010', null,
+  'simular_pago: un valor distinto de exactamente «true» también está apagado (falla cerrado)' );
+
+select actuar_como_servicio();
+update configuracion_app set valor = 'true' where clave = 'demo_mode';
+
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select throws_ok(
+  $$select simular_pago('comerciante_destacado')$$, 'CP011', null,
+  'simular_pago: sin la función aprobada no se puede pagar su plan' );
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select throws_ok($$select simular_pago('comerciante_gratis')$$, 'CP011', null, 'simular_pago: un plan gratuito no se paga');
+select throws_ok($$select simular_pago('no_existe')$$, 'CP011', null, 'simular_pago: un plan inexistente tampoco');
+
+select lives_ok($$select simular_pago('comerciante_destacado')$$, 'simular_pago: con demo_mode activo y la función aprobada, paga');
+select is(
+  (select plan_id || ':' || estado from mi_suscripcion('comerciante')),
+  'comerciante_destacado:vigente', 'pago: el plan pagado pasa a vigente' );
+select ok(
+  (select hasta between now() + interval '29 days' and now() + interval '31 days' from mi_suscripcion('comerciante')),
+  'pago: cada pago extiende 30 días' );
+select is(
+  (select count(*)::int from pagos where monto_centavos = 19900 and origen = 'simulado'), 1,
+  'pago: queda registrado, con su monto y su origen «simulado»' );
+select is(
+  (select destacado from negocios_publicos where nombre = 'Tienda F7'), true,
+  'destacado: sale del plan efectivo, no de una columna que alguien fije' );
+select lives_ok(
+  $$update negocios set activo = true where nombre = 'Segundo inactivo'$$,
+  'límite: con el plan Destacado caben 3 negocios activos (con el Básico solo 1)' );
+
+select lives_ok($$select simular_pago('comerciante_destacado')$$, 'pago: pagar antes de vencer también se permite');
+select ok(
+  (select hasta between now() + interval '59 days' and now() + interval '61 days' from mi_suscripcion('comerciante')),
+  'pago: pagar antes de vencer SUMA el periodo, no lo reinicia' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is((select count(*)::int from pagos), 0, 'pagos: otra cuenta no lee los pagos ajenos');
+select throws_ok(
+  $$insert into pagos (usuario_id, rol, plan_id, monto_centavos, origen, periodo_inicio, periodo_fin)
+    values ('00000000-0000-0000-0000-0000000000b2', 'comerciante', 'comerciante_destacado', 0, 'simulado', now(), now() + interval '1 day')$$,
+  '42501', null, 'pagos: el cliente no escribe pagos' );
+select throws_ok(
+  $$update suscripciones set plan_id = 'comerciante_destacado' where usuario_id = '00000000-0000-0000-0000-0000000000b2'$$,
+  '42501', null, 'suscripciones: el cliente no se cambia el plan' );
+select throws_ok($$select * from configuracion_app$$, '42501', null, 'configuración: el cliente no la lee');
+
+-- Vencimiento: se baja al plan gratuito y lo que excede se OCULTA, no se borra.
+select actuar_como_servicio();
+update suscripciones set vigente_hasta = now() - interval '1 day', prueba_hasta = now() - interval '1 day'
+ where usuario_id = '00000000-0000-0000-0000-0000000000f7' and rol = 'comerciante';
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select is(
+  (select plan_id || ':' || estado from mi_suscripcion('comerciante')),
+  'comerciante_gratis:gratis', 'vencimiento: sin pago ni prueba vuelve al plan gratuito' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is(
+  (select count(*)::int from negocios_publicos where nombre in ('Tienda F7', 'Segundo inactivo')), 0,
+  'vencimiento: los negocios de quien no paga dejan de verse' );
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select ok(
+  (select count(*)::int from negocios where nombre in ('Tienda F7', 'Segundo inactivo')) = 2,
+  'vencimiento: pero NO se borran: su dueño los sigue teniendo' );
+select throws_ok(
+  $$update negocios set fotos = array[
+      'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/a.jpg',
+      'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/b.jpg',
+      'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/c.jpg'
+    ] where nombre = 'Tienda F7'$$,
+  'CP012', null, 'fotos: más de las que permite el plan efectivo se rechaza' );
+
+-- Al volver a pagar reaparecen.
+select simular_pago('comerciante_basico');
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is(
+  (select count(*)::int from negocios_publicos where nombre in ('Tienda F7', 'Segundo inactivo')), 1,
+  'pago: al volver a pagar reaparece lo que cabe en el plan (Básico: 1 negocio)' );
+
+-- Con demo_mode apagado otra vez, rechaza.
+select actuar_como_servicio();
+update configuracion_app set valor = 'false' where clave = 'demo_mode';
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select throws_ok($$select simular_pago('comerciante_destacado')$$, 'CP010', null, 'simular_pago: apagado de nuevo, rechaza otra vez');
+
+select actuar_como_servicio();
+select is(has_table_privilege('anon', 'public.planes', 'select'), false, 'anon no lee los planes');
+select throws_ok(
+  $$insert into planes (id, rol, nombre, precio_centavos, limite_principal, max_fotos) values ('otro_gratis', 'comerciante', 'Otro', 0, 1, 1)$$,
+  '23505', null, 'planes: no puede haber dos planes gratuitos para la misma función' );
+select is(
+  (select count(*)::int from planes), 5, 'planes: el catálogo trae los cinco planes propuestos' );
 
 select * from finish();
 rollback;
