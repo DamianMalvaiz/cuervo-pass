@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(144);
+select plan(155);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1783,6 +1783,65 @@ select is(
   (select acepto_aviso_privacidad_en from usuarios where id = '00000000-0000-0000-0000-0000000000f8'),
   null,
   'un valor que no es true no cuenta como consentimiento, y el alta no se tumba' );
+
+-- ── Servicios (0047) ────────────────────────────────────────────────────────
+select actuar_como_servicio();
+insert into categorias_servicio (id, nombre, icono, orden, activa) values
+  ('comida', 'Comida', 'restaurant-outline', 1, true),
+  ('retirada', 'Retirada', 'close-outline', 2, false);
+insert into negocios (id, categoria_id, nombre, direccion, origen, activo, oculto_por_reportes) values
+  ('00000000-0000-0000-0000-00000000b001', 'comida', 'Visible', 'Calle 1', 'sembrado', true,  false),
+  ('00000000-0000-0000-0000-00000000b002', 'comida', 'Inactivo', 'Calle 2', 'sembrado', false, false),
+  ('00000000-0000-0000-0000-00000000b003', 'comida', 'Oculto',   'Calle 3', 'sembrado', true,  true);
+insert into negocio_items (negocio_id, nombre, precio) values
+  ('00000000-0000-0000-0000-00000000b001', 'Taco', 20),
+  ('00000000-0000-0000-0000-00000000b002', 'Taco del inactivo', 20),
+  ('00000000-0000-0000-0000-00000000b003', 'Taco del oculto', 20);
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is(
+  (select array_agg(nombre order by nombre) from negocios_publicos),
+  array['Visible'],
+  'la vista pública solo trae negocios activos y sin ocultar por reportes' );
+select is(
+  (select array_agg(nombre order by nombre) from negocio_items_publicos),
+  array['Taco'],
+  'los productos de un negocio inactivo u oculto tampoco se ven' );
+select is(
+  (select count(*)::int from information_schema.columns
+    where table_name = 'negocios_publicos' and column_name = 'usuario_id'),
+  0,
+  'la vista pública no expone quién es el dueño' );
+select throws_ok(
+  $$select * from negocios$$, '42501', null,
+  'la tabla de negocios está cerrada: solo se lee por la vista' );
+select throws_ok(
+  $$insert into negocios (categoria_id, nombre, direccion, origen) values ('comida', 'Mio', 'Calle 9', 'sembrado')$$,
+  '42501', null, 'el cliente no puede crear negocios (todavía)' );
+select throws_ok(
+  $$select * from negocio_items$$, '42501', null,
+  'la tabla de productos está cerrada' );
+select is(
+  (select array_agg(id order by id) from categorias_servicio),
+  array['comida'],
+  'las categorías retiradas no se ven' );
+
+select actuar_como_servicio();
+select throws_ok(
+  $$insert into negocios (categoria_id, nombre, direccion, origen, usuario_id)
+    values ('comida', 'Con dueño falso', 'Calle 4', 'sembrado', '00000000-0000-0000-0000-0000000000a1')$$,
+  '23514', null, 'un negocio de ejemplo no puede tener dueño' );
+select throws_ok(
+  $$insert into negocios (categoria_id, nombre, direccion, origen) values ('comida', 'Sin dueño falso', 'Calle 5', 'solicitud')$$,
+  '23514', null, 'un negocio de solicitud sí exige dueño' );
+select is(
+  has_table_privilege('anon', 'public.negocios_publicos', 'select'),
+  false,
+  'anon no puede leer negocios' );
+select is(
+  has_table_privilege('authenticated', 'public.negocios', 'insert'),
+  false,
+  'authenticated no tiene insert sobre negocios' );
 
 select * from finish();
 rollback;
