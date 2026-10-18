@@ -12,6 +12,7 @@ Se verifican con `supabase functions serve` y se despliegan con
 | `ai-proxy` | Único camino hacia el microservicio de IA: valida la sesión, aplica la cuota diaria en Postgres y agrega el token compartido | §24 |
 | `geocodificar` | Geocodificación con Nominatim/OSM desde el servidor, con caché de direcciones normalizadas | §9 · AUD-02 |
 | `verificar-rostro` | Compara una selfie con la INE de la persona en el ai-service y guarda solo el resultado (0056). Ayuda al admin, no aprueba | fase 6 |
+| `admin` | Única puerta del panel de administración: comprueba en la base que quien llama es admin y ejecuta con la llave de servicio (verificaciones, moderación, modo demo), con bitácora (0060) | panel de admin |
 | `eliminar-cuenta` | Derecho de cancelación (ARCO): borra la cuenta de Auth y, en cascada, todo lo demás | §29 |
 
 Secrets que necesitan (no viven en ningún archivo del repositorio):

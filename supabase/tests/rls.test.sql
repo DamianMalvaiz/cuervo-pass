@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(391);
+select plan(396);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2784,14 +2784,26 @@ select is((select string_agg(accion, ',' order by creado_en, accion) from accion
            and accion in ('ocultar_resena','restaurar_resena','ocultar_negocio','restaurar_negocio','modo_demo')) is not null, true,
   'bitácora: cada acción dejó su fila' );
 select is((select count(*)::int from acciones_admin where admin_id = '00000000-0000-0000-0000-0000000000a1'), 6,
-  'bitácora: exactamente 6 acciones (ocultar y restaurar una reseña, ocultar y restaurar un negocio, encender y apagar el modo demo), ninguna de más' );
+  'bitácora: exactamente 6 acciones hasta aquí (ocultar y restaurar una reseña, ocultar y restaurar un negocio, encender y apagar el modo demo), ninguna de más' );
 select is((select detalle from acciones_admin where accion = 'ocultar_resena'), 'Insulta al negocio', 'bitácora: queda el motivo' );
+-- Ver documentos: solo con verificación pendiente, solo un admin, y deja rastro.
+select throws_ok($$select registrar_acceso_documentos('00000000-0000-0000-0000-0000000000e9', '00000000-0000-0000-0000-0000000000e9', 'comerciante')$$,
+  'CP007', null, 'documentos: quien no es admin no los ve' );
+select throws_ok($$select registrar_acceso_documentos('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b2', 'comerciante')$$,
+  'CP005', null, 'documentos: sin verificación pendiente no hay nada que ver (no se puede explorar a nadie)' );
+select lives_ok($$select registrar_acceso_documentos('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000e9', 'comerciante')$$,
+  'documentos: un admin ve los de una verificación pendiente' );
+select is((select count(*)::int from acciones_admin where accion = 'ver_documentos' and objetivo_id = '00000000-0000-0000-0000-0000000000e9'), 1,
+  'documentos: queda registrado quién miró los de quién' );
 select actuar_como('00000000-0000-0000-0000-0000000000e9');
 select throws_ok($$select * from acciones_admin$$, '42501', null, 'bitácora: el cliente autenticado no la lee' );
 select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a1', 'resena', '00000000-0000-0000-0000-00000000c001', true, 'intento desde el cliente')$$, '42501', null,
   'moderar: el cliente autenticado no puede ejecutarla, ni diciendo que es admin' );
 select throws_ok($$select * from admin_resumen('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_resumen: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select fijar_demo_mode('00000000-0000-0000-0000-0000000000a1', true)$$, '42501', null, 'modo demo: el cliente autenticado no puede ejecutarla' );
+select throws_ok($$select registrar_acceso_documentos('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000e9', 'comerciante')$$,
+  '42501', null, 'documentos: el cliente autenticado no puede registrar (ni ver) nada' );
+
 
 select * from finish();
 rollback;

@@ -8,18 +8,22 @@
 -- Ninguna se concede a `anon` ni a `authenticated`: solo `service_role`. Aprobar o rechazar verificaciones sigue siendo
 -- `resolver_verificacion` (0049/0053/0057), que ya guarda quién y cuándo.
 --
+-- Ver los documentos de identidad de alguien también se registra (`registrar_acceso_documentos`): es la acción más delicada que puede hacer
+-- un administrador y debe dejar rastro aunque no cambie nada.
+--
 -- Lo que NO cubre: publicaciones de vivienda reportadas y cuentas suspendidas (0023) siguen con su mecanismo automático.
 -- Restaurar una reseña con 3 o más reportes no borra los reportes (son evidencia): un reporte NUEVO la volvería a ocultar.
 --
 -- Reversión:
 --   drop function if exists admin_resumen(uuid), admin_listar_moderacion(uuid), admin_listar_verificaciones(uuid),
---     moderar_contenido(uuid, text, uuid, boolean, text), fijar_demo_mode(uuid, boolean), es_admin_aprobado(uuid);
+--     moderar_contenido(uuid, text, uuid, boolean, text), fijar_demo_mode(uuid, boolean), es_admin_aprobado(uuid),
+--     registrar_acceso_documentos(uuid, uuid, text);
 --   drop table if exists acciones_admin;
 
 create table if not exists acciones_admin (
   id           uuid primary key default gen_random_uuid(),
   admin_id     uuid references usuarios(id) on delete set null,
-  accion       text not null check (accion in ('ocultar_resena', 'restaurar_resena', 'ocultar_negocio', 'restaurar_negocio', 'modo_demo')),
+  accion       text not null check (accion in ('ocultar_resena', 'restaurar_resena', 'ocultar_negocio', 'restaurar_negocio', 'modo_demo', 'ver_documentos')),
   objetivo_id  uuid,
   detalle      text check (char_length(detalle) <= 400),
   creado_en    timestamptz not null default now()
@@ -191,3 +195,25 @@ end;
 $$;
 revoke execute on function fijar_demo_mode(uuid, boolean) from public, anon, authenticated;
 grant execute on function fijar_demo_mode(uuid, boolean) to service_role;
+
+-- Quién miró los documentos de quién. Solo si hay una verificación PENDIENTE de esa persona y rol: no se puede «explorar» a alguien.
+create or replace function registrar_acceso_documentos(p_admin uuid, p_usuario uuid, p_rol text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not es_admin_aprobado(p_admin) then
+    raise exception 'responsable no es admin' using errcode = 'CP007';
+  end if;
+  if not exists (
+    select 1 from roles_usuario where usuario_id = p_usuario and rol = p_rol and estado = 'pendiente'
+  ) then
+    raise exception 'no hay verificacion pendiente' using errcode = 'CP005';
+  end if;
+  insert into acciones_admin (admin_id, accion, objetivo_id, detalle) values (p_admin, 'ver_documentos', p_usuario, p_rol);
+end;
+$$;
+revoke execute on function registrar_acceso_documentos(uuid, uuid, text) from public, anon, authenticated;
+grant execute on function registrar_acceso_documentos(uuid, uuid, text) to service_role;
