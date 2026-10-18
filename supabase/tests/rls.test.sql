@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(342);
+select plan(348);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2681,6 +2681,40 @@ select actuar_como_servicio();
 select is(
   (select ine_borrar_en from verificaciones_vendedor where usuario_id = '00000000-0000-0000-0000-0000000000e9' and rol = 'comerciante'),
   null, 'reenviar tras un rechazo: la entrega nueva no hereda la fecha de borrado de la anterior' );
+
+-- ── INE huérfanas (0058) ────────────────────────────────────────────────────
+-- La verificación de e9 pasa a apuntar a rutas con el MISMO formato que sube la app: <usuario>/<rol>/ine-…jpg.
+select actuar_como_servicio();
+update verificaciones_vendedor set ine_frente = '00000000-0000-0000-0000-0000000000e9/comerciante/ine-frente-3.jpg', ine_reverso = '00000000-0000-0000-0000-0000000000e9/comerciante/ine-reverso-3.jpg'
+ where usuario_id = '00000000-0000-0000-0000-0000000000e9' and rol = 'comerciante';
+insert into storage.objects (bucket_id, name, created_at) values
+  ('verificacion', '00000000-0000-0000-0000-0000000000e9/comerciante/ine-frente-3.jpg', now() - interval '3 days'),
+  ('verificacion', '00000000-0000-0000-0000-0000000000e9/comerciante/ine-reverso-3.jpg', now() - interval '3 days'),
+  ('verificacion', '00000000-0000-0000-0000-0000000000e9/comerciante/ine-frente-viejo.jpg', now() - interval '3 days'),
+  ('verificacion', '00000000-0000-0000-0000-0000000000e9/comerciante/ine-reverso-viejo.jpg', now() - interval '2 days'),
+  ('verificacion', '00000000-0000-0000-0000-0000000000e9/comerciante/ine-frente-reciente.jpg', now() - interval '2 hours'),
+  ('verificacion', '00000000-0000-0000-0000-0000000000e9/comerciante/local-viejo.jpg', now() - interval '3 days'),
+  ('verificacion', '00000000-0000-0000-0000-0000000000e9/admin/ine-frente-viejo.jpg', now() - interval '3 days'),
+  ('verificacion', 'suelto-ine-frente-viejo.jpg', now() - interval '3 days');
+select is(
+  (select array_agg(ruta order by ruta) from ine_huerfanas()),
+  array['00000000-0000-0000-0000-0000000000e9/comerciante/ine-frente-viejo.jpg', '00000000-0000-0000-0000-0000000000e9/comerciante/ine-reverso-viejo.jpg'],
+  'huérfanas: solo la INE sin fila que la apunte y con más de un día' );
+select is(
+  (select count(*)::int from ine_huerfanas() where ruta like '%ine-frente-3.jpg' or ruta like '%ine-reverso-3.jpg'),
+  0, 'huérfanas: la INE que la verificación vigente apunta NUNCA aparece' );
+select is(
+  (select count(*)::int from ine_huerfanas() where ruta like '%reciente%'),
+  0, 'huérfanas: una subida de hace horas no se toca (puede estar a punto de enviarse)' );
+select is(
+  (select count(*)::int from ine_huerfanas() where ruta like '%local-viejo%'),
+  0, 'huérfanas: las fotos del local no son documentos de identidad y no se tocan' );
+select is(
+  (select count(*)::int from ine_huerfanas(1)), 1, 'huérfanas: respeta el límite pedido' );
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select throws_ok(
+  $$select * from ine_huerfanas()$$,
+  '42501', null, 'huérfanas: el cliente autenticado no puede listarlas' );
 
 select * from finish();
 rollback;

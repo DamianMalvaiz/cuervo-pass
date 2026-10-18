@@ -13,12 +13,34 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-import { igualEnTiempoConstante, rutasDeIne } from './politica.ts';
+import { esRutaDeIneHuerfanaSegura, igualEnTiempoConstante, rutasDeIne } from './politica.ts';
 
 const LOTE = 100;
 
 const json = (cuerpo: unknown, status: number) =>
   new Response(JSON.stringify(cuerpo), { status, headers: { 'Content-Type': 'application/json' } });
+
+async function barrerHuerfanas(): Promise<number> {
+  const servicio = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const { data, error } = await servicio.rpc('ine_huerfanas', { p_limite: LOTE });
+  if (error) {
+    console.error('barrer-verificaciones: no se pudieron listar las huérfanas', error.code);
+    return 0;
+  }
+  const listadas = ((data ?? []) as { ruta: string }[]).map((f) => f.ruta);
+  // La base ya filtra por forma; aquí se vuelve a comprobar antes de borrar con la llave de servicio.
+  const rutas = listadas.filter(esRutaDeIneHuerfanaSegura);
+  if (rutas.length < listadas.length) {
+    console.error('barrer-verificaciones: rutas huérfanas con forma inesperada, no se tocan', listadas.length - rutas.length);
+  }
+  if (rutas.length === 0) return 0;
+  const { error: eStorage } = await servicio.storage.from('verificacion').remove(rutas);
+  if (eStorage) {
+    console.error('barrer-verificaciones: Storage rechazó el borrado de huérfanas', eStorage.message);
+    return 0;
+  }
+  return rutas.length;
+}
 
 Deno.serve(async (req) => {
   // Sin CORS, como `barrer-fotos`: la llama pg_cron a través de pg_net, nunca un navegador.
@@ -49,7 +71,12 @@ Deno.serve(async (req) => {
     console.error('barrer-verificaciones: no se pudo leer', eLectura.message);
     return json({ error: 'no se pudo leer' }, 500);
   }
-  if (!filas?.length) return json({ borradas: 0 }, 200);
+
+  // Segunda pasada: INE que ninguna verificación apunta (subidas a medias, entregas anteriores a un reenvío). Va ANTES de salir por
+  // «no hay filas», porque no depende de ellas. Un fallo aquí no tumba la primera pasada: se registra y se reintenta en la hora siguiente.
+  const huerfanasBorradas = await barrerHuerfanas();
+
+  if (!filas?.length) return json({ borradas: 0, huerfanas: huerfanasBorradas }, 200);
 
   let borradas = 0;
   for (const fila of filas) {
@@ -77,6 +104,6 @@ Deno.serve(async (req) => {
     borradas++;
   }
 
-  console.log('barrer-verificaciones', { borradas, revisadas: filas.length });
-  return json({ borradas, revisadas: filas.length }, 200);
+  console.log('barrer-verificaciones', { borradas, revisadas: filas.length, huerfanas: huerfanasBorradas });
+  return json({ borradas, revisadas: filas.length, huerfanas: huerfanasBorradas }, 200);
 });

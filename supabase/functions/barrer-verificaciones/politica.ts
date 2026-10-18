@@ -29,3 +29,14 @@ export function igualEnTiempoConstante(a: string, b: string): boolean {
   for (let i = 0; i < n; i++) dif |= (ba[i] ?? 0) ^ (bb[i] ?? 0);
   return dif === 0;
 }
+
+const FORMA_INE_HUERFANA = /^[0-9a-f-]{36}\/(comerciante|arrendador)\/ine-(frente|reverso)-[^/]+$/;
+
+/**
+ * ¿Es esta ruta, devuelta por `ine_huerfanas` (0058), una INE que se puede borrar? Repite la forma que la base ya exige: el barrido borra
+ * con la llave de servicio y no confía en que el listado esté siempre bien. Solo INE (frente/reverso) de una carpeta `<uuid>/<rol>/`;
+ * las fotos del local o del inmueble no son documentos de identidad y no se tocan.
+ */
+export function esRutaDeIneHuerfanaSegura(ruta: string): boolean {
+  return typeof ruta === 'string' && !ruta.includes('..') && FORMA_INE_HUERFANA.test(ruta);
+}
