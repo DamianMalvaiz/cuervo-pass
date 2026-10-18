@@ -26,6 +26,8 @@ import { useToastStore } from '@/store/useToastStore';
 
 const mockPublicacion = jest.fn();
 const mockAfinidad = jest.fn();
+const mockCalificacion = jest.fn();
+const mockSeccionResenas = jest.fn();
 const mockReportar = jest.fn();
 const mockReintentar = jest.fn();
 const mockFotos = jest.fn();
@@ -75,6 +77,16 @@ jest.mock('@/components/BotonFavorito', () => ({
   },
 }));
 
+jest.mock('@/hooks/queries/useResenas', () => ({ useCalificacionPublicacion: (...a: unknown[]) => mockCalificacion(...a) }));
+// Las reseñas tienen sus propias pruebas; aquí solo importa que la ficha las monte con lo correcto.
+jest.mock('@/components/SeccionResenas', () => ({
+  SeccionResenas: (props: unknown) => {
+    const { Text } = require('react-native');
+    mockSeccionResenas(props);
+    return <Text>SECCION RESEÑAS</Text>;
+  },
+}));
+
 import DetalleScreen from '../[id]';
 
 const PUBLICACION = {
@@ -111,6 +123,7 @@ beforeEach(() => {
   mockPerfil.valor = null;
   mockPublicacion.mockReturnValue(estado());
   mockAfinidad.mockReturnValue(null);
+  mockCalificacion.mockReturnValue({ calificacion: null, numResenas: 0, cargando: false, fallo: false });
   mockFotos.mockReturnValue({ urls: new Map(), fallo: null });
 });
 
@@ -469,4 +482,32 @@ test('el membrete ya no lleva folio ni fecha de alta', async () => {
   expect(screen.getByText('Departamento')).toBeTruthy();
   expect(screen.queryByText(/FOLIO/)).toBeNull();
   expect(screen.queryByText(/ALTA/)).toBeNull();
+});
+
+// Reseñas (0054).
+describe('las reseñas en la ficha de una vivienda', () => {
+  it('monta la sección con la vivienda y su calificación calculada', async () => {
+    mockCalificacion.mockReturnValue({ calificacion: 4.5, numResenas: 3, cargando: false, fallo: false });
+    await pintar();
+    expect(screen.getByText('SECCION RESEÑAS')).toBeTruthy();
+    expect(mockSeccionResenas).toHaveBeenCalledWith({
+      objetivo: { publicacionId: PUBLICACION.id }, esDueno: false, calificacion: 4.5, numResenas: 3,
+    });
+  });
+
+  it('sin reseñas no inventa calificación: null y 0', async () => {
+    await pintar();
+    expect(mockSeccionResenas).toHaveBeenCalledWith(expect.objectContaining({ calificacion: null, numResenas: 0 }));
+  });
+
+  it('si la vivienda es MÍA, la sección sabe que soy el dueño (responde, no reseña)', async () => {
+    mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, usuario_id: 'u1' } }));
+    await pintar();
+    expect(mockSeccionResenas).toHaveBeenCalledWith(expect.objectContaining({ esDueno: true }));
+  });
+
+  it('pide la calificación de ESTA publicación', async () => {
+    await pintar();
+    expect(mockCalificacion).toHaveBeenCalledWith('p1');
+  });
 });

@@ -4,18 +4,22 @@ import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Linking, ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 
+import { Estrellas } from '@/components/ficha/Estrellas';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { Pastilla } from '@/components/ficha/Pastilla';
 import { Sello } from '@/components/ficha/Sello';
+import { SeccionResenas } from '@/components/SeccionResenas';
 import { signosDePrecio } from '@/components/TarjetaNegocio';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AltoFotoTarjeta, Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { useMisNegocios } from '@/hooks/queries/useMisNegocios';
 import { useNegocio } from '@/hooks/queries/useServicios';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { agruparPorSeccion } from '@/lib/menu';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuthStore } from '@/store/useAuthStore';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 });
 
@@ -31,6 +35,9 @@ export default function NegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { anchoLista } = useTamanoPantalla();
   const { negocio, items, cargando, fallo, reintentar } = useNegocio(id);
+  const miId = useAuthStore((s) => s.session?.user.id);
+  // ¿Es MI negocio? La vista pública no trae al dueño, así que se compara con la lista de los míos.
+  const { negocios: misNegocios } = useMisNegocios(miId);
   const [foja, setFoja] = useState(0);
   // Una sola firma EN LOTE para la galería y las fotos de los productos.
   const { urls } = useFotosFirmadas([...(negocio?.fotos ?? []), ...items.map((i) => i.foto)]);
@@ -71,6 +78,7 @@ export default function NegocioScreen() {
   }
 
   const fotos = negocio.fotos;
+  const esDueno = misNegocios.some((n) => n.id === negocio.id);
   const grupos = agruparPorSeccion(items.map((i) => ({ ...i, seccion: i.seccion ?? '' })));
   // Divide por el ancho ACOTADO con el que se pintan las fotos (como en la ficha de un depa).
   const alDesplazar = (e: NativeSyntheticEvent<NativeScrollEvent>) => setFoja(Math.round(e.nativeEvent.contentOffset.x / anchoLista));
@@ -133,6 +141,7 @@ export default function NegocioScreen() {
                 {precio}
               </ThemedText>
             ) : null}
+            <Estrellas calificacion={negocio.calificacion} numResenas={negocio.num_resenas ?? 0} compacta />
             {negocio.origen === 'sembrado' ? (
               <ThemedText type="small" themeColor="textSecondary">
                 Negocio de ejemplo
@@ -182,6 +191,13 @@ export default function NegocioScreen() {
             ))}
           </View>
         ) : null}
+
+        <SeccionResenas
+          objetivo={{ negocioId: negocio.id }}
+          esDueno={esDueno}
+          calificacion={negocio.calificacion}
+          numResenas={negocio.num_resenas ?? 0}
+        />
 
         {hayMapa ? (
           <Sello variante="contorno" icono="map-outline" onPress={comoLlegar} accessibilityLabel="Cómo llegar">

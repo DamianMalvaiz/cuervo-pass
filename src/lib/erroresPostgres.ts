@@ -29,6 +29,8 @@ export const SQL = {
   INVALID_ON_CONFLICT: '42P10',
   /** `raise exception` sin código propio. Lo usa `abrir_conversacion` cuando el destinatario no es válido o ya no está activo. */
   RAISE_EXCEPTION: 'P0001',
+  /** Sin permiso: RLS rechazó la escritura, o una RPC negó un objetivo que no es tuyo. */
+  INSUFFICIENT_PRIVILEGE: '42501',
 } as const;
 
 /**

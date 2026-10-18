@@ -13,7 +13,7 @@ export type { CategoriaServicio, Negocio, NegocioItem };
 
 // Enumeradas (END-28): nada de `select *`.
 const COLUMNAS_NEGOCIO =
-  'id, categoria_id, nombre, descripcion, direccion, latitud, longitud, rango_precio, horario, fotos, destacado, origen';
+  'id, categoria_id, nombre, descripcion, direccion, latitud, longitud, rango_precio, horario, fotos, destacado, origen, calificacion, num_resenas';
 
 export async function listarCategorias(): Promise<CategoriaServicio[]> {
   const { data, error } = await supabase

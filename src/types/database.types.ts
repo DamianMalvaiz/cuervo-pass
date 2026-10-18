@@ -1,3 +1,4 @@
+import type { ResenaPublica } from '@/lib/resenas';
 import type { MiSuscripcion } from '@/lib/planes';
 
 // Tipos mínimos a mano, mientras existe un proyecto Supabase real para generar
@@ -317,6 +318,9 @@ export interface Negocio {
   destacado: boolean;
   /** `sembrado` = negocio de ejemplo (inventado para la demostración). */
   origen: 'solicitud' | 'sembrado';
+  /** Promedio de las reseñas visibles (0054); `null` si no tiene. NUNCA se asigna: lo calcula la base. */
+  calificacion?: number | null;
+  num_resenas?: number;
 }
 
 /** Un negocio visto por su DUEÑA (tabla `negocios`, 0052): trae lo que la vista pública no expone. */
@@ -382,6 +386,17 @@ export interface PagoRegistrado {
   creado_en: string;
 }
 
+/** Reseña tal como la lee su AUTORA desde la tabla (0054). La pública sale de `resenas_publicas` (ver lib/resenas). */
+export interface MiResena {
+  [key: string]: unknown;
+  id: string;
+  usuario_id: string;
+  negocio_id: string | null;
+  publicacion_id: string | null;
+  estrellas: number;
+  texto: string | null;
+}
+
 type Tabla<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relationships: [] };
 // Las vistas de §13 son de solo lectura, pero supabase-js exige la misma forma
 // que una tabla para poder inferir el tipo de `select()`; sin Insert/Update el
@@ -406,6 +421,7 @@ export interface Database {
       verificaciones_vendedor: Tabla<VerificacionVendedor>;
       negocios: Tabla<NegocioPropio>;
       planes: Tabla<PlanDePago>;
+      resenas: Tabla<MiResena>;
       pagos: Tabla<PagoRegistrado>;
       negocio_items: Tabla<NegocioItem>;
       geocodificaciones: Tabla<{
@@ -422,6 +438,8 @@ export interface Database {
       publicaciones_publicas: Vista<PublicacionPublica>;
       negocios_publicos: Vista<Negocio>;
       negocio_items_publicos: Vista<NegocioItem>;
+      resenas_publicas: Vista<ResenaPublica>;
+      calificacion_publicaciones: Vista<{ [key: string]: unknown; publicacion_id: string; calificacion: number; num_resenas: number }>;
     };
     Functions: {
       // END-17 · `p_tipo` se aplica dentro de la función que trunca a 30, no
@@ -491,6 +509,16 @@ export interface Database {
       simular_pago: {
         Args: { p_plan: string };
         Returns: string;
+      };
+      // El dueño del objetivo responde a una reseña; texto vacío QUITA la respuesta (0054).
+      responder_resena: {
+        Args: { p_resena: string; p_texto: string };
+        Returns: undefined;
+      };
+      // Reporta una reseña ajena; tres personas distintas la ocultan (0054).
+      reportar_resena: {
+        Args: { p_resena: string; p_motivo: string };
+        Returns: undefined;
       };
       abrir_conversacion: {
         Args: { p_otro: string };

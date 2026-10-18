@@ -7,8 +7,22 @@ import { Linking } from 'react-native';
 
 const mockNegocio = jest.fn();
 const mockFotos = jest.fn();
+const mockMisNegocios = jest.fn();
+const mockSeccion = jest.fn();
 jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: 'n1' }) }));
 jest.mock('@/hooks/queries/useServicios', () => ({ useNegocio: (...a: unknown[]) => mockNegocio(...a) }));
+jest.mock('@/hooks/queries/useMisNegocios', () => ({ useMisNegocios: (...a: unknown[]) => mockMisNegocios(...a) }));
+jest.mock('@/store/useAuthStore', () => ({
+  useAuthStore: (sel: (s: unknown) => unknown) => sel({ session: { user: { id: 'u1' } } }),
+}));
+// Las reseñas tienen sus propias pruebas; aquí solo importa que la ficha las monte con lo correcto.
+jest.mock('@/components/SeccionResenas', () => ({
+  SeccionResenas: (props: unknown) => {
+    const { Text } = require('react-native');
+    mockSeccion(props);
+    return <Text>SECCION RESEÑAS</Text>;
+  },
+}));
 jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: (...a: unknown[]) => mockFotos(...a) }));
 
 import NegocioScreen from '../[id]';
@@ -30,6 +44,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockNegocio.mockReturnValue(estado());
   mockFotos.mockReturnValue({ urls: new Map(), fallo: null });
+  mockMisNegocios.mockReturnValue({ negocios: [], cargando: false, fallo: false });
   jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
 });
 
@@ -180,5 +195,32 @@ describe('el menú por secciones', () => {
     await render(<NegocioScreen />);
     expect(screen.getByText('Taco')).toBeTruthy();
     expect(screen.getByText('Agua')).toBeTruthy();
+  });
+});
+
+// Reseñas (0054).
+describe('las reseñas en la ficha', () => {
+  it('monta la sección con el negocio, su promedio calculado y cuántas reseñas son', async () => {
+    mockNegocio.mockReturnValue(estado({ negocio: { ...NEGOCIO, calificacion: 4.5, num_resenas: 12 } }));
+    await render(<NegocioScreen />);
+    expect(screen.getByText('SECCION RESEÑAS')).toBeTruthy();
+    expect(mockSeccion).toHaveBeenCalledWith({ objetivo: { negocioId: 'n1' }, esDueno: false, calificacion: 4.5, numResenas: 12 });
+  });
+
+  it('si es MI negocio, la sección sabe que soy el dueño (responde, no reseña)', async () => {
+    mockMisNegocios.mockReturnValue({ negocios: [{ id: 'n1' }], cargando: false, fallo: false });
+    await render(<NegocioScreen />);
+    expect(mockSeccion).toHaveBeenCalledWith(expect.objectContaining({ esDueno: true }));
+  });
+
+  it('un negocio sin reseñas no inventa calificación: null y 0', async () => {
+    await render(<NegocioScreen />);
+    expect(mockSeccion).toHaveBeenCalledWith(expect.objectContaining({ calificacion: undefined, numResenas: 0 }));
+  });
+
+  it('con reseñas, el resumen compacto aparece junto al nombre', async () => {
+    mockNegocio.mockReturnValue(estado({ negocio: { ...NEGOCIO, calificacion: 4.5, num_resenas: 12 } }));
+    await render(<NegocioScreen />);
+    expect(screen.getAllByLabelText('4.5 de 5 estrellas, 12 reseñas').length).toBeGreaterThan(0);
   });
 });

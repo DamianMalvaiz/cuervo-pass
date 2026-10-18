@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
+import { Estrellas } from '@/components/ficha/Estrellas';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
 import { AltoFotoTarjeta, Filete, Radios, Spacing, Texto } from '@/constants/theme';
@@ -54,6 +55,7 @@ export function TarjetaNegocio({
           {detalle}
         </ThemedText>
       ) : null}
+      <Estrellas calificacion={negocio.calificacion} numResenas={negocio.num_resenas ?? 0} compacta />
       {ejemplo ? (
         <ThemedText type="small" themeColor="textSecondary">
           Negocio de ejemplo

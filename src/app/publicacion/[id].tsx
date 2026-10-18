@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BotonVerContacto } from '@/components/BotonVerContacto';
 import { Pastilla } from '@/components/ficha/Pastilla';
+import { SeccionResenas } from '@/components/SeccionResenas';
 import { PorQueEsBuena } from '@/components/ficha/PorQueEsBuena';
 import { Seccion } from '@/components/ficha/Seccion';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
@@ -35,6 +36,7 @@ import {
   revelarContacto,
 } from '@/services/publicaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useCalificacionPublicacion } from '@/hooks/queries/useResenas';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import { Sello } from '@/components/ficha/Sello';
 import { usePublicacion , useAfinidad } from '@/hooks/queries/usePublicaciones';
@@ -91,6 +93,7 @@ export default function DetallePublicacionScreen() {
   // veces con backoff antes de rendirse.
   const { publicacion, cargando, fallo, reintentar } = usePublicacion(id);
   const afinidad = useAfinidad(id);
+  const { calificacion, numResenas } = useCalificacionPublicacion(id);
 
   useEffect(() => {
     if (session?.user.id) cargarPerfil(session.user.id);
@@ -360,6 +363,14 @@ export default function DetallePublicacionScreen() {
             </ThemedText>
           </Seccion>
         )}
+
+        {/* Reseñas: el promedio lo calcula la base. El dueño de la vivienda responde pero no reseña lo suyo. */}
+        <SeccionResenas
+          objetivo={{ publicacionId: publicacion.id }}
+          esDueno={publicacion.usuario_id === session?.user.id}
+          calificacion={calificacion}
+          numResenas={numResenas}
+        />
 
         {/* Cuántas personas la guardaron: el número, nunca quién. */}
         <ConteoFavoritos publicacionId={publicacion.id} />
