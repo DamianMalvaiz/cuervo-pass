@@ -206,7 +206,7 @@ test('sin registros lo dice, y no deja la lista muda', async () => {
   mockMisPublicaciones.mockReturnValue({ datos: [], cargando: false });
   await render(<PublicacionesScreen />);
   expect(screen.getByText('SIN PUBLICACIONES')).toBeTruthy();
-  expect(screen.getByText('0 PUBLICACIONES')).toBeTruthy();
+  expect(screen.queryByText('0 PUBLICACIONES')).toBeNull();
 });
 
 test('mientras carga no dice que no hay nada', async () => {

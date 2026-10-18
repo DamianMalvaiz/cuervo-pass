@@ -115,7 +115,9 @@ export function FilaPublicacion({
 }
 
 const estilos = StyleSheet.create({
-  tarjeta: { gap: Spacing.two, paddingHorizontal: Spacing.three, paddingBottom: Spacing.three },
+  // Sin margen lateral propio: lo pone quien la monta (Inicio por bloque, Favoritos en la lista), igual que el resto
+  // de los bloques de la pantalla; si lo llevara también la tarjeta, quedaría sangrada el doble.
+  tarjeta: { gap: Spacing.two, paddingBottom: Spacing.three },
   foto: { width: '100%', height: AltoFotoTarjeta, borderRadius: Radios.tarjeta },
   sinFoto: { alignItems: 'center', justifyContent: 'center' },
   selloTipo: { position: 'absolute', left: Spacing.two, bottom: Spacing.two },

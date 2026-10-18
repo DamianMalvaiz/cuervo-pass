@@ -38,9 +38,7 @@ export default function ChatsScreen() {
       {/* Membrete del registro: qué es y cuántas entradas tiene. */}
       <View style={[estilos.encabezado, { paddingTop: margenSuperior }]}>
         <Encabezado
-          kicker="REGISTRO DE MENSAJES"
           titulo="Chats"
-          meta={conversaciones.length === 1 ? '1 CONVERSACIÓN' : `${conversaciones.length} CONVERSACIONES`}
         />
       </View>
 

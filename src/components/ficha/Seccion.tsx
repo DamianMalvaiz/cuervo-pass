@@ -1,11 +1,13 @@
 import { StyleSheet, View } from 'react-native';
 
-import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 
 /**
- * Un apartado del documento: versalita, filete, contenido.
+ * Un apartado de la pantalla: título en frase normal y contenido.
+ *
+ * Hasta el 17/10/2026 llevaba el título en versalitas y una raya debajo (estilo expediente). Ahora el título va
+ * en frase normal y sin raya; el aire entre bloques hace de separación.
  *
  * Es la unidad que hace legible un formulario largo. Seis campos seguidos no se
  * leen; tres bloques de dos sí. Lo hace cualquier formulario oficial y también
@@ -26,12 +28,11 @@ export function Seccion({
   return (
     <View style={estilos.seccion}>
       <View style={estilos.cabecera}>
-        <ThemedText type="etiqueta" themeColor="textSecondary" style={estilos.titulo}>
+        <ThemedText type="subtitle" style={estilos.titulo}>
           {titulo}
         </ThemedText>
         {accion}
       </View>
-      <FileteHoja />
       <View style={estilos.contenido}>{children}</View>
     </View>
   );

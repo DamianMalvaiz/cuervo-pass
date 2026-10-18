@@ -1,47 +1,32 @@
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Filete, Spacing, Texto } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Spacing, Texto } from '@/constants/theme';
 
 /**
  * El título de pantalla, GRANDE y en el cuerpo — no en la barra de navegación.
  *
- * Es el patrón que Airbnb usa en cada subpantalla: la flecha de volver arriba, y
- * debajo un título a cuerpo grande que puede ocupar dos renglones. Funciona
- * mejor que el título centrado de la barra por dos razones concretas: cabe un
- * título largo sin abreviarlo con puntos suspensivos, y deja la barra limpia
- * para la acción de volver.
+ * Es el patrón que Airbnb usa en cada subpantalla: la flecha de volver arriba, y debajo un título a cuerpo
+ * grande que puede ocupar dos renglones. Cabe un título largo sin abreviarlo con puntos suspensivos y deja la
+ * barra limpia para la acción de volver.
  *
- * Aquí además carga el membrete del documento: la versalita encima y el filete
- * grueso debajo, que es lo que hace que se lea como un expediente y no como una
- * pantalla de ajustes cualquiera.
+ * Hasta el 17/10/2026 cargaba además el membrete de «expediente»: una versalita encima, un renglón de folio
+ * («14 REGISTROS · EMITIDO …») y una raya gruesa debajo. Probado en un iPhone real hacía que cada pantalla se
+ * leyera como un formulario. Ahora es un título, una descripción opcional y la acción.
  */
 export function Encabezado({
-  kicker,
   titulo,
   descripcion,
-  meta,
   accion,
 }: {
-  /** Versalita encima. Es dato, no adorno: dice QUÉ documento es. */
-  kicker?: string;
   titulo: string;
   descripcion?: string;
-  /** Renglón de folio/fecha/conteo, debajo de la descripción. */
-  meta?: string;
   accion?: React.ReactNode;
 }) {
-  const theme = useTheme();
   return (
     <View style={estilos.bloque}>
       <View style={estilos.filaTitulo}>
         <View style={estilos.textos}>
-          {kicker ? (
-            <ThemedText type="etiqueta" themeColor="textSecondary">
-              {kicker}
-            </ThemedText>
-          ) : null}
           <ThemedText style={estilos.titulo}>{titulo}</ThemedText>
         </View>
         {accion}
@@ -52,14 +37,6 @@ export function Encabezado({
           {descripcion}
         </ThemedText>
       ) : null}
-
-      {meta ? (
-        <ThemedText type="folio" themeColor="textSecondary">
-          {meta}
-        </ThemedText>
-      ) : null}
-
-      <View style={[estilos.filete, { backgroundColor: theme.text }]} />
     </View>
   );
 }
@@ -68,9 +45,8 @@ const estilos = StyleSheet.create({
   bloque: { gap: Spacing.one, paddingTop: Spacing.two },
   filaTitulo: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.two },
   textos: { flex: 1, gap: Spacing.half },
-  // 32px: más grande que `title` (26) porque aquí manda la pantalla entera, y
-  // dos renglones caben sin romper el ritmo.
+  // 32px: más grande que `title` (26) porque aquí manda la pantalla entera, y dos renglones caben sin romper el
+  // ritmo.
   titulo: Texto.tituloHoja,
   descripcion: { lineHeight: 20 },
-  filete: { height: Filete.grueso, marginTop: Spacing.two },
 });

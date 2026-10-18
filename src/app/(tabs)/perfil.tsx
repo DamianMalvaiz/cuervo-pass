@@ -414,7 +414,7 @@ export default function PerfilScreen() {
             </View>
 
             {/* ── Biografía ────────────────────────────────────────────── */}
-            <Seccion titulo="BIOGRAFÍA">
+            <Seccion titulo="Biografía">
               <Campo
                 punteado
                 etiqueta="SOBRE TI"
@@ -467,7 +467,7 @@ export default function PerfilScreen() {
                 etiqueta; una pastilla con un número al borde derecho es de otro
                 mundo.
             */}
-            <Seccion titulo="TU EXPEDIENTE PÚBLICO">
+            <Seccion titulo="Tu perfil público">
               <View style={estilos.lista}>
                 <FilaAjuste
                   icono="eye-outline"
@@ -513,7 +513,7 @@ export default function PerfilScreen() {
             {/* Lista de navegación con chevron: cada renglón dice "esto lleva a
                 otro lado" sin que nadie lo explique. Antes esto eran botones
                 apilados del mismo peso, sin agrupar y sin jerarquía. */}
-            <Seccion titulo="CUENTA">
+            <Seccion titulo="Cuenta">
               <View style={estilos.lista}>
                 {/* El aviso solo era alcanzable desde el REGISTRO: quien ya
                     tenía cuenta no podía volver a leerlo. Para una app que

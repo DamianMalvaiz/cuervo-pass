@@ -214,7 +214,7 @@ export default function RegistroScreen() {
             {/* Seis campos seguidos no se leen: se agrupan. Es lo mismo que hace
                 cualquier formulario oficial y, de paso, lo que hace Airbnb con
                 sus formularios largos. */}
-            <Seccion titulo="DATOS PERSONALES">
+            <Seccion titulo="Datos personales">
               <Controller
                 control={control}
                 name="nombre"
@@ -261,7 +261,7 @@ export default function RegistroScreen() {
               />
             </Seccion>
 
-            <Seccion titulo="DATOS DE ACCESO">
+            <Seccion titulo="Datos de acceso">
               <Controller
                 control={control}
                 name="nombreUsuario"
@@ -332,7 +332,7 @@ export default function RegistroScreen() {
               />
             </Seccion>
 
-            <Seccion titulo="CONSENTIMIENTO">
+            <Seccion titulo="Consentimiento">
               <Controller
                 control={control}
                 name="aceptoAviso"

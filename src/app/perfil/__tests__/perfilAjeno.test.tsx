@@ -83,5 +83,5 @@ test('si la afinidad falla, el perfil se pinta igual', async () => {
   mockAfinidad.mockRejectedValue(new Error('sin red'));
   await render(<PerfilRoomieScreen />);
   expect(await screen.findByText('Ana Prueba')).toBeTruthy();
-  expect(screen.getByText('CONVIVENCIA')).toBeTruthy();
+  expect(screen.getByText('Convivencia')).toBeTruthy();
 });

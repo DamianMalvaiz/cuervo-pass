@@ -84,7 +84,7 @@ export function SeccionFunciones({ usuarioId }: { usuarioId: string | undefined 
   const porPedir = PEDIBLES.filter((r) => !tengo.has(r));
 
   return (
-    <Seccion titulo="TUS FUNCIONES">
+    <Seccion titulo="Tus funciones">
       <View style={estilos.lista}>
         <FilaAjuste
           icono="school-outline"

@@ -241,7 +241,7 @@ export default function PerfilRoomieScreen() {
         {/* Antes esto era una tarjeta con lavado ámbar e iconos ámbar. Saber si
             alguien fuma no compromete nada, así que no gasta sello: son campos
             del documento, como los de cualquier otra ficha. */}
-        <Seccion titulo="CONVIVENCIA">
+        <Seccion titulo="Convivencia">
           <View style={estilos.rejilla}>
             <CampoFicha
               etiqueta="NIVEL DE RUIDO"
@@ -276,7 +276,7 @@ export default function PerfilRoomieScreen() {
         </Seccion>
 
         {usuario.biografia ? (
-          <Seccion titulo="SOBRE MÍ">
+          <Seccion titulo="Sobre mí">
             <ThemedText style={estilos.biografia}>{usuario.biografia}</ThemedText>
           </Seccion>
         ) : null}

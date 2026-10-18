@@ -129,7 +129,7 @@ test('sin conversaciones lo dice en vez de dejar la lista muda', async () => {
   mockConversaciones.mockReturnValue({ conversaciones: [], cargando: false });
   await render(<ChatsScreen />);
   expect(screen.getByText('SIN CONVERSACIONES')).toBeTruthy();
-  expect(screen.getByText('0 CONVERSACIONES')).toBeTruthy();
+  expect(screen.queryByText('0 CONVERSACIONES')).toBeNull();
 });
 
 // §27 · Vacío y cargando son estados distintos.
@@ -141,11 +141,11 @@ test('mientras carga no afirma que no hay ninguna', async () => {
 
 test('el conteo del membrete concuerda en número', async () => {
   await render(<ChatsScreen />);
-  expect(screen.getByText('1 CONVERSACIÓN')).toBeTruthy();
+  expect(screen.queryByText('1 CONVERSACIÓN')).toBeNull();
 
   mockConversaciones.mockReturnValue({ conversaciones: [hilo(), hilo({ conversacionId: 'c2' })], cargando: false });
   await render(<ChatsScreen />);
-  expect(screen.getByText('2 CONVERSACIONES')).toBeTruthy();
+  expect(screen.queryByText('2 CONVERSACIONES')).toBeNull();
 });
 
 

@@ -212,7 +212,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
   return (
     <View style={estilos.contenedor}>
       {/* ── Dónde estudias ───────────────────────────────────────────── */}
-      <Seccion titulo="TU UNIVERSIDAD">
+      <Seccion titulo="Tu universidad">
         <Controller
           control={control}
           name="universidadId"
@@ -265,7 +265,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
       {/* Estos dos no son preferencias suaves: son el corte real que aplica el
           filtro de la migración 0015. Lo que quede fuera NO se muestra, y
           decirlo evita la pregunta "¿por qué no aparece tal departamento?". */}
-      <Seccion titulo="PRESUPUESTO Y DISTANCIA">
+      <Seccion titulo="Presupuesto y distancia">
         <View style={estilos.fila}>
           <View style={estilos.mitad}>
             <Controller
@@ -354,7 +354,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
       </Seccion>
 
       {/* ── Convivencia ──────────────────────────────────────────────── */}
-      <Seccion titulo="CONVIVENCIA">
+      <Seccion titulo="Convivencia">
         <View style={estilos.grupo}>
           <ThemedText type="etiqueta" themeColor="textSecondary">
             ¿CÓMO TE GUSTA TU CASA?
@@ -422,7 +422,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
       </Seccion>
 
       {/* ── Texto libre ──────────────────────────────────────────────── */}
-      <Seccion titulo="SOBRE TI">
+      <Seccion titulo="Sobre ti">
         <Controller
           control={control}
           name="textoLibre"

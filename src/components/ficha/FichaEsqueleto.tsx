@@ -211,7 +211,7 @@ export function ListaEsqueleto({
 }
 
 const estilos = StyleSheet.create({
-  fila: { gap: Spacing.two, paddingHorizontal: Spacing.three, paddingBottom: Spacing.three },
+  fila: { gap: Spacing.two, paddingBottom: Spacing.three },
   foto: { width: '100%', height: AltoFotoTarjeta, borderRadius: Radios.tarjeta },
   titulo: { gap: Spacing.one },
 

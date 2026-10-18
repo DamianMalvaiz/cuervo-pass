@@ -21,7 +21,6 @@ import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useMovimientoReducido } from '@/hooks/use-movimiento-reducido';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
-import { fechaHoraDeSello } from '@/lib/folio';
 import { toque } from '@/lib/tacto';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
@@ -186,7 +185,7 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
   // backoff y el estado de error. Lo que había antes eran seis `useState` y un
   // `useFocusEffect` que reconsultaba el motor COMPLETO en cada regreso desde
   // el detalle, reemplazando el arreglo entero — parpadeo y pérdida del scroll.
-  const { datos: sugerencias, cargando, refrescando, fallo, refrescar, emitido } =
+  const { datos: sugerencias, cargando, refrescando, fallo, refrescar } =
     useSugerencias(tipo, orden);
 
   // El resumen de filtros necesita el perfil, y esta pantalla es la primera que
@@ -263,15 +262,7 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
           <View style={estilos.cabecera}>
             {selector ? <View style={estilos.margen}>{selector}</View> : null}
             <View style={estilos.margen}>
-              <Encabezado
-                titulo="Sugerencias"
-                meta={
-                  cargando
-                    ? ''
-                    : `${filtradas.length === 1 ? '1 REGISTRO' : `${filtradas.length} REGISTROS`}` +
-                      (emitido ? ` · EMITIDO ${fechaHoraDeSello(emitido)}` : '')
-                }
-              />
+              <Encabezado titulo="Sugerencias" />
               <ResumenFiltros />
             </View>
 

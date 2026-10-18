@@ -88,9 +88,7 @@ function MisPublicaciones() {
     <ThemedView style={estilos.pantalla}>
       <View style={[estilos.encabezado, { paddingTop: margenSuperior }]}>
         <Encabezado
-          kicker="REGISTRO PROPIO"
           titulo="Mis publicaciones"
-          meta={publicaciones.length === 1 ? '1 PUBLICACIÓN' : `${publicaciones.length} PUBLICACIONES`}
         />
         {/* Crear una publicación NAVEGA a un formulario: no compromete nada
             todavía. El sello se gasta en el "Publicar" de ese formulario, que sí

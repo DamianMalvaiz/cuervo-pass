@@ -55,9 +55,7 @@ export default function FavoritosScreen() {
         ListHeaderComponent={
           <View style={estilos.encabezado}>
             <Encabezado
-              kicker="GUARDADAS"
               titulo="Favoritos"
-              meta={cargando || fallo ? '' : publicaciones.length === 1 ? '1 PUBLICACIÓN' : `${publicaciones.length} PUBLICACIONES`}
             />
             {noDisponibles > 0 && (
               <ThemedText type="small" themeColor="textSecondary">

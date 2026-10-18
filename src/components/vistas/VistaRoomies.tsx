@@ -125,7 +125,6 @@ export function VistaRoomies({ selector }: { selector?: ReactNode }) {
           <View style={estilos.encabezado}>
             {selector}
             <Encabezado
-              kicker="REGISTRO DE ROOMIES"
               titulo="Roomies"
               descripcion="Personas que buscan con quién compartir, cerca de tu universidad."
             />

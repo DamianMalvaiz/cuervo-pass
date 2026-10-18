@@ -55,12 +55,12 @@ beforeEach(() => {
 
 test('Mi perfil muestra «Tus funciones» con Estudiante', async () => {
   await render(<PerfilScreen />, { wrapper: envolver });
-  expect(await screen.findByText('TUS FUNCIONES', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('Tus funciones', {}, { timeout: 5000 })).toBeTruthy();
   expect(screen.getByText('Estudiante')).toBeTruthy();
 });
 
 test('pide los roles de la cuenta de la sesión, no de otra', async () => {
   await render(<PerfilScreen />, { wrapper: envolver });
-  await screen.findByText('TUS FUNCIONES', {}, { timeout: 5000 });
+  await screen.findByText('Tus funciones', {}, { timeout: 5000 });
   expect(mockObtener).toHaveBeenCalledWith('u-sesion');
 });

@@ -218,25 +218,17 @@ describe('el carrusel de nuevas', () => {
   });
 });
 
-// El membrete lleva la hora del sello solo si hay una. Sin `emitido` no debe
-// quedar un « · EMITIDO » colgando sin fecha.
-describe('la hora de emisión del membrete', () => {
-  it('se añade cuando el motor la devuelve', async () => {
+// El encabezado ya no lleva folio ni hora de emisión («1 REGISTRO · EMITIDO …»): era membrete de expediente y se
+// retiró el 17/10/2026. Aunque el motor devuelva `emitido`, no se pinta.
+describe('el encabezado de Inicio', () => {
+  it('no pinta folio, conteo ni hora de emisión', async () => {
     mockSugerencias.mockReturnValue(
-      // `Date` y no una cadena ISO: `fechaHoraDeSello` llama a `getHours()`. El
-      // doble de `respuesta()` acepta `Record<string, unknown>`, así que tsc no
-      // lo atrapa — lo atrapó la prueba al reventar.
       respuesta({ datos: [publicacion('p1')], total: 1, emitido: new Date('2026-09-26T12:30:00Z') })
     );
     await render(<InicioScreen />);
-    expect(screen.getByText(/1 REGISTRO · EMITIDO /)).toBeTruthy();
-  });
-
-  it('y no se insinúa cuando no la hay', async () => {
-    mockSugerencias.mockReturnValue(respuesta({ datos: [publicacion('p1')], total: 1 }));
-    await render(<InicioScreen />);
-    expect(screen.getByText('1 REGISTRO')).toBeTruthy();
+    expect(screen.getByText('Sugerencias')).toBeTruthy();
     expect(screen.queryByText(/EMITIDO/)).toBeNull();
+    expect(screen.queryByText(/REGISTRO/)).toBeNull();
   });
 });
 

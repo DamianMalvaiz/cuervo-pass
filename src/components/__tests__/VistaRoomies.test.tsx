@@ -286,5 +286,5 @@ test('pinta el selector que le pasa Inicio, arriba de su encabezado', async () =
   const { Text } = require('react-native');
   await render(<VistaRoomies selector={<Text>SELECTOR DE PRUEBA</Text>} />);
   expect(await screen.findByText('SELECTOR DE PRUEBA')).toBeTruthy();
-  expect(screen.getByText('REGISTRO DE ROOMIES')).toBeTruthy();
+  expect(screen.queryByText('REGISTRO DE ROOMIES')).toBeNull();
 });

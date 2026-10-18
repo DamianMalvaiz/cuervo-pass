@@ -107,21 +107,18 @@ test('Roomies monta con lista vacia y muestra su encabezado', async () => {
   const Pantalla = require('@/components/vistas/VistaRoomies').VistaRoomies;
   await pintar(Pantalla);
   expect(await screen.findByText('Roomies', {}, { timeout: 5000 })).toBeTruthy();
-  expect(await screen.findByText('REGISTRO DE ROOMIES', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 test('Mis publicaciones monta con lista vacia y muestra su encabezado', async () => {
   const Pantalla = require('../(tabs)/publicar').default;
   await pintar(Pantalla);
   expect(await screen.findByText('Mis publicaciones', {}, { timeout: 5000 })).toBeTruthy();
-  expect(await screen.findByText('REGISTRO PROPIO', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 test('Chats monta con lista vacia y muestra su encabezado', async () => {
   const Pantalla = require('../(tabs)/chats').default;
   await pintar(Pantalla);
   expect(await screen.findByText('Chats', {}, { timeout: 5000 })).toBeTruthy();
-  expect(await screen.findByText('REGISTRO DE MENSAJES', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 test('Recuperar contraseña monta con su campo de correo', async () => {

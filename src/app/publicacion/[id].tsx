@@ -308,7 +308,7 @@ export default function DetallePublicacionScreen() {
           </>
         )}
 
-        <Seccion titulo="DATOS DE LA PUBLICACIÓN">
+        <Seccion titulo="Datos de la publicación">
           <View style={estilos.rejilla}>
             <CampoFicha
               etiqueta="RENTA MENSUAL"
@@ -354,13 +354,13 @@ export default function DetallePublicacionScreen() {
         </Seccion>
 
         {publicacion.descripcion ? (
-          <Seccion titulo="DESCRIPCIÓN">
+          <Seccion titulo="Descripción">
             <ThemedText style={estilos.descripcion}>{publicacion.descripcion}</ThemedText>
           </Seccion>
         ) : null}
 
         {tieneUbicacion && (
-          <Seccion titulo="UBICACIÓN">
+          <Seccion titulo="Ubicación">
             <MapaUbicacion
               latitud={publicacion.latitud as number}
               longitud={publicacion.longitud as number}
