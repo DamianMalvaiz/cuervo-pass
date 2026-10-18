@@ -116,7 +116,7 @@ export default function Index() {
     return (
       <ThemedView style={styles.container}>
         <BloqueEstado
-          etiqueta="NO PUDIMOS ENTRAR"
+          etiqueta="No pudimos entrar"
           mensaje="No pudimos comprobar tu cuenta. Revisa tu conexión y vuelve a intentarlo."
           icono="cloud-offline-outline"
           tono="alerta"

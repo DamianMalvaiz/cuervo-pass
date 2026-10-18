@@ -30,7 +30,7 @@ afterEach(() => jest.restoreAllMocks());
 // LA prueba: nunca una pantalla en blanco.
 test('con un error, muestra el fallo en vez de nada', async () => {
   await render(<ErrorBoundary error={new Error('el motor devolvió humo')} retry={jest.fn()} />);
-  expect(await screen.findByText('ALGO SE ROMPIÓ', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('Algo se rompió', {}, { timeout: 5000 })).toBeTruthy();
   expect(await screen.findByText('el motor devolvió humo', {}, { timeout: 5000 })).toBeTruthy();
 });
 
@@ -65,7 +65,7 @@ test('lo compartido no lleva correos en claro', async () => {
 // la pantalla blanca que esto viene a eliminar.
 test('un error sin mensaje sigue diciendo algo', async () => {
   await render(<ErrorBoundary error={new Error('')} retry={jest.fn()} />);
-  expect(await screen.findByText('ALGO SE ROMPIÓ', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('Algo se rompió', {}, { timeout: 5000 })).toBeTruthy();
   expect(await screen.findByText('sin detalle', {}, { timeout: 5000 })).toBeTruthy();
 });
 

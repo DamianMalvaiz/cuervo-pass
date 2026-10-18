@@ -95,7 +95,7 @@ test('un fallo se dice como fallo y ofrece reintentar, no como «no hay negocios
   const reintentar = jest.fn();
   mockNegocios.mockReturnValue(estado({ negocios: [], fallo: true, reintentar }));
   await render(<VistaServicios />);
-  expect(screen.getByText('NO PUDIMOS CARGAR LOS NEGOCIOS')).toBeTruthy();
+  expect(screen.getByText('No pudimos cargar los negocios')).toBeTruthy();
   expect(screen.queryByText(/No encontramos/)).toBeNull();
   await act(async () => { fireEvent.press(screen.getByLabelText('Reintentar')); });
   expect(reintentar).toHaveBeenCalled();

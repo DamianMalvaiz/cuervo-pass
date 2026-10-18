@@ -38,7 +38,7 @@ export function BloqueEstado({
       accessibilityLiveRegion="polite"
     >
       <Ionicons name={icono} size={22} color={color} />
-      <ThemedText type="etiqueta" style={{ color }}>
+      <ThemedText type="smallBold" style={{ color }}>
         {etiqueta}
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary" style={estilos.mensaje}>

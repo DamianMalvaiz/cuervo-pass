@@ -210,7 +210,7 @@ function MisPublicaciones() {
           }}
           ListEmptyComponent={
             <BloqueEstado
-              etiqueta="SIN PUBLICACIONES"
+              etiqueta="Sin publicaciones"
               mensaje="Cuando publiques un departamento o un cuarto aparecerá aquí, con cuánta gente pidió tu contacto."
               icono="business-outline"
             />

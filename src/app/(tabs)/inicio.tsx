@@ -361,16 +361,16 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
           ) : (
           <View style={estilos.margen}>
             {fallo ? (
-              <BloqueEstado etiqueta="NO SE PUDO CONSULTAR" mensaje={fallo} icono="cloud-offline-outline" tono="alerta" />
+              <BloqueEstado etiqueta="No se pudo consultar" mensaje={fallo} icono="cloud-offline-outline" tono="alerta" />
             ) : tipo ? (
               <BloqueEstado
-                etiqueta="SIN REGISTROS DE ESE TIPO"
+                etiqueta="Sin resultados de ese tipo"
                 mensaje="Ninguna publicación de esta categoría cumple tus filtros. Prueba con Todo."
                 icono="funnel-outline"
               />
             ) : (
               <BloqueEstado
-                etiqueta="SIN REGISTROS"
+                etiqueta="Sin resultados"
                 mensaje="Ninguna publicación cumple tus filtros por ahora. Prueba ampliando el presupuesto o la distancia desde Tu búsqueda."
                 icono="document-outline"
               />

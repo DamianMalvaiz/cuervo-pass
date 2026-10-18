@@ -29,7 +29,6 @@ import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { calcularDistanciaKm } from '@/lib/distancia';
-import { fechaDeSello, folioDe } from '@/lib/folio';
 import { ATRIBUCION_MAPA } from '@/lib/geocoding';
 import {
   reportarPublicacion,
@@ -45,10 +44,10 @@ import { toast } from '@/lib/toast';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 const ETIQUETA_TIPO: Record<string, string> = {
-  depa: 'DEPARTAMENTO',
-  cuarto: 'CUARTO',
-  casa: 'CASA',
-  casa_compartida: 'CASA COMPARTIDA',
+  depa: 'Departamento',
+  cuarto: 'Cuarto',
+  casa: 'Casa',
+  casa_compartida: 'Casa compartida',
 };
 
 
@@ -155,7 +154,7 @@ export default function DetallePublicacionScreen() {
       <ThemedView style={estilos.centrado}>
         <Ionicons name="cloud-offline-outline" size={28} color={theme.error} />
         <ThemedText type="etiqueta" themeColor="error">
-          NO PUDIMOS CONSULTAR
+          No pudimos consultar
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={estilos.textoCentrado}>
           No pudimos consultar esta ficha. Revisa tu conexión y reintenta.
@@ -172,7 +171,7 @@ export default function DetallePublicacionScreen() {
       <ThemedView style={estilos.centrado}>
         <Ionicons name="document-outline" size={28} color={theme.textSecondary} />
         <ThemedText type="etiqueta" themeColor="textSecondary">
-          FICHA NO DISPONIBLE
+          Ficha no disponible
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={estilos.textoCentrado}>
           Esta publicación ya no está disponible. Pudo desactivarse o ocultarse tras varios reportes.
@@ -203,9 +202,7 @@ export default function DetallePublicacionScreen() {
   });
 
   const fotos = publicacion.fotos ?? [];
-  const folio = folioDe(publicacion.id);
-  const alta = fechaDeSello(publicacion.creado_en);
-  const etiquetaTipo = ETIQUETA_TIPO[publicacion.tipo] ?? String(publicacion.tipo).toUpperCase();
+  const etiquetaTipo = ETIQUETA_TIPO[publicacion.tipo] ?? String(publicacion.tipo).replace(/^./, (c) => c.toUpperCase());
 
   const alDesplazar = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     // Divide por el ancho ACOTADO, el mismo con el que se pintan las fotos. Con
@@ -222,14 +219,11 @@ export default function DetallePublicacionScreen() {
       contentContainerStyle={[estilos.hoja, estilos.columna, { maxWidth: anchoLista }]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Membrete: qué documento es y cuál. */}
-      <View style={[estilos.membrete, { borderBottomColor: theme.filete }]}>
-        <ThemedText type="etiqueta" themeColor="textSecondary">
+      {/* Qué clase de sitio es, en frase normal. Hasta el 17/10/2026 había aquí un membrete de expediente con
+          «FOLIO …· ALTA …». */}
+      <View style={estilos.membrete}>
+        <ThemedText type="smallBold" themeColor="textSecondary">
           {etiquetaTipo}
-        </ThemedText>
-        <ThemedText type="folio" themeColor="textSecondary">
-          FOLIO {folio}
-          {alta ? ` · ALTA ${alta}` : ''}
         </ThemedText>
       </View>
 
@@ -439,9 +433,6 @@ const estilos = StyleSheet.create({
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,
-    // El filete que el contrato pide bajo el membrete. Un formulario separa su
-    // encabezado del cuerpo con una regla, no con aire.
-    borderBottomWidth: Filete.fino,
   },
   foto: { aspectRatio: 3 / 2 },
   sinFoto: { alignItems: 'center', justifyContent: 'center', gap: Spacing.one },

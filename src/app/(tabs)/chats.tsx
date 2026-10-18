@@ -121,7 +121,7 @@ export default function ChatsScreen() {
           }}
           ListEmptyComponent={
             <BloqueEstado
-              etiqueta="SIN CONVERSACIONES"
+              etiqueta="Sin conversaciones"
               mensaje="Cuando pidas el contacto de una publicación o te escriba alguien, el hilo aparece aquí."
               icono="chatbubbles-outline"
             />

@@ -42,6 +42,10 @@ const PERFIL_VACIO = {
 // vez que este proyecto choca con esa regla.
 const mockAlmacen: { perfil: Record<string, unknown> } = { perfil: { ...PERFIL_COMPLETO } };
 
+// El conteo de favoritos de la tarjeta de identidad; tiene sus propias pruebas.
+jest.mock('@/hooks/queries/useFavoritos', () => ({
+  useMisFavoritosIds: () => ({ ids: new Set(['a', 'b']), cargando: false, fallo: false }),
+}));
 jest.mock('expo-router', () => ({ router: { replace: jest.fn(), push: jest.fn() } }));
 jest.mock('@/services/usuarios.service', () => ({
   exportarMisDatos: jest.fn(),

@@ -54,7 +54,7 @@ test('el perfil muestra la afinidad, en su casilla', async () => {
   await render(<PerfilRoomieScreen />);
   // Medios puntos, la misma regla que END-30 fijo para toda la app.
   expect(await screen.findByText('8.5')).toBeTruthy();
-  expect(screen.getByText('AFINIDAD')).toBeTruthy();
+  expect(screen.getByText('Afinidad')).toBeTruthy();
 });
 
 // La etiqueta dice AFINIDAD y no AJUSTE porque eso es: coseno puro. Entre

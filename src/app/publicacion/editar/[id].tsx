@@ -88,7 +88,7 @@ export default function EditarPublicacionScreen() {
       <ThemedView style={styles.centrado}>
         <Ionicons name="cloud-offline-outline" size={28} color={theme.error} />
         <ThemedText type="etiqueta" themeColor="error">
-          NO PUDIMOS CONSULTAR
+          No pudimos consultar
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={styles.textoCentrado}>
           No pudimos abrir tu publicación para editarla. Revisa tu conexión y reintenta.

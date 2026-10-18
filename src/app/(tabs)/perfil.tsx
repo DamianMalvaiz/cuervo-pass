@@ -14,6 +14,7 @@ import {
 
 import { Campo } from '@/components/Campo';
 import { CampoFicha, FileteHoja } from '@/components/ficha/CampoFicha';
+import { Estadisticas } from '@/components/ficha/Estadisticas';
 import { SeccionFunciones } from '@/components/SeccionFunciones';
 import { useModuloStore } from '@/store/useModuloStore';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
@@ -31,6 +32,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 import { subirFotoPerfil } from '@/lib/storage';
 import { toast } from '@/lib/toast';
+import { useMisFavoritosIds } from '@/hooks/queries/useFavoritos';
 import { useMiRoomie } from '@/hooks/queries/useRoomies';
 import { useMisPublicaciones } from '@/hooks/queries/usePublicaciones';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -51,6 +53,8 @@ export default function PerfilScreen() {
   // Solo para el conteo del acceso a «Mis publicaciones». La consulta ya está
   // cacheada por react-query: la pestaña de publicaciones usa la misma clave.
   const { datos: misPublicaciones, cargando: cargandoPublicaciones } = useMisPublicaciones(session?.user.id);
+
+  const { ids: favoritosIds, cargando: cargandoFavoritos, fallo: falloFavoritos } = useMisFavoritosIds(session?.user.id);
 
   const [biografia, setBiografia] = useState('');
   const [subiendoFoto, setSubiendoFoto] = useState(false);
@@ -271,6 +275,14 @@ export default function PerfilScreen() {
                 <ThemedText style={Texto.pesoFuerte}>Cómo me ven</ThemedText>
               </Pulsable>
             </View>
+
+            {/* «Todavía no sé» (cargando o falló) es un guion, no un cero. */}
+            <Estadisticas
+              datos={[
+                { etiqueta: 'Favoritos', valor: cargandoFavoritos || falloFavoritos ? null : favoritosIds.size },
+                { etiqueta: 'Publicaciones', valor: cargandoPublicaciones ? null : misPublicaciones.length },
+              ]}
+            />
             </View>
 
             {error && (
@@ -366,7 +378,7 @@ export default function PerfilScreen() {
             <Seccion titulo="Biografía">
               <Campo
                 punteado
-                etiqueta="SOBRE TI"
+                etiqueta="Sobre ti"
                 placeholder="Cuéntale a otros quién eres. Genera confianza para quien no puede ir a verte antes de decidir."
                 multiline
                 maxLength={280}

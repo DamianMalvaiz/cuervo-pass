@@ -119,7 +119,7 @@ export default function LoginScreen() {
               name="email"
               render={({ field: { onChange, onBlur, value } }) => (
                 <Campo
-                  etiqueta="CORREO ELECTRÓNICO"
+                  etiqueta="Correo electrónico"
                   placeholder="tucorreo@ejemplo.mx"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -139,7 +139,7 @@ export default function LoginScreen() {
               render={({ field: { onChange, onBlur, value } }) => (
                 <Campo
                   contrasena
-                  etiqueta="CONTRASEÑA"
+                  etiqueta="Contraseña"
                   placeholder="Tu contraseña"
                   autoComplete="current-password"
                   error={errors.password?.message}

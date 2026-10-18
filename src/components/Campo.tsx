@@ -46,7 +46,7 @@ export const Campo = forwardRef<
 
   return (
     <View style={estilos.bloque}>
-      <ThemedText type="etiqueta" themeColor="textSecondary">
+      <ThemedText type="smallBold" themeColor="textSecondary">
         {etiqueta}
       </ThemedText>
 

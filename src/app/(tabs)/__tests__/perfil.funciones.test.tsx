@@ -10,6 +10,10 @@ import { clienteDePrueba } from '@pruebas/consultas';
 // que reciba la cuenta de la sesión y no otra.
 
 const mockObtener = jest.fn();
+// El conteo de favoritos de la tarjeta de identidad; tiene sus propias pruebas.
+jest.mock('@/hooks/queries/useFavoritos', () => ({
+  useMisFavoritosIds: () => ({ ids: new Set(['a', 'b']), cargando: false, fallo: false }),
+}));
 jest.mock('@/services/roles.service', () => ({
   obtenerMisRoles: (...a: unknown[]) => mockObtener(...a),
   agregarFuncion: jest.fn(),

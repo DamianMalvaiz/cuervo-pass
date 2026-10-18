@@ -84,7 +84,7 @@ export default function FavoritosScreen() {
               <BloqueEstado
                 tono="alerta"
                 icono="cloud-offline-outline"
-                etiqueta="NO PUDIMOS CARGAR TUS FAVORITOS"
+                etiqueta="No pudimos cargar tus favoritos"
                 mensaje="Revisa tu conexión e intenta de nuevo."
               />
               <Sello variante="contorno" icono="refresh" onPress={reintentar} accessibilityLabel="Reintentar">
@@ -94,7 +94,7 @@ export default function FavoritosScreen() {
           ) : noDisponibles > 0 ? null : (
             <BloqueEstado
               icono="heart-outline"
-              etiqueta="SIN REGISTROS"
+              etiqueta="Sin resultados"
               mensaje="Aún no guardas ninguna publicación. Toca el corazón en una ficha para volver a ella más tarde."
             />
           )

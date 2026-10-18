@@ -251,7 +251,7 @@ export default function ConversacionScreen() {
             }
             ListEmptyComponent={
               <BloqueEstado
-                etiqueta="HILO SIN MENSAJES"
+                etiqueta="Hilo sin mensajes"
                 mensaje="Escribe el primero. Los mensajes son inmutables una vez enviados: no se pueden editar ni borrar."
                 icono="chatbubble-ellipses-outline"
               />

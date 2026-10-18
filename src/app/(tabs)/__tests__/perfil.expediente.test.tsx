@@ -20,6 +20,10 @@ const mockPush = jest.fn();
 let mockRoomie: { estado: string } | null = { estado: 'activo' };
 let mockPublicaciones: { activa: boolean }[] = [];
 
+// El conteo de favoritos de la tarjeta de identidad; tiene sus propias pruebas.
+jest.mock('@/hooks/queries/useFavoritos', () => ({
+  useMisFavoritosIds: () => ({ ids: new Set(['a', 'b']), cargando: false, fallo: false }),
+}));
 jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(...a), replace: jest.fn() } }));
 jest.mock('@/services/usuarios.service', () => ({ eliminarMiCuenta: jest.fn(), exportarMisDatos: jest.fn() }));
 jest.mock('@/lib/storage', () => ({ subirFotoPerfil: jest.fn() }));
@@ -75,6 +79,15 @@ beforeEach(() => {
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   mockRoomie = { estado: 'activo' };
   mockPublicaciones = [];
+});
+
+describe('las cifras de la tarjeta', () => {
+  it('dicen cuántos favoritos y cuántas publicaciones hay', async () => {
+    mockPublicaciones = [{ activa: true }, { activa: false }, { activa: true }];
+    await montar();
+    expect(screen.getByLabelText('2 Favoritos')).toBeTruthy();
+    expect(screen.getByLabelText('3 Publicaciones')).toBeTruthy();
+  });
 });
 
 describe('la cabecera y los botones de la tarjeta', () => {

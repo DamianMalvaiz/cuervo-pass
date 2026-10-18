@@ -31,6 +31,10 @@ const mockPush = jest.fn();
 // el mismo estado).
 const almacen = { cargando: false };
 
+// El conteo de favoritos de la tarjeta de identidad; tiene sus propias pruebas.
+jest.mock('@/hooks/queries/useFavoritos', () => ({
+  useMisFavoritosIds: () => ({ ids: new Set(['a', 'b']), cargando: false, fallo: false }),
+}));
 jest.mock('expo-router', () => ({
   router: { replace: (...a: unknown[]) => mockReplace(...a), push: (...a: unknown[]) => mockPush(...a) },
 }));

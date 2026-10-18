@@ -866,7 +866,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
 
       <View style={styles.grupo}>
         <ThemedText type="etiqueta" themeColor="textSecondary">
-          FOTOGRAFÍAS · {fotos.length}/{MAX_FOTOS}
+          Fotografías · {fotos.length}/{MAX_FOTOS}
         </ThemedText>
         <FileteHoja />
       </View>

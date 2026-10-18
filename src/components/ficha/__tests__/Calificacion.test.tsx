@@ -41,7 +41,7 @@ test('redondea hacia abajo cuando toca', async () => {
 test('la etiqueta por omision es AJUSTE, no AFINIDAD', async () => {
   await render(<Calificacion score={0.9} />);
   expect(await screen.findByText('AJUSTE', {}, { timeout: 5000 })).toBeTruthy();
-  expect(screen.queryByText('AFINIDAD')).toBeNull();
+  expect(screen.queryByText('Afinidad')).toBeNull();
 });
 
 test('sin score sigue sin inventarse un numero', async () => {

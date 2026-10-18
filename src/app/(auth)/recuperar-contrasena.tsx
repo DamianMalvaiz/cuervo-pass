@@ -67,7 +67,7 @@ export default function RecuperarContrasenaScreen() {
               name="email"
               render={({ field: { onChange, onBlur, value } }) => (
                 <Campo
-                  etiqueta="CORREO ELECTRÓNICO"
+                  etiqueta="Correo electrónico"
                   placeholder="tucorreo@ejemplo.mx"
                   autoCapitalize="none"
                   autoCorrect={false}

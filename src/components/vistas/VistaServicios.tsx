@@ -134,7 +134,7 @@ export function VistaServicios({ selector }: { selector?: ReactNode }) {
                 <BloqueEstado
                   tono="alerta"
                   icono="cloud-offline-outline"
-                  etiqueta="NO PUDIMOS CARGAR LOS NEGOCIOS"
+                  etiqueta="No pudimos cargar los negocios"
                   mensaje="Revisa tu conexión e intenta de nuevo."
                 />
                 <Sello variante="contorno" icono="refresh" onPress={reintentar} accessibilityLabel="Reintentar">
@@ -144,7 +144,7 @@ export function VistaServicios({ selector }: { selector?: ReactNode }) {
             ) : (
               <BloqueEstado
                 icono="search-outline"
-                etiqueta="SIN RESULTADOS"
+                etiqueta="Sin resultados"
                 mensaje="No encontramos negocios con esa búsqueda. Prueba con otra palabra o quita la categoría."
               />
             )}

@@ -128,7 +128,7 @@ test('una conversación sin mensajes lo dice', async () => {
 test('sin conversaciones lo dice en vez de dejar la lista muda', async () => {
   mockConversaciones.mockReturnValue({ conversaciones: [], cargando: false });
   await render(<ChatsScreen />);
-  expect(screen.getByText('SIN CONVERSACIONES')).toBeTruthy();
+  expect(screen.getByText('Sin conversaciones')).toBeTruthy();
   expect(screen.queryByText('0 CONVERSACIONES')).toBeNull();
 });
 
@@ -136,7 +136,7 @@ test('sin conversaciones lo dice en vez de dejar la lista muda', async () => {
 test('mientras carga no afirma que no hay ninguna', async () => {
   mockConversaciones.mockReturnValue({ conversaciones: [], cargando: true });
   await render(<ChatsScreen />);
-  expect(screen.queryByText('SIN CONVERSACIONES')).toBeNull();
+  expect(screen.queryByText('Sin conversaciones')).toBeNull();
 });
 
 test('el conteo del membrete concuerda en número', async () => {

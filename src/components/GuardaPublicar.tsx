@@ -36,7 +36,7 @@ export function GuardaPublicar({ children }: { children: ReactNode }) {
         <BloqueEstado
           tono="alerta"
           icono="cloud-offline-outline"
-          etiqueta="NO PUDIMOS COMPROBAR TU FUNCIÓN"
+          etiqueta="No pudimos comprobar tu función"
           mensaje="Revisa tu conexión e intenta de nuevo."
         />
         <Sello variante="contorno" icono="refresh" onPress={reintentar} accessibilityLabel="Reintentar">
@@ -51,7 +51,7 @@ export function GuardaPublicar({ children }: { children: ReactNode }) {
       <ThemedView style={[estilos.pantalla, { paddingTop: margenSuperior }]}>
         <BloqueEstado
           icono="lock-closed-outline"
-          etiqueta="FUNCIÓN REQUERIDA"
+          etiqueta="Función requerida"
           mensaje="Para publicar necesitas la función de arrendador o comerciante aprobada. Agrégala en Mi perfil; quedará sin verificar hasta que se revise."
         />
         <Sello onPress={() => router.push('/(tabs)/perfil')} accessibilityLabel="Ir a Mis funciones">

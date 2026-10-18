@@ -248,7 +248,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
             name="universidadOtroNombre"
             render={({ field: { onChange, onBlur, value } }) => (
               <Campo
-                etiqueta="NOMBRE DE TU UNIVERSIDAD"
+                etiqueta="Nombre de tu universidad"
                 placeholder="Universidad Tecnológica del Valle de Toluca"
                 error={errors.universidadOtroNombre?.message}
                 anclaError={anclar('universidadOtroNombre')}

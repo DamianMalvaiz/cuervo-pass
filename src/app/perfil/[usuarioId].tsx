@@ -150,7 +150,7 @@ export default function PerfilRoomieScreen() {
     return (
       <ThemedView style={estilos.pantalla}>
         <ScrollView contentContainerStyle={[estilos.hoja, estilos.contenido, estilos.columna, { maxWidth: anchoLista }]}>
-          <ListaEsqueleto variante="hoja" filas={1} conFoto={false} etiquetas={['AFINIDAD', 'CONVIVENCIA']} />
+          <ListaEsqueleto variante="hoja" filas={1} conFoto={false} etiquetas={['Afinidad', 'CONVIVENCIA']} />
         </ScrollView>
       </ThemedView>
     );
@@ -228,7 +228,7 @@ export default function PerfilRoomieScreen() {
           <Calificacion
             score={afinidad?.similitud ?? null}
             tamano="ficha"
-            etiqueta="AFINIDAD"
+            etiqueta="Afinidad"
             animada
           />
           <ThemedText type="folio" themeColor="textSecondary" style={estilos.porQue}>

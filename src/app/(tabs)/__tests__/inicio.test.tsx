@@ -156,15 +156,15 @@ describe('cuando falla', () => {
     mockSugerencias.mockReturnValue(respuesta({ fallo: 'No pudimos consultar el expediente.' }));
     await render(<InicioScreen />);
 
-    expect(screen.getByText('NO SE PUDO CONSULTAR')).toBeTruthy();
-    expect(screen.queryByText('SIN REGISTROS')).toBeNull();
+    expect(screen.getByText('No se pudo consultar')).toBeTruthy();
+    expect(screen.queryByText('Sin resultados')).toBeNull();
   });
 
   it('sin resultados y sin fallo, dice que no hay — que es otra cosa', async () => {
     await render(<InicioScreen />);
 
-    expect(screen.getByText('SIN REGISTROS')).toBeTruthy();
-    expect(screen.queryByText('NO SE PUDO CONSULTAR')).toBeNull();
+    expect(screen.getByText('Sin resultados')).toBeTruthy();
+    expect(screen.queryByText('No se pudo consultar')).toBeNull();
   });
 });
 

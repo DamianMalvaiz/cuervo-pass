@@ -220,7 +220,7 @@ export default function RegistroScreen() {
                 name="nombre"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
-                    etiqueta="NOMBRE"
+                    etiqueta="Nombre"
                     placeholder="Angel Damian"
                     autoComplete="given-name"
                     error={errors.nombre?.message}
@@ -235,7 +235,7 @@ export default function RegistroScreen() {
                 name="apellidoPaterno"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
-                    etiqueta="APELLIDO PATERNO"
+                    etiqueta="Apellido paterno"
                     placeholder="Malvaiz"
                     autoComplete="family-name"
                     error={errors.apellidoPaterno?.message}
@@ -267,7 +267,7 @@ export default function RegistroScreen() {
                 name="nombreUsuario"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
-                    etiqueta="NOMBRE DE USUARIO"
+                    etiqueta="Nombre de usuario"
                     placeholder="damianml"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -284,7 +284,7 @@ export default function RegistroScreen() {
                 name="email"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
-                    etiqueta="CORREO ELECTRÓNICO"
+                    etiqueta="Correo electrónico"
                     placeholder="tucorreo@ejemplo.mx"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -303,7 +303,7 @@ export default function RegistroScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
                     contrasena
-                    etiqueta="CONTRASEÑA"
+                    etiqueta="Contraseña"
                     placeholder="Al menos 10 caracteres"
                     autoComplete="new-password"
                     error={errors.password?.message}
@@ -320,7 +320,7 @@ export default function RegistroScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
                     contrasena
-                    etiqueta="CONFIRMAR CONTRASEÑA"
+                    etiqueta="Confirmar contraseña"
                     placeholder="Escríbela otra vez"
                     autoComplete="new-password"
                     error={errors.confirmarPassword?.message}

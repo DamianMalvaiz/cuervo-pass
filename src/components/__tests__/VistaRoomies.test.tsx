@@ -110,7 +110,7 @@ test('si guardar falla, el interruptor vuelve y se dice', async () => {
   // ficha está activa cuando el servidor nunca la guardó.
   expect(screen.getByLabelText('Buscar roomie').props.value).toBe(false);
   // Y con él desaparece el campo, que solo existe con la búsqueda activa.
-  expect(screen.queryByText('QUÉ BUSCAS')).toBeNull();
+  expect(screen.queryByText('Qué buscas')).toBeNull();
 });
 
 // Paso 3 · antes, activar o apagar la búsqueda solo movía el interruptor.
@@ -230,14 +230,14 @@ test('salir del campo guarda la descripción nueva', async () => {
 
 test('sin registros lo dice en vez de dejar la lista muda', async () => {
   await render(<VistaRoomies />);
-  expect(screen.getByText('SIN REGISTROS')).toBeTruthy();
+  expect(screen.getByText('Sin resultados')).toBeTruthy();
 });
 
 // Vacío y cargando son estados distintos: §27.
 test('mientras carga no afirma que no hay nadie', async () => {
   mockRoomies.mockReturnValue({ roomies: [], cargando: true });
   await render(<VistaRoomies />);
-  expect(screen.queryByText('SIN REGISTROS')).toBeNull();
+  expect(screen.queryByText('Sin resultados')).toBeNull();
 });
 
 test('el conteo de personas concuerda en número', async () => {

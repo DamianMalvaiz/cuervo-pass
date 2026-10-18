@@ -183,7 +183,7 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => voi
     <ThemedView style={estilos.pantallaError}>
       <ScrollView contentContainerStyle={estilos.contenidoError}>
         <BloqueEstado
-          etiqueta="ALGO SE ROMPIÓ"
+          etiqueta="Algo se rompió"
           mensaje="La pantalla no pudo dibujarse. Puedes reintentar; si vuelve a pasar, comparte el detalle."
           icono="warning-outline"
           tono="alerta"

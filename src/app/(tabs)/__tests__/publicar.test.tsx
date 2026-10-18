@@ -205,14 +205,14 @@ test('el conteo de contactos concuerda en número', async () => {
 test('sin registros lo dice, y no deja la lista muda', async () => {
   mockMisPublicaciones.mockReturnValue({ datos: [], cargando: false });
   await render(<PublicacionesScreen />);
-  expect(screen.getByText('SIN PUBLICACIONES')).toBeTruthy();
+  expect(screen.getByText('Sin publicaciones')).toBeTruthy();
   expect(screen.queryByText('0 PUBLICACIONES')).toBeNull();
 });
 
 test('mientras carga no dice que no hay nada', async () => {
   mockMisPublicaciones.mockReturnValue({ datos: [], cargando: true });
   await render(<PublicacionesScreen />);
-  expect(screen.queryByText('SIN PUBLICACIONES')).toBeNull();
+  expect(screen.queryByText('Sin publicaciones')).toBeNull();
 });
 
 

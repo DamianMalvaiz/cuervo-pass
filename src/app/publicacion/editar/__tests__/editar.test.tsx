@@ -175,7 +175,7 @@ describe('carga fallida · END-11', () => {
     // propia publicación ya no existe — el mismo defecto que END-11 corrigió en
     // la ficha pública y que aquí quedó sin tocar.
     expect(screen.queryByText('No se encontró esta publicación.')).toBeNull();
-    expect(screen.getByText('NO PUDIMOS CONSULTAR')).toBeTruthy();
+    expect(screen.getByText('No pudimos consultar')).toBeTruthy();
   });
 
   it('ofrece reintentar, y el reintento carga de verdad', async () => {

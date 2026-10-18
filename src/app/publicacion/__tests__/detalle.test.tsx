@@ -124,7 +124,7 @@ test('un fallo de lectura NO insinúa reportes: ofrece reintentar', async () => 
   await pintar();
 
   expect(screen.queryByText(/reportes/)).toBeNull();
-  expect(screen.queryByText('FICHA NO DISPONIBLE')).toBeNull();
+  expect(screen.queryByText('Ficha no disponible')).toBeNull();
   expect(screen.getByLabelText('Reintentar')).toBeTruthy();
 });
 
@@ -143,7 +143,7 @@ test('ausente de verdad dice que no está disponible, sin ofrecer reintento', as
   mockPublicacion.mockReturnValue(estado({ publicacion: null }));
   await pintar();
 
-  expect(screen.getByText('FICHA NO DISPONIBLE')).toBeTruthy();
+  expect(screen.getByText('Ficha no disponible')).toBeTruthy();
   expect(screen.getByText(/Pudo desactivarse o ocultarse tras varios reportes/)).toBeTruthy();
   expect(screen.queryByLabelText('Reintentar')).toBeNull();
 });
@@ -151,7 +151,7 @@ test('ausente de verdad dice que no está disponible, sin ofrecer reintento', as
 test('mientras carga no afirma ni fallo ni ausencia', async () => {
   mockPublicacion.mockReturnValue(estado({ publicacion: null, cargando: true }));
   await pintar();
-  expect(screen.queryByText('FICHA NO DISPONIBLE')).toBeNull();
+  expect(screen.queryByText('Ficha no disponible')).toBeNull();
   expect(screen.queryByLabelText('Reintentar')).toBeNull();
 });
 
@@ -350,7 +350,7 @@ test('ya no hay tabla de datos de la publicación', async () => {
 test('un tipo desconocido cae al nombre crudo, no a undefined', async () => {
   mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, tipo: 'loft' } }));
   await pintar();
-  expect(screen.getByText('LOFT')).toBeTruthy();
+  expect(screen.getByText('Loft')).toBeTruthy();
 });
 
 test('sin descripción no se pinta esa sección vacía', async () => {
@@ -462,4 +462,11 @@ test('el conteo de favoritos y el reporte siguen en el cuerpo, no en la barra', 
   const barra = screen.getByTestId('barra-contacto');
   expect(within(barra).queryByText(`CONTEO:${PUBLICACION.id}`)).toBeNull();
   expect(within(barra).queryByLabelText('Reportar publicación')).toBeNull();
+});
+
+test('el membrete ya no lleva folio ni fecha de alta', async () => {
+  await pintar();
+  expect(screen.getByText('Departamento')).toBeTruthy();
+  expect(screen.queryByText(/FOLIO/)).toBeNull();
+  expect(screen.queryByText(/ALTA/)).toBeNull();
 });

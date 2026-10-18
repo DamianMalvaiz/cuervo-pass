@@ -22,6 +22,11 @@ import { clienteDePrueba } from '@pruebas/consultas';
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
 
+// El conteo de favoritos de la tarjeta de identidad; tiene sus propias pruebas.
+jest.mock('@/hooks/queries/useFavoritos', () => ({
+  useMisFavoritosIds: () => ({ ids: new Set(['a', 'b']), cargando: false, fallo: false }),
+  useConteoFavoritos: () => ({ conteos: new Map() }),
+}));
 jest.mock('expo-router', () => {
   const React = require('react');
   return {

@@ -155,7 +155,7 @@ export function VistaRoomies({ selector }: { selector?: ReactNode }) {
                   <FileteHoja />
                   <Campo
                     punteado
-                    etiqueta="QUÉ BUSCAS"
+                    etiqueta="Qué buscas"
                     placeholder="Zona, presupuesto, horarios, si fumas, si tienes mascota…"
                     multiline
                     maxLength={2000}
@@ -204,7 +204,7 @@ export function VistaRoomies({ selector }: { selector?: ReactNode }) {
                             etiquetas={['APORTACIÓN', 'DISTANCIA']} />
           ) : (
             <BloqueEstado
-              etiqueta="SIN REGISTROS"
+              etiqueta="Sin resultados"
               mensaje="Nadie está buscando roomie cerca de tu universidad por ahora. Activa tu ficha para que te encuentren a ti."
               icono="people-outline"
             />
