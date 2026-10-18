@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(247);
+select plan(262);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1086,6 +1086,7 @@ select is(
     'enviar_verificacion',
     'exportar_mis_datos',
     'favoritos_por_publicacion',
+    'guardar_menu',
     'mi_suscripcion',
     'nuevas_esta_semana',
     'resumen_conversaciones',
@@ -2107,8 +2108,8 @@ select throws_ok(
 select actuar_como_servicio();
 select throws_ok(
   $$insert into negocio_items (negocio_id, nombre, precio)
-    select n.id, 'P' || g, 1 from negocios n, generate_series(1, 40) g where n.nombre = 'Tienda F7'$$,
-  'CP009', null, 'menú: pasar de 40 productos se rechaza' );
+    select n.id, 'P' || g, 1 from negocios n, generate_series(1, 80) g where n.nombre = 'Tienda F7'$$,
+  'CP009', null, 'menú: pasar de los 80 productos del plan Básico se rechaza' );
 
 -- Storage.
 select actuar_como('00000000-0000-0000-0000-0000000000f7');
@@ -2205,6 +2206,81 @@ select ok(
   (select hasta between now() + interval '59 days' and now() + interval '61 days' from mi_suscripcion('comerciante')),
   'pago: pagar antes de vencer SUMA el periodo, no lo reinicia' );
 
+-- ── Galería y menú a escala real (0053) ─────────────────────────────────────
+-- f7 está en el plan Destacado (60 fotos, 250 productos) y su negocio visible es «Tienda F7».
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select lives_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(
+        jsonb_build_object('id', (select id from negocio_items where nombre = 'Taco'), 'nombre', 'Taco al pastor', 'precio', 20, 'seccion', 'Tacos'),
+        jsonb_build_object('nombre', 'Agua', 'precio', 15, 'seccion', 'Bebidas', 'descripcion', 'Fresca'),
+        jsonb_build_object('nombre', 'Revisión', 'precio', null)))$$,
+  'menú: se guarda ENTERO en una sola llamada' );
+select is(
+  (select array_agg(nombre order by orden) from negocio_items
+    where negocio_id = (select id from negocios where nombre = 'Tienda F7')),
+  array['Taco al pastor', 'Agua', 'Revisión'], 'menú: queda en el orden pedido (el existente se actualiza, los nuevos se insertan)' );
+select is(
+  (select seccion || '|' || coalesce(descripcion, '-') from negocio_items where nombre = 'Agua'),
+  'Bebidas|Fresca', 'menú: cada producto guarda su sección y su descripción' );
+select is(
+  (select precio from negocio_items where nombre = 'Revisión'), null, 'menú: un producto sin precio queda en null (consultar precio)' );
+
+select lives_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('id', (select id from negocio_items where nombre = 'Taco al pastor'), 'nombre', 'Taco al pastor', 'precio', 22)))$$,
+  'menú: lo que ya no viene en la lista se borra' );
+select is(
+  (select count(*)::int from negocio_items where negocio_id = (select id from negocios where nombre = 'Tienda F7')),
+  1, 'menú: quedó solo el que seguía' );
+
+select throws_ok(
+  $$select guardar_menu((select id from negocios where nombre = 'Tienda F7'), '{"no": "es lista"}'::jsonb)$$,
+  '22023', null, 'menú: algo que no es una lista se rechaza' );
+
+select throws_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      (select jsonb_agg(jsonb_build_object('nombre', 'P' || g, 'precio', 1)) from generate_series(1, 251) g))$$,
+  'CP009', null, 'menú: 251 productos superan el tope del plan Destacado' );
+select is(
+  (select count(*)::int from negocio_items where negocio_id = (select id from negocios where nombre = 'Tienda F7')),
+  1, 'menú: si falla, TODO se deshace (no queda a medias)' );
+
+select throws_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('nombre', 'Foto ajena', 'precio', 1,
+        'foto', 'negocios/00000000-0000-0000-0000-00000000b001/x.jpg')))$$,
+  '23514', null, 'menú: la foto de un producto debe vivir en la carpeta de SU negocio' );
+select lives_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('id', (select id from negocio_items where nombre = 'Taco al pastor'), 'nombre', 'Taco al pastor', 'precio', 22,
+        'foto', 'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/p/taco.jpg')))$$,
+  'menú: una foto propia sí' );
+
+select lives_ok(
+  $$update negocios set fotos = array(
+      select 'negocios/' || id || '/' || g || '.jpg' from generate_series(1, 60) g) where nombre = 'Tienda F7'$$,
+  'galería: con el plan Destacado caben 60 fotos' );
+select throws_ok(
+  $$update negocios set fotos = array(
+      select 'negocios/' || id || '/' || g || '.jpg' from generate_series(1, 61) g) where nombre = 'Tienda F7'$$,
+  'CP012', null, 'galería: la 61 se rechaza' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select throws_ok(
+  $$select guardar_menu(
+      (select id from negocios_publicos where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('nombre', 'Intruso', 'precio', 1)))$$,
+  '42501', null, 'menú: otra cuenta no puede escribir en el menú ajeno' );
+select is(
+  (select seccion from negocio_items_publicos where nombre = 'Taco al pastor'),
+  null, 'vista pública: el producto trae sus columnas nuevas (sin sección en este caso)' );
+
 select actuar_como('00000000-0000-0000-0000-0000000000b2');
 select is((select count(*)::int from pagos), 0, 'pagos: otra cuenta no lee los pagos ajenos');
 select throws_ok(
@@ -2236,9 +2312,11 @@ select throws_ok(
   $$update negocios set fotos = array[
       'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/a.jpg',
       'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/b.jpg',
-      'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/c.jpg'
+      'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/c.jpg',
+      'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/d.jpg',
+      'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/e.jpg'
     ] where nombre = 'Tienda F7'$$,
-  'CP012', null, 'fotos: más de las que permite el plan efectivo se rechaza' );
+  'CP012', null, 'fotos: más de las 4 que permite el plan gratuito se rechaza' );
 
 -- Al volver a pagar reaparecen.
 select simular_pago('comerciante_basico');

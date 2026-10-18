@@ -23,11 +23,12 @@
 -- `mp_payment_id` (único, para idempotencia) ya existen para cuando llegue.
 --
 -- ── Precios y límites ───────────────────────────────────────────────────────
--- Son los ILUSTRATIVOS de la orden maestra ($99 y $199 al mes) y los límites propuestos, pendientes de aprobación. Viven
+-- Precios: los ILUSTRATIVOS de la orden maestra ($99 y $199 al mes). Límites de galería elegidos con Damian (sin plan 4,
+-- Básico 20, Destacado 60 fotos); productos 10 / 80 / 250. Viven
 -- en la tabla `planes`: cambiarlos es un `update`, no una migración.
 --
--- Códigos propios: CP010 (demo_mode apagado), CP011 (plan inválido o sin función aprobada), CP012 (más fotos de las que
--- permite el plan).
+-- Códigos propios: CP010 (demo_mode apagado), CP011 (plan inválido o sin función aprobada), CP012 (más fotos de galería de
+-- las que permite el plan). CP009 (tope de productos) pasa a salir del plan.
 --
 -- Reversión: ver el final de este archivo.
 
@@ -39,7 +40,10 @@ create table if not exists planes (
   precio_centavos  integer not null check (precio_centavos >= 0),
   -- Negocios activos (comerciante) o anuncios activos (arrendador) que permite.
   limite_principal integer not null check (limite_principal >= 0),
+  -- Fotos de GALERÍA del negocio (las fotos de cada producto no cuentan aquí).
   max_fotos        integer not null check (max_fotos >= 0),
+  -- Productos del menú de un negocio.
+  max_productos    integer not null default 0 check (max_productos >= 0),
   destaca          boolean not null default false,
   -- El plan cuyos límites se disfrutan durante la prueba gratis.
   es_prueba        boolean not null default false,
@@ -50,12 +54,12 @@ create table if not exists planes (
 create unique index if not exists planes_un_gratuito on planes (rol) where precio_centavos = 0;
 create unique index if not exists planes_una_prueba on planes (rol) where es_prueba;
 
-insert into planes (id, rol, nombre, precio_centavos, limite_principal, max_fotos, destaca, es_prueba, orden) values
-  ('comerciante_gratis',     'comerciante', 'Sin plan',   0,     0, 2, false, false, 0),
-  ('comerciante_basico',     'comerciante', 'Básico',     9900,  1, 4, false, true,  1),
-  ('comerciante_destacado',  'comerciante', 'Destacado',  19900, 3, 8, true,  false, 2),
-  ('arrendador_gratis',      'arrendador',  'Gratis',     0,     1, 8, false, false, 0),
-  ('arrendador_plus',        'arrendador',  'Plus',       9900,  15, 8, true,  true,  1)
+insert into planes (id, rol, nombre, precio_centavos, limite_principal, max_fotos, max_productos, destaca, es_prueba, orden) values
+  ('comerciante_gratis',     'comerciante', 'Sin plan',   0,     0, 4,  10,  false, false, 0),
+  ('comerciante_basico',     'comerciante', 'Básico',     9900,  1, 20, 80,  false, true,  1),
+  ('comerciante_destacado',  'comerciante', 'Destacado',  19900, 3, 60, 250, true,  false, 2),
+  ('arrendador_gratis',      'arrendador',  'Gratis',     0,     1, 8,  0,   false, false, 0),
+  ('arrendador_plus',        'arrendador',  'Plus',       9900,  15, 8, 0,   true,  true,  1)
 on conflict (id) do nothing;
 
 -- ── Suscripciones y pagos ───────────────────────────────────────────────────
@@ -120,7 +124,7 @@ create policy pagos_select_propios on pagos
 -- función llamada dentro de una vista se revisa con el usuario que consulta (no con el dueño de la vista), y estas
 -- funciones no son ejecutables por el cliente (invariante 9). Las TABLAS sí se revisan como dueño de la vista.
 create or replace view planes_efectivos with (security_invoker = false) as
-  select r.usuario_id, r.rol, p.id as plan_id, p.limite_principal, p.max_fotos, p.destaca
+  select r.usuario_id, r.rol, p.id as plan_id, p.limite_principal, p.max_fotos, p.max_productos, p.destaca
     from roles_usuario r
     join planes p on p.id = coalesce(
       (select s.plan_id from suscripciones s
@@ -232,7 +236,7 @@ grant execute on function resolver_verificacion(uuid, text, boolean, text, uuid)
 create or replace function mi_suscripcion(p_rol text)
 returns table (
   plan_id text, plan_nombre text, estado text, hasta timestamptz,
-  limite_principal integer, max_fotos integer, destaca boolean
+  limite_principal integer, max_fotos integer, max_productos integer, destaca boolean
 )
 language sql
 stable
@@ -252,7 +256,7 @@ as $$
            when p.precio_centavos = 0 then null
            else (select prueba_hasta from s)
          end,
-         p.limite_principal, p.max_fotos, p.destaca
+         p.limite_principal, p.max_fotos, p.max_productos, p.destaca
     from efectivo e join planes p on p.id = e.id
    where auth.uid() is not null;
 $$;
@@ -308,6 +312,108 @@ $$;
 revoke execute on function simular_pago(text) from public, anon, authenticated;
 grant execute on function simular_pago(text) to authenticated;
 
+-- ── Galería y menú a escala real ────────────────────────────────────────────
+-- Un negocio real tiene decenas de fotos y un menú de cientos de renglones. El tope duro de 8 fotos de la 0047 se sube a
+-- 60 (el del plan más alto); lo que de verdad manda es el límite del plan (arriba), no esta cota técnica.
+alter table negocios drop constraint if exists negocios_fotos_check;
+alter table negocios add constraint negocios_fotos_check check (cardinality(fotos) <= 60);
+
+-- Cada producto puede llevar sección, una línea de descripción y una foto. La foto vive en la carpeta del propio negocio
+-- (las políticas de Storage de la 0052 ya cubren cualquier ruta bajo `negocios/<id>/`).
+alter table negocio_items add column if not exists seccion     text check (char_length(seccion) <= 40);
+alter table negocio_items add column if not exists descripcion text check (char_length(descripcion) <= 200);
+alter table negocio_items add column if not exists foto        text;
+
+create or replace function validar_foto_item()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.foto is not null and new.foto not like 'negocios/' || new.negocio_id::text || '/%' then
+    raise exception 'ruta de foto fuera de la carpeta del negocio' using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+revoke execute on function validar_foto_item() from public, anon, authenticated;
+
+drop trigger if exists trg_validar_foto_item on negocio_items;
+create trigger trg_validar_foto_item
+  before insert or update of foto, negocio_id on negocio_items
+  for each row execute function validar_foto_item();
+
+grant insert (negocio_id, nombre, precio, orden, seccion, descripcion, foto) on negocio_items to authenticated;
+grant update (nombre, precio, orden, seccion, descripcion, foto) on negocio_items to authenticated;
+
+-- El tope de productos sale del plan (CP009), con una cota técnica de 250 para todos (también los negocios de ejemplo,
+-- que no tienen dueño ni plan).
+create or replace function limitar_items_negocio()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_dueno uuid;
+  v_max   integer := 250;
+begin
+  perform pg_advisory_xact_lock(hashtextextended('items:' || new.negocio_id::text, 0));
+  select usuario_id into v_dueno from negocios where id = new.negocio_id;
+  if v_dueno is not null then
+    v_max := least(250, coalesce((select max_productos from planes where id = plan_efectivo(v_dueno, 'comerciante')), 0));
+  end if;
+  if (select count(*) from negocio_items where negocio_id = new.negocio_id) >= v_max then
+    raise exception 'tope de productos del menu alcanzado' using errcode = 'CP009';
+  end if;
+  return new;
+end;
+$$;
+revoke execute on function limitar_items_negocio() from public, anon, authenticated;
+
+-- Guardar el menú ENTERO en una sola llamada y en una sola transacción: borra lo que ya no está, actualiza lo que sigue
+-- (con su nuevo orden) e inserta lo nuevo. Con cientos de productos, una petición por renglón era lenta y dejaba el menú a
+-- medias si se cortaba la red. `security invoker` a propósito: corren las políticas de siempre (solo la dueña, solo un
+-- comerciante aprobado para insertar) y los límites del plan; si una fila falla, todo se deshace.
+create or replace function guardar_menu(p_negocio uuid, p_items jsonb)
+returns void
+language plpgsql
+as $$
+declare
+  v_ids uuid[];
+begin
+  if p_items is null or jsonb_typeof(p_items) <> 'array' then
+    raise exception 'menu invalido' using errcode = '22023';
+  end if;
+
+  select coalesce(array_agg((e->>'id')::uuid) filter (where e->>'id' is not null), '{}'::uuid[])
+    into v_ids from jsonb_array_elements(p_items) e;
+
+  delete from negocio_items where negocio_id = p_negocio and id <> all(v_ids);
+
+  update negocio_items i
+     set nombre = x.nombre, precio = x.precio, orden = x.orden,
+         seccion = x.seccion, descripcion = x.descripcion, foto = x.foto
+    from (
+      select (e->>'id')::uuid as id, e->>'nombre' as nombre, (e->>'precio')::numeric as precio, (t.ord - 1)::smallint as orden,
+             nullif(btrim(e->>'seccion'), '') as seccion, nullif(btrim(e->>'descripcion'), '') as descripcion,
+             nullif(e->>'foto', '') as foto
+        from jsonb_array_elements(p_items) with ordinality as t(e, ord)
+       where e->>'id' is not null
+    ) x
+   where i.id = x.id and i.negocio_id = p_negocio;
+
+  insert into negocio_items (negocio_id, nombre, precio, orden, seccion, descripcion, foto)
+  select p_negocio, e->>'nombre', (e->>'precio')::numeric, (t.ord - 1)::smallint,
+         nullif(btrim(e->>'seccion'), ''), nullif(btrim(e->>'descripcion'), ''), nullif(e->>'foto', '')
+    from jsonb_array_elements(p_items) with ordinality as t(e, ord)
+   where e->>'id' is null;
+end;
+$$;
+revoke execute on function guardar_menu(uuid, jsonb) from public, anon, authenticated;
+grant execute on function guardar_menu(uuid, jsonb) to authenticated;
+
 -- ── La vista pública respeta el plan ────────────────────────────────────────
 -- Mismas columnas y tipos que en la 0047 (por eso `create or replace`: la política de Storage de la 0048 depende de
 -- esta vista). Cambia QUÉ filas salen —solo los primeros N activos de cada dueño— y cómo se calcula `destacado`.
@@ -325,7 +431,7 @@ create or replace view negocios_publicos with (security_invoker = false) as
    where n.usuario_id is null or n.pos <= coalesce(pe.limite_principal, 0);
 
 create or replace view negocio_items_publicos with (security_invoker = false) as
-  select i.id, i.negocio_id, i.nombre, i.precio, i.orden
+  select i.id, i.negocio_id, i.nombre, i.precio, i.orden, i.seccion, i.descripcion, i.foto
     from negocio_items i
     join negocios_publicos n on n.id = i.negocio_id;
 
