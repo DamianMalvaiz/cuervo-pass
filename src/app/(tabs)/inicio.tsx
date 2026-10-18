@@ -8,6 +8,7 @@ import { ANCHO_FICHA_COMPACTA, FichaCompacta } from '@/components/FichaCompacta'
 import { FilaPublicacion } from '@/components/FilaPublicacion';
 import { SelectorModulo } from '@/components/SelectorModulo';
 import { VistaRoomies } from '@/components/vistas/VistaRoomies';
+import { VistaServicios } from '@/components/vistas/VistaServicios';
 import { useModuloStore } from '@/store/useModuloStore';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { Carrusel } from '@/components/ficha/Carrusel';
@@ -434,7 +435,7 @@ const estilos = StyleSheet.create({
 });
 
 /**
- * Inicio reúne los módulos · Cuervo 360. Hoy Depas y Roomies; Servicios se suma en la Semana 2.
+ * Inicio reúne los módulos · Cuervo 360. Depas, Roomies y Servicios.
  *
  * Roomies dejó de ser una pestaña: el menú es de cinco accesos. Cada vista pinta el selector
  * arriba de su propio encabezado, así comparte el margen superior y el desplazamiento.
@@ -443,5 +444,7 @@ export default function InicioScreen() {
   const modulo = useModuloStore((s) => s.modulo);
   const setModulo = useModuloStore((s) => s.setModulo);
   const selector = <SelectorModulo valor={modulo} onCambiar={setModulo} />;
-  return modulo === 'roomies' ? <VistaRoomies selector={selector} /> : <VistaDepas selector={selector} />;
+  if (modulo === 'roomies') return <VistaRoomies selector={selector} />;
+  if (modulo === 'servicios') return <VistaServicios selector={selector} />;
+  return <VistaDepas selector={selector} />;
 }

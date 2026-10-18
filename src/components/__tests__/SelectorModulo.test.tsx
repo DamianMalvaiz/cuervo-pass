@@ -7,10 +7,18 @@ import { SelectorModulo } from '../SelectorModulo';
 // El selector es lo que sustituye a las pestañas que se retiran del menú, así que tiene que
 // decir en cuál estás sin depender del color, y tocarse con el pulgar.
 
-test('muestra los dos módulos', async () => {
+test('muestra los tres módulos', async () => {
   await render(<SelectorModulo valor="depas" onCambiar={() => {}} />);
   expect(screen.getByRole('tab', { name: 'Depas' })).toBeTruthy();
   expect(screen.getByRole('tab', { name: 'Roomies' })).toBeTruthy();
+  expect(screen.getByRole('tab', { name: 'Servicios' })).toBeTruthy();
+});
+
+test('tocar Servicios lo pide', async () => {
+  const onCambiar = jest.fn();
+  await render(<SelectorModulo valor="depas" onCambiar={onCambiar} />);
+  await fireEvent.press(screen.getByRole('tab', { name: 'Servicios' }));
+  expect(onCambiar).toHaveBeenCalledWith('servicios');
 });
 
 test('marca el activo como seleccionado para el lector de pantalla', async () => {
@@ -44,7 +52,7 @@ test('el activo se distingue por más de un tono', async () => {
 
 test('cada opción mide al menos 44 pt de alto', async () => {
   await render(<SelectorModulo valor="depas" onCambiar={() => {}} />);
-  for (const nombre of ['Depas', 'Roomies']) {
+  for (const nombre of ['Depas', 'Roomies', 'Servicios']) {
     const estilo = StyleSheet.flatten(screen.getByRole('tab', { name: nombre }).props.style) as { minHeight?: number };
     expect(estilo.minHeight).toBeGreaterThanOrEqual(44);
   }

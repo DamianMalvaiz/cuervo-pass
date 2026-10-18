@@ -116,6 +116,7 @@ export default function RootLayout() {
         <Stack.Screen name="publicacion/[id]" options={{ ...encabezado, title: 'Ficha' }} />
         <Stack.Screen name="publicacion/nueva" options={{ ...encabezado, title: 'Nueva publicación' }} />
         <Stack.Screen name="publicacion/editar/[id]" options={{ ...encabezado, title: 'Editar publicación' }} />
+        <Stack.Screen name="negocio/[id]" options={{ ...encabezado, title: 'Negocio' }} />
         <Stack.Screen name="perfil/[usuarioId]" options={{ ...encabezado, title: 'Perfil' }} />
         {/* Hoja modal, no empujada: editar tus preferencias es una tarea
             autocontenida de la que se sale cancelando, y el gesto de arrastrar

@@ -5,11 +5,12 @@ import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { toque } from '@/lib/tacto';
 
-export type Modulo = 'depas' | 'roomies';
+export type Modulo = 'depas' | 'roomies' | 'servicios';
 
 const OPCIONES: { valor: Modulo; etiqueta: string }[] = [
   { valor: 'depas', etiqueta: 'Depas' },
   { valor: 'roomies', etiqueta: 'Roomies' },
+  { valor: 'servicios', etiqueta: 'Servicios' },
 ];
 
 /**
@@ -17,8 +18,8 @@ const OPCIONES: { valor: Modulo; etiqueta: string }[] = [
  *
  * Sustituye a las pestañas de Roomies y Chats que salen del menú de cinco accesos. Lo que
  * sigue siendo cierto de las pestañas: dice en cuál estás sin depender del color (cambian el
- * relleno, el borde y el peso) y cada opción se toca con el pulgar (44 pt). Servicios se suma
- * aquí en la Semana 2.
+ * relleno, el borde y el peso) y cada opción se toca con el pulgar (44 pt). Servicios se sumó el
+ * 17/10/2026.
  */
 export function SelectorModulo({ valor, onCambiar }: { valor: Modulo; onCambiar: (v: Modulo) => void }) {
   const theme = useTheme();

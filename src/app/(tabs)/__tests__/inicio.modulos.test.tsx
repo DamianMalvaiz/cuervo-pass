@@ -40,6 +40,14 @@ jest.mock('@/components/vistas/VistaRoomies', () => ({
   },
 }));
 
+// La vista de Servicios tiene sus propias pruebas; aquí solo importa que Inicio la monte y le pase el selector.
+jest.mock('@/components/vistas/VistaServicios', () => ({
+  VistaServicios: ({ selector }: { selector?: React.ReactNode }) => {
+    const { Text, View } = require('react-native');
+    return <View>{selector}<Text>VISTA SERVICIOS</Text></View>;
+  },
+}));
+
 import { useModuloStore } from '@/store/useModuloStore';
 import InicioScreen from '../inicio';
 
@@ -79,4 +87,13 @@ test('si otra pantalla eligió Roomies (Mi perfil), Inicio abre en Roomies', asy
   await act(async () => useModuloStore.setState({ modulo: 'roomies' }));
   await render(<InicioScreen />);
   expect(await screen.findByText('VISTA ROOMIES')).toBeTruthy();
+});
+
+test('el selector lleva a Servicios y desde ahí se puede volver a Depas', async () => {
+  await render(<InicioScreen />);
+  await fireEvent.press(screen.getByRole('tab', { name: 'Servicios' }));
+  expect(await screen.findByText('VISTA SERVICIOS')).toBeTruthy();
+  expect(screen.queryByText('Sugerencias')).toBeNull();
+  await fireEvent.press(screen.getByRole('tab', { name: 'Depas' }));
+  expect(await screen.findByText('Sugerencias')).toBeTruthy();
 });
