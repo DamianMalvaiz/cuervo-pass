@@ -12,6 +12,8 @@ const mockLiberarImagen = jest.fn();
 const mockManipular = jest.fn();
 const mockSubir = jest.fn();
 const mockRemover = jest.fn();
+const mockFirmarLote = jest.fn();
+const mockFirmarUna = jest.fn();
 
 jest.mock('expo-image-manipulator', () => ({
   ImageManipulator: { manipulate: (...a: unknown[]) => mockManipular(...a) },
@@ -23,12 +25,14 @@ jest.mock('@/lib/supabase', () => ({
       from: () => ({
         upload: (...a: unknown[]) => mockSubir(...a),
         remove: (...a: unknown[]) => mockRemover(...a),
+        createSignedUrls: (...a: unknown[]) => mockFirmarLote(...a),
+        createSignedUrl: (...a: unknown[]) => mockFirmarUna(...a),
       }),
     },
   },
 }));
 
-import { borrarFotos, subirEvidenciaVerificacion, subirFotoNegocio, subirFotoProducto, subirFotoPerfil, subirFotoPublicacion } from '../storage';
+import { borrarFotoPerfil, borrarFotos, CADUCIDAD_SEGUNDOS, firmarMiniatura, firmarRutas, subirEvidenciaVerificacion, subirFotoNegocio, subirFotoProducto, subirFotoPerfil, subirFotoPublicacion } from '../storage';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -200,5 +204,81 @@ describe('subirFotoProducto', () => {
   it('comprime a 800 px: es una miniatura de menú, no una galería', async () => {
     await subirFotoProducto('n1', 'file:///x.jpg');
     expect(mockResize).toHaveBeenCalledWith({ width: 800 });
+  });
+});
+
+
+// ── Firmar las fotos (el bucket es privado) ─────────────────────────────────────────────────────────────────────────────
+// Sin URL firmada no hay foto. Lo que se fija: una sola petición en lote, sin duplicados, y que un fallo se DIGA (END-25) en vez de devolver un mapa
+// vacío que se confunde con «esta publicación no tiene fotos».
+describe('firmarRutas', () => {
+  it('sin rutas es un ÉXITO con cero entradas, y no toca la red', async () => {
+    const r = await firmarRutas([null, undefined, '']);
+    expect(r).toEqual({ estado: 'ok', datos: new Map() });
+    expect(mockFirmarLote).not.toHaveBeenCalled();
+  });
+
+  it('firma en UNA petición, sin duplicados, con la caducidad declarada', async () => {
+    mockFirmarLote.mockResolvedValue({ data: [{ path: 'a/1.jpg', signedUrl: 'https://f/1' }, { path: 'a/2.jpg', signedUrl: 'https://f/2' }], error: null });
+    const r = await firmarRutas(['a/1.jpg', 'a/2.jpg', 'a/1.jpg', null]);
+    expect(mockFirmarLote).toHaveBeenCalledTimes(1);
+    expect(mockFirmarLote).toHaveBeenCalledWith(['a/1.jpg', 'a/2.jpg'], CADUCIDAD_SEGUNDOS);
+    expect(r).toEqual({ estado: 'ok', datos: new Map([['a/1.jpg', 'https://f/1'], ['a/2.jpg', 'https://f/2']]) });
+  });
+
+  it('una entrada sin URL (archivo que no existe) queda fuera del mapa, no como cadena vacía', async () => {
+    mockFirmarLote.mockResolvedValue({ data: [{ path: 'a/1.jpg', signedUrl: 'https://f/1' }, { path: 'a/2.jpg', signedUrl: null, error: 'no existe' }, { path: null, signedUrl: 'x' }], error: null });
+    const r = await firmarRutas(['a/1.jpg', 'a/2.jpg']);
+    expect(r.estado === 'ok' && [...r.datos.keys()]).toEqual(['a/1.jpg']);
+  });
+
+  it('un error de Storage se DICE: no se devuelve un mapa vacío', async () => {
+    mockFirmarLote.mockResolvedValue({ data: null, error: { message: 'caído' } });
+    const r = await firmarRutas(['a/1.jpg']);
+    expect(r.estado).toBe('error');
+    expect(r.estado === 'error' && r.mensaje).toMatch(/No pudimos cargar las fotos/);
+  });
+
+  it('si la petición lanza (sin red) también se dice, no revienta', async () => {
+    mockFirmarLote.mockRejectedValue(new Error('Network request failed'));
+    const r = await firmarRutas(['a/1.jpg']);
+    expect(r.estado).toBe('error');
+  });
+
+  it('una respuesta sin datos pero sin error es un mapa vacío, no un fallo', async () => {
+    mockFirmarLote.mockResolvedValue({ data: null, error: null });
+    expect(await firmarRutas(['a/1.jpg'])).toEqual({ estado: 'ok', datos: new Map() });
+  });
+});
+
+describe('firmarMiniatura', () => {
+  it('sin ruta devuelve null y no pide nada', async () => {
+    expect(await firmarMiniatura(null)).toBeNull();
+    expect(await firmarMiniatura(undefined)).toBeNull();
+    expect(await firmarMiniatura('')).toBeNull();
+    expect(mockFirmarUna).not.toHaveBeenCalled();
+  });
+
+  it('pide la transformación de 400 px y devuelve la URL', async () => {
+    mockFirmarUna.mockResolvedValue({ data: { signedUrl: 'https://f/mini' }, error: null });
+    expect(await firmarMiniatura('a/1.jpg')).toBe('https://f/mini');
+    expect(mockFirmarUna).toHaveBeenCalledWith('a/1.jpg', CADUCIDAD_SEGUNDOS, { transform: { width: 400, quality: 70 } });
+  });
+
+  it('un error devuelve null (la tarjeta usa su marcador), no lanza', async () => {
+    mockFirmarUna.mockResolvedValue({ data: null, error: { message: 'x' } });
+    expect(await firmarMiniatura('a/1.jpg')).toBeNull();
+  });
+
+  it('sin datos tampoco rompe', async () => {
+    mockFirmarUna.mockResolvedValue({ data: null, error: null });
+    expect(await firmarMiniatura('a/1.jpg')).toBeNull();
+  });
+});
+
+describe('borrarFotoPerfil', () => {
+  it('borra exactamente la foto de ESA cuenta', async () => {
+    await borrarFotoPerfil('u1');
+    expect(mockRemover).toHaveBeenCalledWith(['perfiles/u1.jpg']);
   });
 });

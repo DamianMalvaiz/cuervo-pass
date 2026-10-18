@@ -109,3 +109,58 @@ describe('envío optimista', () => {
     expect((mensajesDe('c1')[0] as MensajeLocal).envio).toBe('enviando');
   });
 });
+
+// ── Lo que faltaba cubrir ────────────────────────────────────────────────────────────────────────────────────────────────
+// `actualizarMensaje` es el «✓✓» del otro lado: sin él marcar como leído no llega en vivo. Y el eco de Realtime puede llegar ANTES que la respuesta del insert.
+
+describe('actualizarMensaje (UPDATE de Realtime: «leído»)', () => {
+  it('reemplaza el mensaje en su sitio, sin mover los demás', () => {
+    estado().agregarMensaje('c1', m('a', 10));
+    estado().agregarMensaje('c1', m('b', 20));
+    estado().actualizarMensaje('c1', m('b', 20, { leido: true }));
+    expect(mensajesDe('c1').map((x) => [x.id, x.leido])).toEqual([['a', false], ['b', true]]);
+  });
+
+  it('un mensaje que no está cargado NO se inventa (la conversación puede no estar abierta)', () => {
+    estado().agregarMensaje('c1', m('a', 10));
+    estado().actualizarMensaje('c1', m('zzz', 99, { leido: true }));
+    expect(mensajesDe('c1').map((x) => x.id)).toEqual(['a']);
+  });
+
+  it('en una conversación sin cargar no hace nada ni crea la entrada', () => {
+    estado().actualizarMensaje('otra', m('a', 10));
+    expect(estado().mensajesPorConversacion).toEqual({});
+  });
+});
+
+describe('confirmarOptimista', () => {
+  it('cambia el provisional por el real, en el sitio que dice el servidor', () => {
+    estado().agregarOptimista('c1', { id: 'tmp', contenido: 'hola', remitenteId: 'u1' });
+    estado().confirmarOptimista('c1', 'tmp', m('real', 5));
+    expect(mensajesDe('c1').map((x) => x.id)).toEqual(['real']);
+  });
+
+  it('si el eco de Realtime llegó ANTES que la respuesta, no queda duplicado: se quita el provisional y se conserva uno', () => {
+    estado().agregarOptimista('c1', { id: 'tmp', contenido: 'hola', remitenteId: 'u1' });
+    estado().agregarMensaje('c1', m('real', 5)); // el eco
+    expect(mensajesDe('c1')).toHaveLength(2);
+    estado().confirmarOptimista('c1', 'tmp', m('real', 5));
+    expect(mensajesDe('c1').map((x) => x.id)).toEqual(['real']);
+  });
+});
+
+describe('marcarFallido / marcarEnviando', () => {
+  it('un envío fallido queda marcado (la burbuja se pinta en rojo, el texto NO se devuelve al campo)', () => {
+    estado().agregarOptimista('c1', { id: 'tmp', contenido: 'hola', remitenteId: 'u1' });
+    estado().marcarFallido('c1', 'tmp');
+    expect((mensajesDe('c1')[0] as MensajeLocal).envio).toBe('fallido');
+    estado().marcarEnviando('c1', 'tmp');
+    expect((mensajesDe('c1')[0] as MensajeLocal).envio).toBe('enviando');
+  });
+
+  it('marcar un provisional que ya no existe no rompe ni crea nada', () => {
+    estado().agregarMensaje('c1', m('a', 10));
+    estado().marcarFallido('c1', 'no-existe');
+    expect(mensajesDe('c1').map((x) => x.id)).toEqual(['a']);
+  });
+});

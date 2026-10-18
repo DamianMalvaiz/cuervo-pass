@@ -21,8 +21,10 @@ import {
   abrirConversacion,
   cursorDe,
   enviarMensaje,
+  listarConversaciones,
   listarMensajes,
   marcarConversacionComoLeida,
+  suscribirseAConversacion,
   suscribirseAMisChats,
 } from '../mensajes.service';
 import type { Mensaje } from '@/types/database.types';
@@ -202,4 +204,128 @@ test('se suscribe de verdad, no solo registra las escuchas', () => {
   suscribirseAMisChats(jest.fn());
   // Sin `.subscribe()` el canal existe y no recibe nada: fallo mudo perfecto.
   expect(canal.subscribe).toHaveBeenCalled();
+});
+
+
+// ── Errores que se propagan (nunca se vuelven «no hay mensajes») ─────────────────────────────────────────────────────────
+// Invariante 2: un fallo de lectura no se pinta como contenido borrado. Si estas funciones tragaran el error, un chat con la red caída se vería vacío.
+test('abrir conversación: un error se propaga, no se devuelve un id inventado', async () => {
+  mockRpc.mockResolvedValue({ data: null, error: { message: 'no se puede' } });
+  await expect(abrirConversacion('otro')).rejects.toMatchObject({ message: 'no se puede' });
+});
+
+test('listar mensajes: un error se propaga (un chat con la red caída NO se pinta vacío)', async () => {
+  mockDesde.mockReturnValue(cadena({ data: null, error: { message: 'sin red' } }));
+  await expect(listarMensajes('c1')).rejects.toMatchObject({ message: 'sin red' });
+});
+
+test('marcar como leído: un error se propaga', async () => {
+  mockDesde.mockReturnValue(cadena({ data: null, error: { message: 'sin red' } }));
+  await expect(marcarConversacionComoLeida('c1', 'yo')).rejects.toMatchObject({ message: 'sin red' });
+});
+
+// ── La lista de chats ─────────────────────────────────────────────────────────────────────────────────────────────────
+const fila = (extra: Record<string, unknown> = {}) => ({
+  conversacion_id: 'c1', otro_usuario_id: 'u2', ultimo_contenido: 'hola', ultimo_creado_en: '2026-10-18T10:00:00Z',
+  ultimo_remitente_id: 'u2', ultimo_leido: false, no_leidos: 3, ...extra,
+});
+
+describe('listarConversaciones', () => {
+  it('pide el resumen por la RPC con el límite, no trae todos los mensajes', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    await listarConversaciones('yo', 12);
+    expect(mockRpc).toHaveBeenCalledWith('resumen_conversaciones', { p_limite: 12 });
+  });
+
+  it('sin conversaciones no consulta perfiles y devuelve vacío', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    expect(await listarConversaciones('yo')).toEqual([]);
+    expect(mockDesde).not.toHaveBeenCalled();
+  });
+
+  it('un error de la RPC se propaga', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'sin red' } });
+    await expect(listarConversaciones('yo')).rejects.toMatchObject({ message: 'sin red' });
+  });
+
+  it('une cada hilo con el perfil PÚBLICO de la otra persona (la vista decide qué columnas)', async () => {
+    mockRpc.mockResolvedValue({ data: [fila()], error: null });
+    const c = cadena({ data: [{ id: 'u2', nombre_completo: 'Ana Ruiz', foto_url: 'perfiles/u2.jpg' }], error: null });
+    mockDesde.mockReturnValue(c);
+    const r = await listarConversaciones('yo');
+    expect(mockDesde).toHaveBeenCalledWith('perfiles_publicos');
+    expect(c.select).toHaveBeenCalledWith('id, nombre_completo, foto_url');
+    expect(c.in).toHaveBeenCalledWith('id', ['u2']);
+    expect(r).toEqual([{
+      conversacionId: 'c1',
+      otroUsuario: { id: 'u2', nombre_completo: 'Ana Ruiz', foto_url: 'perfiles/u2.jpg' },
+      ultimoMensaje: expect.objectContaining({ contenido: 'hola', remitente_id: 'u2', leido: false, conversacion_id: 'c1' }),
+      noLeidos: 3,
+    }]);
+  });
+
+  it('si la otra persona eliminó su cuenta, lo dice en vez de enseñar una tarjeta en blanco', async () => {
+    mockRpc.mockResolvedValue({ data: [fila()], error: null });
+    mockDesde.mockReturnValue(cadena({ data: [], error: null }));
+    const r = await listarConversaciones('yo');
+    expect(r[0].otroUsuario).toEqual({ id: 'u2', nombre_completo: 'Usuario no disponible', foto_url: null });
+  });
+
+  it('un hilo sin mensajes tiene ultimoMensaje null (no un mensaje inventado)', async () => {
+    mockRpc.mockResolvedValue({ data: [fila({ ultimo_creado_en: null, ultimo_contenido: null, ultimo_remitente_id: null, no_leidos: 0 })], error: null });
+    mockDesde.mockReturnValue(cadena({ data: [{ id: 'u2', nombre_completo: 'Ana', foto_url: null }], error: null }));
+    const r = await listarConversaciones('yo');
+    expect(r[0].ultimoMensaje).toBeNull();
+    expect(r[0].noLeidos).toBe(0);
+  });
+
+  it('«leído» nulo se lee como no leído', async () => {
+    mockRpc.mockResolvedValue({ data: [fila({ ultimo_leido: null })], error: null });
+    mockDesde.mockReturnValue(cadena({ data: [{ id: 'u2', nombre_completo: 'Ana', foto_url: null }], error: null }));
+    expect((await listarConversaciones('yo'))[0].ultimoMensaje?.leido).toBe(false);
+  });
+
+  it('con dos hilos conserva el orden que devolvió la base', async () => {
+    mockRpc.mockResolvedValue({ data: [fila({ conversacion_id: 'c9', otro_usuario_id: 'u9' }), fila({ conversacion_id: 'c1', otro_usuario_id: 'u2' })], error: null });
+    mockDesde.mockReturnValue(cadena({ data: [{ id: 'u2', nombre_completo: 'Ana', foto_url: null }, { id: 'u9', nombre_completo: 'Beto', foto_url: null }], error: null }));
+    const r = await listarConversaciones('yo');
+    expect(r.map((x) => x.conversacionId)).toEqual(['c9', 'c1']);
+    expect(r.map((x) => x.otroUsuario.nombre_completo)).toEqual(['Beto', 'Ana']);
+  });
+});
+
+// ── La suscripción a UNA conversación ───────────────────────────────────────────────────────────────────────────────────
+describe('suscribirseAConversacion', () => {
+  it('abre un canal con nombre propio de ESA conversación y filtra en el servidor', () => {
+    const canal = canalFalso();
+    mockCanal.mockReturnValue(canal);
+    suscribirseAConversacion('c7', jest.fn());
+    expect(mockCanal).toHaveBeenCalledWith('conv:c7');
+    expect(canal.escuchas.map((e) => `${e.evento.event}:${e.evento.table}:${e.evento.filter}`)).toEqual([
+      'INSERT:mensajes:conversacion_id=eq.c7',
+      'UPDATE:mensajes:conversacion_id=eq.c7',
+    ]);
+    expect(canal.subscribe).toHaveBeenCalled();
+  });
+
+  it('un INSERT y un UPDATE avisan con el mensaje NUEVO y su tipo (sin el UPDATE el ✓✓ se congela)', () => {
+    const canal = canalFalso();
+    mockCanal.mockReturnValue(canal);
+    const alCambiar = jest.fn();
+    suscribirseAConversacion('c7', alCambiar);
+    const m = mensaje('m1', '2026-10-18T10:00:00Z');
+    (canal.escuchas[0].cb as unknown as (p: unknown) => void)({ new: m });
+    (canal.escuchas[1].cb as unknown as (p: unknown) => void)({ new: { ...m, leido: true } });
+    expect(alCambiar).toHaveBeenNthCalledWith(1, m, 'INSERT');
+    expect(alCambiar).toHaveBeenNthCalledWith(2, { ...m, leido: true }, 'UPDATE');
+  });
+
+  it('el limpiador cierra EL canal que abrió', () => {
+    const canal = canalFalso();
+    mockCanal.mockReturnValue(canal);
+    const desuscribir = suscribirseAConversacion('c7', jest.fn());
+    expect(mockQuitarCanal).not.toHaveBeenCalled();
+    desuscribir();
+    expect(mockQuitarCanal).toHaveBeenCalledWith(canal);
+  });
 });
