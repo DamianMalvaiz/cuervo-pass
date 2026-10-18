@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(573);
+select plan(593);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -3272,6 +3272,69 @@ select is((select count(*)::int from publicaciones_parecidas('00000000-0000-0000
 select is(has_function_privilege('anon', 'public.publicaciones_parecidas(uuid, int)', 'execute'), false, 'parecidas: anon no puede' );
 select actuar_como_servicio();
 select is(has_function_privilege('authenticated', 'public.afinidad_de_para(uuid, uuid)', 'execute'), false, 'afinidad_de_para sigue cerrada al cliente' );
+
+-- ═══════ Centro de notificaciones (0072) ═══════
+select actuar_como_servicio();
+select ok((select count(*) from notificaciones where usuario_id = '00000000-0000-0000-0000-0000000000f7' and tipo = 'resena_nueva') >= 1,
+  'una reseña nueva avisa al DUEÑO del negocio' );
+select ok((select bool_and(contenido like 'Nueva reseña de % ★ en «Tienda F7»' and destino like 'negocio:%')
+             from notificaciones where usuario_id = '00000000-0000-0000-0000-0000000000f7' and tipo = 'resena_nueva'),
+  'el aviso dice la calificación y el negocio, y lleva al negocio; no dice quién reseñó' );
+select is((select count(*)::int from notificaciones where usuario_id = '00000000-0000-0000-0000-0000000000b2' and tipo = 'resena_nueva'), 0,
+  'quien reseña no recibe aviso de su propia reseña' );
+
+-- Se parte de cero en estos dos tipos: bloques anteriores ya movieron estados y respondieron reseñas.
+delete from notificaciones where tipo in ('verificacion_resuelta', 'resena_respondida');
+
+-- Verificación resuelta: pendiente → rechazado avisa a la persona, con destino a su verificación.
+update roles_usuario set estado = 'pendiente' where usuario_id = '00000000-0000-0000-0000-0000000000f7' and rol = 'comerciante';
+select is((select count(*)::int from notificaciones where usuario_id = '00000000-0000-0000-0000-0000000000f7' and tipo = 'verificacion_resuelta'), 0,
+  'pasar a pendiente NO avisa (solo el resultado)' );
+update roles_usuario set estado = 'rechazado' where usuario_id = '00000000-0000-0000-0000-0000000000f7' and rol = 'comerciante';
+select is((select destino from notificaciones where usuario_id = '00000000-0000-0000-0000-0000000000f7' and tipo = 'verificacion_resuelta'), 'verificacion:comerciante',
+  'rechazar una verificación pendiente avisa y lleva a la verificación' );
+update roles_usuario set estado = 'rechazado' where usuario_id = '00000000-0000-0000-0000-0000000000f7' and rol = 'comerciante';
+select is((select count(*)::int from notificaciones where usuario_id = '00000000-0000-0000-0000-0000000000f7' and tipo = 'verificacion_resuelta'), 1,
+  'volver a guardar el mismo estado NO duplica el aviso' );
+
+-- Reseña respondida: avisa a quien reseñó.
+update resenas set respuesta = 'Gracias por venir' where usuario_id = '00000000-0000-0000-0000-0000000000b2' and negocio_id is not null;
+select ok((select count(*) from notificaciones where usuario_id = '00000000-0000-0000-0000-0000000000b2' and tipo = 'resena_respondida') >= 1,
+  'responder una reseña avisa a quien la escribió' );
+create temp table avisos_antes as select count(*)::int as n from notificaciones where usuario_id = '00000000-0000-0000-0000-0000000000b2' and tipo = 'resena_respondida';
+update resenas set respuesta = 'Gracias por venir' where usuario_id = '00000000-0000-0000-0000-0000000000b2' and negocio_id is not null;
+select is((select count(*)::int from notificaciones where usuario_id = '00000000-0000-0000-0000-0000000000b2' and tipo = 'resena_respondida'), (select n from avisos_antes),
+  'repetir la misma respuesta no avisa otra vez' );
+
+-- Privilegios: la persona solo puede marcar como leída.
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select ok((select count(*) from notificaciones) >= 2, 'la persona lee SUS avisos' );
+select is((select count(*)::int from notificaciones where usuario_id <> '00000000-0000-0000-0000-0000000000f7'), 0, 'y ninguno ajeno' );
+select throws_ok($$update notificaciones set contenido = 'reescrito' where usuario_id = '00000000-0000-0000-0000-0000000000f7'$$, '42501', null,
+  'no puede reescribir el contenido de un aviso' );
+select throws_ok($$update notificaciones set tipo = 'nuevo_mensaje' where usuario_id = '00000000-0000-0000-0000-0000000000f7'$$, '42501', null,
+  'no puede cambiar el tipo' );
+select throws_ok($$insert into notificaciones (usuario_id, tipo, contenido) values ('00000000-0000-0000-0000-0000000000f7', 'resena_nueva', 'falso')$$, '42501', null,
+  'no puede fabricarse avisos' );
+select throws_ok($$delete from notificaciones where usuario_id = '00000000-0000-0000-0000-0000000000f7'$$, '42501', null,
+  'no puede borrar avisos' );
+select lives_ok($$update notificaciones set leida = true where usuario_id = '00000000-0000-0000-0000-0000000000f7'$$, 'sí puede marcarlos como leídos' );
+select is((select count(*)::int from notificaciones where not leida), 0, 'y quedan leídos' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is((select count(*)::int from notificaciones where usuario_id = '00000000-0000-0000-0000-0000000000f7'), 0, 'otra cuenta no ve los avisos de f7' );
+
+-- Retención.
+select actuar_como_servicio();
+insert into notificaciones (usuario_id, tipo, contenido, creado_en) values
+  ('00000000-0000-0000-0000-0000000000f7', 'nuevo_mensaje', 'viejo', now() - interval '20 days'),
+  ('00000000-0000-0000-0000-0000000000f7', 'nuevo_mensaje', 'reciente', now() - interval '2 days'),
+  ('00000000-0000-0000-0000-0000000000f7', 'nuevo_contacto', 'de hace 100 días', now() - interval '100 days'),
+  ('00000000-0000-0000-0000-0000000000f7', 'nuevo_contacto', 'de hace 40 días', now() - interval '40 days');
+select limpiar_notificaciones();
+select is((select array_agg(contenido order by contenido) from notificaciones where contenido in ('viejo', 'reciente', 'de hace 100 días', 'de hace 40 días')),
+  array['de hace 40 días', 'reciente']::text[], 'retención: avisos de mensaje a los 14 días, el resto a los 90' );
+select is(has_table_privilege('anon', 'public.notificaciones', 'select'), false, 'anon no lee notificaciones' );
+select is(has_function_privilege('authenticated', 'public.limpiar_notificaciones()', 'execute'), false, 'la limpieza no es del cliente' );
 
 select * from finish();
 rollback;
