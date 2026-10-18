@@ -30,6 +30,47 @@ Se encontraron al preparar este borrador. Son independientes de Cuervo 360 y con
    materia es la **Secretaría Anticorrupción y Buen Gobierno**. **[VERIFICAR el procedimiento y el
    sitio de contacto vigentes.]**
 
+## 0 bis. Lo que ya existe y lo que el borrador todavía describe mal (revisado el 17/10/2026 contra el código)
+
+**Hallazgos que importan más que la redacción:**
+
+1. **El INE ya se pide HOY y el aviso vigente (v2) dice lo contrario.** La verificación de vendedor está desplegada (migraciones 0049–0051)
+   y v2 afirma «no solicitamos datos sensibles» y no menciona INE ni domicilio de quien vende. El consentimiento que se guarda es la casilla de
+   la propia pantalla, con `version_aviso = 'v2'`. Conviene publicar la v3 **sin la sección de biometría** en cuanto esté revisada, y añadir la
+   biometría después: el INE no puede esperar a que esté lista la biometría.
+2. **Un INE rechazado o pendiente no se borra nunca.** `resolver_verificacion` fija `ine_borrar_en` solo al APROBAR (30 días); al rechazar lo
+   deja en `null` (0053, línea 227) y el barrido solo borra filas con fecha. Es la fila de la tabla de la sección 5 que dice «por definir»:
+   hoy el comportamiento real es **conservarlo indefinidamente**. Hace falta decidir el plazo y una migración (propuesta: 30 días tras el
+   rechazo, y un tope para las pendientes olvidadas).
+3. **El aviso aceptado al registrarse solo guarda la fecha**, no la versión (`handle_new_user`, 0046). La verificación y la biometría sí guardan
+   la versión. Para exigir «aceptar de nuevo» ante una v3 hay que guardar la versión también en el alta.
+
+**Qué ya es cierto y estaba marcado como futuro:**
+
+| Tema del borrador | Estado real |
+|---|---|
+| Funciones comerciante/arrendador y verificación (Semanas 1-2) | Hecho y desplegado |
+| Planes y pagos (Semana 3) | Hecho; los pagos son SIMULADOS y `demo_mode` está apagado en producción; no hay pasarela. Quitar a Mercado Pago de la tabla de proveedores hasta que exista |
+| Reseñas (Semana 4) | Hecho (0054); falta mencionar que el texto lo ve el público y que se puede reportar |
+| Negocios con fotos | Hecho (0048, 0052): fotos del local son públicas para quien ve la ficha |
+| Biometría | Código listo y **apagado**: ai-service `BIOMETRIA_ACTIVA=false`, app `BIOMETRIA_HABILITADA=false` |
+
+**Correcciones al texto de la biometría (sección 3), según lo construido:**
+
+- Lo que se guarda no es «si la prueba fue superada, un puntaje…»: es **un estado** (coincide / no coincide / no parece viva / sin resultado / sin rostro en
+  la INE), **dos cifras** (similitud y puntaje de vida), el **modelo**, el **número de intentos (máx. 5)** y la fecha y versión del aviso del
+  consentimiento. Quién revisó y cuándo está en la verificación, no en este registro.
+- **La persona no ve las cifras ni la causa** del resultado; solo «recibida» o «repite la foto». Decirlo evita que se lea como falta de transparencia.
+- El resultado se conserva **mientras exista la cuenta o hasta que se reenvíe la verificación** (entonces se descarta, porque era de otra evidencia).
+  No se borra a los 30 días con la INE. Es un número, no una huella facial, pero hay que decidir y escribir el plazo.
+- Es **optativo**: sin él, una persona revisa los documentos igual (ya implementado). Lo dicho en la sección 4 sobre condicionar el servicio no aplica mientras siga siendo optativo.
+- Limitaciones medidas (ver `docs/algoritmos.md`): se probó con un monitor y una persona; no se probaron fotos impresas, vídeo ni máscaras; los
+  umbrales no están calibrados con estudiantes; alrededor de 1 de cada 3 selfies reales pide repetirse.
+- **Licencia de los modelos:** los modelos de reconocimiento son de uso **solo de investigación no comercial** y el módulo de prueba de presencia no
+  declara licencia. El aviso debe decir que es un proyecto académico; una versión comercial exigiría otro modelo.
+- Procesamiento: la selfie y la imagen del INE pasan por la función de servidor y el servicio de IA **solo en memoria** durante la petición; el túnel de
+  Cloudflare las transporta cifradas pero es un tercero en el camino (añadir a la sección 6).
+
 ## 1. Qué cambia respecto de la versión 2
 
 | Tema | Versión 2 | Versión 3 | Se vuelve real con |
@@ -160,8 +201,11 @@ guardar **qué versión** aceptaste, y un consentimiento **separado y con su pro
 
 - [ ] Revisión por una persona abogada de todo lo marcado **[VERIFICAR]**.
 - [ ] Confirmar con el responsable el plazo de borrado del INE (supuesto de 30 días).
-- [ ] Tabla de consentimientos versionados y el consentimiento expreso de la biometría (Semanas 2 y 4).
-- [ ] Que existan los tratamientos que describe: verificación con INE (Semana 2), planes y pagos (Semana 3), biometría (Semana 4).
+- [x] Consentimiento versionado y expreso de la biometría: guardado en `verificaciones_biometria` (0056) y `verificaciones_vendedor` (0049). Falta la versión en el alta (hallazgo 3).
+- [x] Existen: verificación con INE, planes y pagos (simulados), reseñas. Biometría: existe pero apagada.
+- [ ] Decidir y construir el borrado de la INE rechazada o abandonada (hallazgo 2; migración 0057).
+- [ ] Sustituir en la app el texto v2 (`src/lib/avisoPrivacidad.ts`, `docs/aviso-privacidad.md`) por la v3 revisada y exigir aceptarla de nuevo; cambiar `VERSION_AVISO`.
+- [ ] Encender la biometría (3 interruptores a la vez) SOLO con la v3 ya publicada.
 - [ ] Actualizar la versión 2 vigente (ver la sección 0), que no depende de nada de esto.
 
 ## Fuentes consultadas el 17/10/2026
