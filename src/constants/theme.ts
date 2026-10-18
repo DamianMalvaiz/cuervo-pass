@@ -325,6 +325,8 @@ export const Radios = {
   hoja: 16,
   /** Cuervo 360. La tarjeta de una publicación y su foto grande. */
   tarjeta: 22,
+  /** Cuervo 360. Las esquinas de arriba de la hoja de contenido que sube sobre la foto de la ficha. */
+  hojaInferior: 28,
   full: 9999,
 } as const;
 

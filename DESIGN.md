@@ -449,8 +449,8 @@ Se conserva para **Mis publicaciones**, donde la pregunta es «cómo va la mía�
 ### Ficha compacta · `src/components/FichaCompacta.tsx`
 176px de ancho, para el carrusel. Calificación `compacta` + precio en la primera fila, título a dos renglones, distancia en `folio`.
 
-### Desglose de calificación · `src/components/ficha/DesgloseCalificacion.tsx`
-El componente firma del producto: tocar la calificación abre la caja negra y muestra la fórmula real (`0.6 · filtros + 0.4 · afinidad`) con los números que devolvió Postgres. Si no hubo Nivel 2, lo DICE en vez de esconder la mitad de la fórmula.
+### Por qué es buena para ti · `src/components/ficha/PorQueEsBuena.tsx`
+Reemplazó (17/10/2026) al desglose «9.4 = 60 % filtros + 40 % afinidad», que se retiró porque un número y su fórmula son lenguaje de ingeniero. Una lista corta de razones con palomita lima, y **solo las que se cumplen** (`src/lib/razonesDeAjuste.ts`): dentro del presupuesto, dentro de la distancia máxima, acepta mascotas si la persona tiene. Sin ninguna, no se pinta el recuadro vacío. Junto va la insignia «Muy compatible contigo» (score ≥ 0.75) o «Compatible contigo» (≥ 0.5); por debajo de 0.5 se calla. El desglose anterior sigue en el historial de git.
 
 ### Esqueleto · `src/components/ficha/FichaEsqueleto.tsx`
 Cuatro formas que espejan las reales: `fila` (132/96/86), `renglon` (avatar 44, chat), `hoja` (con o sin foto 3:2). **Las etiquetas van de verdad** —«AJUSTE», «RENTA», «DISTANCIA» no dependen de la respuesta—, y solo se pinta en gris lo que de verdad falta. El pulso vive en la fila, no en cada bloque: una fila entera respirando se lee como un objeto; doce bloques latiendo por su cuenta, como ruido. Contenido fuera del árbol de accesibilidad, contenedor anunciado una vez como «Cargando».

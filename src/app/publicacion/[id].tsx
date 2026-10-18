@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BotonVerContacto } from '@/components/BotonVerContacto';
 import { Pastilla } from '@/components/ficha/Pastilla';
-import { DesgloseCalificacion } from '@/components/ficha/DesgloseCalificacion';
+import { PorQueEsBuena } from '@/components/ficha/PorQueEsBuena';
 import { Seccion } from '@/components/ficha/Seccion';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { BotonEscribir } from '@/components/BotonEscribir';
@@ -40,6 +40,7 @@ import { usePerfilStore } from '@/store/usePerfilStore';
 import { Sello } from '@/components/ficha/Sello';
 import { usePublicacion , useAfinidad } from '@/hooks/queries/usePublicaciones';
 import { SQL, esCodigo } from '@/lib/erroresPostgres';
+import { etiquetaDeAjuste, razonesDeAjuste } from '@/lib/razonesDeAjuste';
 import { toast } from '@/lib/toast';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
@@ -191,6 +192,16 @@ export default function DetallePublicacionScreen() {
         )
       : null;
 
+  const etiquetaAjuste = etiquetaDeAjuste(afinidad?.scoreFinal);
+  const razones = razonesDeAjuste({
+    precio: publicacion.precio_renta,
+    presupuestoMax: perfil?.presupuesto_max,
+    distanciaKm,
+    distanciaMaxKm: perfil?.distancia_max_km,
+    permiteMascotas: publicacion.permite_mascotas,
+    tengoMascotas: Boolean(perfil?.mascotas),
+  });
+
   const fotos = publicacion.fotos ?? [];
   const folio = folioDe(publicacion.id);
   const alta = fechaDeSello(publicacion.creado_en);
@@ -281,7 +292,17 @@ export default function DetallePublicacionScreen() {
         </View>
       )}
 
-      <View style={estilos.cuerpo}>
+      <View style={[estilos.cuerpo, { backgroundColor: theme.background }]}>
+        {/* Solo cuando HAY calificación: al abrir la ficha desde «Mis publicaciones» no hay score —no existe
+            afinidad contigo mismo—. Va en palabras, no como «9.4» ni con su fórmula (17/10/2026). */}
+        {etiquetaAjuste ? (
+          <View style={[estilos.insignia, { backgroundColor: theme.lima }]}>
+            <ThemedText type="smallBold" style={{ color: theme.limaTexto }}>
+              {etiquetaAjuste}
+            </ThemedText>
+          </View>
+        ) : null}
+
         <View style={estilos.encabezadoFicha}>
           <ThemedText type="title">{publicacion.titulo}</ThemedText>
           <ThemedText type="subtitle">
@@ -321,32 +342,7 @@ export default function DetallePublicacionScreen() {
           />
         </View>
 
-        {/* La interacción firma del producto: la caja negra se abre.
-            Solo cuando HAY calificación. Al abrir esta ficha desde "Mis
-            publicaciones" no hay score —no existe afinidad contigo mismo— y
-            pintar la casilla vacía con "¿Por qué esta calificación?" debajo
-            dejaba una afordancia muerta. */}
-        {afinidad?.scoreFinal != null && (
-          <>
-            <DesgloseCalificacion
-              score={afinidad.scoreFinal}
-              base={afinidad.score}
-              similitud={afinidad.similitud}
-            />
-            {/* END-30 · El descargo, junto al número y no en un aviso legal que
-                nadie abre.
-                
-                Una casilla con forma de kardex presta autoridad: una
-                calificación de kardex es un número ganado y auditable, y éste
-                es una mezcla ponderada de cuatro heurísticas. Decir en voz alta
-                qué compara —y qué NO— es lo que evita que la metáfora prometa
-                por su cuenta, a alguien que está eligiendo dónde va a vivir sin
-                haber visto el lugar. */}
-            <ThemedText type="folio" themeColor="textSecondary" style={estilos.descargoAjuste}>
-              Este ajuste compara tus filtros con lo publicado. No verificamos el inmueble.
-            </ThemedText>
-          </>
-        )}
+        {afinidad?.scoreFinal != null ? <PorQueEsBuena razones={razones} /> : null}
 
         {publicacion.descripcion ? (
           <Seccion titulo="Descripción">
@@ -431,7 +427,7 @@ const estilos = StyleSheet.create({
   columna: { width: '100%', alignSelf: 'center' },
   esqueletoPantalla: { flex: 1 },
   esqueleto: { padding: Spacing.three },
-  descargoAjuste: { marginTop: Spacing.one, lineHeight: 16 },
+  insignia: { alignSelf: 'flex-start', borderRadius: Radios.full, paddingHorizontal: Spacing.three, paddingVertical: Spacing.one },
   fotoFallida: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.one },
   hoja: { paddingBottom: Spacing.six },
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four, gap: Spacing.two },
@@ -452,7 +448,7 @@ const estilos = StyleSheet.create({
   foja: {
     position: 'absolute',
     right: Spacing.three,
-    bottom: Spacing.two,
+    bottom: Spacing.five,
     borderRadius: Radios.full,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
@@ -461,7 +457,8 @@ const estilos = StyleSheet.create({
   direccion: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   textoDireccion: { flex: 1 },
   pastillas: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  cuerpo: { padding: Spacing.three, gap: Spacing.three },
+  // La hoja de contenido sube sobre la foto con las esquinas de arriba redondeadas (propuesta del 17/10/2026).
+  cuerpo: { padding: Spacing.three, gap: Spacing.three, marginTop: -Spacing.four, borderTopLeftRadius: Radios.hojaInferior, borderTopRightRadius: Radios.hojaInferior },
   descripcion: { lineHeight: 24 },
   pantalla: { flex: 1 },
   barraContacto: { borderTopWidth: Filete.fino, paddingTop: Spacing.three, paddingHorizontal: Spacing.three, gap: Spacing.one },

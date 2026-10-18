@@ -364,6 +364,54 @@ test('sin descripción no se pinta esa sección vacía', async () => {
 test('sin afinidad no se pinta el desglose', async () => {
   await pintar();
   expect(screen.queryByText(/POR QUÉ/i)).toBeNull();
+  expect(screen.queryByText('Por qué es buena para ti')).toBeNull();
+  expect(screen.queryByText(/compatible contigo/i)).toBeNull();
+});
+
+// Cuervo 360 · en lugar de «9.4» y su fórmula, la ficha dice en palabras qué tan compatible es y POR QUÉ, solo con
+// lo que se cumple.
+describe('compatibilidad en palabras', () => {
+  const conAfinidad = (scoreFinal: number) =>
+    mockAfinidad.mockReturnValue({ scoreFinal, score: scoreFinal, similitud: null });
+
+  it('con score alto dice «Muy compatible contigo» y no enseña números ni fórmula', async () => {
+    conAfinidad(0.9);
+    await pintar();
+    expect(screen.getByText('Muy compatible contigo')).toBeTruthy();
+    expect(screen.queryByText(/Filtros ponderados/)).toBeNull();
+    expect(screen.queryByText(/Este ajuste compara/)).toBeNull();
+    expect(screen.queryByText(/^\d\.\d$/)).toBeNull();
+  });
+
+  it('con score medio dice «Compatible contigo»', async () => {
+    conAfinidad(0.6);
+    await pintar();
+    expect(screen.getByText('Compatible contigo')).toBeTruthy();
+  });
+
+  it('con score bajo no dice nada de compatibilidad', async () => {
+    conAfinidad(0.3);
+    await pintar();
+    expect(screen.queryByText(/compatible contigo/i)).toBeNull();
+  });
+
+  it('«Por qué es buena para ti» lista solo las razones que se cumplen', async () => {
+    conAfinidad(0.9);
+    mockPerfil.valor = { id: 'u1', presupuesto_max: 4000, distancia_max_km: 5, mascotas: true };
+    await pintar();
+    expect(screen.getByText('Por qué es buena para ti')).toBeTruthy();
+    expect(screen.getByText('Está dentro de tu presupuesto')).toBeTruthy();
+    // La publicación de prueba no acepta mascotas y no tiene coordenadas: esas dos NO se afirman.
+    expect(screen.queryByText('Acepta mascotas, como pediste')).toBeNull();
+    expect(screen.queryByText('Queda dentro de tu distancia máxima')).toBeNull();
+  });
+
+  it('sin ninguna razón que decir no pinta el recuadro vacío', async () => {
+    conAfinidad(0.9);
+    mockPerfil.valor = { id: 'u1', presupuesto_max: 1000, mascotas: false };
+    await pintar();
+    expect(screen.queryByText('Por qué es buena para ti')).toBeNull();
+  });
 });
 
 // ── Cuervo 360 · Favoritos ───────────────────────────────────────────────────
