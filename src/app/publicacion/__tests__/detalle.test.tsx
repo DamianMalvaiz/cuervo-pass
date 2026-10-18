@@ -256,27 +256,27 @@ test('sin coordenadas de universidad la distancia dice «sin dato»', async () =
   mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, latitud: 19.3, longitud: -99.45 } }));
   mockPerfil.valor = { id: 'u1' };
   await pintar();
-  expect(screen.getByText('sin dato')).toBeTruthy();
+  expect(screen.getByText('Distancia sin dato')).toBeTruthy();
 });
 
 test('sin coordenadas de la publicación tampoco se inventa', async () => {
   mockPerfil.valor = { id: 'u1', latitud_universidad: 19.32568, longitud_universidad: -99.458244 };
   await pintar();
-  expect(screen.getByText('sin dato')).toBeTruthy();
+  expect(screen.getByText('Distancia sin dato')).toBeTruthy();
 });
 
 test('con las dos, se calcula', async () => {
   mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, latitud: 19.33, longitud: -99.46 } }));
   mockPerfil.valor = { id: 'u1', latitud_universidad: 19.32568, longitud_universidad: -99.458244 };
   await pintar();
-  expect(screen.getByText(/^\d+\.\d km$/)).toBeTruthy();
+  expect(screen.getByText(/^A \d+\.\d km de tu universidad$/)).toBeTruthy();
 });
 
 // ── Las fotografías ──────────────────────────────────────────────────────────
 
 test('sin fotografías no se pinta carrusel ni foja', async () => {
   await pintar();
-  expect(screen.queryByText(/FOJA/)).toBeNull();
+  expect(screen.queryByText(/^\d+ de \d+$/)).toBeNull();
 });
 
 // Una sola foto no lleva foja: «FOJA 1 DE 1» es ruido.
@@ -284,7 +284,7 @@ test('con una sola foto no hay foja', async () => {
   mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, fotos: ['a.jpg'] } }));
   mockFotos.mockReturnValue({ urls: new Map([['a.jpg', 'https://f.test/a']]), fallo: null });
   await pintar();
-  expect(screen.queryByText(/FOJA/)).toBeNull();
+  expect(screen.queryByText(/^\d+ de \d+$/)).toBeNull();
 });
 
 test('con varias, la foja dice en cuál vas y cuántas hay', async () => {
@@ -294,7 +294,7 @@ test('con varias, la foja dice en cuál vas y cuántas hay', async () => {
     fallo: null,
   });
   await pintar();
-  expect(screen.getByText(/FOJA 1 DE 3/)).toBeTruthy();
+  expect(screen.getByText('1 de 3')).toBeTruthy();
 });
 
 // §14 · El bucket es privado. Si la firma falla, se DICE en vez de dejar
@@ -303,22 +303,46 @@ test('si falla firmar las fotos se dice', async () => {
   mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, fotos: ['a.jpg'] } }));
   mockFotos.mockReturnValue({ urls: new Map(), fallo: 'no se pudo firmar' });
   await pintar();
-  expect(screen.getByText('FOTOGRAFÍA NO DISPONIBLE')).toBeTruthy();
+  expect(screen.getByText('Fotografía no disponible')).toBeTruthy();
 });
 
 // ── La ficha ─────────────────────────────────────────────────────────────────
 
 test('las condiciones se dicen por los dos lados', async () => {
   await pintar();
-  expect(screen.getAllByText('No').length).toBeGreaterThanOrEqual(2);
-  expect(screen.getByText('No acepta')).toBeTruthy();
+  expect(screen.getByText('No acepta mascotas')).toBeTruthy();
+  expect(screen.getByText('Sin amueblar')).toBeTruthy();
+  expect(screen.getByText('Servicios aparte')).toBeTruthy();
 
   mockPublicacion.mockReturnValue(
     estado({ publicacion: { ...PUBLICACION, amueblado: true, permite_mascotas: true, servicios_incluidos: true } })
   );
   await pintar();
-  expect(screen.getByText('Sí acepta')).toBeTruthy();
-  expect(screen.getAllByText('Sí').length).toBeGreaterThanOrEqual(2);
+  expect(screen.getByText('Acepta mascotas')).toBeTruthy();
+  expect(screen.getByText('Amueblado')).toBeTruthy();
+  expect(screen.getByText('Servicios incluidos')).toBeTruthy();
+});
+
+// Cuervo 360 · el precio manda y va con «al mes»; las condiciones son pastillas, no una tabla de campos.
+test('el precio va grande, con «al mes»', async () => {
+  await pintar();
+  expect(screen.getByText(/^\$[\d,]+ al mes$/)).toBeTruthy();
+});
+
+test('las recámaras se cuentan en singular y plural', async () => {
+  mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, recamaras: 1 } }));
+  await pintar();
+  expect(screen.getByText('1 recámara')).toBeTruthy();
+
+  mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, recamaras: 3 } }));
+  await pintar();
+  expect(screen.getByText('3 recámaras')).toBeTruthy();
+});
+
+test('ya no hay tabla de datos de la publicación', async () => {
+  await pintar();
+  expect(screen.queryByText('Datos de la publicación')).toBeNull();
+  expect(screen.queryByText('Renta mensual')).toBeNull();
 });
 
 // Un tipo que no esté en el mapa no debe pintar «undefined» en el membrete: cae

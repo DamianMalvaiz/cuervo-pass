@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 
 import { BotonVerContacto } from '@/components/BotonVerContacto';
-import { CampoFicha } from '@/components/ficha/CampoFicha';
+import { Pastilla } from '@/components/ficha/Pastilla';
 import { DesgloseCalificacion } from '@/components/ficha/DesgloseCalificacion';
 import { Seccion } from '@/components/ficha/Seccion';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
@@ -246,8 +246,8 @@ export default function DetallePublicacionScreen() {
                   {falloFotos && (
                     <View style={estilos.fotoFallida}>
                       <Ionicons name="image-outline" size={22} color={theme.textSecondary} />
-                      <ThemedText type="folio" themeColor="textSecondary">
-                        FOTOGRAFÍA NO DISPONIBLE
+                      <ThemedText type="small" themeColor="textSecondary">
+                        Fotografía no disponible
                       </ThemedText>
                     </View>
                   )}
@@ -256,12 +256,11 @@ export default function DetallePublicacionScreen() {
             })}
           </ScrollView>
           {fotos.length > 1 && (
-            // "Foja n de m" es como un expediente numera sus hojas. Cumple la
-            // misma función que los puntitos de un carrusel y además dice
-            // CUÁNTAS faltan, que los puntitos no dicen cuando pasan de cinco.
-            <View style={[estilos.foja, { backgroundColor: theme.background, borderColor: theme.filete }]}>
-              <ThemedText type="folio" themeColor="textSecondary">
-                FOJA {foja + 1} DE {fotos.length}
+            // «1 de 6» en una pastilla oscura sobre la foto: dice en cuál vas y cuántas faltan, que los puntitos
+            // no dicen cuando pasan de cinco.
+            <View style={[estilos.foja, { backgroundColor: theme.text }]}>
+              <ThemedText type="smallBold" style={{ color: theme.background }}>
+                {foja + 1} de {fotos.length}
               </ThemedText>
             </View>
           )}
@@ -269,17 +268,51 @@ export default function DetallePublicacionScreen() {
       ) : (
         <View style={[estilos.foto, estilos.sinFoto, { width: anchoLista, backgroundColor: theme.backgroundElement }]}>
           <Ionicons name="image-outline" size={24} color={theme.textSecondary} />
-          <ThemedText type="etiqueta" themeColor="textSecondary">
-            SIN FOTOGRAFÍA
+          <ThemedText type="small" themeColor="textSecondary">
+            Sin fotografía
           </ThemedText>
         </View>
       )}
 
       <View style={estilos.cuerpo}>
-        <ThemedText type="title">{publicacion.titulo}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {publicacion.direccion}
-        </ThemedText>
+        <View style={estilos.encabezadoFicha}>
+          <ThemedText type="title">{publicacion.titulo}</ThemedText>
+          <ThemedText type="subtitle">
+            {`$${formateadorPrecio.format(publicacion.precio_renta)} al mes`}
+          </ThemedText>
+          <View style={estilos.direccion}>
+            <Ionicons name="location-outline" size={16} color={theme.textSecondary} />
+            <ThemedText type="small" themeColor="textSecondary" style={estilos.textoDireccion}>
+              {publicacion.direccion}
+            </ThemedText>
+          </View>
+        </View>
+
+        {/* Las condiciones, a un vistazo y en pastillas: no una tabla de campos. Cada una dice las dos cosas
+            («Acepta mascotas» / «No acepta mascotas»); lo que no se cumple va atenuado, nunca omitido. */}
+        <View style={estilos.pastillas}>
+          <Pastilla icono="bed-outline" texto={`${publicacion.recamaras} ${publicacion.recamaras === 1 ? 'recámara' : 'recámaras'}`} />
+          <Pastilla
+            icono="paw-outline"
+            texto={publicacion.permite_mascotas ? 'Acepta mascotas' : 'No acepta mascotas'}
+            atenuada={!publicacion.permite_mascotas}
+          />
+          <Pastilla
+            icono="home-outline"
+            texto={publicacion.amueblado ? 'Amueblado' : 'Sin amueblar'}
+            atenuada={!publicacion.amueblado}
+          />
+          <Pastilla
+            icono="flash-outline"
+            texto={publicacion.servicios_incluidos ? 'Servicios incluidos' : 'Servicios aparte'}
+            atenuada={!publicacion.servicios_incluidos}
+          />
+          <Pastilla
+            icono="walk-outline"
+            texto={distanciaKm != null ? `A ${distanciaKm.toFixed(1)} km de tu universidad` : 'Distancia sin dato'}
+            atenuada={distanciaKm == null}
+          />
+        </View>
 
         {/* La interacción firma del producto: la caja negra se abre.
             Solo cuando HAY calificación. Al abrir esta ficha desde "Mis
@@ -307,51 +340,6 @@ export default function DetallePublicacionScreen() {
             </ThemedText>
           </>
         )}
-
-        <Seccion titulo="Datos de la publicación">
-          <View style={estilos.rejilla}>
-            <CampoFicha
-              etiqueta="Renta mensual"
-              valor={`$${formateadorPrecio.format(publicacion.precio_renta)}`}
-              ancho={1}
-            />
-            <CampoFicha
-              etiqueta="Distancia a tu universidad"
-              valor={distanciaKm != null ? `${distanciaKm.toFixed(1)} km` : 'sin dato'}
-              ancho={1}
-              tono={distanciaKm != null ? 'normal' : 'atenuado'}
-            />
-          </View>
-          <View style={estilos.rejilla}>
-            <CampoFicha
-              etiqueta="Recámaras"
-              valor={String(publicacion.recamaras)}
-              ancho={1}
-              icono="bed-outline"
-            />
-            <CampoFicha
-              etiqueta="Amueblado"
-              valor={publicacion.amueblado ? 'Sí' : 'No'}
-              ancho={1}
-              tono={publicacion.amueblado ? 'normal' : 'atenuado'}
-            />
-          </View>
-          <View style={estilos.rejilla}>
-            <CampoFicha
-              etiqueta="Mascotas"
-              valor={publicacion.permite_mascotas ? 'Sí acepta' : 'No acepta'}
-              ancho={1}
-              icono="paw-outline"
-              tono={publicacion.permite_mascotas ? 'normal' : 'atenuado'}
-            />
-            <CampoFicha
-              etiqueta="Servicios incluidos"
-              valor={publicacion.servicios_incluidos ? 'Sí' : 'No'}
-              ancho={1}
-              tono={publicacion.servicios_incluidos ? 'normal' : 'atenuado'}
-            />
-          </View>
-        </Seccion>
 
         {publicacion.descripcion ? (
           <Seccion titulo="Descripción">
@@ -448,13 +436,15 @@ const estilos = StyleSheet.create({
     position: 'absolute',
     right: Spacing.three,
     bottom: Spacing.two,
-    borderWidth: Filete.fino,
-    borderRadius: Radios.casilla,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.half,
+    borderRadius: Radios.full,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
   },
+  encabezadoFicha: { gap: Spacing.one },
+  direccion: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
+  textoDireccion: { flex: 1 },
+  pastillas: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   cuerpo: { padding: Spacing.three, gap: Spacing.three },
-  rejilla: { flexDirection: 'row', gap: Spacing.three },
   descripcion: { lineHeight: 24 },
   sello: { marginTop: Spacing.two, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   contacto: { flex: 1 },
