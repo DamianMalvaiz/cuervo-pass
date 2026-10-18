@@ -30,13 +30,13 @@ export function igualEnTiempoConstante(a: string, b: string): boolean {
   return dif === 0;
 }
 
-const FORMA_INE_HUERFANA = /^[0-9a-f-]{36}\/(comerciante|arrendador)\/ine-(frente|reverso)-[^/]+$/;
+const FORMA_EVIDENCIA_HUERFANA = /^[0-9a-f-]{36}\/(comerciante|arrendador)\/(ine-frente|ine-reverso|lugar-[0-9]+)-[^/]+$/;
 
 /**
- * ¿Es esta ruta, devuelta por `ine_huerfanas` (0058), una INE que se puede borrar? Repite la forma que la base ya exige: el barrido borra
- * con la llave de servicio y no confía en que el listado esté siempre bien. Solo INE (frente/reverso) de una carpeta `<uuid>/<rol>/`;
- * las fotos del local o del inmueble no son documentos de identidad y no se tocan.
+ * ¿Es esta ruta, devuelta por `evidencia_huerfana` (0063), evidencia de verificación que se puede borrar? Repite la forma que la base ya exige:
+ * el barrido borra con la llave de servicio y no confía en que el listado esté siempre bien. Solo archivos `<uuid>/<rol>/{ine-frente|ine-reverso|lugar-N}-…`.
+ * Que una foto del lugar sea huérfana significa que NINGUNA verificación la apunta; las que sí están referenciadas nunca llegan aquí.
  */
-export function esRutaDeIneHuerfanaSegura(ruta: string): boolean {
-  return typeof ruta === 'string' && !ruta.includes('..') && FORMA_INE_HUERFANA.test(ruta);
+export function esRutaDeEvidenciaHuerfanaSegura(ruta: string): boolean {
+  return typeof ruta === 'string' && !ruta.includes('..') && FORMA_EVIDENCIA_HUERFANA.test(ruta);
 }

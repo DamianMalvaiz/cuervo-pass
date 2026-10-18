@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(417);
+select plan(433);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1091,6 +1091,7 @@ select is(
     'mi_suscripcion',
     'negocios_ordenados',
     'nuevas_esta_semana',
+    'puede_subir_evidencia',
     'reportar_resena',
     'responder_resena',
     'resumen_conversaciones',
@@ -2698,23 +2699,23 @@ insert into storage.objects (bucket_id, name, created_at) values
   ('verificacion', '00000000-0000-0000-0000-0000000000e9/admin/ine-frente-viejo.jpg', now() - interval '3 days'),
   ('verificacion', 'suelto-ine-frente-viejo.jpg', now() - interval '3 days');
 select is(
-  (select array_agg(ruta order by ruta) from ine_huerfanas()),
+  (select array_agg(ruta order by ruta) from evidencia_huerfana()),
   array['00000000-0000-0000-0000-0000000000e9/comerciante/ine-frente-viejo.jpg', '00000000-0000-0000-0000-0000000000e9/comerciante/ine-reverso-viejo.jpg'],
-  'huérfanas: solo la INE sin fila que la apunte y con más de un día' );
+  'huérfanas: solo la evidencia sin fila que la apunte y con más de un día' );
 select is(
-  (select count(*)::int from ine_huerfanas() where ruta like '%ine-frente-3.jpg' or ruta like '%ine-reverso-3.jpg'),
+  (select count(*)::int from evidencia_huerfana() where ruta like '%ine-frente-3.jpg' or ruta like '%ine-reverso-3.jpg'),
   0, 'huérfanas: la INE que la verificación vigente apunta NUNCA aparece' );
 select is(
-  (select count(*)::int from ine_huerfanas() where ruta like '%reciente%'),
+  (select count(*)::int from evidencia_huerfana() where ruta like '%reciente%'),
   0, 'huérfanas: una subida de hace horas no se toca (puede estar a punto de enviarse)' );
 select is(
-  (select count(*)::int from ine_huerfanas() where ruta like '%local-viejo%'),
+  (select count(*)::int from evidencia_huerfana() where ruta like '%local-viejo%'),
   0, 'huérfanas: las fotos del local no son documentos de identidad y no se tocan' );
 select is(
-  (select count(*)::int from ine_huerfanas(1)), 1, 'huérfanas: respeta el límite pedido' );
+  (select count(*)::int from evidencia_huerfana(1)), 1, 'huérfanas: respeta el límite pedido' );
 select actuar_como('00000000-0000-0000-0000-0000000000e9');
 select throws_ok(
-  $$select * from ine_huerfanas()$$,
+  $$select * from evidencia_huerfana()$$,
   '42501', null, 'huérfanas: el cliente autenticado no puede listarlas' );
 
 -- ── Versión del aviso aceptado (0059) ───────────────────────────────────────
@@ -2849,6 +2850,58 @@ select actuar_como('00000000-0000-0000-0000-0000000000b2');
 select is(jsonb_array_length(exportar_mis_datos()->'verificaciones'), 0, 'exportar: una cuenta ajena NO recibe la verificación de otra' );
 select is(jsonb_array_length(exportar_mis_datos()->'negocios'), 0, 'exportar: ni sus negocios' );
 select is(exportar_mis_datos()->'perfil'->>'id', '00000000-0000-0000-0000-0000000000b2', 'exportar: el perfil es el de quien llama' );
+
+-- ── Tope a la evidencia de verificación (0063) ──────────────────────────────
+-- d9: comerciante SIN verificar (puede subir). e9: comerciante pendiente. f7: aprobada. b2: sin ninguna función.
+select actuar_como_servicio();
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, created_at, updated_at, raw_user_meta_data)
+values ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000d9', 'authenticated', 'authenticated', 'd9@test.mx', '', now(), now(), '{"nombre_usuario":"usuario_d9"}');
+insert into roles_usuario (usuario_id, rol) values ('00000000-0000-0000-0000-0000000000d9', 'comerciante');
+insert into storage.objects (bucket_id, name, created_at) values
+  ('verificacion', '00000000-0000-0000-0000-0000000000e9/comerciante/lugar-9-viejo-sin-fila.jpg', now() - interval '3 days');
+
+select actuar_como('00000000-0000-0000-0000-0000000000d9');
+select lives_ok($$insert into storage.objects (bucket_id, name) values ('verificacion', '00000000-0000-0000-0000-0000000000d9/comerciante/ine-frente-1760000000000-abc123.jpg')$$,
+  'subir: quien puede enviar la verificación sube un archivo con la forma de la app' );
+select lives_ok($$insert into storage.objects (bucket_id, name) values ('verificacion', '00000000-0000-0000-0000-0000000000d9/comerciante/lugar-2-1760000000001-abc123.jpg')$$,
+  'subir: también las fotos del lugar (lugar-N)' );
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('verificacion', '00000000-0000-0000-0000-0000000000d9/comerciante/cualquier-cosa.jpg')$$, '42501', null,
+  'subir: un nombre libre se rechaza' );
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('verificacion', '00000000-0000-0000-0000-0000000000d9/comerciante/ine-frente-1-a.png')$$, '42501', null,
+  'subir: solo .jpg (es lo que sube la app)' );
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('verificacion', '00000000-0000-0000-0000-0000000000d9/admin/ine-frente-1-a.jpg')$$, '42501', null,
+  'subir: un rol que no existe' );
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('verificacion', '00000000-0000-0000-0000-0000000000d9/arrendador/ine-frente-1-a.jpg')$$, '42501', null,
+  'subir: la función de arrendador no la tiene, así que no sube a su carpeta' );
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('verificacion', '00000000-0000-0000-0000-0000000000b2/comerciante/ine-frente-1-a.jpg')$$, '42501', null,
+  'subir: la carpeta de OTRA cuenta' );
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('verificacion', '00000000-0000-0000-0000-0000000000d9/comerciante/../x/ine-frente-1-a.jpg')$$, '42501', null,
+  'subir: con «..» no' );
+select actuar_como_servicio();
+insert into storage.objects (bucket_id, name)
+select 'verificacion', '00000000-0000-0000-0000-0000000000d9/comerciante/lugar-' || g || '-relleno.jpg' from generate_series(10, 31) g;
+select actuar_como('00000000-0000-0000-0000-0000000000d9');
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('verificacion', '00000000-0000-0000-0000-0000000000d9/comerciante/lugar-99-uno-mas.jpg')$$, '42501', null,
+  'subir: con 24 archivos en la carpeta del rol, el siguiente se rechaza (tope)' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('verificacion', '00000000-0000-0000-0000-0000000000b2/comerciante/ine-frente-1-a.jpg')$$, '42501', null,
+  'subir: sin ninguna función de vendedor no se sube nada' );
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('verificacion', '00000000-0000-0000-0000-0000000000e9/comerciante/ine-frente-2-a.jpg')$$, '42501', null,
+  'subir: con la verificación PENDIENTE ya no hay nada que subir' );
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select throws_ok($$insert into storage.objects (bucket_id, name) values ('verificacion', '00000000-0000-0000-0000-0000000000f7/comerciante/ine-frente-2-a.jpg')$$, '42501', null,
+  'subir: con la función ya APROBADA tampoco' );
+
+select actuar_como_servicio();
+select is((select count(*)::int from evidencia_huerfana() where ruta = '00000000-0000-0000-0000-0000000000e9/comerciante/lugar-9-viejo-sin-fila.jpg'), 1,
+  'huérfanas: una foto del lugar (lugar-N) sin fila que la apunte, de hace 3 días, ahora SÍ se recoge' );
+select is((select count(*)::int from evidencia_huerfana() where ruta like '%/lugar-%relleno.jpg'), 0,
+  'huérfanas: lo reciente (recién subido) no se toca' );
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select throws_ok($$select * from evidencia_huerfana()$$, '42501', null, 'huérfanas: el cliente autenticado no puede listarlas' );
+select is(has_function_privilege('anon', 'public.puede_subir_evidencia(text)', 'execute'), false, 'puede_subir_evidencia: anon no la ejecuta' );
 
 select * from finish();
 rollback;

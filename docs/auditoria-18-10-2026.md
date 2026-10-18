@@ -9,10 +9,10 @@ Cada hallazgo dice con qué se comprobó; lo que no se comprobó se marca «sin 
 
 | # | Gravedad | Hallazgo | Estado |
 |---|---|---|---|
-| C1 | **CRÍTICO** | Las vistas «públicas» se podían escribir: cualquier cuenta editaba y borraba publicaciones y anuncios de roomie ajenos | Corregido en la 0061, **sin aplicar** |
-| A1 | Alto | Eliminar la cuenta no borra las fotos de negocios ni la evidencia de verificación (salvo la INE, que el barrido recoge en ≤ 1 día) | Abierto |
-| A2 | Alto | `exportar_mis_datos` no incluye lo nuevo (funciones, verificación, negocios, reseñas, favoritos, suscripciones) | Abierto |
-| A3 | Alto | Cualquier cuenta puede subir archivos sin tope al bucket `verificacion`; solo los de nombre `ine-…` se barren | Abierto |
+| C1 | **CRÍTICO** | Las vistas «públicas» se podían escribir: cualquier cuenta editaba y borraba publicaciones y anuncios de roomie ajenos | **Corregido y aplicado** (0061; `prueba-rls.mjs` 22/22 en producción) |
+| A1 | Alto | Eliminar la cuenta no borra las fotos de negocios ni la evidencia de verificación (salvo la INE, que el barrido recoge en ≤ 1 día) | **Corregido y desplegado** (`eliminar-cuenta`); sin probar con una cuenta real |
+| A2 | Alto | `exportar_mis_datos` no incluye lo nuevo (funciones, verificación, negocios, reseñas, favoritos, suscripciones) | **Corregido y aplicado** (0062) |
+| A3 | Alto | Cualquier cuenta puede subir archivos sin tope al bucket `verificacion`; solo los de nombre `ine-…` se barren | Corregido en la 0063 (aplicar y desplegar `barrer-verificaciones`) |
 | M1 | Medio | Quien vende no recibe aviso al ser aprobado o rechazado | Abierto |
 | M2 | Medio | El límite de 1 anuncio del arrendador gratis no se impone | Abierto (decisión) |
 | M3 | Medio | Sin monitoreo de errores en producción | Abierto |
@@ -115,3 +115,9 @@ Listas limitadas a 100 filas sin paginar ni buscar. Suficiente para la demo.
 - `rm -rf respaldos/*` cuando ya no se necesiten (los dumps llevan datos personales).
 - Revisar en el panel de EAS si puedes borrar la construcción cancelada.
 - La revisión legal del aviso de privacidad v3.
+
+## A3 · cómo se corrigió (0063)
+La política de subida de `verificacion` ahora exige la forma exacta del nombre (`<usuario>/<rol>/{ine-frente|ine-reverso|lugar-N}-….jpg`), una función de vendedor
+en estado `sin_verificar` o `rechazado`, y menos de 24 archivos en la carpeta del rol. El conteo vive en una función `security definer`: como subconsulta dentro de
+la policy rompía las subidas de fotos de negocios con «infinite recursion detected in policy» (lo cazaron las propias pruebas). `evidencia_huerfana` sustituye a
+`ine_huerfanas` y el barrido recoge toda la evidencia sin referencia de más de un día. Límite: 24 archivos por rol y cuenta siguen siendo posibles hasta el barrido.

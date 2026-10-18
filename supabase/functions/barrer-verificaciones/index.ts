@@ -13,7 +13,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-import { esRutaDeIneHuerfanaSegura, igualEnTiempoConstante, rutasDeIne } from './politica.ts';
+import { esRutaDeEvidenciaHuerfanaSegura, igualEnTiempoConstante, rutasDeIne } from './politica.ts';
 
 const LOTE = 100;
 
@@ -22,14 +22,14 @@ const json = (cuerpo: unknown, status: number) =>
 
 async function barrerHuerfanas(): Promise<number> {
   const servicio = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-  const { data, error } = await servicio.rpc('ine_huerfanas', { p_limite: LOTE });
+  const { data, error } = await servicio.rpc('evidencia_huerfana', { p_limite: LOTE });
   if (error) {
     console.error('barrer-verificaciones: no se pudieron listar las huérfanas', error.code);
     return 0;
   }
   const listadas = ((data ?? []) as { ruta: string }[]).map((f) => f.ruta);
   // La base ya filtra por forma; aquí se vuelve a comprobar antes de borrar con la llave de servicio.
-  const rutas = listadas.filter(esRutaDeIneHuerfanaSegura);
+  const rutas = listadas.filter(esRutaDeEvidenciaHuerfanaSegura);
   if (rutas.length < listadas.length) {
     console.error('barrer-verificaciones: rutas huérfanas con forma inesperada, no se tocan', listadas.length - rutas.length);
   }
@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     return json({ error: 'no se pudo leer' }, 500);
   }
 
-  // Segunda pasada: INE que ninguna verificación apunta (subidas a medias, entregas anteriores a un reenvío). Va ANTES de salir por
+  // Segunda pasada: evidencia (INE, reverso, fotos del lugar) que ninguna verificación apunta (subidas a medias, entregas anteriores a un reenvío). Va ANTES de salir por
   // «no hay filas», porque no depende de ellas. Un fallo aquí no tumba la primera pasada: se registra y se reintenta en la hora siguiente.
   const huerfanasBorradas = await barrerHuerfanas();
 

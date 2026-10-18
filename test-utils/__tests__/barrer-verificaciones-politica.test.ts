@@ -1,4 +1,4 @@
-import { esRutaDeIneHuerfanaSegura, igualEnTiempoConstante, rutasDeIne } from '../../supabase/functions/barrer-verificaciones/politica';
+import { esRutaDeEvidenciaHuerfanaSegura, igualEnTiempoConstante, rutasDeIne } from '../../supabase/functions/barrer-verificaciones/politica';
 
 // El barrido de la INE borra archivos con la llave de servicio. Lo que se fija aquí es lo que NO debe poder borrar:
 // nada fuera de la carpeta de la propia cuenta, y nunca las fotos del local.
@@ -44,15 +44,17 @@ describe('igualEnTiempoConstante', () => {
 });
 
 // Huérfanas (0058): archivos de INE que ninguna verificación apunta. El barrido las borra con la llave de servicio, así que repite aquí
-// la forma exacta que la base ya exige: si `ine_huerfanas` devolviera algo raro, esta función se niega a borrarlo.
-describe('esRutaDeIneHuerfanaSegura', () => {
+// la forma exacta que la base ya exige: si `evidencia_huerfana` devolviera algo raro, esta función se niega a borrarlo.
+describe('esRutaDeEvidenciaHuerfanaSegura', () => {
   it.each([
     `${U}/comerciante/ine-frente-1760000000000-ab12cd.jpg`,
     `${U}/arrendador/ine-reverso-1760000000000-ab12cd.jpg`,
-  ])('acepta %s', (ruta) => expect(esRutaDeIneHuerfanaSegura(ruta)).toBe(true));
+    `${U}/comerciante/lugar-3-1760000000000-ab12cd.jpg`,
+  ])('acepta %s', (ruta) => expect(esRutaDeEvidenciaHuerfanaSegura(ruta)).toBe(true));
 
   it.each([
-    ['las fotos del local no son identidad', `${U}/comerciante/lugar-1-1760000000000-ab12cd.jpg`],
+    ['un nombre libre, que la base ya no deja subir', `${U}/comerciante/cualquier-cosa.jpg`],
+    ['lugar sin número', `${U}/comerciante/lugar-abc-1.jpg`],
     ['un rol que no existe', `${U}/admin/ine-frente-1.jpg`],
     ['sin carpeta de rol', `${U}/ine-frente-1.jpg`],
     ['sin carpeta de usuario', 'comerciante/ine-frente-1.jpg'],
@@ -60,10 +62,10 @@ describe('esRutaDeIneHuerfanaSegura', () => {
     ['salida con ..', `${U}/comerciante/../ine-frente-1.jpg`],
     ['subcarpeta extra', `${U}/comerciante/x/ine-frente-1.jpg`],
     ['vacía', ''],
-  ])('rechaza %s', (_n, ruta) => expect(esRutaDeIneHuerfanaSegura(ruta)).toBe(false));
+  ])('rechaza %s', (_n, ruta) => expect(esRutaDeEvidenciaHuerfanaSegura(ruta)).toBe(false));
 
   it('rechaza lo que no es texto', () => {
-    expect(esRutaDeIneHuerfanaSegura(null as unknown as string)).toBe(false);
-    expect(esRutaDeIneHuerfanaSegura(undefined as unknown as string)).toBe(false);
+    expect(esRutaDeEvidenciaHuerfanaSegura(null as unknown as string)).toBe(false);
+    expect(esRutaDeEvidenciaHuerfanaSegura(undefined as unknown as string)).toBe(false);
   });
 });
