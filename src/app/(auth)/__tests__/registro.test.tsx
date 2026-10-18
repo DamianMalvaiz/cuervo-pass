@@ -159,6 +159,16 @@ describe('confirmación de correo', () => {
     );
   });
 
+  it('«Ya confirmé» lleva a entrar', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    await rellenar();
+    await waitFor(() => expect(screen.getByText('Revisa tu correo')).toBeTruthy());
+
+    await interactuar(() => fireEvent.press(screen.getByLabelText('Ya confirmé, entrar')));
+
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
+  });
+
   it('si el reenvío falla lo dice, no finge que salió', async () => {
     mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
     mockReenviar.mockResolvedValue({ error: new Error('rate limit') });
