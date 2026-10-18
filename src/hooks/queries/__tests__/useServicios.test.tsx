@@ -17,9 +17,10 @@ import { useCategoriasServicio, useNegocio, useNegocios } from '../useServicios'
 
 const envolver = () => {
   const cliente = clienteDePrueba({ queries: { retry: false } });
-  return ({ children }: { children: ReactNode }) => (
+  const Envoltura = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={cliente}>{children}</QueryClientProvider>
   );
+  return Envoltura;
 };
 
 beforeEach(() => jest.clearAllMocks());
