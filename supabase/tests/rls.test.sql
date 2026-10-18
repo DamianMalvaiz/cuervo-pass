@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(396);
+select plan(408);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2804,6 +2804,32 @@ select throws_ok($$select fijar_demo_mode('00000000-0000-0000-0000-0000000000a1'
 select throws_ok($$select registrar_acceso_documentos('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000e9', 'comerciante')$$,
   '42501', null, 'documentos: el cliente autenticado no puede registrar (ni ver) nada' );
 
+
+-- ── Privilegios de vistas y de anon (0061) ──────────────────────────────────
+-- Hallazgo del 18/10/2026: las vistas «públicas» eran actualizables y escribían con los permisos de su dueño, saltándose RLS.
+select actuar_como_servicio();
+select is(
+  (select count(*)::int from information_schema.role_table_grants g
+     join information_schema.views v on v.table_schema = g.table_schema and v.table_name = g.table_name
+    where g.table_schema = 'public' and g.grantee = 'authenticated' and g.privilege_type <> 'SELECT'),
+  0, 'vistas: authenticated solo tiene SELECT sobre las vistas públicas (si no, las escribiría saltándose RLS)' );
+select is(
+  (select count(*)::int from information_schema.role_table_grants where table_schema = 'public' and grantee = 'anon'),
+  0, 'anon no tiene ningún privilegio sobre tablas ni vistas de public' );
+select is(
+  (select count(*)::int from information_schema.role_table_grants
+    where table_schema = 'public' and grantee = 'authenticated' and privilege_type in ('TRUNCATE', 'REFERENCES', 'TRIGGER')),
+  0, 'authenticated no tiene TRUNCATE, REFERENCES ni TRIGGER (RLS no los filtra)' );
+select is(has_table_privilege('authenticated', 'public.publicaciones_publicas', 'select'), true, 'vistas: authenticated SIGUE leyendo publicaciones_publicas' );
+select is(has_table_privilege('authenticated', 'public.roomies_publicos', 'select'), true, 'vistas: authenticated SIGUE leyendo roomies_publicos' );
+select is(has_table_privilege('authenticated', 'public.perfiles_publicos', 'select'), true, 'vistas: authenticated SIGUE leyendo perfiles_publicos' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select throws_ok($$update publicaciones_publicas set titulo = 'HACKEADA'$$, '42501', null, 'vistas: no se puede ACTUALIZAR una publicación ajena a través de la vista' );
+select throws_ok($$delete from publicaciones_publicas$$, '42501', null, 'vistas: no se puede BORRAR una publicación ajena a través de la vista' );
+select throws_ok($$insert into publicaciones_publicas (id) values (gen_random_uuid())$$, '42501', null, 'vistas: no se puede insertar a través de la vista' );
+select throws_ok($$update roomies_publicos set descripcion_busqueda = 'HACKEADO'$$, '42501', null, 'vistas: no se puede ACTUALIZAR un anuncio de roomie ajeno a través de la vista' );
+select throws_ok($$delete from roomies_publicos$$, '42501', null, 'vistas: no se puede BORRAR un anuncio de roomie ajeno a través de la vista' );
+select is(has_table_privilege('authenticated', 'public.perfiles_publicos', 'update'), false, 'vistas: perfiles_publicos tampoco se escribe (no tiene UPDATE)' );
 
 select * from finish();
 rollback;
