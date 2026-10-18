@@ -32,7 +32,9 @@ export function TarjetaNegocio({
   const theme = useTheme();
   const precio = signosDePrecio(negocio.rango_precio);
   const ejemplo = negocio.origen === 'sembrado';
-  const detalle = [negocio.horario, precio].filter(Boolean).join(' · ');
+  // «a 1.2 km»: lo que de verdad le sirve a quien busca; el puntaje del ranking NO se enseña.
+  const distancia = negocio.distancia_km != null && Number.isFinite(negocio.distancia_km) ? `a ${negocio.distancia_km.toFixed(1)} km` : null;
+  const detalle = [distancia, negocio.horario, precio].filter(Boolean).join(' · ');
 
   const foto = fotoUrl ? (
     <Image source={{ uri: fotoUrl }} style={forma === 'fila' ? estilos.fotoFila : estilos.fotoDestacado} contentFit="cover" transition={160} />

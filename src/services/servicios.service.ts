@@ -24,9 +24,12 @@ export async function listarCategorias(): Promise<CategoriaServicio[]> {
   return (data ?? []) as CategoriaServicio[];
 }
 
-/** Escapa los comodines de LIKE: sin esto, buscar «50%» sería buscar «todo». */
-const escaparLike = (t: string) => t.replace(/[\\%_]/g, (c) => `\\${c}`);
-
+/**
+ * La lista de Servicios, ORDENADA en el servidor (`negocios_ordenados`, 0055): destacados primero y, dentro de cada nivel,
+ * por un puntaje de cercanía a tu universidad, calidad (reseñas) y novedad. La categoría y la búsqueda (con los comodines de
+ * LIKE ya escapados) también se aplican allí: filtrar en el teléfono una página recortada haría que la app dijera «no hay
+ * nada» cuando sí lo hay. Cada negocio trae `distancia_km` (o null si falta el dato) y `puntaje`.
+ */
 export async function listarNegocios({
   categoriaId,
   texto,
@@ -34,13 +37,11 @@ export async function listarNegocios({
   categoriaId?: string;
   texto?: string;
 }): Promise<Negocio[]> {
-  let consulta = supabase.from('negocios_publicos').select(COLUMNAS_NEGOCIO);
-  if (categoriaId) consulta = consulta.eq('categoria_id', categoriaId);
-  const buscado = texto?.trim();
-  if (buscado) consulta = consulta.ilike('nombre', `%${escaparLike(buscado)}%`);
-  const { data, error } = await consulta
-    .order('destacado', { ascending: false })
-    .order('nombre', { ascending: true });
+  const { data, error } = await supabase.rpc('negocios_ordenados', {
+    p_categoria: categoriaId ?? null,
+    p_texto: texto?.trim() || null,
+    p_limite: 100,
+  });
   if (error) throw error;
   return (data ?? []) as Negocio[];
 }

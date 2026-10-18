@@ -5,7 +5,8 @@
 // ya recortada en el teléfono. Y «falló la lectura» no es «no hay negocios» (invariante 2): se lanza.
 
 const mockDesde = jest.fn();
-jest.mock('@/lib/supabase', () => ({ supabase: { from: (...a: unknown[]) => mockDesde(...a) } }));
+const mockRpc = jest.fn();
+jest.mock('@/lib/supabase', () => ({ supabase: { from: (...a: unknown[]) => mockDesde(...a), rpc: (...a: unknown[]) => mockRpc(...a) } }));
 
 import { listarCategorias, listarNegocios, obtenerNegocio } from '../servicios.service';
 
@@ -16,7 +17,10 @@ function cadena(resultado: { data?: unknown; error?: unknown }) {
   return c;
 }
 
-beforeEach(() => mockDesde.mockReset());
+beforeEach(() => {
+  mockDesde.mockReset();
+  mockRpc.mockReset();
+});
 
 describe('listarCategorias', () => {
   test('lee las categorías en su orden', async () => {
@@ -36,62 +40,33 @@ describe('listarCategorias', () => {
 });
 
 describe('listarNegocios', () => {
-  test('lee de la VISTA pública, destacados primero y luego por nombre', async () => {
-    const c = cadena({ data: [] });
-    mockDesde.mockReturnValue(c);
-    await listarNegocios({});
-    expect(mockDesde).toHaveBeenCalledWith('negocios_publicos');
-    expect(c.order).toHaveBeenNthCalledWith(1, 'destacado', { ascending: false });
-    expect(c.order).toHaveBeenNthCalledWith(2, 'nombre', { ascending: true });
+  test('pide el orden al SERVIDOR (negocios_ordenados), con tope de 100', async () => {
+    mockRpc.mockResolvedValue({ data: [{ id: 'n1', puntaje: 0.8 }], error: null });
+    await expect(listarNegocios({})).resolves.toEqual([{ id: 'n1', puntaje: 0.8 }]);
+    expect(mockRpc).toHaveBeenCalledWith('negocios_ordenados', { p_categoria: null, p_texto: null, p_limite: 100 });
+    expect(mockDesde).not.toHaveBeenCalled();
   });
 
-  test('las columnas van enumeradas, sin select *', async () => {
-    const c = cadena({ data: [] });
-    mockDesde.mockReturnValue(c);
-    await listarNegocios({});
-    const [columnas] = (c.select as jest.Mock).mock.calls[0];
-    expect(columnas).not.toBe('*');
-    expect(columnas).toContain('nombre');
-    expect(columnas).not.toContain('usuario_id');
-  });
-
-  test('la categoría se filtra en el servidor', async () => {
-    const c = cadena({ data: [] });
-    mockDesde.mockReturnValue(c);
+  test('la categoría viaja al servidor', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
     await listarNegocios({ categoriaId: 'cafes' });
-    expect(c.eq).toHaveBeenCalledWith('categoria_id', 'cafes');
+    expect(mockRpc).toHaveBeenCalledWith('negocios_ordenados', expect.objectContaining({ p_categoria: 'cafes' }));
   });
 
-  test('sin categoría no filtra por categoría', async () => {
-    const c = cadena({ data: [] });
-    mockDesde.mockReturnValue(c);
-    await listarNegocios({});
-    expect(c.eq).not.toHaveBeenCalled();
-  });
-
-  test('la búsqueda se filtra en el servidor por nombre, sin importar mayúsculas', async () => {
-    const c = cadena({ data: [] });
-    mockDesde.mockReturnValue(c);
-    await listarNegocios({ texto: '  taco  ' });
-    expect(c.ilike).toHaveBeenCalledWith('nombre', '%taco%');
-  });
-
-  test('los comodines de LIKE del texto se escapan: «50%» no es «todo»', async () => {
-    const c = cadena({ data: [] });
-    mockDesde.mockReturnValue(c);
-    await listarNegocios({ texto: '50%_a' });
-    expect(c.ilike).toHaveBeenCalledWith('nombre', '%50\\%\\_a%');
+  test('la búsqueda viaja recortada; el escape de comodines lo hace la base', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    await listarNegocios({ texto: '  50%_a  ' });
+    expect(mockRpc).toHaveBeenCalledWith('negocios_ordenados', expect.objectContaining({ p_texto: '50%_a' }));
   });
 
   test('un texto en blanco no filtra', async () => {
-    const c = cadena({ data: [] });
-    mockDesde.mockReturnValue(c);
+    mockRpc.mockResolvedValue({ data: [], error: null });
     await listarNegocios({ texto: '   ' });
-    expect(c.ilike).not.toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalledWith('negocios_ordenados', expect.objectContaining({ p_texto: null }));
   });
 
   test('si falla, LANZA y no devuelve una lista vacía', async () => {
-    mockDesde.mockReturnValue(cadena({ error: { message: 'sin red' } }));
+    mockRpc.mockResolvedValue({ error: { message: 'sin red' } });
     await expect(listarNegocios({})).rejects.toMatchObject({ message: 'sin red' });
   });
 });

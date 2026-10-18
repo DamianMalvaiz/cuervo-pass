@@ -321,6 +321,10 @@ export interface Negocio {
   /** Promedio de las reseñas visibles (0054); `null` si no tiene. NUNCA se asigna: lo calcula la base. */
   calificacion?: number | null;
   num_resenas?: number;
+  /** Solo en la lista ordenada (0055): km desde TU universidad, o null si falta el dato. */
+  distancia_km?: number | null;
+  /** Solo en la lista ordenada: el puntaje de ranking, entre 0 y 1. */
+  puntaje?: number;
 }
 
 /** Un negocio visto por su DUEÑA (tabla `negocios`, 0052): trae lo que la vista pública no expone. */
@@ -519,6 +523,11 @@ export interface Database {
       reportar_resena: {
         Args: { p_resena: string; p_motivo: string };
         Returns: undefined;
+      };
+      // La lista de Servicios, ordenada y filtrada en el servidor (migración 0055).
+      negocios_ordenados: {
+        Args: { p_categoria: string | null; p_texto: string | null; p_limite: number };
+        Returns: Negocio[];
       };
       abrir_conversacion: {
         Args: { p_otro: string };
