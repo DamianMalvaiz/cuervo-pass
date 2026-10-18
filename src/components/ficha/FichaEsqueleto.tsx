@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { Filete, Radios, Spacing } from '@/constants/theme';
+import { AltoFotoTarjeta, Filete, Radios, Spacing } from '@/constants/theme';
 import { useMovimientoReducido } from '@/hooks/use-movimiento-reducido';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -86,37 +86,21 @@ export function BloqueEsqueleto({
   );
 }
 
-/** Espeja `FilaPublicacion`: foto de 96, título de dos renglones y las tres
- *  columnas de 86 con sus etiquetas reales. Las medidas se copian a mano y no se
- *  importan porque son DOS componentes: si la fila cambia, este debe fallar en
- *  la revisión visual, no seguirla en silencio con una forma que ya no espeja
- *  nada. */
+/** Espeja `FilaPublicacion` (la tarjeta): foto grande de esquinas redondeadas, un título y la línea de precio. */
 export function FilaEsqueleto({ indice = 0 }: { indice?: number }) {
   const theme = useTheme();
   const pulso = useEstiloPulso(indice);
 
   return (
     <Animated.View
-      style={[estilos.fila, { borderColor: theme.filete }, pulso]}
+      style={[estilos.fila, pulso]}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      <View style={[estilos.foto, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]} />
-      <View style={estilos.derecha}>
-        <View style={estilos.titulo}>
-          <BloqueEsqueleto ancho="92%" alto={11} />
-          <BloqueEsqueleto ancho="64%" alto={11} />
-        </View>
-        <View style={estilos.columnas}>
-          {['AJUSTE', 'RENTA', 'DISTANCIA'].map((etiqueta) => (
-            <View key={etiqueta} style={estilos.columna}>
-              <ThemedText type="etiqueta" themeColor="textSecondary" numberOfLines={1}>
-                {etiqueta}
-              </ThemedText>
-              <BloqueEsqueleto ancho={56} alto={16} />
-            </View>
-          ))}
-        </View>
+      <View style={[estilos.foto, { backgroundColor: theme.backgroundElement }]} />
+      <View style={estilos.titulo}>
+        <BloqueEsqueleto ancho="70%" alto={14} />
+        <BloqueEsqueleto ancho="45%" alto={12} />
       </View>
     </Animated.View>
   );
@@ -227,20 +211,9 @@ export function ListaEsqueleto({
 }
 
 const estilos = StyleSheet.create({
-  fila: {
-    minHeight: 132,
-    flexDirection: 'row',
-    gap: Spacing.two,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.two,
-    borderBottomWidth: Filete.fino,
-    alignItems: 'center',
-  },
-  foto: { width: 96, height: 96, borderRadius: Radios.casilla, borderWidth: Filete.fino },
-  derecha: { flex: 1, justifyContent: 'space-between', minHeight: 96, gap: Spacing.half },
-  titulo: { gap: Spacing.half },
-  columnas: { flexDirection: 'row', gap: Spacing.two },
-  columna: { width: 86, gap: Spacing.half },
+  fila: { gap: Spacing.two, paddingHorizontal: Spacing.three, paddingBottom: Spacing.three },
+  foto: { width: '100%', height: AltoFotoTarjeta, borderRadius: Radios.tarjeta },
+  titulo: { gap: Spacing.one },
 
   renglon: {
     flexDirection: 'row',

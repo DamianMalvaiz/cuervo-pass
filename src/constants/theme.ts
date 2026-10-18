@@ -323,6 +323,8 @@ export const Radios = {
   control: 12,
   /** Superficies grandes: la ficha, sus fotografías, bloques de estado. */
   hoja: 16,
+  /** Cuervo 360. La tarjeta de una publicación y su foto grande. */
+  tarjeta: 22,
   full: 9999,
 } as const;
 
@@ -337,6 +339,9 @@ export const Filete = {
 /** Alto de la barra de pestañas SIN el área segura inferior. El alto real es este
  *  más el inset (ver `(tabs)/_layout.tsx`): un alto fijo se come el icono y la
  *  etiqueta bajo la barra del sistema. */
+/** Alto de la foto de una tarjeta de publicación (la de la propuesta del 17/10/2026). */
+export const AltoFotoTarjeta = 190;
+
 export const AltoBarraPestanas = 68;
 
 /** La pastilla lima detrás del icono de la pestaña activa (56 × 32, la de la propuesta del 17/10/2026). */

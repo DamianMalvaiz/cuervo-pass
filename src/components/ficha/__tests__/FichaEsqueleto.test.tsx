@@ -5,7 +5,7 @@
 // comprueban que la animacion se vea bien: eso solo se juzga en un dispositivo,
 // y el doble de Reanimated de `jest.setup.js` es deliberadamente tonto.
 
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, waitFor } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 import { withRepeat } from 'react-native-reanimated';
 
@@ -33,14 +33,17 @@ afterEach(() => jest.restoreAllMocks());
 // fija. Aqui se mira lo que se PINTA, que es otra pregunta.
 const OCULTOS = { includeHiddenElements: true } as const;
 
-test('las etiquetas de la fila son reales, no bloques grises', async () => {
+// La fila de carga espeja la TARJETA (foto grande + título + línea de precio), no el renglón de tabla con sus
+// tres columnas, que se retiró el 17/10/2026. Ya no hay etiquetas AJUSTE · RENTA · DISTANCIA que pintar.
+test('la fila de carga espeja la tarjeta: sin etiquetas de columnas', async () => {
   await render(<ListaEsqueleto variante="fila" filas={2} />);
-  expect(screen.getAllByText('AJUSTE', OCULTOS)).toHaveLength(2);
-  expect(screen.getAllByText('RENTA', OCULTOS)).toHaveLength(2);
-  expect(screen.getAllByText('DISTANCIA', OCULTOS)).toHaveLength(2);
+  for (const etiqueta of ['AJUSTE', 'RENTA', 'DISTANCIA']) {
+    expect(screen.queryByText(etiqueta, OCULTOS)).toBeNull();
+  }
+  expect(screen.getByLabelText('Cargando')).toBeTruthy();
 });
 
-// Un lector de pantalla que anuncie «AJUSTE RENTA DISTANCIA» seis veces
+// Un lector de pantalla que anuncie el andamio seis veces
 // seguidas convierte una espera en un castigo. El esqueleto se anuncia UNA vez,
 // por el contenedor, y su contenido queda fuera del arbol de accesibilidad: es
 // andamio visual, no informacion.
@@ -75,6 +78,6 @@ test('con movimiento normal, el pulso se repite', async () => {
 test('con movimiento reducido NO se inicia ninguna repeticion', async () => {
   jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
   await render(<ListaEsqueleto variante="fila" filas={3} />);
-  await screen.findAllByText('AJUSTE', OCULTOS);
+  await waitFor(() => expect(AccessibilityInfo.isReduceMotionEnabled).toHaveBeenCalled());
   expect(mockWithRepeat).not.toHaveBeenCalled();
 });

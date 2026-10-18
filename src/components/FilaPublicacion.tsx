@@ -6,47 +6,27 @@ import { StyleSheet, View } from 'react-native';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { SelloTipo } from '@/components/ficha/SelloTipo';
 import { ThemedText } from '@/components/themed-text';
-import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { AltoFotoTarjeta, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { TipoPublicacion } from '@/types/database.types';
 
 /**
- * Un renglón de tabla, no una tarjeta · END-33
+ * Tarjeta de una publicación · Cuervo 360.
  *
- * `FichaPublicacion` mide 420–450 px: **una tarjeta y media por pantalla**. Y
- * PRODUCT.md dice: «Airbnb ordena por deseo […] esto ordena por AJUSTE».
+ * Hasta el 17/10/2026 esto era un renglón de tabla de 132 pt con tres columnas (AJUSTE · RENTA · DISTANCIA),
+ * pensado para comparar (END-33). Probado en un iPhone real se leía como un formulario: muchos números
+ * técnicos y una foto de 96 pt. Ahora manda la FOTO (grande, de esquinas redondeadas), con el tipo como
+ * píldora abajo a la izquierda y el corazón arriba a la derecha; debajo, el título y una línea con el precio
+ * y la distancia.
  *
- * El ajuste se evalúa COMPARANDO, y comparar exige ver varias opciones a la
- * vez. Una tarjeta y media por pantalla es la densidad de un catálogo de deseo
- * —donde cada objeto quiere tu atención entera— y no la de una tabla de
- * decisión. La forma contradecía la tesis del producto.
- *
- * Tres decisiones que hacen que esto sea una tabla y no una lista bonita:
- *
- *   · **Columnas de ancho FIJO.** Si la columna de renta se ensancha con el
- *     número, las cifras dejan de alinearse verticalmente y el ojo tiene que
- *     buscar cada una. Un ancho fijo las pone una debajo de otra.
- *   · **`tabular-nums`**, que ya viene en los tokens de cifra. Sin él, "1" y
- *     "8" ocupan anchos distintos y la columna se tambalea aunque el contenedor
- *     no lo haga.
- *   · **Las etiquetas se repiten en cada fila.** Un encabezado de tabla único
- *     arriba se pierde al desplazar, y entonces hay que recordar qué columna
- *     era cuál. En un documento impreso cada renglón se lee solo.
- *
- * `FichaPublicacion` se conserva para «Mis publicaciones», donde no se compara
- * nada: ahí la pregunta es «cómo va la mía», no «cuál de estas».
+ * El orden de la lista sigue siendo el ajuste; solo dejó de enseñarse como cifra. El nombre del componente se
+ * conserva para no mover a sus llamadores.
  */
-
-/**
- * Alto MÍNIMO del renglón. Es un piso, no una medida fija: con el escalado de
- * texto del sistema activado la fila crece, y eso es correcto (END-34).
- */
-export const ALTO_FILA = 132;
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 
-/** En frase, no en versalitas: un lector de pantalla deletrea «DEPA» como
- *  «D-E-P-A» si lo recibe en mayúsculas sostenidas. */
+/** En frase, no en versalitas: un lector de pantalla deletrea «DEPA» como «D-E-P-A» si lo recibe en
+ *  mayúsculas sostenidas. */
 const PALABRA_ACCESIBLE: Record<TipoPublicacion, string> = {
   depa: 'Departamento',
   cuarto: 'Cuarto',
@@ -60,152 +40,86 @@ export function FilaPublicacion({
   precio,
   fotoUrl,
   distanciaKm,
-  score,
   onPress,
 }: {
-  /** Con el id, la fila pinta el corazón de Favoritos; sin él (una fila de solo lectura), no. */
+  /** Con el id, la tarjeta pinta el corazón de Favoritos; sin él (solo lectura), no. */
   publicacionId?: string;
   titulo: string;
-  /** D.11 · El tipo no aparecía en la lista, solo en la ficha. Con los chips de
-   *  B.3 se podía filtrar por algo que la lista nunca decía. */
   tipo?: TipoPublicacion;
   precio: number;
   fotoUrl?: string | null;
   distanciaKm?: number | null;
-  score?: number | null;
   onPress?: () => void;
 }) {
   const theme = useTheme();
 
-  const hayScore = typeof score === 'number' && Number.isFinite(score);
-  // Medios puntos, la misma regla que END-30 fijó para toda la app: el cálculo
-  // no tiene una décima de resolución y presentarla la inventaría.
-  const ajuste = hayScore ? (Math.round(Math.min(10, Math.max(0, score * 10)) * 2) / 2).toFixed(1) : '—';
-  const renta = `$${formateadorPrecio.format(precio)}`;
-  const distancia = distanciaKm != null && Number.isFinite(distanciaKm) ? `${distanciaKm.toFixed(1)} km` : '—';
+  const renta = `$${formateadorPrecio.format(precio)} al mes`;
+  // Sin dato no hay línea: no se inventa un «—». Una publicación cuyo geocoding falló se muestra igual.
+  const distancia =
+    distanciaKm != null && Number.isFinite(distanciaKm) ? `a ${distanciaKm.toFixed(1)} km` : null;
 
   return (
     <Pulsable
       onPress={onPress}
-      style={[estilos.fila, { borderColor: theme.filete, backgroundColor: theme.background }]}
+      style={estilos.tarjeta}
       accessibilityRole="button"
-      // El tipo va PRIMERO en la etiqueta: quien recorre la lista con un lector
-      // de pantalla lo necesita para decidir si le interesa, igual que quien la
-      // recorre con la vista lo ve en el sello. La trama no se anuncia: es el
-      // mismo dato, dicho para otro sentido.
+      // El tipo va PRIMERO: quien recorre la lista con un lector de pantalla lo necesita para decidir si le
+      // interesa, igual que quien la recorre con la vista lo ve en la píldora.
       accessibilityLabel={
-        `${tipo ? PALABRA_ACCESIBLE[tipo] + '. ' : ''}${titulo}. ` +
-        `Ajuste ${ajuste} de 10, renta ${renta}, distancia ${distancia}.`
+        `${tipo ? PALABRA_ACCESIBLE[tipo] + '. ' : ''}${titulo}. Renta ${renta}` +
+        `${distancia ? ', ' + distancia : ''}.`
       }
     >
       <View>
         {fotoUrl ? (
-          <Image source={{ uri: fotoUrl }} style={[estilos.foto, { borderColor: theme.filete }]} contentFit="cover" transition={160} />
+          <Image source={{ uri: fotoUrl }} style={estilos.foto} contentFit="cover" transition={160} />
         ) : (
           <View
-            style={[estilos.foto, estilos.sinFoto, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}
+            style={[estilos.foto, estilos.sinFoto, { backgroundColor: theme.backgroundElement }]}
             accessibilityLabel="Sin fotografía"
           >
-            <Ionicons name="image-outline" size={20} color={theme.textSecondary} />
+            <Ionicons name="image-outline" size={28} color={theme.textSecondary} />
           </View>
         )}
-        {/* Estampado sobre la foto, como el sello de un archivo sobre una
-            fotografía pegada a un expediente. Ahí no compite con las columnas
-            de cifras ni le roba un renglón al título. */}
         {tipo && (
           <View style={estilos.selloTipo}>
             <SelloTipo tipo={tipo} />
           </View>
         )}
+        {publicacionId ? (
+          // Círculo opaco: el corazón va encima de una foto cualquiera y sobre una foto clara o muy
+          // cargada se perdería.
+          <View style={[estilos.corazon, { backgroundColor: theme.background }]}>
+            <BotonFavorito publicacionId={publicacionId} />
+          </View>
+        ) : null}
       </View>
 
-      <View style={estilos.derecha}>
-        <ThemedText type="small" numberOfLines={2} style={[estilos.titulo, publicacionId ? estilos.tituloConCorazon : null]}>
+      <View style={estilos.texto}>
+        <ThemedText numberOfLines={2} style={[Texto.cuerpo, Texto.pesoFuerte]}>
           {titulo}
         </ThemedText>
-
-        {/* END-30 · La afinidad NO va en una columna: no todas las filas la
-            tienen, y una columna medio vacía se lee como un dato perdido en vez
-            de como un dato ausente. Va como nota bajo las cifras, y cuando no
-            hay simplemente no está — que es lo mismo que hace `PorQue` en la
-            ficha grande. La distancia y la renta no se repiten aquí: ya son
-            columnas. */}
-        <View style={estilos.columnas}>
-          <Columna etiqueta="AJUSTE" valor={ajuste} atenuado={!hayScore} />
-          <Columna etiqueta="RENTA" valor={renta} />
-          <Columna etiqueta="DISTANCIA" valor={distancia} atenuado={distancia === '—'} />
+        <View style={estilos.linea}>
+          <ThemedText type="small" style={Texto.pesoFuerte}>
+            {renta}
+          </ThemedText>
+          {distancia ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {distancia}
+            </ThemedText>
+          ) : null}
         </View>
-
       </View>
-      {publicacionId ? (
-        <View style={estilos.corazon}>
-          <BotonFavorito publicacionId={publicacionId} />
-        </View>
-      ) : null}
     </Pulsable>
   );
 }
 
-function Columna({ etiqueta, valor, atenuado = false }: { etiqueta: string; valor: string; atenuado?: boolean }) {
-  return (
-    <View style={estilos.columna}>
-      <ThemedText
-        type="etiqueta"
-        themeColor="textSecondary"
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.8}
-      >
-        {etiqueta}
-      </ThemedText>
-      <ThemedText
-        style={estilos.cifra}
-        themeColor={atenuado ? 'textSecondary' : 'text'}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-      >
-        {valor}
-      </ThemedText>
-    </View>
-  );
-}
-
 const estilos = StyleSheet.create({
-  fila: {
-    // END-34 · `minHeight` y no `height`. Con una altura FIJA, el título
-    // recortaba en cuanto el sistema escalaba el texto: la fila seguía midiendo
-    // 132 px y el contenido no cabía. Con un piso, la tabla mantiene su ritmo
-    // en el caso normal y CEDE cuando alguien necesita letra más grande —que es
-    // el orden correcto de prioridades, aunque cueste la alineación perfecta.
-    minHeight: ALTO_FILA,
-    flexDirection: 'row',
-    gap: Spacing.two,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.two,
-    borderBottomWidth: Filete.fino,
-    alignItems: 'center',
-  },
-  foto: {
-    width: 96,
-    height: 96,
-    borderRadius: Radios.casilla,
-    borderWidth: Filete.fino,
-  },
+  tarjeta: { gap: Spacing.two, paddingHorizontal: Spacing.three, paddingBottom: Spacing.three },
+  foto: { width: '100%', height: AltoFotoTarjeta, borderRadius: Radios.tarjeta },
   sinFoto: { alignItems: 'center', justifyContent: 'center' },
-  // Al ras de la esquina inferior izquierda de la foto, como un sello puesto
-  // sobre el papel y no junto a él.
-  selloTipo: { position: 'absolute', left: 4, bottom: 4 },
-  derecha: { flex: 1, justifyContent: 'space-between', minHeight: 96, gap: Spacing.half },
-  titulo: { lineHeight: 18 },
-  // El corazón (44 pt) va arriba a la derecha: el título deja ese sitio libre para no pasar por debajo.
-  tituloConCorazon: { paddingRight: 36 },
-  corazon: { position: 'absolute', top: 0, right: 0 },
-  columnas: { flexDirection: 'row', gap: Spacing.one },
-  // `flex: 1` con base 0, no un ancho fijo. Los 86 pt de antes sumaban 274 con los
-  // huecos y se salían de una pantalla de 360 pt (visto en un teléfono real). Con
-  // base 0 las tres columnas se reparten el MISMO ancho en todas las filas, así que
-  // las cifras siguen cayendo una debajo de otra: lo que rompía la alineación era
-  // un `flex` que creciera con el contenido, y con base 0 el contenido no cuenta.
-  columna: { flex: 1, minWidth: 0, gap: 1 },
-  cifra: { ...Texto.cifra },
+  selloTipo: { position: 'absolute', left: Spacing.two, bottom: Spacing.two },
+  corazon: { position: 'absolute', top: Spacing.two, right: Spacing.two, borderRadius: Radios.full },
+  texto: { gap: Spacing.half },
+  linea: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
 });

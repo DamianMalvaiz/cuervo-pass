@@ -351,7 +351,6 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
               precio={item.precio_renta}
               fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
               distanciaKm={item.distancia}
-              score={item.score_final ?? item.score}
               onPress={() => irADetalle(item)}
             />
           </Animated.View>
