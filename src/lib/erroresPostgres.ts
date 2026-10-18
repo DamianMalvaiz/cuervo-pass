@@ -58,6 +58,8 @@ export const CP = {
   DEMO_APAGADO: 'CP010',
   /** `simular_pago` con un plan inexistente, gratuito o de una función que la cuenta no tiene aprobada. */
   PLAN_NO_DISPONIBLE: 'CP011',
+  /** Más de 5 intentos de verificación de rostro por envío (migración 0056). Lo reserva la Edge Function, no la app. */
+  INTENTOS_BIOMETRIA_AGOTADOS: 'CP013',
 } as const;
 
 /** El `code` de un error de PostgREST/supabase-js, si lo trae. */
