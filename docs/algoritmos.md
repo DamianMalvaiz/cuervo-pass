@@ -1,6 +1,6 @@
 # Algoritmos de Cuervo 360
 
-Estado: **ranking de Servicios** documentado. Los demás (reseñas, afinidad de roomies) se añaden aquí al cerrarse su fase.
+Estado: ranking de **Servicios**, **Depas** y **Roomies** documentados (los dos últimos ya existían; aquí se escriben a partir de las migraciones 0031, 0037 y 0024, leídas el 17/10/2026). Las reseñas se agregan al cerrarse su fase.
 
 ## Ranking de Servicios (`negocios_ordenados`, migración 0055)
 
@@ -40,3 +40,27 @@ Resultado con los 25 negocios sembrados: el top-5 no cambia en ninguna de las 6 
 **Lo que esto NO prueba:** los 25 negocios están a ≤ 0.5 km y ninguno tiene reseñas, así que "calidad" es igual para todos y el
 orden lo decide solo la cercanía. La estabilidad es real pero poco informativa; el efecto de la calidad y del prior solo se verá
 con reseñas reales (la prueba de pgTAP sí fija su comportamiento con datos sintéticos). Pesos sin validar con usuarios.
+
+## Depas (`score_ajuste`, 0031; mezcla con afinidad, 0037)
+
+```
+score  = 0.30·distancia + 0.30·presupuesto + 0.25·compatibilidad + 0.15·novedad
+final  = 0.6·score + 0.4·similitud        (si no hay vector de alguna de las dos partes: final = score)
+```
+
+- **distancia** `1 − km/distancia_max` (5 km si no la dio); sin geocodificar: 0.5 neutro.
+- **presupuesto** 1 en tu mínimo, 0 en tu máximo (lineal); sin presupuesto: 0.5. El filtro duro admite hasta 10 % sobre tu tope.
+- **compatibilidad** 0.25 repartido: mascotas (asimétrico: sin mascota, que las acepten no estorba) y mismo nivel de ruido.
+- **novedad** baja a 0 en 30 días. **similitud** = coseno entre embeddings de perfil y publicación (servicio de IA).
+- **Se explica en la app:** la ficha enseña «1.2 km · $500 bajo tu tope · afinidad 0.87» (`PorQue`) y las razones (`PorQueEsBuena`).
+
+## Roomies (`sugerencias_roomies`, 0024)
+
+Orden: `similitud desc nulls last`, luego `creado_en desc`. La similitud es el coseno entre el vector del perfil y el de la búsqueda
+del roomie; quien aún no tiene vector sale al final, no desaparece. Solo roomies `activo` y distintos de ti.
+
+- **Se muestra como etiqueta** (Alta ≥ 0.75, Media ≥ 0.55, resto sin etiqueta), no como calificación, para no aparentar precisión.
+
+### Brecha honesta de explicabilidad
+Servicios y Depas dicen *por qué* (distancia, precio, reseñas). **Roomies no puede**: el orden sale de un embedding de texto
+libre y no se descompone en razones legibles. Se declara así en lugar de inventar razones. Umbrales 0.75/0.55 sin calibrar con datos reales.
