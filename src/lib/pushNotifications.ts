@@ -12,6 +12,8 @@ import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
+import { esRolVendedor } from '@/lib/verificacion';
+
 import { supabase } from './supabase';
 import { aviso } from '@/lib/registro';
 
@@ -71,9 +73,14 @@ export function useAbrirChatDesdeNotificacion() {
       const datos = respuesta.notification.request.content.data as {
         tipo?: string;
         conversacion_id?: string;
+        rol?: string;
       };
       if (datos?.tipo === 'nuevo_mensaje' && datos.conversacion_id) {
         router.push(`/chat/${datos.conversacion_id}`);
+      }
+      // Aprobada o rechazada la verificación (migración 0064): lleva a su pantalla, que dice el estado y, si se rechazó, el motivo.
+      if (datos?.tipo === 'verificacion' && esRolVendedor(datos.rol)) {
+        router.push({ pathname: '/verificacion/[rol]', params: { rol: datos.rol } });
       }
     });
     return () => suscripcion.remove();

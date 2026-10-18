@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(433);
+select plan(441);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2902,6 +2902,36 @@ select is((select count(*)::int from evidencia_huerfana() where ruta like '%/lug
 select actuar_como('00000000-0000-0000-0000-0000000000e9');
 select throws_ok($$select * from evidencia_huerfana()$$, '42501', null, 'huérfanas: el cliente autenticado no puede listarlas' );
 select is(has_function_privilege('anon', 'public.puede_subir_evidencia(text)', 'execute'), false, 'puede_subir_evidencia: anon no la ejecuta' );
+
+-- ── Aviso push al resolver una verificación (0064) ─────────────────────────
+-- d9 (comerciante sin verificar) la envía y se aprueba; e9 (pendiente) se rechaza con un motivo que NO debe salir en la notificación.
+select actuar_como_servicio();
+insert into push_tokens (usuario_id, token) values ('00000000-0000-0000-0000-0000000000d9', 'ExponentPushToken[d9]'), ('00000000-0000-0000-0000-0000000000e9', 'ExponentPushToken[e9]')
+  on conflict (usuario_id) do update set token = excluded.token;
+select actuar_como('00000000-0000-0000-0000-0000000000d9');
+select enviar_verificacion('comerciante', 'Dalia Prueba Nava', 'Calle 4, Lerma',
+  '00000000-0000-0000-0000-0000000000d9/comerciante/ine-frente-9-a.jpg', '00000000-0000-0000-0000-0000000000d9/comerciante/ine-reverso-9-a.jpg', array['00000000-0000-0000-0000-0000000000d9/comerciante/lugar-1-9-a.jpg'], 'v3');
+select actuar_como_servicio();
+select lives_ok($$select resolver_verificacion('00000000-0000-0000-0000-0000000000d9', 'comerciante', true, null, '00000000-0000-0000-0000-0000000000a1')$$, 'aviso: aprobar sigue funcionando' );
+select is((select estado from roles_usuario where usuario_id = '00000000-0000-0000-0000-0000000000d9' and rol = 'comerciante'), 'aprobado', 'aviso: y deja la función aprobada' );
+select is(
+  (select count(*)::int from net.http_request_queue where convert_from(body, 'utf8') like '%ExponentPushToken[d9]%' and convert_from(body, 'utf8') like '%Verificación aprobada%'),
+  1, 'aviso: al aprobar se encola UN push a la persona, con el título correcto' );
+select ok(
+  (select convert_from(body, 'utf8')::jsonb->'data' @> '{"tipo":"verificacion","rol":"comerciante","estado":"aprobada"}'::jsonb
+     from net.http_request_queue where convert_from(body, 'utf8') like '%ExponentPushToken[d9]%' limit 1),
+  'aviso: el push lleva tipo y rol para abrir la pantalla correcta' );
+select lives_ok($$select resolver_verificacion('00000000-0000-0000-0000-0000000000e9', 'comerciante', false, 'El domicilio no coincide con el recibo de Eva Soto', '00000000-0000-0000-0000-0000000000a1')$$, 'aviso: rechazar sigue funcionando' );
+select is(
+  (select count(*)::int from net.http_request_queue where convert_from(body, 'utf8') like '%ExponentPushToken[e9]%' and convert_from(body, 'utf8') like '%Verificación rechazada%'),
+  1, 'aviso: al rechazar se encola UN push a la persona' );
+select is(
+  (select count(*)::int from net.http_request_queue where convert_from(body, 'utf8') like '%ExponentPushToken[e9]%' and (convert_from(body, 'utf8') like '%domicilio%' or convert_from(body, 'utf8') like '%Eva Soto%')),
+  0, 'aviso: el MOTIVO no sale en la notificación (se lee en la pantalla de bloqueo)' );
+-- Sin token no se avisa, pero la resolución no se rompe: rechazar la verificación de un tercero sin token es el mismo camino.
+select actuar_como_servicio();
+delete from push_tokens where usuario_id = '00000000-0000-0000-0000-0000000000d9';
+select is((select estado from roles_usuario where usuario_id = '00000000-0000-0000-0000-0000000000e9' and rol = 'comerciante'), 'rechazado', 'aviso: la decisión quedó tomada aunque el aviso sea opcional' );
 
 select * from finish();
 rollback;

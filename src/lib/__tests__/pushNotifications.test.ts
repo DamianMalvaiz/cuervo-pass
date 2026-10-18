@@ -189,6 +189,21 @@ test('sin conversacion_id no navega a ninguna parte', async () => {
   expect(mockPush).not.toHaveBeenCalled();
 });
 
+// Verificación de vendedor (0064): al aprobar o rechazar, el servidor manda un aviso; tocarlo lleva a la pantalla de verificación de ESE rol.
+test('al tocar el aviso de verificación abre la pantalla de ese rol', async () => {
+  const { notificar } = await montarEscucha();
+  notificar({ tipo: 'verificacion', rol: 'comerciante' });
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/verificacion/[rol]', params: { rol: 'comerciante' } });
+});
+
+test('el aviso de verificación con un rol que no existe no navega (una ruta rota deja la pantalla vacía)', async () => {
+  const { notificar } = await montarEscucha();
+  notificar({ tipo: 'verificacion', rol: 'admin' });
+  notificar({ tipo: 'verificacion' });
+  notificar({ tipo: 'verificacion', rol: '../x' });
+  expect(mockPush).not.toHaveBeenCalled();
+});
+
 test('una notificación sin datos no revienta', async () => {
   const { notificar } = await montarEscucha();
   expect(() => notificar(undefined)).not.toThrow();
