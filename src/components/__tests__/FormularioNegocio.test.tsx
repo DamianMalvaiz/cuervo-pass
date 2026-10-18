@@ -333,3 +333,59 @@ describe('el límite de fotos del plan', () => {
     expect(screen.getByText(/Tu plan permite hasta 1 fotos\. Quita 1 para guardar/)).toBeTruthy();
   });
 });
+
+describe('horario (0070)', () => {
+  const inicial = (extra: Record<string, unknown> = {}, turnos?: unknown[]) =>
+    ({ negocio: { ...NEGOCIO, ...extra } as never, items: ITEMS as never, turnos: turnos as never });
+
+  it('sin tocar el horario NO manda turnos (no se pisa lo guardado) y el texto no cambia', async () => {
+    await render(<FormularioNegocio inicial={inicial()} />);
+    await pulsar('Guardar cambios');
+    const e = mockMutate.mock.calls[0][0];
+    expect(e.turnos).toBeUndefined();
+    expect(e.datos.horario).toBe('Lun a sáb');
+  });
+
+  it('un texto regular se propone como turnos y se guarda al confirmar', async () => {
+    await render(<FormularioNegocio inicial={inicial({ horario: 'Lun a vie · 9 am a 6 pm' })} />);
+    await pulsar('Guardar cambios');
+    const e = mockMutate.mock.calls[0][0];
+    expect(e.turnos).toHaveLength(5);
+    expect(e.datos.horario).toBe('Lun a vie · 9 am a 6 pm');
+  });
+
+  it('añadir un turno manda los turnos y el resumen como texto', async () => {
+    await render(<FormularioNegocio inicial={inicial({ horario: null })} />);
+    await pulsar('Añadir horario al Sábado');
+    await pulsar('Guardar cambios');
+    const e = mockMutate.mock.calls[0][0];
+    expect(e.turnos).toEqual([{ dia: 6, abre: '09:00', cierra: '18:00' }]);
+    expect(e.datos.horario).toBe('Sáb · 9 am a 6 pm');
+  });
+
+  it('quitar todos los turnos manda lista vacía y horario null', async () => {
+    await render(<FormularioNegocio inicial={inicial({ horario: 'Sáb · 9 am a 6 pm' }, [{ dia: 6, abre: '09:00', cierra: '18:00' }])} />);
+    await pulsar('Quitar el turno 1 del Sábado');
+    await pulsar('Guardar cambios');
+    const e = mockMutate.mock.calls[0][0];
+    expect(e.turnos).toEqual([]);
+    expect(e.datos.horario).toBeNull();
+  });
+
+  it('una hora inválida bloquea el guardado y lo dice', async () => {
+    await render(<FormularioNegocio inicial={inicial({ horario: null })} />);
+    await pulsar('Añadir horario al Lunes');
+    await escribir('Lunes, turno 1, abre', '25:99');
+    await pulsar('Guardar cambios');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText(/Revisa las horas/)).toBeTruthy();
+  });
+
+  it('«9» al salir del campo queda como 09:00', async () => {
+    await render(<FormularioNegocio inicial={inicial({ horario: null })} />);
+    await pulsar('Añadir horario al Lunes');
+    await escribir('Lunes, turno 1, abre', '8');
+    await act(async () => { fireEvent(screen.getByLabelText('Lunes, turno 1, abre'), 'endEditing'); });
+    expect(screen.getByDisplayValue('08:00')).toBeTruthy();
+  });
+});

@@ -1,5 +1,5 @@
 import {
-  agruparPorHoras, formatearHora, parsearHorarioTexto, resumenDeTurnos, validarTurnos, type Turno,
+  agruparPorHoras, formatearHora, normalizarHora, resumenAcotado, parsearHorarioTexto, resumenDeTurnos, validarTurnos, type Turno,
 } from '../horario';
 
 // El horario estructurado (migración 0070). Lo que se fija: el analizador de los textos que ya existen (para no perder los 24 horarios de ejemplo), el resumen legible
@@ -96,4 +96,27 @@ describe('validarTurnos', () => {
   it('una hora mal formada', () => expect(validarTurnos([T(1, '9:00', '18:00')])).toMatch(/hora/i));
   it('abrir y cerrar a la misma hora', () => expect(validarTurnos([T(1, '09:00', '09:00')])).toMatch(/misma hora/i));
   it('un día fuera de rango', () => expect(validarTurnos([{ dia: 9 as never, abre: '09:00', cierra: '10:00' }])).toMatch(/día/i));
+});
+
+describe('normalizarHora', () => {
+  it.each([
+    ['9', '09:00'], ['09', '09:00'], ['9:30', '09:30'], ['930', '09:30'], ['0930', '09:30'], ['18:05', '18:05'], [' 7 ', '07:00'], ['0', '00:00'],
+  ])('«%s» → %s', (entrada, salida) => expect(normalizarHora(entrada)).toBe(salida));
+  it.each([['24:00'], ['9:60'], ['abc'], [''], ['9:3'], ['123456']])('«%s» se deja tal cual (no se adivina)', (entrada) => {
+    expect(normalizarHora(entrada)).toBe(entrada);
+  });
+});
+
+describe('resumenAcotado', () => {
+  it('si cabe, es el resumen completo', () => {
+    expect(resumenAcotado(semana(1, 5, '09:00', '18:00'), 120)).toBe('Lun a vie · 9 am a 6 pm');
+  });
+  it('si no cabe, corta por grupos completos y lo marca con «…»', () => {
+    const t: Turno[] = [1, 2, 3, 4, 5, 6, 7].flatMap((d) => [T(d as 1, `0${d}:00`, `0${d}:30`), T(d as 1, `1${d}:00`, `1${d}:30`), T(d as 1, `2${d - 1}:00`, `2${d - 1}:45`)]);
+    const r = resumenAcotado(t, 60);
+    expect(r.length).toBeLessThanOrEqual(60);
+    expect(r.endsWith('…')).toBe(true);
+    expect(resumenDeTurnos(t).startsWith(r.slice(0, -1).replace(/; $/, ''))).toBe(true);
+  });
+  it('sin turnos, vacío', () => expect(resumenAcotado([], 120)).toBe(''));
 });

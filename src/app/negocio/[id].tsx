@@ -16,6 +16,7 @@ import { AltoFotoTarjeta, Filete, Radios, Spacing, Texto } from '@/constants/the
 import { useMisNegocios } from '@/hooks/queries/useMisNegocios';
 import { useNegocio } from '@/hooks/queries/useServicios';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { resumenDeTurnos } from '@/lib/horario';
 import { agruparPorSeccion } from '@/lib/menu';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
@@ -34,7 +35,7 @@ export default function NegocioScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { anchoLista } = useTamanoPantalla();
-  const { negocio, items, cargando, fallo, reintentar } = useNegocio(id);
+  const { negocio, items, turnos, cargando, fallo, reintentar } = useNegocio(id);
   const miId = useAuthStore((s) => s.session?.user.id);
   // ¿Es MI negocio? La vista pública no trae al dueño, así que se compara con la lista de los míos.
   const { negocios: misNegocios } = useMisNegocios(miId);
@@ -153,9 +154,21 @@ export default function NegocioScreen() {
         {negocio.descripcion ? <ThemedText style={estilos.descripcion}>{negocio.descripcion}</ThemedText> : null}
 
         <View style={estilos.pastillas}>
-          {negocio.horario ? <Pastilla icono="time-outline" texto={negocio.horario} /> : null}
+          {negocio.abierto_ahora != null ? (
+            <Pastilla icono="time-outline" texto={negocio.abierto_ahora ? 'Abierto ahora' : 'Cerrado ahora'} atenuada={!negocio.abierto_ahora} />
+          ) : null}
+          {turnos.length === 0 && negocio.horario ? <Pastilla icono="time-outline" texto={negocio.horario} /> : null}
           <Pastilla icono="location-outline" texto={negocio.direccion} />
         </View>
+
+        {turnos.length > 0 ? (
+          <View style={estilos.menu} accessibilityLabel="Horario">
+            <ThemedText type="smallBold" themeColor="textSecondary">Horario</ThemedText>
+            {resumenDeTurnos(turnos).split('; ').map((linea) => (
+              <ThemedText key={linea} type="small">{linea}</ThemedText>
+            ))}
+          </View>
+        ) : null}
 
         {items.length > 0 ? (
           <View style={estilos.menu}>

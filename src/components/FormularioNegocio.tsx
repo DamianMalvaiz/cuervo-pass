@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
+import { EditorHorario } from '@/components/EditorHorario';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
@@ -19,6 +20,7 @@ import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
 import { geocodificarDireccion } from '@/lib/geocoding';
+import { parsearHorarioTexto, resumenAcotado, validarTurnos, type Turno } from '@/lib/horario';
 import { MAX_FOTOS_NEGOCIO, validarNegocio, type ErroresNegocio } from '@/lib/negocio';
 import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 import { toast } from '@/lib/toast';
@@ -42,7 +44,7 @@ type FotoEnForm = { clave: string; ruta: string | null; uri: string };
  * medias (ver `useGuardarNegocio`). La dirección se geocodifica al guardar solo si cambió; si no se puede ubicar, el
  * negocio se guarda igual y no tendrá «Cómo llegar». `destacado` NO se elige aquí: lo decidirá el plan.
  */
-export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPropio; items: NegocioItem[] } }) {
+export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPropio; items: NegocioItem[]; turnos?: Turno[] } }) {
   const theme = useTheme();
   const { anchoContenido, clase } = useTamanoPantalla();
   const miId = useAuthStore((s) => s.session?.user.id);
@@ -59,7 +61,14 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
   const [descripcion, setDescripcion] = useState(n?.descripcion ?? '');
   const [direccion, setDireccion] = useState(n?.direccion ?? '');
   const [rangoPrecio, setRangoPrecio] = useState<number | null>(n?.rango_precio ?? null);
-  const [horario, setHorario] = useState(n?.horario ?? '');
+  // Turnos: los guardados; si el negocio solo tiene el texto de siempre y es regular, se propone su equivalente (se guarda al confirmar).
+  const turnosIniciales = inicial?.turnos ?? [];
+  const propuestos = turnosIniciales.length === 0 ? parsearHorarioTexto(n?.horario) ?? [] : [];
+  const [turnos, setTurnos] = useState<Turno[]>(turnosIniciales.length > 0 ? turnosIniciales : propuestos);
+  const [turnosTocados, setTurnosTocados] = useState(propuestos.length > 0);
+  const [errorHorario, setErrorHorario] = useState<string | undefined>(undefined);
+  // Sin turnos tocados, el texto original no se modifica; con turnos, el texto es su resumen.
+  const horario = turnosTocados ? resumenAcotado(turnos, 120) : (n?.horario ?? '');
   const [activo, setActivo] = useState(n?.activo ?? true);
   const [fotos, setFotos] = useState<FotoEnForm[]>(
     (n?.fotos ?? []).map((ruta) => ({ clave: ruta, ruta, uri: '' }))
@@ -86,7 +95,9 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
       categoriaId, nombre, descripcion, direccion, rangoPrecio, horario, fotos: fotos.map((f) => f.clave),
     }, maxFotos);
     setErrores(e);
-    if (Object.keys(e).length > 0 || !categoriaId) return;
+    const problemaHorario = turnosTocados ? validarTurnos(turnos) : null;
+    setErrorHorario(problemaHorario ?? undefined);
+    if (Object.keys(e).length > 0 || problemaHorario || !categoriaId) return;
 
     setGuardando(true);
     try {
@@ -118,6 +129,7 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
           fotosConservadas: conservadas,
           fotosQuitadas: rutasIniciales.filter((r) => !conservadas.includes(r)),
           fotosNuevas: fotos.filter((f) => !f.ruta).map((f) => f.uri),
+          turnos: turnosTocados ? turnos : undefined,
         },
         {
           onSuccess: () => {
@@ -215,7 +227,19 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
             style={estilos.multilinea}
           />
           <Campo etiqueta="Dirección" value={direccion} onChangeText={setDireccion} error={errores.direccion} maxLength={200} />
-          <Campo etiqueta="Horario (opcional)" value={horario} onChangeText={setHorario} error={errores.horario} maxLength={120} placeholder="Lun a sáb · 8 am a 9 pm" />
+          <EditorHorario
+            turnos={turnos}
+            onChange={(t) => {
+              setTurnos(t);
+              setTurnosTocados(true);
+            }}
+            error={errorHorario ?? errores.horario}
+          />
+          {!turnosTocados && n?.horario ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              Horario actual: {n.horario}. Defínelo arriba para que tu negocio pueda aparecer en «Abierto ahora».
+            </ThemedText>
+          ) : null}
 
           <View style={estilos.bloque}>
             <ThemedText type="smallBold" themeColor="textSecondary">Rango de precio</ThemedText>

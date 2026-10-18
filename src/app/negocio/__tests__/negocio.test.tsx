@@ -37,7 +37,7 @@ const ITEMS = [
   { id: 'i2', negocio_id: 'n1', nombre: 'Revisión', precio: null, orden: 1 },
 ];
 const estado = (extra: Record<string, unknown> = {}) => ({
-  negocio: NEGOCIO, items: ITEMS, cargando: false, fallo: false, reintentar: jest.fn(), ...extra,
+  negocio: NEGOCIO, items: ITEMS, turnos: [], cargando: false, fallo: false, reintentar: jest.fn(), ...extra,
 });
 
 beforeEach(() => {
@@ -222,5 +222,30 @@ describe('las reseñas en la ficha', () => {
     mockNegocio.mockReturnValue(estado({ negocio: { ...NEGOCIO, calificacion: 4.5, num_resenas: 12 } }));
     await render(<NegocioScreen />);
     expect(screen.getAllByLabelText('4.5 de 5 estrellas, 12 reseñas').length).toBeGreaterThan(0);
+  });
+});
+
+describe('horario estructurado (0070)', () => {
+  const turnos = [1, 2, 3, 4, 5].map((dia) => ({ dia, abre: '09:00', cierra: '18:00' }));
+
+  test('con turnos: el horario semanal se enseña legible y el texto libre se deja de usar', async () => {
+    mockNegocio.mockReturnValue(estado({ turnos, negocio: { ...NEGOCIO, abierto_ahora: true } }));
+    await render(<NegocioScreen />);
+    expect(screen.getByText('Lun a vie · 9 am a 6 pm')).toBeTruthy();
+    expect(screen.getByText('Abierto ahora')).toBeTruthy();
+    expect(screen.queryByText('Lun a sáb · 8 am a 9 pm')).toBeNull();
+  });
+
+  test('cerrado ahora se dice con palabras', async () => {
+    mockNegocio.mockReturnValue(estado({ turnos, negocio: { ...NEGOCIO, abierto_ahora: false } }));
+    await render(<NegocioScreen />);
+    expect(screen.getByText('Cerrado ahora')).toBeTruthy();
+  });
+
+  test('sin horario estructurado no inventa «abierto» ni «cerrado»: queda el texto de siempre', async () => {
+    mockNegocio.mockReturnValue(estado({ negocio: { ...NEGOCIO, abierto_ahora: null } }));
+    await render(<NegocioScreen />);
+    expect(screen.queryByText(/Abierto ahora|Cerrado ahora/)).toBeNull();
+    expect(screen.getByText('Lun a sáb · 8 am a 9 pm')).toBeTruthy();
   });
 });

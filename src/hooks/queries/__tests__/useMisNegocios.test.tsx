@@ -7,6 +7,7 @@ const mockUno = jest.fn();
 const mockCrear = jest.fn();
 const mockActualizar = jest.fn();
 const mockMenu = jest.fn();
+const mockHorario = jest.fn();
 const mockBorrar = jest.fn();
 const mockSubir = jest.fn();
 const mockSubirProducto = jest.fn();
@@ -17,6 +18,7 @@ jest.mock('@/services/negociosPropios.service', () => ({
   crearNegocio: (...a: unknown[]) => mockCrear(...a),
   actualizarNegocio: (...a: unknown[]) => mockActualizar(...a),
   guardarMenu: (...a: unknown[]) => mockMenu(...a),
+  guardarHorario: (...a: unknown[]) => mockHorario(...a),
   borrarNegocio: (...a: unknown[]) => mockBorrar(...a),
 }));
 jest.mock('@/lib/storage', () => ({
@@ -49,6 +51,7 @@ beforeEach(() => {
   mockCrear.mockResolvedValue('n-nuevo');
   mockActualizar.mockResolvedValue(undefined);
   mockMenu.mockResolvedValue(undefined);
+  mockHorario.mockResolvedValue(undefined);
   mockBorrar.mockResolvedValue(undefined);
   mockBorrarFotos.mockResolvedValue(undefined);
   mockSubir.mockImplementation(async (id: string) => `negocios/${id}/nueva.jpg`);
@@ -275,5 +278,40 @@ describe('useGuardarMenu', () => {
     await act(async () => { await result.current.mutateAsync({ productos: [], fotosAnteriores: [] }); });
     const claves = espia.mock.calls.map((c) => JSON.stringify((c[0] as { queryKey: unknown }).queryKey));
     expect(claves).toEqual(expect.arrayContaining([JSON.stringify(['miNegocio', 'n1']), JSON.stringify(['negocio', 'n1'])]));
+  });
+});
+
+describe('useGuardarNegocio · horario (0070)', () => {
+  const turnos = [{ dia: 1 as const, abre: '09:00', cierra: '18:00' }];
+
+  it('sin `turnos` no toca el horario', async () => {
+    const { Envoltura } = envolver();
+    const { result } = await renderHook(() => useGuardarNegocio('u1'), { wrapper: Envoltura });
+    await act(async () => { await result.current.mutateAsync({ ...base, id: 'n1' }); });
+    expect(mockHorario).not.toHaveBeenCalled();
+  });
+
+  it('un negocio NUEVO guarda los turnos con el id recién creado', async () => {
+    const { Envoltura } = envolver();
+    const { result } = await renderHook(() => useGuardarNegocio('u1'), { wrapper: Envoltura });
+    await act(async () => { await result.current.mutateAsync({ ...base, turnos }); });
+    expect(mockHorario).toHaveBeenCalledWith('n-nuevo', turnos);
+  });
+
+  it('lista vacía = borrar el horario (se manda, no se omite)', async () => {
+    const { Envoltura } = envolver();
+    const { result } = await renderHook(() => useGuardarNegocio('u1'), { wrapper: Envoltura });
+    await act(async () => { await result.current.mutateAsync({ ...base, id: 'n1', turnos: [] }); });
+    expect(mockHorario).toHaveBeenCalledWith('n1', []);
+  });
+
+  it('si falla el horario de un negocio nuevo, avisa con el id (ya existe)', async () => {
+    mockHorario.mockRejectedValueOnce(new Error('sin red'));
+    const { Envoltura } = envolver();
+    const { result } = await renderHook(() => useGuardarNegocio('u1'), { wrapper: Envoltura });
+    let error: unknown;
+    await act(async () => { try { await result.current.mutateAsync({ ...base, turnos }); } catch (e) { error = e; } });
+    expect(error).toBeInstanceOf(ErrorParcial);
+    expect((error as ErrorParcial).idCreado).toBe('n-nuevo');
   });
 });

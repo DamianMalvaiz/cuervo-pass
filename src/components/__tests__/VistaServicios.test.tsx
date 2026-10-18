@@ -65,14 +65,14 @@ test('el rango de precio se dice con signos de pesos', async () => {
 
 test('tocar una categoría la pide al servidor; tocarla otra vez la quita', async () => {
   await render(<VistaServicios />);
-  expect(mockNegocios).toHaveBeenLastCalledWith({ categoriaId: undefined, texto: '' });
+  expect(mockNegocios).toHaveBeenLastCalledWith({ categoriaId: undefined, texto: '', soloAbiertos: false });
 
   await act(async () => { fireEvent.press(screen.getByLabelText('Cafés')); });
-  expect(mockNegocios).toHaveBeenLastCalledWith({ categoriaId: 'cafes', texto: '' });
+  expect(mockNegocios).toHaveBeenLastCalledWith({ categoriaId: 'cafes', texto: '', soloAbiertos: false });
   expect(screen.getByLabelText('Cafés').props.accessibilityState?.selected).toBe(true);
 
   await act(async () => { fireEvent.press(screen.getByLabelText('Cafés')); });
-  expect(mockNegocios).toHaveBeenLastCalledWith({ categoriaId: undefined, texto: '' });
+  expect(mockNegocios).toHaveBeenLastCalledWith({ categoriaId: undefined, texto: '', soloAbiertos: false });
 });
 
 test('la búsqueda se envía al terminar de escribir, no en cada letra', async () => {
@@ -81,7 +81,7 @@ test('la búsqueda se envía al terminar de escribir, no en cada letra', async (
   await act(async () => { fireEvent.changeText(campo, 'taco'); });
   expect(mockNegocios).not.toHaveBeenCalledWith(expect.objectContaining({ texto: 'taco' }));
   await act(async () => { fireEvent(campo, 'submitEditing'); });
-  expect(mockNegocios).toHaveBeenLastCalledWith({ categoriaId: undefined, texto: 'taco' });
+  expect(mockNegocios).toHaveBeenLastCalledWith({ categoriaId: undefined, texto: 'taco', soloAbiertos: false });
 });
 
 test('mientras carga no dice que no hay nada', async () => {
@@ -120,4 +120,20 @@ test('tocar un negocio abre su ficha con su id', async () => {
   await render(<VistaServicios />);
   await act(async () => { fireEvent.press(screen.getByLabelText(/Tacos La Esquina/)); });
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/negocio/[id]', params: { id: 'n1' } });
+});
+
+test('«Abierto ahora» se pide al servidor y se puede quitar', async () => {
+  await render(<VistaServicios />);
+  await act(async () => { fireEvent.press(screen.getByLabelText('Abierto ahora')); });
+  expect(mockNegocios).toHaveBeenLastCalledWith({ categoriaId: undefined, texto: '', soloAbiertos: true });
+  expect(screen.getByLabelText('Abierto ahora').props.accessibilityState?.selected).toBe(true);
+  await act(async () => { fireEvent.press(screen.getByLabelText('Abierto ahora')); });
+  expect(mockNegocios).toHaveBeenLastCalledWith({ categoriaId: undefined, texto: '', soloAbiertos: false });
+});
+
+test('sin resultados con «Abierto ahora» explica que solo cuentan los que tienen horario', async () => {
+  mockNegocios.mockReturnValue(estado({ negocios: [] }));
+  await render(<VistaServicios />);
+  await act(async () => { fireEvent.press(screen.getByLabelText('Abierto ahora')); });
+  expect(screen.getByText(/Solo cuentan los que tienen horario registrado/)).toBeTruthy();
 });

@@ -73,3 +73,20 @@ describe('TarjetaNegocio', () => {
     expect(screen.getByText('Destacado')).toBeTruthy();
   });
 });
+
+describe('TarjetaNegocio · abierto ahora (0070)', () => {
+  it('abierto: lo dice y cede el lugar al texto largo del horario', async () => {
+    await render(<TarjetaNegocio negocio={negocio({ abierto_ahora: true }) as never} onPress={() => {}} />);
+    expect(screen.getByText(/Abierto ahora/)).toBeTruthy();
+    expect(screen.queryByText(/Lun a sáb/)).toBeNull();
+  });
+  it('cerrado: lo dice', async () => {
+    await render(<TarjetaNegocio negocio={negocio({ abierto_ahora: false }) as never} onPress={() => {}} />);
+    expect(screen.getByText(/Cerrado/)).toBeTruthy();
+  });
+  it('sin horario estructurado (null) no inventa estado y deja el texto de siempre', async () => {
+    await render(<TarjetaNegocio negocio={negocio({ abierto_ahora: null }) as never} onPress={() => {}} />);
+    expect(screen.queryByText(/Abierto ahora|Cerrado/)).toBeNull();
+    expect(screen.getByText(/Lun a sáb/)).toBeTruthy();
+  });
+});

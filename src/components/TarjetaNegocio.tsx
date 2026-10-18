@@ -38,7 +38,9 @@ export function TarjetaNegocio({
   const ejemplo = negocio.origen === 'sembrado';
   // «a 1.2 km»: lo que de verdad le sirve a quien busca; el puntaje del ranking NO se enseña.
   const distancia = negocio.distancia_km != null && Number.isFinite(negocio.distancia_km) ? `a ${negocio.distancia_km.toFixed(1)} km` : null;
-  const detalle = [distancia, negocio.horario, precio].filter(Boolean).join(' · ');
+  // Con horario estructurado (0070) el estado manda y el texto largo se queda para la ficha; sin él, se enseña el texto como antes.
+  const estado = negocio.abierto_ahora === true ? 'Abierto ahora' : negocio.abierto_ahora === false ? 'Cerrado' : null;
+  const detalle = [estado, distancia, estado ? null : negocio.horario, precio].filter(Boolean).join(' · ');
 
   const foto = fotoUrl || fotoMini ? (
     <FotoLista miniatura={fotoMini} completa={fotoUrl} style={forma === 'fila' ? estilos.fotoFila : estilos.fotoDestacado} />

@@ -36,15 +36,16 @@ export function VistaServicios({ selector }: { selector?: ReactNode }) {
   const [categoriaId, setCategoriaId] = useState<string | undefined>(undefined);
   const [borrador, setBorrador] = useState('');
   const [texto, setTexto] = useState('');
+  const [soloAbiertos, setSoloAbiertos] = useState(false);
 
   const { categorias } = useCategoriasServicio();
-  const { negocios, cargando, fallo, reintentar } = useNegocios({ categoriaId, texto });
+  const { negocios, cargando, fallo, reintentar } = useNegocios({ categoriaId, texto, soloAbiertos });
   const { urls } = useFotosFirmadas(negocios.map((n) => n.fotos[0]));
   // Miniaturas sin red (lib/miniaturas.ts): la tarjeta destacada pide más ancho que la fila.
   const miniDestacadas = useMiniaturas(negocios.map((n) => n.fotos[0]), ANCHOS.media);
   const miniFilas = useMiniaturas(negocios.map((n) => n.fotos[0]), ANCHOS.fila);
 
-  const filtrando = Boolean(categoriaId) || texto.trim() !== '';
+  const filtrando = Boolean(categoriaId) || texto.trim() !== '' || soloAbiertos;
   const destacados = filtrando ? [] : negocios.filter((n) => n.destacado);
   const abrir = (n: Negocio) => router.push({ pathname: '/negocio/[id]', params: { id: n.id } });
   const foto = (n: Negocio) => (n.fotos[0] ? urls.get(n.fotos[0]) : null);
@@ -68,6 +69,25 @@ export function VistaServicios({ selector }: { selector?: ReactNode }) {
           style={[estilos.campo, { color: theme.text }]}
         />
       </View>
+
+      <Pulsable
+        onPress={() => {
+          toque();
+          setSoloAbiertos((v) => !v);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel="Abierto ahora"
+        accessibilityState={{ selected: soloAbiertos }}
+        style={[
+          estilos.filtro,
+          { backgroundColor: soloAbiertos ? theme.lima : theme.backgroundElement, borderColor: soloAbiertos ? theme.lima : theme.filete },
+        ]}
+      >
+        <Ionicons name="time-outline" size={18} color={soloAbiertos ? theme.limaTexto : theme.bosque} />
+        <ThemedText type="small" style={[Texto.pesoFuerte, soloAbiertos && { color: theme.limaTexto }]}>
+          Abierto ahora
+        </ThemedText>
+      </Pulsable>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.categorias}>
         {categorias.map((c) => {
@@ -151,7 +171,11 @@ export function VistaServicios({ selector }: { selector?: ReactNode }) {
               <BloqueEstado
                 icono="search-outline"
                 etiqueta="Sin resultados"
-                mensaje="No encontramos negocios con esa búsqueda. Prueba con otra palabra o quita la categoría."
+                mensaje={
+                  soloAbiertos
+                    ? 'Ahora no hay negocios abiertos con esos filtros. Solo cuentan los que tienen horario registrado; quita «Abierto ahora» para ver todos.'
+                    : 'No encontramos negocios con esa búsqueda. Prueba con otra palabra o quita la categoría.'
+                }
               />
             )}
           </View>
@@ -180,6 +204,16 @@ const estilos = StyleSheet.create({
     paddingHorizontal: Spacing.three,
   },
   campo: { flex: 1, ...Texto.cuerpo, paddingVertical: Spacing.two },
+  filtro: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    minHeight: 44,
+    paddingHorizontal: Spacing.three,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.full,
+  },
   categorias: { gap: Spacing.three, paddingVertical: Spacing.one },
   categoria: { width: 68, alignItems: 'center', gap: Spacing.one },
   iconoCategoria: {

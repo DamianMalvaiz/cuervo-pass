@@ -14,7 +14,7 @@ import { useMiNegocio } from '@/hooks/queries/useMisNegocios';
  */
 export default function EditarNegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { negocio, items, cargando, fallo, reintentar } = useMiNegocio(id);
+  const { negocio, items, turnos, cargando, fallo, reintentar } = useMiNegocio(id);
 
   if (cargando) {
     return (
@@ -38,7 +38,7 @@ export default function EditarNegocioScreen() {
       </ThemedView>
     );
   }
-  return <FormularioNegocio inicial={{ negocio, items }} />;
+  return <FormularioNegocio inicial={{ negocio, items, turnos }} />;
 }
 
 const estilos = StyleSheet.create({

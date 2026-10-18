@@ -24,9 +24,16 @@ descripción y los nombres de los productos visibles; si el **nombre** coincide,
 «destacado»). El **puntaje no cambia**: la relevancia del texto reordena, no se mezcla con cercanía ni calidad.
 No tolera erratas («taqeria») ni sinónimos: eso pediría trigramas o un diccionario y, sin datos de búsquedas reales, sería adivinar.
 
+### Abierto ahora (0070, 18/10/2026)
+El horario es estructurado (`negocio_horarios`: día ISO 1–7, `abre`, `cierra`, hasta 21 turnos; `cierra` < `abre` cruza la medianoche; `cierra` es exclusivo; zona
+`America/Mexico_City`). `negocio_abierto_en(negocio, instante)` mira el turno de HOY y el que empezó AYER y sigue abierto. **Tres estados**: abierto, cerrado y
+`null` (sin horario estructurado: no se sabe, y no se inventa). El filtro «Abierto ahora» (`p_solo_abiertos`) se aplica en el servidor y solo deja los que **se sabe**
+que están abiertos. El estado **no entra al puntaje**: filtra, no reordena. Se comprueba con `npx supabase test db` (557 aserciones) y con `npx jest src/lib/__tests__/horario.test.ts`.
+
 ### Límites honestos
 - Sin personalización: no existe historial de uso de Servicios; no se inventa.
-- Sin «abierto ahora»: el horario es texto libre.
+- «Abierto ahora» no entiende festivos ni cierres excepcionales: es el horario habitual.
+- Un negocio sin horario estructurado queda fuera del filtro «Abierto ahora» (puede estar abierto; no se sabe).
 - Pesos (0.45/0.45/0.10), escala 1.5 km, prior 3.5 y peso 3 son **decisiones de producto, no medidas**. Cambiarlos requiere migración con prueba.
 - Las estrellas que ve el usuario son las reseñas reales; el puntaje nunca se muestra.
 

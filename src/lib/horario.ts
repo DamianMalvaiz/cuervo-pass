@@ -19,6 +19,18 @@ const ABREV_MINUSCULAS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'] as 
 /** Postgres devuelve `time` como «09:00:00»; la app trabaja con «09:00». */
 export const recortarHora = (t: string): string => (/^\d{2}:\d{2}:\d{2}/.test(t) ? t.slice(0, 5) : t);
 
+/**
+ * Lo que alguien teclea en un campo de hora → «HH:MM». Acepta «9», «09», «9:30», «930» y «0930». Si no es una hora válida
+ * lo devuelve TAL CUAL (no se adivina): `validarTurnos` lo rechaza después con un mensaje claro.
+ */
+export function normalizarHora(texto: string): string {
+  const m = /^(\d{1,2})(?::?(\d{2}))?$/.exec(texto.trim());
+  if (!m) return texto;
+  const hh = m[1].padStart(2, '0');
+  const candidato = `${hh}:${m[2] ?? '00'}`;
+  return HHMM.test(candidato) ? candidato : texto;
+}
+
 /** «13:05» → «1:05 pm»; «08:00» → «8 am»; «00:00» → «12 am». Lo que no es una hora se devuelve tal cual. */
 export function formatearHora(hhmm: string): string {
   const m = /^([0-9]{2}):([0-9]{2})$/.exec(hhmm);
@@ -127,6 +139,20 @@ export function resumenDeTurnos(turnos: readonly Turno[]): string {
       return `${textoDeDias(g.dias)} · ${horas}`;
     })
     .join('; ');
+}
+
+/** `resumenDeTurnos` que cabe en `max` caracteres (la columna `horario` admite 120): corta por grupos COMPLETOS y marca el corte con «…». */
+export function resumenAcotado(turnos: readonly Turno[], max: number): string {
+  const completo = resumenDeTurnos(turnos);
+  if (completo.length <= max) return completo;
+  const grupos = completo.split('; ');
+  let r = '';
+  for (const g of grupos) {
+    const siguiente = r ? `${r}; ${g}` : g;
+    if (siguiente.length + 1 > max) break;
+    r = siguiente;
+  }
+  return r ? `${r}…` : '…';
 }
 
 /** El primer problema de una lista de turnos, en lenguaje de persona, o `null` si está bien. La base vuelve a validar. */
