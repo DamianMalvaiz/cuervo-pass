@@ -1,0 +1,18 @@
+# OPCIONAL. Solo para BIOMETRIA_ACTIVA=true. No va en requirements.txt: añade ~1 GB a la imagen y los modelos tienen una licencia
+# que el resto del servicio no necesita cargar. Versiones y método de instalación tomados de experimentos/biometrico/Dockerfile.
+#
+# LICENCIAS: código de InsightFace MIT; los modelos `buffalo_*` son SOLO para investigación no comercial; el addon de liveness no
+# declara licencia. Proyecto académico sin fines de lucro: ver docs/algoritmos.md.
+#
+#   pip install -r requirements-biometria.txt && pip install --no-deps insightface==2.1
+#
+# insightface se instala con --no-deps porque declara `opencv-python` y chocaría con el headless (pide libGL).
+numpy<3
+onnxruntime==1.31.0
+opencv-python-headless<5
+scipy
+scikit-image
+tqdm
+requests
+pillow
+onnx

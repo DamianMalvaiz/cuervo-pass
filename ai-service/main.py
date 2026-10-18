@@ -5,6 +5,8 @@ Ninguna ruta se llama desde el cliente. Todas pasan por la Edge Function
 agrega el token compartido.
 """
 
+import base64
+import binascii
 import hmac
 import logging
 import time
@@ -21,6 +23,7 @@ from slowapi.util import get_remote_address
 
 import config
 from models.embeddings import generar_embedding, nombre_modelo, precalentar
+from models import rostro
 from models.parseo_llm import parsear_perfil
 from observabilidad import configurar_logs, metricas, registrar_metricas
 
@@ -227,3 +230,44 @@ def endpoint_parseo(
 ):
     log.info("parseo", extra={"usuario": usuario, "largo": len(cuerpo.texto)})
     return parsear_perfil(cuerpo.texto)
+
+
+class RostroRequest(BaseModel):
+    """Dos imágenes en base64. El servicio NO descarga URLs: lo haría a ciegas (SSRF) con un servicio de IA detrás de un túnel."""
+
+    # El tope real es el de bytes decodificados (rostro.MAX_BYTES); este solo evita tragarse un cuerpo enorme antes de medirlo.
+    selfie: str = Field(min_length=1, max_length=6_000_000)
+    ine: str = Field(min_length=1, max_length=6_000_000)
+
+
+def _decodificar_imagen(texto: str, nombre: str) -> bytes:
+    try:
+        datos = base64.b64decode(texto, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=422, detail=f"{nombre} no es base64 válido")
+    if not datos or len(datos) > rostro.MAX_BYTES:
+        raise HTTPException(status_code=422, detail=f"{nombre} vacía o demasiado grande")
+    return datos
+
+
+@app.post("/verificar-rostro")
+@limiter.limit("5/minute")
+def endpoint_rostro(request: Request, cuerpo: RostroRequest, usuario: str = Depends(identidad)):
+    # Falla cerrado: apagada o sin motor, nada se aprueba ni se finge.
+    if not config.BIOMETRIA_ACTIVA:
+        raise HTTPException(status_code=503, detail="biometria_desactivada")
+    selfie = _decodificar_imagen(cuerpo.selfie, "selfie")
+    ine = _decodificar_imagen(cuerpo.ine, "ine")
+    try:
+        motor = rostro.obtener_motor()
+    except rostro.MotorNoDisponible:
+        raise HTTPException(status_code=503, detail="biometria_no_disponible")
+    try:
+        resultado = rostro.comparar(selfie, ine, motor)
+    except Exception:
+        # El detalle del motor (rutas, versiones) no sale al cliente; queda en el log del servidor, sin imágenes.
+        log.exception("fallo en verificar-rostro", extra={"usuario": usuario})
+        raise HTTPException(status_code=500, detail="error interno")
+    # §29: el log lleva el estado, nunca las imágenes ni cifras de identidad.
+    log.info("rostro", extra={"usuario": usuario, "estado": resultado["estado"]})
+    return resultado

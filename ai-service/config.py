@@ -99,5 +99,8 @@ TIMEOUT_LLM = float(os.getenv("TIMEOUT_LLM", "8"))
 # servicio es una rotación que nunca se hace.
 COMMIT = os.getenv("CUERVO_COMMIT") or _commit_del_arbol()
 
+# Verificación de rostro (fase 6). APAGADA por omisión: encenderla exige instalar requirements-biometria.txt y decidirlo.
+BIOMETRIA_ACTIVA = os.getenv("BIOMETRIA_ACTIVA", "").strip().lower() in ("1", "true", "si", "sí")
+
 AI_SHARED_TOKEN = os.getenv("AI_SHARED_TOKEN")
 AI_SHARED_TOKEN_SIGUIENTE = os.getenv("AI_SHARED_TOKEN_SIGUIENTE")
