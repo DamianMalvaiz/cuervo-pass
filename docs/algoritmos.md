@@ -31,7 +31,7 @@ El horario es estructurado (`negocio_horarios`: día ISO 1–7, `abre`, `cierra`
 que están abiertos. El estado **no entra al puntaje**: filtra, no reordena. Se comprueba con `npx supabase test db` (573 aserciones) y con `npx jest src/lib/__tests__/horario.test.ts`.
 
 ### Límites honestos
-- Sin personalización: no existe historial de uso de Servicios; no se inventa.
+- Sin personalización en Servicios: no existe historial de uso de negocios; no se inventa (la de Depas, con favoritos, está abajo).
 - «Abierto ahora» no entiende festivos ni cierres excepcionales: es el horario habitual.
 - Un negocio sin horario estructurado queda fuera del filtro «Abierto ahora» (puede estar abierto; no se sabe).
 - Pesos (0.45/0.45/0.10), escala 1.5 km, prior 3.5 y peso 3 son **decisiones de producto, no medidas**. Cambiarlos requiere migración con prueba.
@@ -163,3 +163,20 @@ El orden final es `0.6·score + 0.4·similitud`. Lo que realmente mueve el orden
 15 % de la variación del orden (ignorando la covarianza). Es un hallazgo de calibración, **no una prueba de que el orden sea peor**: no hay datos de relevancia
 etiquetados para saber qué orden prefieren las personas. Con 1 perfil y 114 publicaciones es una muestra pequeña. Cualquier cambio (por ejemplo reescalar el coseno a
 [0, 1] con una banda fija) debe presentarse como calibración de pesos, no como mejora de precisión.
+
+## Depas · personalización con favoritos y «Parecidos a este» (0071, 18/10/2026)
+```
+similitud = (1 − w)·cos(tu perfil, publicación) + w·cos(centroide de tus favoritos, publicación)      w = 0.75·n/(n+3)
+score_final = 0.6·score + 0.4·similitud                                                              (sin cambio)
+```
+Rocchio en forma de **fusión tardía**: se mezclan los dos cosenos y no los vectores (pgvector no multiplica un vector por un escalar). n = favoritos con vector.
+w: 1 favorito 0.19 · 3 favoritos 0.38 · 10 favoritos 0.58 · tope 0.75 (el cuestionario siempre pesa al menos un cuarto). **Sin favoritos, w = 0 y el resultado es idéntico
+al de antes.** Una publicación que ya guardaste no se auto-refuerza (su similitud usa solo tu perfil). Lista y ficha usan la misma fórmula
+(`sugerencias_con_ranking` / `afinidad_de_para`); lo comprueba la aserción «la ficha y la lista dan el MISMO número también con favoritos» (`npx supabase test db`, 573).
+
+- **Explicación:** `parecido_a` nombra tu favorito más cercano si el coseno ≥ 0.70. Medido sobre las 114 publicaciones con vector (6 441 pares, 18/10/2026):
+  mediana 0.42, p90 0.73, p99 0.95; 0.70 ≈ el 10 % más parecido. **Es una decisión de producto, no una medida de calidad.**
+- **Parecidos a este** (`publicaciones_parecidas`): coseno ≥ 0.60 (≈ p70), sin las tuyas ni la misma, tope 12 (la app pide 4). Comparación exacta; con miles de filas habrá
+  que pasar al índice ivfflat.
+- **Límites honestos:** w, 0.70 y 0.60 no están calibrados contra juicios humanos (eso es el conjunto etiquetado de la fase 1.3). Los favoritos son un sustituto débil de
+  «me gusta»: guardar no es elegir. Roomies no usa favoritos (solo publicaciones).
