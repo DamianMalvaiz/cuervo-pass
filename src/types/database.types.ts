@@ -317,6 +317,14 @@ export interface Negocio {
   origen: 'solicitud' | 'sembrado';
 }
 
+/** Un negocio visto por su DUEÑA (tabla `negocios`, 0052): trae lo que la vista pública no expone. */
+export interface NegocioPropio extends Negocio {
+  usuario_id: string | null;
+  activo: boolean;
+  oculto_por_reportes: boolean;
+  creado_en: string;
+}
+
 export interface NegocioItem {
   [key: string]: unknown;
   id: string;
@@ -361,6 +369,8 @@ export interface Database {
       favoritos: Tabla<Favorito>;
       categorias_servicio: Tabla<CategoriaServicio>;
       verificaciones_vendedor: Tabla<VerificacionVendedor>;
+      negocios: Tabla<NegocioPropio>;
+      negocio_items: Tabla<NegocioItem>;
       geocodificaciones: Tabla<{
         [key: string]: unknown;
         consulta: string;

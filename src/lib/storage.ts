@@ -89,6 +89,15 @@ export async function subirEvidenciaVerificacion(
   return ruta;
 }
 
+/**
+ * Sube una foto de un NEGOCIO propio y devuelve su RUTA (`negocios/<id>/<nombre único>.jpg`). La política de Storage (0052)
+ * solo deja subir a la dueña de ese negocio, y la base valida que cada ruta de `fotos` viva en esa carpeta. El nombre es
+ * único para que quitar una foto y agregar otra no choque con una ruta que aún está en caché.
+ */
+export function subirFotoNegocio(negocioId: string, uriLocal: string): Promise<string> {
+  return subirArchivo(`negocios/${negocioId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`, uriLocal, 1024);
+}
+
 export function subirFotoPerfil(usuarioId: string, uriLocal: string): Promise<string> {
   return subirArchivo(`perfiles/${usuarioId}.jpg`, uriLocal, 512);
 }
