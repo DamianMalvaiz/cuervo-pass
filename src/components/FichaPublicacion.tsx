@@ -163,9 +163,9 @@ export function FichaPublicacion({
             />
           </View>
           <View style={estilos.camposDerecha}>
-            <CampoFicha etiqueta="RENTA MENSUAL" valor={precioTexto} />
+            <CampoFicha etiqueta="Renta mensual" valor={precioTexto} />
             <CampoFicha
-              etiqueta="DISTANCIA"
+              etiqueta="Distancia"
               valor={hayDistancia ? `${distanciaKm!.toFixed(1)} km` : 'sin dato'}
               tono={hayDistancia ? 'normal' : 'atenuado'}
             />

@@ -32,7 +32,7 @@ export function CampoFicha({
   const theme = useTheme();
   return (
     <View style={[estilos.campo, ancho != null && { flex: ancho }]}>
-      <ThemedText type="etiqueta" themeColor="textSecondary">
+      <ThemedText type="smallBold" themeColor="textSecondary">
         {etiqueta}
       </ThemedText>
       <View style={estilos.linea}>

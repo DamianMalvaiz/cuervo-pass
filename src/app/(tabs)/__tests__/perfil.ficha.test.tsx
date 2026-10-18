@@ -96,23 +96,11 @@ beforeEach(() => {
 });
 
 // ── El consentimiento de IA ──────────────────────────────────────────────────
-
-test('con consentimiento dice ACTIVADO y explica el Nivel 2', async () => {
+// El estado de «Sugerencias con IA» salió de Mi perfil: ahora se ve en Configuración (probado en
+// `src/app/__tests__/configuracion.test.tsx`). Aquí solo se asegura que no vuelva a pintarse dos veces.
+test('Mi perfil ya no lleva el recuadro de análisis con IA', async () => {
   await pintar();
-  expect(screen.getByText(/ANÁLISIS CON IA/).children.join('')).toContain('ACTIVADO');
-  expect(screen.getByText(/afinidad semántica/)).toBeTruthy();
-});
-
-// El lado que no se había pintado nunca. Y se comprueba que NO diga la palabra
-// contraria, porque «DESACTIVADO» contiene «ACTIVADO» como subcadena: un
-// `toContain('ACTIVADO')` pasaría en los dos estados.
-test('sin consentimiento dice DESACTIVADO y explica el Nivel 1', async () => {
-  await pintar({ ...PERFIL_COMPLETO, consiente_analisis_ia: false });
-  const texto = screen.getByText(/ANÁLISIS CON IA/).children.join('');
-  expect(texto).toContain('DESACTIVADO');
-  expect(texto).not.toMatch(/· ACTIVADO/);
-  expect(screen.getByText(/solo con el cuestionario/)).toBeTruthy();
-  expect(screen.queryByText(/afinidad semántica/)).toBeNull();
+  expect(screen.queryByText(/ANÁLISIS CON IA/)).toBeNull();
 });
 
 // ── La ficha a medio llenar ──────────────────────────────────────────────────
@@ -161,14 +149,11 @@ test('con universidad sí se pinta', async () => {
   expect(screen.getByText('UTVT')).toBeTruthy();
 });
 
-// El folio se saca del id. Con el id vacío —que es lo que hay antes de que
-// llegue el perfil— no debe pintar basura ni reventar al recortar.
-test('el folio se deriva del id y aguanta un id vacío', async () => {
+// El «EXPEDIENTE ABC1» salió de la cabecera (17/10/2026): era membrete de documento y no le servía a nadie.
+test('la cabecera ya no lleva folio de expediente', async () => {
   await pintar();
-  expect(screen.getByText('EXPEDIENTE ABC1')).toBeTruthy();
-
-  await pintar(PERFIL_VACIO);
-  expect(screen.getByText('EXPEDIENTE')).toBeTruthy();
+  expect(screen.queryByText(/EXPEDIENTE/)).toBeNull();
+  expect(screen.getByText('Perfil')).toBeTruthy();
 });
 
 // ── La foto ──────────────────────────────────────────────────────────────────

@@ -311,12 +311,12 @@ export default function DetallePublicacionScreen() {
         <Seccion titulo="Datos de la publicación">
           <View style={estilos.rejilla}>
             <CampoFicha
-              etiqueta="RENTA MENSUAL"
+              etiqueta="Renta mensual"
               valor={`$${formateadorPrecio.format(publicacion.precio_renta)}`}
               ancho={1}
             />
             <CampoFicha
-              etiqueta="DISTANCIA A TU UNIVERSIDAD"
+              etiqueta="Distancia a tu universidad"
               valor={distanciaKm != null ? `${distanciaKm.toFixed(1)} km` : 'sin dato'}
               ancho={1}
               tono={distanciaKm != null ? 'normal' : 'atenuado'}
@@ -324,13 +324,13 @@ export default function DetallePublicacionScreen() {
           </View>
           <View style={estilos.rejilla}>
             <CampoFicha
-              etiqueta="RECÁMARAS"
+              etiqueta="Recámaras"
               valor={String(publicacion.recamaras)}
               ancho={1}
               icono="bed-outline"
             />
             <CampoFicha
-              etiqueta="AMUEBLADO"
+              etiqueta="Amueblado"
               valor={publicacion.amueblado ? 'Sí' : 'No'}
               ancho={1}
               tono={publicacion.amueblado ? 'normal' : 'atenuado'}
@@ -338,14 +338,14 @@ export default function DetallePublicacionScreen() {
           </View>
           <View style={estilos.rejilla}>
             <CampoFicha
-              etiqueta="MASCOTAS"
+              etiqueta="Mascotas"
               valor={publicacion.permite_mascotas ? 'Sí acepta' : 'No acepta'}
               ancho={1}
               icono="paw-outline"
               tono={publicacion.permite_mascotas ? 'normal' : 'atenuado'}
             />
             <CampoFicha
-              etiqueta="SERVICIOS INCLUIDOS"
+              etiqueta="Servicios incluidos"
               valor={publicacion.servicios_incluidos ? 'Sí' : 'No'}
               ancho={1}
               tono={publicacion.servicios_incluidos ? 'normal' : 'atenuado'}

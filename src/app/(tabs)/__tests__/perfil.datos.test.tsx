@@ -79,11 +79,6 @@ const pintar = async () => {
   return render(<PerfilScreen />, { wrapper: Envoltura });
 };
 
-const pulsar = async (texto: string) => {
-  await act(async () => {
-    fireEvent.press(screen.getByText(texto));
-  });
-};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -96,64 +91,6 @@ beforeEach(() => {
   mockElegirImagen.mockResolvedValue({ canceled: true });
   mockSubirFoto.mockResolvedValue('u1/foto.jpg');
   mockActualizarPerfil.mockResolvedValue(undefined);
-});
-
-// ── ACCESO · §29 ─────────────────────────────────────────────────────────────
-
-test('exportar entrega LO QUE DEVUELVE el servidor, no un resumen', async () => {
-  await pintar();
-  await pulsar('Descargar mis datos');
-
-  await waitFor(() => expect(Share.share).toHaveBeenCalled());
-  const [{ message, title }] = (Share.share as jest.Mock).mock.calls[0];
-  expect(title).toBe('Mis datos en Cuervo 360');
-  // Se comprueba el contenido y no solo que se compartió algo: un `Share` con
-  // un mensaje vacío satisfaría el derecho de ACCESO sobre el papel y no en la
-  // realidad. Y que sea JSON válido, porque se promete «una copia en JSON».
-  expect(JSON.parse(message)).toEqual({ perfil: { nombre_usuario: 'yo' }, publicaciones: [] });
-});
-
-// El fallo que justifica este archivo: un derecho legal que falla callado.
-test('si la exportación falla se DICE, no se queda en silencio', async () => {
-  mockExportar.mockRejectedValue(new Error('la RPC no respondió'));
-  await pintar();
-  await pulsar('Descargar mis datos');
-
-  await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
-  const [titulo, cuerpo] = (Alert.alert as jest.Mock).mock.calls[0];
-  expect(titulo).toBe('No se pudieron exportar tus datos');
-  expect(cuerpo).toBe('la RPC no respondió');
-  expect(Share.share).not.toHaveBeenCalled();
-});
-
-// El `finally`. Sin él, un fallo deja `exportando` en true para siempre y con él
-// `onPress` en undefined: el renglón queda muerto hasta reiniciar la app.
-test('tras un fallo el renglón vuelve a funcionar', async () => {
-  mockExportar.mockRejectedValueOnce(new Error('caído')).mockResolvedValue({ perfil: {} });
-  await pintar();
-  await pulsar('Descargar mis datos');
-  await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
-
-  // La descripción vuelve a la de reposo: si se quedara en «Preparando…», el
-  // `onPress` seguiría siendo undefined.
-  expect(screen.getByText('Una copia en JSON de todo lo que guardamos sobre ti.')).toBeTruthy();
-  await pulsar('Descargar mis datos');
-  expect(mockExportar).toHaveBeenCalledTimes(2);
-});
-
-// Mientras prepara, el renglón se desarma. Exportar dos veces manda dos veces
-// TODOS los datos de la persona al selector de compartir.
-test('mientras exporta no se puede volver a pulsar', async () => {
-  let resolver: (v: unknown) => void = () => {};
-  mockExportar.mockReturnValue(new Promise((r) => { resolver = r; }));
-  await pintar();
-  await pulsar('Descargar mis datos');
-
-  expect(screen.getByText('Preparando el archivo…')).toBeTruthy();
-  await pulsar('Descargar mis datos');
-  expect(mockExportar).toHaveBeenCalledTimes(1);
-
-  await act(async () => { resolver({ perfil: {} }); });
 });
 
 // ── La foto ──────────────────────────────────────────────────────────────────
@@ -309,16 +246,6 @@ test('si falla guardar la biografía, NO hay aviso de éxito', async () => {
   expect(useToastStore.getState().actual?.tipo).toBe('error');
 });
 
-// Cerrar sesión NAVEGA además de cerrar. Si solo cerrara, la pantalla quedaría
-// pintada con los datos de alguien que ya no tiene sesión.
-test('cerrar sesión cierra y lleva al login', async () => {
-  await pintar();
-  await pulsar('Cerrar sesión');
-  await waitFor(() => expect(mockCerrarSesion).toHaveBeenCalled());
-  expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
-});
-
-
 // ── Lo que quedaba sin pisar ─────────────────────────────────────────────────
 
 // §27 · Cargando no es lo mismo que vacío. Mientras el perfil viaja, la pantalla
@@ -330,16 +257,6 @@ test('mientras carga pinta el esqueleto y no la ficha vacía', async () => {
   await pintar();
   expect(screen.queryByLabelText('Guardar biografía')).toBeNull();
   expect(screen.queryByText('Cerrar sesión')).toBeNull();
-});
-
-// El aviso de privacidad es donde la LFPDPPP se cumple por escrito: dice qué se
-// guarda, para qué y cómo pedir que se borre. Un enlace roto ahí es del mismo
-// género que una exportación que falla callada — la promesa existe y no se puede
-// alcanzar.
-test('el aviso de privacidad se puede abrir', async () => {
-  await pintar();
-  await pulsar('Aviso de privacidad');
-  expect(mockPush).toHaveBeenCalledWith('/aviso-privacidad');
 });
 
 test('se puede llegar a editar las preferencias de búsqueda', async () => {

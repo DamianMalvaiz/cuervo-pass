@@ -5,11 +5,9 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Share,
   StyleSheet,
   View,
 } from 'react-native';
@@ -33,7 +31,6 @@ import { useTheme } from '@/hooks/use-theme';
 import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 import { subirFotoPerfil } from '@/lib/storage';
 import { toast } from '@/lib/toast';
-import { eliminarMiCuenta, exportarMisDatos } from '@/services/usuarios.service';
 import { useMiRoomie } from '@/hooks/queries/useRoomies';
 import { useMisPublicaciones } from '@/hooks/queries/usePublicaciones';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -45,7 +42,6 @@ export default function PerfilScreen() {
   const margenSuperior = useMargenSuperior();
   const { anchoContenido, clase } = useTamanoPantalla();
   const session = useAuthStore((s) => s.session);
-  const cerrarSesion = useAuthStore((s) => s.cerrarSesion);
   const { perfil, cargando, cargarPerfil, actualizarPerfil } = usePerfilStore();
   // La ficha de roomie, para poder decir la VERDAD sobre si apareces en esa
   // lista. Es una consulta más y va con su propia clave: si falla, el resto del
@@ -59,7 +55,6 @@ export default function PerfilScreen() {
   const [biografia, setBiografia] = useState('');
   const [subiendoFoto, setSubiendoFoto] = useState(false);
   const [guardando, setGuardando] = useState(false);
-  const [exportando, setExportando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Sincroniza el borrador local con el perfil cargado, sin useEffect: React
@@ -130,54 +125,6 @@ export default function PerfilScreen() {
     }
   };
 
-  // ACCESO (§29). Se comparte como texto en vez de escribir un archivo: la app
-  // no tiene todavía una dependencia de sistema de archivos, y el volumen de
-  // datos de un usuario cabe de sobra. Si algún día no cabe, el cambio es
-  // expo-file-system aquí, no en la función de Postgres.
-  const onDescargarMisDatos = async () => {
-    setExportando(true);
-    try {
-      const datos = await exportarMisDatos();
-      await Share.share({
-        title: 'Mis datos en Cuervo 360',
-        message: JSON.stringify(datos, null, 2),
-      });
-    } catch (e) {
-      Alert.alert('No se pudieron exportar tus datos', e instanceof Error ? e.message : 'Intenta de nuevo.');
-    } finally {
-      setExportando(false);
-    }
-  };
-
-  // CANCELACIÓN (§29). Irreversible y en cascada: por eso se confirma dos veces
-  // y se dice exactamente qué desaparece.
-  const onEliminarCuenta = () => {
-    Alert.alert(
-      'Eliminar mi cuenta',
-      'Se borran tu perfil, tus publicaciones, tus fotos y tus mensajes. No se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await eliminarMiCuenta();
-              router.replace('/(auth)/login');
-            } catch (e) {
-              Alert.alert('No se pudo eliminar la cuenta', e instanceof Error ? e.message : 'Intenta de nuevo.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const onCerrarSesion = async () => {
-    await cerrarSesion();
-    router.replace('/(auth)/login');
-  };
-
   if (cargando) {
     // END-38 · La forma de lo que viene, no un punto girando. Aquí el esqueleto
     // lleva las etiquetas reales de la ficha de búsqueda: se saben antes de
@@ -204,7 +151,6 @@ export default function PerfilScreen() {
     );
   }
 
-  const folio = (perfil?.id ?? '').replace(/-/g, '').slice(0, 4).toUpperCase();
   // La verdad sobre si apareces en la lista de roomies: la fila de `roomies`,
   // no el booleano del cuestionario.
   const apareceEnRoomies = miRoomie?.estado === 'activo';
@@ -236,7 +182,21 @@ export default function PerfilScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
+            {/* ── Título y engranaje ───────────────────────────────────── */}
+            <View style={estilos.filaTitulo}>
+              <ThemedText style={Texto.tituloHoja}>Perfil</ThemedText>
+              <Pulsable
+                onPress={() => router.push('/configuracion')}
+                accessibilityRole="button"
+                accessibilityLabel="Configuración"
+                style={[estilos.botonRedondo, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
+              >
+                <Ionicons name="settings-outline" size={22} color={theme.text} />
+              </Pulsable>
+            </View>
+
             {/* ── Identidad ────────────────────────────────────────────── */}
+            <View style={[estilos.tarjetaIdentidad, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
             <View style={estilos.identidad}>
               <Pulsable
                 onPress={onCambiarFoto}
@@ -271,9 +231,6 @@ export default function PerfilScreen() {
               </Pulsable>
 
               <View style={estilos.datosIdentidad}>
-                <ThemedText type="folio" themeColor="textSecondary">
-                  EXPEDIENTE {folio}
-                </ThemedText>
                 <ThemedText type="subtitle" numberOfLines={2}>
                   {perfil?.nombre_completo ?? 'Sin nombre'}
                 </ThemedText>
@@ -291,7 +248,30 @@ export default function PerfilScreen() {
               </View>
             </View>
 
-            <View style={[estilos.filetePrincipal, { backgroundColor: theme.text }]} />
+
+            <View style={estilos.accionesIdentidad}>
+              <Pulsable
+                onPress={() => router.push('/perfil/preferencias')}
+                accessibilityRole="button"
+                accessibilityLabel="Editar perfil"
+                style={[estilos.botonContorno, { borderColor: theme.filete }]}
+              >
+                <ThemedText style={Texto.pesoFuerte}>Editar perfil</ThemedText>
+              </Pulsable>
+              <Pulsable
+                onPress={
+                  session?.user.id
+                    ? () => router.push({ pathname: '/perfil/[usuarioId]', params: { usuarioId: session.user.id } })
+                    : undefined
+                }
+                accessibilityRole="button"
+                accessibilityLabel="Cómo me ven"
+                style={[estilos.botonContorno, { borderColor: theme.filete }]}
+              >
+                <ThemedText style={Texto.pesoFuerte}>Cómo me ven</ThemedText>
+              </Pulsable>
+            </View>
+            </View>
 
             {error && (
               <View style={[estilos.errorBloque, { borderColor: theme.error }]}>
@@ -329,9 +309,9 @@ export default function PerfilScreen() {
               }
             >
               <View style={estilos.rejilla}>
-                <CampoFicha etiqueta="PRESUPUESTO MENSUAL" valor={presupuesto} ancho={1} />
+                <CampoFicha etiqueta="Presupuesto mensual" valor={presupuesto} ancho={1} />
                 <CampoFicha
-                  etiqueta="DISTANCIA MÁXIMA"
+                  etiqueta="Distancia máxima"
                   valor={perfil?.distancia_max_km != null ? `${perfil.distancia_max_km} km` : 'sin definir'}
                   ancho={1}
                   tono={perfil?.distancia_max_km != null ? 'normal' : 'atenuado'}
@@ -339,14 +319,14 @@ export default function PerfilScreen() {
               </View>
               <View style={estilos.rejilla}>
                 <CampoFicha
-                  etiqueta="MASCOTAS"
+                  etiqueta="Mascotas"
                   valor={perfil?.mascotas ? 'Tengo' : 'No tengo'}
                   ancho={1}
                   icono="paw-outline"
                   tono={perfil?.mascotas ? 'normal' : 'atenuado'}
                 />
                 <CampoFicha
-                  etiqueta="TABACO"
+                  etiqueta="Tabaco"
                   valor={perfil?.fuma ? 'Fumo' : 'No fumo'}
                   ancho={1}
                   tono={perfil?.fuma ? 'normal' : 'atenuado'}
@@ -354,7 +334,7 @@ export default function PerfilScreen() {
               </View>
               <View style={estilos.rejilla}>
                 <CampoFicha
-                  etiqueta="NIVEL DE RUIDO"
+                  etiqueta="Nivel de ruido"
                   valor={perfil?.nivel_ruido ?? 'sin definir'}
                   ancho={1}
                   tono={perfil?.nivel_ruido ? 'normal' : 'atenuado'}
@@ -374,44 +354,13 @@ export default function PerfilScreen() {
                     dice dónde se cambia. Un documento informa de lo que es, no
                     de lo que alguien contestó una vez. */}
                 <CampoFicha
-                  etiqueta="BUSCA ROOMIE"
+                  etiqueta="Busca roomie"
                   valor={apareceEnRoomies ? 'Sí, tu ficha está activa' : 'No · actívala en Roomies'}
                   ancho={1}
                   tono={apareceEnRoomies ? 'normal' : 'atenuado'}
                 />
               </View>
             </Seccion>
-
-            {/* ── Consentimiento de IA ─────────────────────────────────── */}
-            {/* §29 · §18. Se muestra aparte y con su propio recuadro porque es
-                el único ajuste cuyo estado cambia lo que la app HACE: con él,
-                las sugerencias corren en Nivel 2; sin él, en Nivel 1. Enterrarlo
-                dentro de la lista de preferencias lo volvía invisible. */}
-            <View
-              style={[
-                estilos.bloqueIa,
-                {
-                  borderColor: perfil?.consiente_analisis_ia ? theme.tintedBorder : theme.border,
-                  backgroundColor: perfil?.consiente_analisis_ia ? theme.tintedSurface : theme.backgroundElement,
-                },
-              ]}
-            >
-              <View style={estilos.filaIa}>
-                <Ionicons
-                  name={perfil?.consiente_analisis_ia ? 'sparkles' : 'sparkles-outline'}
-                  size={18}
-                  color={perfil?.consiente_analisis_ia ? theme.acento : theme.textSecondary}
-                />
-                <ThemedText type="etiqueta" themeColor={perfil?.consiente_analisis_ia ? 'acento' : 'textSecondary'}>
-                  ANÁLISIS CON IA · {perfil?.consiente_analisis_ia ? 'ACTIVADO' : 'DESACTIVADO'}
-                </ThemedText>
-              </View>
-              <ThemedText type="small" themeColor="textSecondary" style={estilos.textoIa}>
-                {perfil?.consiente_analisis_ia
-                  ? 'Tus sugerencias se ordenan también por afinidad semántica (Nivel 2). Puedes retirarlo cuando quieras desde Editar.'
-                  : 'Tus sugerencias se calculan solo con el cuestionario (Nivel 1). Actívalo desde Editar si quieres que también se ordenen por afinidad.'}
-              </ThemedText>
-            </View>
 
             {/* ── Biografía ────────────────────────────────────────────── */}
             <Seccion titulo="Biografía">
@@ -509,87 +458,6 @@ export default function PerfilScreen() {
             {/* ── Funciones (Cuervo 360) ───────────────────────────────── */}
             <SeccionFunciones usuarioId={session?.user.id} />
 
-            {/* ── Cuenta ───────────────────────────────────────────────── */}
-            {/* Lista de navegación con chevron: cada renglón dice "esto lleva a
-                otro lado" sin que nadie lo explique. Antes esto eran botones
-                apilados del mismo peso, sin agrupar y sin jerarquía. */}
-            <Seccion titulo="Cuenta">
-              <View style={estilos.lista}>
-                {/* El aviso solo era alcanzable desde el REGISTRO: quien ya
-                    tenía cuenta no podía volver a leerlo. Para una app que
-                    promete derechos ARCO, no poder consultar el aviso después
-                    de aceptarlo es un hueco de cumplimiento, no de diseño. */}
-                <FilaAjuste
-                  icono="document-text-outline"
-                  etiqueta="Aviso de privacidad"
-                  descripcion="Qué datos guardamos, para qué, y cómo pedir que los borremos."
-                  onPress={() => router.push('/aviso-privacidad')}
-                />
-                <FileteHoja />
-                <FilaAjuste
-                  icono="download-outline"
-                  etiqueta="Descargar mis datos"
-                  descripcion={
-                    exportando
-                      ? 'Preparando el archivo…'
-                      : 'Una copia en JSON de todo lo que guardamos sobre ti.'
-                  }
-                  onPress={exportando ? undefined : onDescargarMisDatos}
-                />
-              </View>
-
-              {/*
-                  Dos grupos, no una lista plana — la segunda cosa que se toma
-                  de las capturas de Airbnb, que separa «Configuración /
-                  Privacidad» de «Invita / Legal / Cerrar sesión» con aire y un
-                  filete.
-
-                  Aquí la división tiene un motivo propio y no es imitación:
-                  arriba están tus DERECHOS sobre tus datos —consultarlos y
-                  llevártelos, que el aviso de privacidad promete por la
-                  LFPDPPP—; abajo, salir. Meterlos en la misma lista pone un
-                  derecho ARCO al mismo peso que un botón de sesión.
-
-                  La separación es aire más filete, no una tarjeta nueva: este
-                  mundo separa con regla, no apilando superficies.
-              */}
-              <View style={[estilos.grupoAparte, { borderTopColor: theme.filete }]}>
-                <FilaAjuste
-                  icono="log-out-outline"
-                  etiqueta="Cerrar sesión"
-                  descripcion="Tus datos y tus publicaciones se quedan como están."
-                  onPress={onCerrarSesion}
-                />
-              </View>
-            </Seccion>
-
-            {/* ── Eliminar la cuenta ───────────────────────────────────── */}
-            {/* El peso visual estaba INVERTIDO: "Cerrar sesión" era un botón
-                rojo relleno —lo más ruidoso de la pantalla— y "Eliminar mi
-                cuenta" un contorno discreto. Lo irreversible ahora se ve
-                irreversible, y lo rutinario es un renglón más de la lista. */}
-            <View style={[estilos.zonaRiesgo, { borderColor: theme.error }]}>
-              <View style={estilos.filaIa}>
-                <Ionicons name="warning-outline" size={18} color={theme.error} />
-                <ThemedText type="etiqueta" style={{ color: theme.error }}>
-                  ELIMINAR LA CUENTA
-                </ThemedText>
-              </View>
-              <ThemedText type="small" themeColor="textSecondary" style={estilos.textoSeccion}>
-                Se borran tu perfil, tus publicaciones, tus fotografías y tus mensajes. Es
-                irreversible y no conservamos copia.
-              </ThemedText>
-              <Pulsable
-                onPress={onEliminarCuenta}
-                style={[estilos.botonPeligro, { backgroundColor: theme.error }]}
-                accessibilityRole="button"
-                accessibilityLabel="Eliminar mi cuenta"
-              >
-                <ThemedText style={[estilos.textoPeligro, { color: theme.errorTexto }]}>
-                  Eliminar mi cuenta
-                </ThemedText>
-              </Pulsable>
-            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -606,9 +474,6 @@ const estilos = StyleSheet.create({
   flexible: { flex: 1 },
 
   identidad: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingTop: Spacing.two },
-  // El aire de arriba es mayor que el de abajo: un grupo empieza donde acaba
-  // el espacio, no donde empieza el filete.
-  grupoAparte: { marginTop: Spacing.four, paddingTop: Spacing.three, borderTopWidth: Filete.fino },
   envolturaFoto: { width: 88, height: 88 },
   foto: { width: 88, height: 88, borderRadius: 44, borderWidth: Filete.fino },
   sinFoto: { alignItems: 'center', justifyContent: 'center' },
@@ -625,7 +490,30 @@ const estilos = StyleSheet.create({
   },
   datosIdentidad: { flex: 1, gap: Spacing.half },
   universidad: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, marginTop: Spacing.half },
-  filetePrincipal: { height: Filete.grueso },
+  filaTitulo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  botonRedondo: {
+    width: 44,
+    height: 44,
+    borderRadius: Radios.full,
+    borderWidth: Filete.fino,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tarjetaIdentidad: {
+    borderWidth: Filete.fino,
+    borderRadius: Radios.tarjeta,
+    padding: Spacing.three,
+    gap: Spacing.three,
+  },
+  accionesIdentidad: { flexDirection: 'row', gap: Spacing.two },
+  botonContorno: {
+    flex: 1,
+    minHeight: 44,
+    borderWidth: Filete.fino,
+    borderRadius: Radios.control,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   errorBloque: {
     flexDirection: 'row',
@@ -638,34 +526,11 @@ const estilos = StyleSheet.create({
 
   accionSeccion: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half, minHeight: 44 },
   rejilla: { flexDirection: 'row', gap: Spacing.three },
-  textoSeccion: { lineHeight: 20 },
 
-  bloqueIa: {
-    borderWidth: Filete.fino,
-    borderRadius: Radios.hoja,
-    padding: Spacing.three,
-    gap: Spacing.two,
-  },
-  filaIa: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  textoIa: { lineHeight: 20 },
 
   biografia: { minHeight: 110, textAlignVertical: 'top', paddingTop: Spacing.three },
   pieBiografia: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 
-  zonaRiesgo: {
-    borderWidth: Filete.fino,
-    borderRadius: Radios.hoja,
-    padding: Spacing.three,
-    gap: Spacing.two,
-  },
-  botonPeligro: {
-    minHeight: 48,
-    borderRadius: Radios.control,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: Spacing.one,
-  },
-  textoPeligro: Texto.sello,
 
   lista: { gap: 0 },
 });

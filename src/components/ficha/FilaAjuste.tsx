@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -22,6 +22,7 @@ export function FilaAjuste({
   etiqueta,
   descripcion,
   valor,
+  detalle,
   onPress,
   onCambiar,
   destructiva = false,
@@ -31,6 +32,8 @@ export function FilaAjuste({
   descripcion?: string;
   /** Presente ⇒ es un interruptor. Ausente ⇒ es un renglón con chevron. */
   valor?: boolean;
+  /** Dato corto a la derecha, antes del chevron («12», «Activadas»). */
+  detalle?: string;
   onPress?: () => void;
   onCambiar?: (v: boolean) => void;
   destructiva?: boolean;
@@ -41,9 +44,11 @@ export function FilaAjuste({
 
   const contenido = (
     <>
-      <Ionicons name={icono} size={22} color={destructiva ? theme.error : theme.textSecondary} />
+      <View style={[estilos.chipIcono, { backgroundColor: destructiva ? 'transparent' : theme.backgroundSelected }]}>
+        <Ionicons name={icono} size={20} color={destructiva ? theme.error : theme.bosque} />
+      </View>
       <View style={estilos.textos}>
-        <ThemedText style={{ color }}>{etiqueta}</ThemedText>
+        <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte, { color }]}>{etiqueta}</ThemedText>
         {descripcion ? (
           <ThemedText type="small" themeColor="textSecondary" style={estilos.descripcion}>
             {descripcion}
@@ -60,7 +65,14 @@ export function FilaAjuste({
           ios_backgroundColor={theme.border}
         />
       ) : (
-        <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+        <>
+          {detalle ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {detalle}
+            </ThemedText>
+          ) : null}
+          <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+        </>
       )}
     </>
   );
@@ -73,7 +85,9 @@ export function FilaAjuste({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={descripcion ? `${etiqueta}. ${descripcion}` : etiqueta}
+      accessibilityLabel={
+        (descripcion ? `${etiqueta}. ${descripcion}` : etiqueta) + (detalle ? `${descripcion ? ',' : ','} ${detalle}` : '')
+      }
       style={({ pressed }) => [estilos.fila, pressed && estilos.presionada]}
     >
       {contenido}
@@ -92,6 +106,15 @@ const estilos = StyleSheet.create({
     paddingVertical: Spacing.two,
   },
   presionada: { opacity: 0.6 },
+  // El icono vive en un cuadro redondeado, no suelto: es la forma de la propuesta visual del 17/10/2026.
+  chipIcono: {
+    width: 36,
+    // toque-ok: es adorno dentro de un renglón que mide 60 pt y se toca entero; el cuadro no es el control.
+    height: 36,
+    borderRadius: Radios.control,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   textos: { flex: 1, gap: Spacing.half },
   descripcion: { lineHeight: 18 },
 });

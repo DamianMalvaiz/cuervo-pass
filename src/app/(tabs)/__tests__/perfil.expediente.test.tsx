@@ -77,6 +77,26 @@ beforeEach(() => {
   mockPublicaciones = [];
 });
 
+describe('la cabecera y los botones de la tarjeta', () => {
+  it('el engranaje abre Configuración', async () => {
+    await montar();
+    await act(async () => { fireEvent.press(screen.getByLabelText('Configuración')); });
+    expect(mockPush).toHaveBeenCalledWith('/configuracion');
+  });
+
+  it('«Editar perfil» abre las preferencias', async () => {
+    await montar();
+    await act(async () => { fireEvent.press(screen.getByLabelText('Editar perfil')); });
+    expect(mockPush).toHaveBeenCalledWith('/perfil/preferencias');
+  });
+
+  it('«Cómo me ven» abre la ficha propia con el id propio', async () => {
+    await montar();
+    await act(async () => { fireEvent.press(screen.getByLabelText('Cómo me ven')); });
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/perfil/[usuarioId]', params: { usuarioId: 'u1' } });
+  });
+});
+
 describe('los renglones llevan a donde dicen', () => {
   it('«Ver mi perfil público» abre la ficha propia, con el id propio', async () => {
     await montar();

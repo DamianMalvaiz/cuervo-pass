@@ -244,14 +244,14 @@ export default function PerfilRoomieScreen() {
         <Seccion titulo="Convivencia">
           <View style={estilos.rejilla}>
             <CampoFicha
-              etiqueta="NIVEL DE RUIDO"
+              etiqueta="Nivel de ruido"
               valor={ETIQUETA_RUIDO[usuario.nivel_ruido ?? 'medio'] ?? 'Sin especificar'}
               ancho={1}
               icono="volume-low-outline"
               tono={usuario.nivel_ruido ? 'normal' : 'atenuado'}
             />
             <CampoFicha
-              etiqueta="HORARIO"
+              etiqueta="Horario"
               valor={ETIQUETA_HORARIO[usuario.horario_predominante ?? 'mixto'] ?? 'Variable'}
               ancho={1}
               icono="moon-outline"
@@ -260,14 +260,14 @@ export default function PerfilRoomieScreen() {
           </View>
           <View style={estilos.rejilla}>
             <CampoFicha
-              etiqueta="MASCOTAS"
+              etiqueta="Mascotas"
               valor={usuario.mascotas ? 'Sí tiene' : 'No tiene'}
               ancho={1}
               icono="paw-outline"
               tono={usuario.mascotas ? 'normal' : 'atenuado'}
             />
             <CampoFicha
-              etiqueta="TABACO"
+              etiqueta="Tabaco"
               valor={usuario.fuma ? 'Sí fuma' : 'No fuma'}
               ancho={1}
               tono={usuario.fuma ? 'normal' : 'atenuado'}

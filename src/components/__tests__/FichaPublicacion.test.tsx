@@ -5,7 +5,7 @@ import { FichaPublicacion } from '../FichaPublicacion';
 test('muestra el precio formateado en su campo', async () => {
   await render(<FichaPublicacion titulo="Depa cerca del campus" precio={2800} direccion="San Mateo Atenco" />);
   expect(await screen.findByText('$2,800', {}, { timeout: 5000 })).toBeTruthy();
-  expect(await screen.findByText('RENTA MENSUAL', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('Renta mensual', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 test('muestra el título y la dirección', async () => {
@@ -20,7 +20,7 @@ test('muestra el título y la dirección', async () => {
 // app; "sin dato" se lee como información.
 test('el campo de distancia existe y dice que no hay dato cuando falta', async () => {
   await render(<FichaPublicacion titulo="Depa" precio={2800} direccion="San Mateo Atenco" distanciaKm={null} />);
-  expect(await screen.findByText('DISTANCIA', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByText('Distancia', {}, { timeout: 5000 })).toBeTruthy();
   expect(await screen.findByText('sin dato', {}, { timeout: 5000 })).toBeTruthy();
 });
 
