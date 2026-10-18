@@ -290,6 +290,43 @@ export interface Favorito {
   creado_en: string;
 }
 
+/** Servicios · 0047. */
+export interface CategoriaServicio {
+  [key: string]: unknown;
+  id: string;
+  nombre: string;
+  icono: string;
+  orden: number;
+}
+
+export interface Negocio {
+  [key: string]: unknown;
+  id: string;
+  categoria_id: string;
+  nombre: string;
+  descripcion: string | null;
+  direccion: string;
+  latitud: number | null;
+  longitud: number | null;
+  /** 1 = $, 2 = $$, 3 = $$$. Nulo = sin dato. */
+  rango_precio: number | null;
+  horario: string | null;
+  fotos: string[];
+  destacado: boolean;
+  /** `sembrado` = negocio de ejemplo (inventado para la demostración). */
+  origen: 'solicitud' | 'sembrado';
+}
+
+export interface NegocioItem {
+  [key: string]: unknown;
+  id: string;
+  negocio_id: string;
+  nombre: string;
+  /** Nulo = «consulta el precio». Nunca se inventa uno. */
+  precio: number | null;
+  orden: number;
+}
+
 type Tabla<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relationships: [] };
 // Las vistas de §13 son de solo lectura, pero supabase-js exige la misma forma
 // que una tabla para poder inferir el tipo de `select()`; sin Insert/Update el
@@ -310,6 +347,7 @@ export interface Database {
       push_tokens: Tabla<PushToken>;
       roles_usuario: Tabla<RolUsuario>;
       favoritos: Tabla<Favorito>;
+      categorias_servicio: Tabla<CategoriaServicio>;
       geocodificaciones: Tabla<{
         [key: string]: unknown;
         consulta: string;
@@ -322,6 +360,8 @@ export interface Database {
     Views: {
       perfiles_publicos: Vista<PerfilPublico>;
       publicaciones_publicas: Vista<PublicacionPublica>;
+      negocios_publicos: Vista<Negocio>;
+      negocio_items_publicos: Vista<NegocioItem>;
     };
     Functions: {
       // END-17 · `p_tipo` se aplica dentro de la función que trunca a 30, no
