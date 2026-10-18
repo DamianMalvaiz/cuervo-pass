@@ -10,7 +10,7 @@ que está pendiente. Un ✓ que no se vio es lo que más cuesta en una evaluaci�
 | 1 | Cuentas de demostración | `node --env-file=.env --env-file=.env.server scripts/preparar-demo.mjs` (lee el plan) y luego con `--aplicar` |
 | 2 | Imágenes de MUESTRA al teléfono del vendedor | `python3 scripts/generar-muestras-demo.py` → pasar `demo-material/*.jpg` a la galería (**nunca** una INE verdadera) |
 | 3 | Vectores de afinidad de las cuentas nuevas | `node --env-file=.env --env-file=.env.server --env-file=ai-service/.env scripts/backfill-embeddings.mjs` |
-| 4 | Túnel de la IA y datos | `./scripts/tunel.sh` y `node scripts/verificar.mjs` (debe salir sin ✗) |
+| 4 | IA local + túnel con dominio estable y datos | Sigue `docs/ia-local.md`: `./scripts/ia-arrancar.sh`, `ngrok http --url=<tu-dominio> 8000` (otra terminal), `./scripts/tunel.sh` y `node scripts/verificar.mjs` (debe salir sin ✗) |
 | 5 | Barreras de seguridad contra producción | `node --env-file=.env --env-file=.env.server scripts/prueba-rls.mjs` |
 | 6 | Pagos simulados SOLO durante la demo | Pedirle a Claude que encienda `demo_mode` al empezar y lo apague al terminar. **Apagado = pagos rechazados (CP010)** |
 | 7 | Cuentas reales ya con sesión cerrada | Nunca registrar una cuenta real delante de quien evalúa |

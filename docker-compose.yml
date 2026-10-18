@@ -7,6 +7,9 @@ services:
       - "8000:8000"
     env_file:
       - ./ai-service/.env
+    environment:
+      # El commit que SIRVE el contenedor (dentro no hay git). `scripts/ia-arrancar.sh` lo calcula (y no necesita compose); `tunel.sh` y `verificar.mjs` lo comparan con el árbol para no medir código viejo.
+      CUERVO_COMMIT: ${CUERVO_COMMIT:-desconocido}
     restart: unless-stopped
     volumes:
       # El modelo sobrevive a los rebuilds: sin este volumen, cada `docker

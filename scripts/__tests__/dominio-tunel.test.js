@@ -33,6 +33,10 @@ describe('dominio-tunel · acepta', () => {
   it.each([
     'https://arising-lightbox-radio-analyzed.trycloudflare.com',
     'https://words-streets-resort-unavailable.trycloudflare.com',
+    // Dominio ESTABLE (el que se recomienda: el rápido de Cloudflare cambia en cada arranque y su DNS llegó a tardar más de media hora).
+    'https://mi-cuervo.ngrok-free.app',
+    'https://mi-cuervo.ngrok-free.dev',
+    'https://laptop.tail1234.ts.net',
   ])('%s', (v) => expect(codigo(v)).toBe(0));
 });
 
@@ -51,5 +55,8 @@ describe('dominio-tunel · rechaza', () => {
     ['dominio impostor', 'https://trycloudflare.com.atacante.net'],
     ['subdominio del impostor', 'https://malo.trycloudflare.com.evil.io'],
     ['ruta pegada', 'https://algo.trycloudflare.com/listo'],
+    ['impostor de ngrok', 'https://ngrok-free.app.atacante.net'],
+    ['impostor de tailscale', 'https://laptop.ts.net.evil.io'],
+    ['ngrok sin subdominio', 'https://ngrok-free.app'],
   ])('%s', (_, v) => expect(codigo(v)).toBe(1));
 });

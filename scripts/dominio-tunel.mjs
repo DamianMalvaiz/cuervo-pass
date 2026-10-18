@@ -31,11 +31,17 @@
 // dos consumidores, y una prueba sobre el CLI que los dos usan.
 
 /**
- * Sufijos de host aceptados. Un túnel rápido de Cloudflare es hoy el único
- * camino; si mañana se usa un dominio propio, se añade aquí y las dos
- * comprobaciones lo heredan.
+ * Sufijos de host aceptados.
+ *
+ *   · `.trycloudflare.com` — el túnel RÁPIDO de Cloudflare. Cambia de dominio en cada arranque y su DNS llegó a tardar más de media hora: sirve para probar, no
+ *     para una demostración.
+ *   · `.ngrok-free.app`, `.ngrok-free.dev`, `.ngrok.app`, `.ngrok.dev` — un dominio ESTÁTICO de ngrok (la cuenta gratuita trae uno): no cambia, así que el secret
+ *     `AI_SERVICE_URL` se fija UNA vez. Es lo que se recomienda (docs/ia-local.md).
+ *   · `.ts.net` — Tailscale Funnel, también estable.
+ *
+ * Si mañana se usa un dominio propio, se añade aquí y las dos comprobaciones lo heredan.
  */
-export const SUFIJOS_DE_TUNEL = ['.trycloudflare.com'];
+export const SUFIJOS_DE_TUNEL = ['.trycloudflare.com', '.ngrok-free.app', '.ngrok-free.dev', '.ngrok.app', '.ngrok.dev', '.ts.net'];
 
 export function esDominioDeTunel(valor) {
   if (typeof valor !== 'string') return false;
@@ -71,8 +77,8 @@ export function esDominioDeTunel(valor) {
 /** El mensaje que ven los dos consumidores. Dice qué hay, no solo que está mal. */
 export function motivoRechazo(valor) {
   const mostrado = typeof valor === 'string' && valor.trim() ? valor.trim() : '(vacío)';
-  return `\`.tunel-actual\` no contiene un dominio de túnel: ${mostrado}. `
-    + `Se esperaba https://<algo>.trycloudflare.com — corre ./scripts/tunel.sh --forzar.`;
+  return `El valor no es un dominio de túnel: ${mostrado}. `
+    + `Se esperaba https://<algo>.ngrok-free.app (recomendado, estable), https://<algo>.ts.net o https://<algo>.trycloudflare.com — corre ./scripts/tunel.sh.`;
 }
 
 // Modo CLI, para que `tunel.sh` use la misma definición que `verificar.mjs`.

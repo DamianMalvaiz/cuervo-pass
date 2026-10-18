@@ -14,11 +14,24 @@
 #
 #   ./scripts/tunel.sh            # reutiliza el túnel si sigue sano
 #   ./scripts/tunel.sh --forzar   # levanta uno nuevo pase lo que pase
+#   ./scripts/tunel.sh --rapido   # ignora la URL fija y usa un túnel rápido de Cloudflare
+#
+# DOS MODOS:
+#   · URL FIJA (recomendado): si `.env.server` trae `AI_SERVICE_URL_FIJA=https://<tu-dominio>.ngrok-free.app` (o un `.ts.net`), NO se abre ningún túnel
+#     aquí: tú mantienes el tuyo (`ngrok http --url=<tu-dominio> 8000`) y este script SOLO comprueba que responde y que el secret apunta ahí. El dominio no
+#     cambia, así que el secret se fija una vez. Ver docs/ia-local.md.
+#   · RÁPIDO (por omisión si no hay URL fija): abre un túnel de cloudflared. Su dominio cambia en cada arranque y su DNS llegó a tardar MÁS DE MEDIA HORA.
 #
 set -euo pipefail
 
 FORZAR=0
-[ "${1:-}" = "--forzar" ] && FORZAR=1
+RAPIDO=0
+for a in "$@"; do
+  case "$a" in
+    --forzar) FORZAR=1 ;;
+    --rapido) RAPIDO=1 ;;
+  esac
+done
 
 cd "$(dirname "$0")/.."
 
@@ -79,6 +92,50 @@ elif [ -n "$COMMIT_ARBOL" ] && [ "$COMMIT_VIVO" != "$COMMIT_ARBOL" ]; then
   exit 1
 else
   echo "   sirviendo $COMMIT_VIVO, el mismo del árbol."
+fi
+
+# 1.c · MODO URL FIJA.
+#
+# Un dominio estable cambia lo que hay que vigilar: ya no se abre ni se cierra nada aquí (el cliente del túnel lo mantienes tú y se reconecta solo), y el
+# secret no se vuelve a tocar mientras el dominio sea el mismo. Lo único que se pregunta es lo que importa: ¿responde por el camino PÚBLICO?
+URL_FIJA="${AI_SERVICE_URL_FIJA:-}"
+if [ -z "$URL_FIJA" ] && [ -f .env.server ]; then
+  URL_FIJA="$(grep -E '^AI_SERVICE_URL_FIJA=' .env.server | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'" | tr -d '[:space:]' || true)"
+fi
+
+if [ -n "$URL_FIJA" ] && [ "$RAPIDO" -eq 0 ]; then
+  echo "→ Modo URL fija: $URL_FIJA"
+  if ! node scripts/dominio-tunel.mjs "$URL_FIJA"; then
+    echo "   Corrige AI_SERVICE_URL_FIJA en .env.server (solo el origen, sin ruta)." >&2
+    exit 1
+  fi
+  # `ngrok-skip-browser-warning`: la cuenta gratuita de ngrok muestra una página intermedia a las peticiones que parecen de un navegador; con esta cabecera no.
+  if ! curl -sf -m 10 -H 'ngrok-skip-browser-warning: 1' "$URL_FIJA/listo" >/dev/null 2>&1; then
+    echo "   $URL_FIJA NO responde." >&2
+    echo "   El microservicio local sí (puerto 8000), así que falta el TÚNEL. En otra terminal:" >&2
+    echo "     ngrok http --url=${URL_FIJA#https://} 8000" >&2
+    echo "   (si es Tailscale:  tailscale funnel --bg 8000)   y vuelve a correr este script." >&2
+    exit 1
+  fi
+  echo "   responde por el camino público."
+
+  if [ "$FORZAR" -eq 0 ] && [ -f .tunel-actual ] && [ "$(tr -d '[:space:]' < .tunel-actual)" = "$URL_FIJA" ]; then
+    echo "   el secret ya apunta aquí. No se toca."
+  else
+    echo "→ Fijando el secret AI_SERVICE_URL (una sola vez para este dominio)…"
+    set -a
+    # shellcheck disable=SC1091
+    . ./.env
+    # shellcheck disable=SC1091
+    [ -f ./.env.server ] && . ./.env.server
+    set +a
+    npx supabase secrets set AI_SERVICE_URL="$URL_FIJA" >/dev/null
+    echo "$URL_FIJA" > .tunel-actual
+    echo "   listo."
+  fi
+  echo
+  echo "Túnel arriba (fijo): $URL_FIJA"
+  exit 0
 fi
 
 # 2. E.6 · Un túnel SANO no se mata.

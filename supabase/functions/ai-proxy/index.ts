@@ -123,6 +123,8 @@ Deno.serve(async (req) => {
       signal: control,
       headers: {
         'Content-Type': 'application/json',
+        // ngrok (cuenta gratuita) pone una página intermedia a lo que parece un navegador; con esta cabecera la petición pasa directo. Otros túneles la ignoran.
+        'ngrok-skip-browser-warning': '1',
         Authorization: `Bearer ${Deno.env.get('AI_SHARED_TOKEN')!.trim()}`,
         'x-usuario-id': user.id,        // clave del limitador del microservicio · AUD-03
         'x-peticion-id': peticionId,    // traza extremo a extremo · AUD-19

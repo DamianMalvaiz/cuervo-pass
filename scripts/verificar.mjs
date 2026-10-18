@@ -87,7 +87,7 @@ function revisarSecrets() {
 async function revisarTunel() {
   let dominio;
   try { dominio = readFileSync('.tunel-actual', 'utf8').trim(); }
-  catch { anotar('Túnel a Cloudflare', 'aviso', 'no hay .tunel-actual (¿corriste scripts/tunel.sh?)'); return; }
+  catch { anotar('Túnel de la IA', 'aviso', 'no hay .tunel-actual (¿corriste scripts/tunel.sh?)'); return; }
 
   // V.3 · FALLO y no aviso.
   //
@@ -97,15 +97,15 @@ async function revisarTunel() {
   // responde, salió en verde. Un verificador que da confianza falsa justo antes
   // de exponer es peor que no tenerlo, así que esto no es un aviso.
   if (!esDominioDeTunel(dominio)) {
-    anotar('Túnel a Cloudflare', 'fallo', motivoRechazo(dominio));
+    anotar('Túnel de la IA', 'fallo', motivoRechazo(dominio));
     return;
   }
   try {
     const t0 = Date.now();
-    const r = await fetch(`${dominio}/listo`, { signal: AbortSignal.timeout(10_000) });
+    const r = await fetch(`${dominio}/listo`, { headers: { 'ngrok-skip-browser-warning': '1' }, signal: AbortSignal.timeout(10_000) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const salud = await r.json().catch(() => ({}));
-    anotar('Túnel a Cloudflare', 'ok', `${dominio} · /listo en ${Date.now() - t0} ms`);
+    anotar('Túnel de la IA', 'ok', `${dominio} · /listo en ${Date.now() - t0} ms`);
 
     // El propio microservicio dice si tiene la clave. No es un fallo: es una
     // DECISIÓN pendiente. Sin ella /parsear-perfil devuelve valores neutros y
@@ -152,7 +152,7 @@ async function revisarTunel() {
         'sin ANTHROPIC_API_KEY: /parsear-perfil siempre degradado. Su sitio es ai-service/.env; hoy tunel.sh la carga desde el .env de la raiz. El Nivel 2 (embeddings) NO depende de esto');
     }
   } catch (e) {
-    anotar('Túnel a Cloudflare', 'fallo', `${dominio} no responde (${e.message}) · corre scripts/tunel.sh`);
+    anotar('Túnel de la IA', 'fallo', `${dominio} no responde (${e.message}) · corre scripts/tunel.sh`);
   }
 }
 
