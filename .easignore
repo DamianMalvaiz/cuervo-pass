@@ -1,0 +1,89 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files (§34) — dos archivos separados: el del cliente en la raíz y
+# el del servidor en ai-service/. Nunca se versiona ninguno de los dos.
+.env
+.env*.local
+.env.server
+ai-service/.env
+
+# respaldos previos a cada `db push` a partir de la semana 5 (§33.4)
+respaldos/
+
+# ai-service (Python)
+ai-service/venv/
+ai-service/.venv/
+ai-service/.pytest_cache/
+ai-service/__pycache__/
+ai-service/**/__pycache__/
+*.pyc
+
+# typescript
+*.tsbuildinfo
+
+example
+
+# generated native folders
+/ios
+/android
+
+# herramientas de Claude Code personales/pesadas (binarios compilados, no código del proyecto)
+.claude/settings.local.json
+.claude/skills/
+
+# archivos temporales del CLI de Supabase
+supabase/.temp/
+
+# Worktrees de sesiones de Claude Code — copias del propio repo, nunca se suben.
+.claude/worktrees/
+
+# Dominio del túnel en curso: cambia en cada arranque.
+.tunel-actual
+coverage/
+
+# Imágenes de MUESTRA de la demo (scripts/generar-muestras-demo.py): se regeneran.
+demo-material/
+
+# EAS no lee .git/info/exclude: lo que ahí se excluye hay que repetirlo AQUÍ, o se sube a la nube (experimentos/ lleva fotos personales y 543 MB).
+experimentos/
+docs/sesion-claude/
+respaldos/
+demo-material/
+ai-service/.venv/
+ai-service/.env
+.env
+.env.server
+supabase/.temp/
+supabase/.branches/
+coverage/
+.git/
