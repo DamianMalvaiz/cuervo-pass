@@ -27,3 +27,16 @@ puntaje = 0.45·cercanía + 0.45·calidad + 0.10·novedad      (cada término en
 - `npx supabase test db`: aserciones de `supabase/tests/rls.test.sql` (más cerca gana, mejor calificado gana, nuevo gana a igualdad, destacado primero, ACL solo `authenticated`).
 - `npx jest src/services/__tests__/servicios src/components/__tests__/TarjetaNegocio`.
 - Aplicación en producción: **pendiente** (sin verificar hasta que se aplique la 0055).
+
+### Evaluación de sensibilidad (`scripts/evaluar-ranking.mjs`, 17/10/2026, producción, solo lectura)
+
+```bash
+node --env-file=.env --env-file=.env.server scripts/evaluar-ranking.mjs
+```
+
+Recalcula el puntaje con la misma fórmula y varía un parámetro cada vez (pesos, escala de distancia, prior).
+Resultado con los 25 negocios sembrados: el top-5 no cambia en ninguna de las 6 variantes.
+
+**Lo que esto NO prueba:** los 25 negocios están a ≤ 0.5 km y ninguno tiene reseñas, así que "calidad" es igual para todos y el
+orden lo decide solo la cercanía. La estabilidad es real pero poco informativa; el efecto de la calidad y del prior solo se verá
+con reseñas reales (la prueba de pgTAP sí fija su comportamiento con datos sintéticos). Pesos sin validar con usuarios.
