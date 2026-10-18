@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 import { revelarContacto } from '@/services/publicaciones.service';
@@ -397,4 +397,21 @@ test('«Ver contacto» (WhatsApp) sigue ahí como segunda opción', async () => 
   await pintar();
   await screen.findByText('ESCRIBIR_A:dueno-9');
   expect(screen.getByLabelText('Ver contacto')).toBeTruthy();
+});
+
+// Cuervo 360 · la barra de contacto va FIJA abajo (17/10/2026): el corazón, «Escribir en la app» y «Ver contacto»
+// no se pierden al desplazar la ficha, y quedan al alcance del pulgar.
+test('el corazón, escribir y ver contacto viven en la barra fija de abajo', async () => {
+  await pintar();
+  const barra = screen.getByTestId('barra-contacto');
+  expect(within(barra).getByText(`CORAZON:${PUBLICACION.id}`)).toBeTruthy();
+  expect(within(barra).getByText('ESCRIBIR_A:dueno-9')).toBeTruthy();
+  expect(within(barra).getByLabelText('Ver contacto')).toBeTruthy();
+});
+
+test('el conteo de favoritos y el reporte siguen en el cuerpo, no en la barra', async () => {
+  await pintar();
+  const barra = screen.getByTestId('barra-contacto');
+  expect(within(barra).queryByText(`CONTEO:${PUBLICACION.id}`)).toBeNull();
+  expect(within(barra).queryByLabelText('Reportar publicación')).toBeNull();
 });

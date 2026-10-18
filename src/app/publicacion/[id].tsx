@@ -11,6 +11,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BotonVerContacto } from '@/components/BotonVerContacto';
 import { Pastilla } from '@/components/ficha/Pastilla';
@@ -51,6 +52,7 @@ const ETIQUETA_TIPO: Record<string, string> = {
 
 
 export default function DetallePublicacionScreen() {
+  const { bottom: insetInferior } = useSafeAreaInsets();
   const theme = useTheme();
   // END-21 · Solo el id. El score, la base y la similitud llegaban como
   // PARÁMETROS DE RUTA, así que un enlace directo a una ficha no los traía y el
@@ -203,7 +205,12 @@ export default function DetallePublicacionScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={[estilos.hoja, estilos.columna, { maxWidth: anchoLista }]} showsVerticalScrollIndicator={false}>
+    <View style={estilos.pantalla}>
+    <ScrollView
+      style={estilos.pantalla}
+      contentContainerStyle={[estilos.hoja, estilos.columna, { maxWidth: anchoLista }]}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Membrete: qué documento es y cuál. */}
       <View style={[estilos.membrete, { borderBottomColor: theme.filete }]}>
         <ThemedText type="etiqueta" themeColor="textSecondary">
@@ -364,23 +371,6 @@ export default function DetallePublicacionScreen() {
           </Seccion>
         )}
 
-        {/* Cuervo 360 · el corazón va junto al contacto, no sobre la foto: así está siempre, haya
-            fotos o no, y queda al alcance del pulgar. */}
-        {/* Contactar DENTRO de la app es lo principal: la conversación se queda aquí, se puede moderar
-            y no se expone ningún teléfono. «Ver contacto» (WhatsApp) es la segunda opción, con su cuota. */}
-        <View style={estilos.sello}>
-          <BotonFavorito publicacionId={publicacion.id} />
-          <View style={estilos.contacto}>
-            <BotonEscribir otroUsuarioId={publicacion.usuario_id} />
-          </View>
-        </View>
-        <BotonVerContacto
-          publicacionId={publicacion.id}
-          titulo={publicacion.titulo}
-          score={afinidad?.scoreFinal ?? null}
-          onRevelar={revelarContacto}
-          onError={(mensaje) => toast.error(mensaje)}
-        />
         {/* Cuántas personas la guardaron: el número, nunca quién. */}
         <ConteoFavoritos publicacionId={publicacion.id} />
 
@@ -407,6 +397,33 @@ export default function DetallePublicacionScreen() {
         </Pressable>
       </View>
     </ScrollView>
+
+    {/* Barra fija de contacto (propuesta visual del 17/10/2026): el corazón, «Escribir en la app» y «Ver contacto»
+        no se pierden al desplazar y quedan al alcance del pulgar. Contactar DENTRO de la app es lo principal: la
+        conversación se queda aquí, se puede moderar y no se expone ningún teléfono. «Ver contacto» (WhatsApp) es
+        la segunda opción, con su cuota. Va fuera del ScrollView y no encima de él, así que no tapa contenido. */}
+    <View
+      testID="barra-contacto"
+      style={[
+        estilos.barraContacto,
+        { backgroundColor: theme.backgroundElement, borderTopColor: theme.filete, paddingBottom: Math.max(insetInferior, Spacing.three) },
+      ]}
+    >
+      <View style={estilos.filaContacto}>
+        <BotonFavorito publicacionId={publicacion.id} />
+        <View style={estilos.contacto}>
+          <BotonEscribir otroUsuarioId={publicacion.usuario_id} />
+        </View>
+      </View>
+      <BotonVerContacto
+        publicacionId={publicacion.id}
+        titulo={publicacion.titulo}
+        score={afinidad?.scoreFinal ?? null}
+        onRevelar={revelarContacto}
+        onError={(mensaje) => toast.error(mensaje)}
+      />
+    </View>
+    </View>
   );
 }
 
@@ -446,7 +463,9 @@ const estilos = StyleSheet.create({
   pastillas: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   cuerpo: { padding: Spacing.three, gap: Spacing.three },
   descripcion: { lineHeight: 24 },
-  sello: { marginTop: Spacing.two, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  pantalla: { flex: 1 },
+  barraContacto: { borderTopWidth: Filete.fino, paddingTop: Spacing.three, paddingHorizontal: Spacing.three, gap: Spacing.one },
+  filaContacto: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   contacto: { flex: 1 },
   advertencia: {
     flexDirection: 'row',
