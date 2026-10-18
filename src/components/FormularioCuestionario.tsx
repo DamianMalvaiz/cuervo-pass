@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { Controller, useForm, type FieldErrors } from 'react-hook-form';

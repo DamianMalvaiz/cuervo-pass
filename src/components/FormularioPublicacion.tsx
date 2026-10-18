@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -358,6 +358,8 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
   const [opcionesColonia, setOpcionesColonia] = useState<string[]>([]);
   const [buscandoCP, setBuscandoCP] = useState(false);
   const [cpNoEncontrado, setCpNoEncontrado] = useState(false);
+  // La búsqueda va por la red (0069): un FALLO no es «ese código no existe».
+  const [cpFallo, setCpFallo] = useState(false);
   const ultimoCPBuscado = useRef<string | null>(null);
 
   const {
@@ -416,13 +418,25 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
   const onCambiaCP = async (cp: string) => {
     if (!/^\d{5}$/.test(cp)) {
       setCpNoEncontrado(false);
+      setCpFallo(false);
       return;
     }
     if (cp === ultimoCPBuscado.current) return;
     ultimoCPBuscado.current = cp;
     setBuscandoCP(true);
-    const datos = await buscarPorCodigoPostal(cp);
+    let datos;
+    try {
+      datos = await buscarPorCodigoPostal(cp);
+    } catch {
+      setBuscandoCP(false);
+      setCpNoEncontrado(false);
+      setCpFallo(true);
+      // Sin esto, volver a escribir el MISMO código no reintentaría nunca: `ultimoCPBuscado` lo daría por buscado.
+      ultimoCPBuscado.current = null;
+      return;
+    }
     setBuscandoCP(false);
+    setCpFallo(false);
     if (!datos) {
       setCpNoEncontrado(true);
       return;
@@ -679,6 +693,11 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
       {cpNoEncontrado && (
         <ThemedText type="small" themeColor="error" style={styles.avisoCpNoEncontrado}>
           No encontramos ese código postal — puedes llenar colonia/municipio/estado a mano.
+        </ThemedText>
+      )}
+      {cpFallo && (
+        <ThemedText type="small" themeColor="error" style={styles.avisoCpNoEncontrado}>
+          No pudimos buscar el código postal ahora — revisa tu conexión o llena colonia/municipio/estado a mano.
         </ThemedText>
       )}
       {errors.codigoPostal && <MensajeError ancla={anclar('codigoPostal')} mensaje={errors.codigoPostal.message} />}

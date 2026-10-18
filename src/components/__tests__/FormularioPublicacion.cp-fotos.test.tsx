@@ -155,6 +155,36 @@ test('el aviso de CP no encontrado se retira al seguir escribiendo', async () =>
   await waitFor(() => expect(screen.queryByText(/No encontramos ese código postal/i)).toBeNull());
 });
 
+// La búsqueda de CP ahora usa la red (migración 0069). Un fallo NO puede decir «no encontramos ese código»: eso le diría a la persona que su código está mal
+// cuando lo que falló fue la conexión. Y repetir el mismo código tiene que volver a intentarlo.
+test('si la búsqueda FALLA, lo dice como fallo y NO como «no encontramos ese código»', async () => {
+  mockBuscarPorCodigoPostal.mockRejectedValue(new Error('sin red'));
+  await pintar();
+  await escribir('Código postal', '52104');
+  expect(await screen.findByText(/No pudimos buscar el código postal/i)).toBeTruthy();
+  expect(screen.queryByText(/No encontramos ese código postal/i)).toBeNull();
+});
+
+test('tras un fallo, volver a escribir el MISMO código lo reintenta', async () => {
+  mockBuscarPorCodigoPostal.mockRejectedValueOnce(new Error('sin red')).mockResolvedValueOnce(CP_52104);
+  await pintar();
+  await escribir('Código postal', '52104');
+  await screen.findByText(/No pudimos buscar el código postal/i);
+  await escribir('Código postal', '5210');
+  await escribir('Código postal', '52104');
+  await waitFor(() => expect(mockBuscarPorCodigoPostal).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.queryByText(/No pudimos buscar el código postal/i)).toBeNull());
+});
+
+test('el aviso de fallo se retira al seguir escribiendo', async () => {
+  mockBuscarPorCodigoPostal.mockRejectedValue(new Error('sin red'));
+  await pintar();
+  await escribir('Código postal', '52104');
+  await screen.findByText(/No pudimos buscar el código postal/i);
+  await escribir('Código postal', '521');
+  await waitFor(() => expect(screen.queryByText(/No pudimos buscar el código postal/i)).toBeNull());
+});
+
 // ── El antirrebote de la calle ───────────────────────────────────────────────
 
 /**

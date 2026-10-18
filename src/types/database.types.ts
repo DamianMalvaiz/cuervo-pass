@@ -488,6 +488,11 @@ export interface Database {
         Args: { p_ids: string[] };
         Returns: { publicacion_id: string; total: number }[];
       };
+      // Estado, municipio, ciudad y colonias de UN código postal (migración 0069). Cero filas si no existe; 22023 si no tiene 5 dígitos.
+      buscar_codigo_postal: {
+        Args: { p_cp: string };
+        Returns: { estado: string; municipio: string; ciudad: string | null; colonias: string[] }[];
+      };
       // Registra un error de la app (migración 0068). El servidor lo limpia, lo agrupa y no guarda quién. Falla en silencio si se pasó la cuota.
       registrar_error_app: {
         Args: { p_nivel: string; p_mensaje: string; p_detalle: string | null; p_version: string; p_plataforma: string };

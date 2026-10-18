@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Animated, { FadeInDown } from 'react-native-reanimated';

@@ -47,12 +47,13 @@ jest.mock('expo-router', () => {
 // árbol aparece un carácter de la fuente y el nombre no está en ninguna parte.
 // Doblándolo para que escriba su `name`, la aserción dice lo que quiere decir en
 // vez de comparar dos codepoints indistinguibles a ojo.
-jest.mock('@expo/vector-icons', () => {
+// Se importa por familia (`@expo/vector-icons/Ionicons`) y no desde el paquete entero: el paquete trae TODAS las familias y Metro no las poda (6 MB de fuentes).
+jest.mock('@expo/vector-icons/Ionicons', () => {
   const React = require('react');
   const { Text } = require('react-native');
   const Ionicons = ({ name }: { name: string }) => React.createElement(Text, null, name);
   Ionicons.displayName = 'Ionicons';
-  return { Ionicons };
+  return { __esModule: true, default: Ionicons };
 });
 jest.mock('@/lib/pushNotifications', () => ({
   registrarTokenPush: (...a: unknown[]) => mockRegistrar(...a),

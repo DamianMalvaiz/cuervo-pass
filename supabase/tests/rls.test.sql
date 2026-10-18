@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(502);
+select plan(516);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1081,6 +1081,7 @@ select is(
     'afinidad_de',
     'afinidad_roomie_de',
     'agregar_funcion',
+    'buscar_codigo_postal',
     'consumir_cuota',
     'contactos_de_mis_publicaciones',
     'distancia_km',
@@ -3098,6 +3099,32 @@ select limpiar_errores_app();
 select is((select count(*)::int from errores_app where version_app = '1.1.0'), 0, 'limpieza: lo que no se repite en 30 días se borra' );
 select is((select coalesce(sum(conteo), 0)::int from errores_app where version_app = '2.0.0'), 40, 'limpieza: lo reciente se conserva' );
 select is((select count(*)::int from cron.job where jobname = 'limpiar-errores-app'), 1, 'limpieza: está programada' );
+
+-- ── Códigos postales (0069) ─────────────────────────────────────────────────
+select actuar_como_servicio();
+insert into codigos_postales (cp, estado, municipio, ciudad, asentamiento, tipo) values
+  ('52044', 'México', 'Lerma', 'Santa María Atarasquillo', 'Santa María Atarasquillo', 'Pueblo'),
+  ('52044', 'México', 'Lerma', 'Santa María Atarasquillo', 'Barrio La Concepción', 'Barrio'),
+  ('06000', 'Ciudad de México', 'Cuauhtémoc', 'Ciudad de México', 'Centro (Área 1)', 'Colonia'),
+  ('01000', 'Ciudad de México', 'Álvaro Obregón', null, 'San Ángel', 'Colonia');
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is((select colonias from buscar_codigo_postal('52044')), array['Barrio La Concepción', 'Santa María Atarasquillo'],
+  'cp: devuelve TODAS las colonias del código, ordenadas' );
+select is((select estado || ' / ' || municipio || ' / ' || ciudad from buscar_codigo_postal('52044')), 'México / Lerma / Santa María Atarasquillo',
+  'cp: y el estado, municipio y ciudad' );
+select is((select count(*)::int from buscar_codigo_postal('06000')), 1, 'cp: UNA fila por código' );
+select is((select ciudad from buscar_codigo_postal('01000')), null, 'cp: sin ciudad queda nulo (no se inventa)' );
+select is((select count(*)::int from buscar_codigo_postal('99999')), 0, 'cp: un código que no existe devuelve cero filas, no un error' );
+select is((select count(*)::int from buscar_codigo_postal(' 06000 ')), 1, 'cp: recorta espacios' );
+select throws_ok($$select * from buscar_codigo_postal('0600')$$, '22023', null, 'cp: un código de 4 dígitos se rechaza' );
+select throws_ok($$select * from buscar_codigo_postal('06000; drop table usuarios')$$, '22023', null, 'cp: una cadena rara se rechaza (no llega a la consulta)' );
+select throws_ok($$select * from buscar_codigo_postal('abcde')$$, '22023', null, 'cp: letras se rechazan' );
+select throws_ok($$select * from buscar_codigo_postal(null)$$, '22023', null, 'cp: nulo se rechaza' );
+select throws_ok($$select * from codigos_postales$$, '42501', null, 'cp: la tabla NO se lee desde el cliente (solo por la RPC)' );
+select throws_ok($$insert into codigos_postales (cp, estado, municipio, asentamiento) values ('11111', 'x', 'x', 'x')$$, '42501', null, 'cp: ni se escribe' );
+select is(has_function_privilege('anon', 'public.buscar_codigo_postal(text)', 'execute'), false, 'cp: anon no la ejecuta' );
+select actuar_como_servicio();
+select throws_ok($$insert into codigos_postales (cp, estado, municipio, asentamiento) values ('1234', 'x', 'x', 'x')$$, '23514', null, 'cp: un código mal formado no entra a la tabla' );
 
 select * from finish();
 rollback;
