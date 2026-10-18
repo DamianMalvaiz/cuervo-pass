@@ -61,6 +61,18 @@ test('siempre muestra Estudiante, que es implícito', async () => {
   expect(await screen.findByText('Estudiante')).toBeTruthy();
 });
 
+test('las funciones que se pueden pedir se ofrecen como pastillas con «+»', async () => {
+  await pintar();
+  expect(await screen.findByText('Ofrecer un servicio')).toBeTruthy();
+  expect(screen.getByText('Ofrecer un depa o cuarto')).toBeTruthy();
+});
+
+test('con una función heredada dice «Heredada» en la pastilla', async () => {
+  mockObtener.mockResolvedValue([fila('arrendador', 'aprobado', 'migracion')]);
+  await pintar();
+  expect(await screen.findByText('Heredada')).toBeTruthy();
+});
+
 test('sin funciones extra ofrece agregar las dos', async () => {
   await pintar();
   expect(await screen.findByLabelText(/Agregar función de comerciante/)).toBeTruthy();
@@ -71,7 +83,8 @@ test('una función que ya tienes no se vuelve a ofrecer, y dice su estado', asyn
   mockObtener.mockResolvedValue([fila('comerciante', 'sin_verificar')]);
   await pintar();
   expect(await screen.findByText('Comerciante')).toBeTruthy();
-  expect(screen.getByText(/Sin verificar/)).toBeTruthy();
+  expect(screen.getByText('Sin verificar')).toBeTruthy();
+  expect(screen.getByText(/no te da acceso todavía/)).toBeTruthy();
   expect(screen.queryByLabelText(/Agregar función de comerciante/)).toBeNull();
   expect(screen.getByLabelText(/Agregar función de arrendador/)).toBeTruthy();
 });

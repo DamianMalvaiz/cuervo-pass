@@ -519,7 +519,7 @@ Esta sección existe porque la versión anterior de este archivo describía un s
 
 **3. Ningún par de contraste se ha muestreado sobre el render.** Los valores salen de los tokens declarados, no de píxeles capturados de la pantalla. Un color que llegue por encima —una foto detrás, una capa de sistema— no lo ve el script.
 
-**4. El campo vacío sigue punteado.** `Campo` pinta un borde de guiones cuando está vacío (`punteado`: cuestionario, biografía, roomies). Es de la misma familia que las tramas que se retiraron del tipo de publicación y puede que tampoco guste; está sin decidir.
+**4. El campo vacío ya no es punteado** (17/10/2026). `Campo` pinta el estado vacío con fondo tintado y borde más claro, sin guiones; la propiedad `punteado` solo marca qué campos lo tienen (cuestionario, biografía, roomies).
 
 **5. El mapa de Google se pinta con su tema claro de fábrica** dentro de una hoja en modo oscuro (`MapaUbicacion.tsx`). Es el único rectángulo de la app que no pertenece a este mundo. Y sin clave de Google, en Android no hay mapa: el respaldo es la dirección con «Abrir en Maps», pero **el mapa embebido sigue sin verse en un Android real**.
 

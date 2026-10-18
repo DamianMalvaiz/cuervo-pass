@@ -62,12 +62,10 @@ export const Campo = forwardRef<
               color: theme.text,
               backgroundColor: vacio ? theme.backgroundElement : theme.background,
             },
-            // El discontinuo es un EXTRA, no el portador del significado:
-            // Android ignora `borderStyle: 'dashed'` cuando hay `borderRadius` y
-            // lo pinta sólido. Lo que distingue el estado vacío en los dos
-            // sistemas es el fondo tintado y el filete más claro; en iOS, además,
-            // se ve la discontinua.
-            vacio && estilos.punteado,
+            // Hasta el 17/10/2026 el estado vacío llevaba además un borde de guiones; en un iPhone real se veía
+            // mal y se retiró. Lo que distingue un campo vacío en los dos sistemas es el fondo tintado y el
+            // filete más claro (arriba). La propiedad `punteado` se conserva solo para marcar QUÉ campos tienen
+            // ese estado vacío.
             style,
           ]}
           placeholderTextColor={theme.textSecondary}
@@ -92,7 +90,6 @@ export const Campo = forwardRef<
 
 const estilos = StyleSheet.create({
   bloque: { gap: Spacing.one },
-  punteado: { borderStyle: 'dashed', borderWidth: Filete.grueso },
   entrada: {
     borderWidth: Filete.fino,
     borderRadius: Radios.control,
