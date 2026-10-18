@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(262);
+select plan(302);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1089,6 +1089,8 @@ select is(
     'guardar_menu',
     'mi_suscripcion',
     'nuevas_esta_semana',
+    'reportar_resena',
+    'responder_resena',
     'resumen_conversaciones',
     'revelar_contacto',
     'score_ajuste',
@@ -2338,6 +2340,165 @@ select throws_ok(
   '23505', null, 'planes: no puede haber dos planes gratuitos para la misma función' );
 select is(
   (select count(*)::int from planes), 5, 'planes: el catálogo trae los cinco planes propuestos' );
+
+-- ── Reseñas (0054) ──────────────────────────────────────────────────────────
+-- Objetivo: «Tienda F7» (de f7, visible) y la publicación «Mia» (de a1). Autoras: b2 y a1. Reporteras: e9, d5, f8.
+-- f7 está en plan vigente o con prueba (su negocio es visible) al llegar aquí? Se asegura un periodo vigente.
+select actuar_como_servicio();
+update suscripciones set vigente_hasta = now() + interval '30 days', plan_id = 'comerciante_destacado'
+ where usuario_id = '00000000-0000-0000-0000-0000000000f7' and rol = 'comerciante';
+
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select lives_ok(
+  $$insert into resenas (usuario_id, negocio_id, estrellas, texto)
+    select '00000000-0000-0000-0000-0000000000b2', id, 5, 'Muy buenos tacos' from negocios_publicos where nombre = 'Tienda F7'$$,
+  'reseña: un estudiante reseña un negocio visible' );
+select throws_ok(
+  $$insert into resenas (usuario_id, negocio_id, estrellas)
+    select '00000000-0000-0000-0000-0000000000b2', id, 4 from negocios_publicos where nombre = 'Tienda F7'$$,
+  '23505', null, 'reseña: una sola por persona y negocio' );
+select throws_ok(
+  $$insert into resenas (usuario_id, negocio_id, estrellas)
+    select '00000000-0000-0000-0000-0000000000b2', id, 6 from negocios_publicos where nombre = 'Visible'$$,
+  '23514', null, 'reseña: las estrellas van de 1 a 5' );
+select throws_ok(
+  $$insert into resenas (usuario_id, negocio_id, publicacion_id, estrellas)
+    values ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-00000000b001', '00000000-0000-0000-0000-00000000aa01', 3)$$,
+  '23514', null, 'reseña: o un negocio o una vivienda, no las dos' );
+select throws_ok(
+  $$insert into resenas (usuario_id, negocio_id, estrellas)
+    values ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-00000000b003', 3)$$,
+  '42501', null, 'reseña: un negocio oculto da el MISMO error que uno inexistente (no sirve de sonda)' );
+select throws_ok(
+  $$insert into resenas (usuario_id, negocio_id, estrellas)
+    values ('00000000-0000-0000-0000-0000000000b2', gen_random_uuid(), 3)$$,
+  '42501', null, 'reseña: un negocio que no existe, también' );
+select throws_ok(
+  $$insert into resenas (usuario_id, negocio_id, estrellas)
+    select '00000000-0000-0000-0000-0000000000a1', id, 3 from negocios_publicos where nombre = 'Visible'$$,
+  '42501', null, 'reseña: no se puede reseñar a nombre de otra persona' );
+select throws_ok(
+  $$insert into resenas (usuario_id, negocio_id, estrellas, oculta_por_reportes)
+    select '00000000-0000-0000-0000-0000000000b2', id, 3, false from negocios_publicos where nombre = 'Visible'$$,
+  '42501', null, 'reseña: el cliente no puede fijar la ocultación por reportes' );
+select throws_ok(
+  $$insert into resenas (usuario_id, negocio_id, estrellas, respuesta)
+    select '00000000-0000-0000-0000-0000000000b2', id, 3, 'me respondo a mí' from negocios_publicos where nombre = 'Visible'$$,
+  '42501', null, 'reseña: el cliente no puede escribir la respuesta' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select throws_ok(
+  $$insert into resenas (usuario_id, negocio_id, estrellas)
+    select '00000000-0000-0000-0000-0000000000f7', id, 5 from negocios_publicos where nombre = 'Tienda F7'$$,
+  '42501', null, 'reseña: el dueño no puede reseñar su propio negocio' );
+
+-- La calificación se calcula.
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is(
+  (select calificacion || ':' || num_resenas from negocios_publicos where nombre = 'Tienda F7'),
+  '5.0:1', 'calificación: se calcula sobre las reseñas visibles' );
+select lives_ok(
+  $$insert into resenas (usuario_id, negocio_id, estrellas)
+    select '00000000-0000-0000-0000-0000000000a1', id, 4 from negocios_publicos where nombre = 'Tienda F7'$$,
+  'reseña: una segunda persona también puede' );
+select is(
+  (select calificacion || ':' || num_resenas from negocios_publicos where nombre = 'Tienda F7'),
+  '4.5:2', 'calificación: el promedio de las dos' );
+select is(
+  (select calificacion from negocios_publicos where nombre = 'Visible'), null,
+  'calificación: sin reseñas es null, no un cero inventado' );
+
+-- Lectura.
+select is(
+  (select autor || ':' || es_mia::text from resenas_publicas where texto = 'Muy buenos tacos'),
+  'usuario_b:false', 'vista: trae el nombre de usuario de la autora y marca que no es mía' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is(
+  (select es_mia from resenas_publicas where texto = 'Muy buenos tacos'), true,
+  'vista: la autora ve que la reseña es suya' );
+select is(
+  (select count(*)::int from resenas), 1, 'tabla: cada cuenta lee solo sus propias reseñas' );
+
+-- Editar lo propio.
+select lives_ok(
+  $$update resenas set estrellas = 5, texto = 'Excelentes tacos' where texto = 'Muy buenos tacos'$$,
+  'reseña: la autora edita la suya' );
+select throws_ok(
+  $$update resenas set respuesta = 'x' where texto = 'Excelentes tacos'$$,
+  '42501', null, 'reseña: la autora no puede escribir la respuesta' );
+select throws_ok(
+  $$update resenas set oculta_por_reportes = true where texto = 'Excelentes tacos'$$,
+  '42501', null, 'reseña: ni ocultarse a sí misma' );
+
+-- Responder.
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select throws_ok(
+  $$select responder_resena((select id from resenas_publicas where texto = 'Excelentes tacos'), 'Gracias')$$,
+  '42501', null, 'responder: quien no es dueño del negocio no puede' );
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select lives_ok(
+  $$select responder_resena((select id from resenas_publicas where texto = 'Excelentes tacos'), '  Gracias por venir  ')$$,
+  'responder: el dueño responde' );
+select is(
+  (select respuesta from resenas_publicas where texto = 'Excelentes tacos'), 'Gracias por venir',
+  'responder: la respuesta se ve en la reseña, sin espacios sobrantes' );
+select is((select count(*)::int from resenas), 0, 'tabla: el dueño NO lee las reseñas ajenas desde la tabla');
+select lives_ok(
+  $$delete from resenas where texto = 'Excelentes tacos'$$, 'borrar: el dueño intenta borrar una reseña ajena (RLS lo filtra, sin error)' );
+select actuar_como_servicio();
+select is(
+  (select count(*)::int from resenas where texto = 'Excelentes tacos'), 1, 'borrar: pero la reseña sigue ahí: el dueño responde, no borra' );
+
+-- Reportar.
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select throws_ok(
+  $$select reportar_resena((select id from resenas_publicas where texto = 'Excelentes tacos'), 'spam')$$,
+  '42501', null, 'reportar: nadie reporta su propia reseña' );
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select throws_ok(
+  $$select reportar_resena(gen_random_uuid(), 'spam')$$, '42501', null, 'reportar: una reseña que no existe da el mismo error' );
+select lives_ok(
+  $$select reportar_resena((select id from resenas_publicas where texto = 'Excelentes tacos'), 'lenguaje ofensivo')$$,
+  'reportar: se puede reportar una reseña ajena' );
+select lives_ok(
+  $$select reportar_resena((select id from resenas_publicas where texto = 'Excelentes tacos'), 'otra vez')$$,
+  'reportar: reportar dos veces no es un error' );
+select actuar_como('00000000-0000-0000-0000-0000000000d5');
+select lives_ok($$select reportar_resena((select id from resenas_publicas where texto = 'Excelentes tacos'), 'spam')$$, 'reportar: segunda persona');
+select is(
+  (select count(*)::int from resenas_publicas where texto = 'Excelentes tacos'), 1,
+  'reportar: con dos reportes (y uno repetido) sigue visible: la misma persona no cuenta dos veces' );
+select actuar_como('00000000-0000-0000-0000-0000000000f8');
+select lives_ok($$select reportar_resena((select id from resenas_publicas where texto = 'Excelentes tacos'), 'spam')$$, 'reportar: tercera persona');
+select is(
+  (select count(*)::int from resenas_publicas where texto = 'Excelentes tacos'), 0,
+  'reportar: tres personas distintas la ocultan' );
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is(
+  (select calificacion || ':' || num_resenas from negocios_publicos where nombre = 'Tienda F7'),
+  '4.0:1', 'calificación: una reseña oculta deja de contar en el promedio' );
+
+-- Viviendas. Una publicación visible de f8.
+select actuar_como_servicio();
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta, whatsapp)
+values ('00000000-0000-0000-0000-00000000aa77', '00000000-0000-0000-0000-0000000000f8', 'Reseñable', 'cuarto', 'Calle R9', 2100, '5512345678');
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select lives_ok(
+  $$insert into resenas (usuario_id, publicacion_id, estrellas, texto)
+    values ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-00000000aa77', 3, 'Cuarto correcto')$$,
+  'reseña: también se reseñan las viviendas' );
+select is(
+  (select calificacion || ':' || num_resenas from calificacion_publicaciones where publicacion_id = '00000000-0000-0000-0000-00000000aa77'),
+  '3.0:1', 'calificación de una vivienda: se calcula aparte' );
+select actuar_como('00000000-0000-0000-0000-0000000000f8');
+select throws_ok(
+  $$insert into resenas (usuario_id, publicacion_id, estrellas)
+    values ('00000000-0000-0000-0000-0000000000f8', '00000000-0000-0000-0000-00000000aa77', 5)$$,
+  '42501', null, 'reseña: el dueño de una vivienda no puede reseñarla' );
+
+select actuar_como_servicio();
+select is(has_table_privilege('anon', 'public.resenas_publicas', 'select'), false, 'anon no lee las reseñas');
+select is(has_table_privilege('authenticated', 'public.resenas_reportes', 'select'), false, 'los reportes de reseñas no los lee el cliente');
 
 select * from finish();
 rollback;
