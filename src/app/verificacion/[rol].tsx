@@ -7,6 +7,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
 import { Casilla } from '@/components/Casilla';
+import { SeccionRostro } from '@/components/SeccionRostro';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
@@ -173,6 +174,7 @@ export default function VerificacionScreen() {
             Recibimos tus documentos y una persona del equipo los revisa a mano. Mientras tanto no puedes publicar.
           </ThemedText>
         </View>
+        <SeccionRostro rol={rol} />
       </>
     );
   }
