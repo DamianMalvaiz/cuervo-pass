@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(302);
+select plan(318);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1088,6 +1088,7 @@ select is(
     'favoritos_por_publicacion',
     'guardar_menu',
     'mi_suscripcion',
+    'negocios_ordenados',
     'nuevas_esta_semana',
     'reportar_resena',
     'responder_resena',
@@ -2499,6 +2500,87 @@ select throws_ok(
 select actuar_como_servicio();
 select is(has_table_privilege('anon', 'public.resenas_publicas', 'select'), false, 'anon no lee las reseñas');
 select is(has_table_privilege('authenticated', 'public.resenas_reportes', 'select'), false, 'los reportes de reseñas no los lee el cliente');
+
+-- ── Ranking de Servicios (0055) ─────────────────────────────────────────────
+-- a1 tiene su universidad en (19.28, -99.55). Negocios de ejemplo con coordenadas controladas; todos «viejos» (100 días) para que
+-- la novedad no interfiera, salvo en la prueba de novedad.
+select actuar_como_servicio();
+insert into categorias_servicio (id, nombre, icono, orden) values ('cafes', 'Cafés', 'cafe-outline', 3) on conflict do nothing;
+insert into negocios (categoria_id, nombre, direccion, latitud, longitud, origen, creado_en, destacado) values
+  ('comida', 'R-cerca', 'Calle X', 19.281, -99.551, 'sembrado', now() - interval '100 days', false),
+  ('comida', 'R-media', 'Calle X', 19.300, -99.550, 'sembrado', now() - interval '100 days', false),
+  ('comida', 'R-lejos', 'Calle X', 19.400, -99.550, 'sembrado', now() - interval '100 days', false),
+  ('comida', 'Q-alto',  'Calle X', 19.281, -99.551, 'sembrado', now() - interval '100 days', false),
+  ('comida', 'Q-sin',   'Calle X', 19.281, -99.551, 'sembrado', now() - interval '100 days', false),
+  ('comida', 'Q-bajo',  'Calle X', 19.281, -99.551, 'sembrado', now() - interval '100 days', false),
+  ('cafes',  'T-cerca', 'Calle X', 19.281, -99.551, 'sembrado', now() - interval '100 days', false),
+  ('cafes',  'T-lejos-dest', 'Calle X', 19.400, -99.550, 'sembrado', now() - interval '100 days', true),
+  ('comida', 'N-nuevo', 'Calle X', 19.281, -99.551, 'sembrado', now(), false),
+  ('comida', 'N-viejo', 'Calle X', 19.281, -99.551, 'sembrado', now() - interval '100 days', false),
+  ('comida', 'P-100%', 'Calle X', 19.281, -99.551, 'sembrado', now() - interval '100 days', false);
+-- Cinco reseñas de personas distintas: 5 estrellas para Q-alto, 2 para Q-bajo, ninguna para Q-sin.
+insert into resenas (usuario_id, negocio_id, estrellas)
+select u, n.id, case n.nombre when 'Q-alto' then 5 else 2 end
+  from unnest(array['00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-0000000000c3',
+                    '00000000-0000-0000-0000-0000000000d5', '00000000-0000-0000-0000-0000000000e9']::uuid[]) u,
+       negocios n
+ where n.nombre in ('Q-alto', 'Q-bajo');
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is(
+  (select array_agg(nombre order by puntaje desc, nombre) from negocios_ordenados(null, 'R-')),
+  array['R-cerca', 'R-media', 'R-lejos'], 'ranking: a igualdad de todo lo demás, lo más CERCA va primero' );
+select is(
+  (select array_agg(nombre) from negocios_ordenados(null, 'R-')),
+  array['R-cerca', 'R-media', 'R-lejos'], 'ranking: la función ya devuelve ese orden' );
+select ok(
+  (select abs(distancia_km - 0.15) < 0.1 from negocios_ordenados(null, 'R-cerca')),
+  'ranking: devuelve la distancia en km desde TU universidad' );
+
+select is(
+  (select array_agg(nombre) from negocios_ordenados(null, 'Q-')),
+  array['Q-alto', 'Q-sin', 'Q-bajo'],
+  'ranking: bien calificado > sin reseñas > mal calificado (calificación bayesiana con prior)' );
+
+select is(
+  (select array_agg(nombre) from negocios_ordenados('cafes', null)),
+  array['T-lejos-dest', 'T-cerca'], 'ranking: un DESTACADO va primero aunque esté más lejos (es el nivel del plan)' );
+
+select is(
+  (select array_agg(nombre) from negocios_ordenados(null, 'N-')),
+  array['N-nuevo', 'N-viejo'], 'ranking: a igualdad, el negocio NUEVO gana (arranque en frío)' );
+
+-- Filtros en el servidor.
+select is(
+  (select count(*)::int from negocios_ordenados('cafes', null)), 2, 'filtro: la categoría se aplica en el servidor' );
+select is(
+  (select count(*)::int from negocios_ordenados(null, '%')), 1,
+  'filtro: «%» no es «todo»: los comodines de LIKE se escapan' );
+select is(
+  (select count(*)::int from negocios_ordenados(null, '   ')), (select count(*)::int from negocios_ordenados(null, null)),
+  'filtro: un texto en blanco no filtra' );
+select is(
+  (select count(*)::int from negocios_ordenados(null, null, 2)), 2, 'límite: se respeta el que se pide' );
+select ok(
+  (select count(*)::int from negocios_ordenados(null, null, 100000)) <= 100, 'límite: se acota a 100 por llamada' );
+select is(
+  (select count(*)::int from negocios_ordenados(null, 'Inactivo') where id = '00000000-0000-0000-0000-00000000b002'), 0,
+  'visibilidad: un negocio inactivo no entra al ranking' );
+select ok(
+  (select bool_and(puntaje between 0 and 1) from negocios_ordenados(null, null)), 'puntaje: siempre está entre 0 y 1' );
+
+-- Sin dato de ubicación: neutro, no un error.
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select ok(
+  (select bool_and(distancia_km is null) from negocios_ordenados(null, 'R-')),
+  'sin universidad registrada la distancia es null (no se inventa)' );
+select is(
+  (select array_agg(nombre) from negocios_ordenados(null, 'Q-')),
+  array['Q-alto', 'Q-sin', 'Q-bajo'], 'sin ubicación, la calidad sigue ordenando' );
+
+-- Sin sesión no devuelve nada.
+select actuar_como_servicio();
+select is((select count(*)::int from negocios_ordenados(null, null)), 0, 'sin sesión no devuelve nada');
 
 select * from finish();
 rollback;
