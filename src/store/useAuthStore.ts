@@ -14,13 +14,16 @@ interface DatosRegistro {
   password: string;
   nombreUsuario: string;
   nombreCompleto: string;
+  /** Se guarda en el servidor al crear la cuenta (migración 0046): sin sesión no hay quién lo escriba desde el cliente. */
+  aceptoAviso: boolean;
 }
 
 interface AuthState {
   session: Session | null;
   cargando: boolean;
   iniciarSesion: (email: string, password: string) => Promise<void>;
-  registrarse: (datos: DatosRegistro) => Promise<void>;
+  /** `requiereConfirmacion`: la cuenta existe pero no hay sesión hasta que se abra el enlace del correo. */
+  registrarse: (datos: DatosRegistro) => Promise<{ requiereConfirmacion: boolean }>;
   cerrarSesion: () => Promise<void>;
   cargarSesionInicial: () => Promise<void>;
   detenerEscuchaSesion: () => void;
@@ -143,14 +146,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // que dejaba una ventana en la que existía la cuenta de Auth y no el perfil:
   // si la app se cerraba entre las dos llamadas, la cuenta quedaba rota y nada
   // lo reparaba.
-  registrarse: async ({ email, password, nombreUsuario, nombreCompleto }) => {
+  registrarse: async ({ email, password, nombreUsuario, nombreCompleto, aceptoAviso }) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { nombre_usuario: nombreUsuario, nombre_completo: nombreCompleto } },
+      options: {
+        data: { nombre_usuario: nombreUsuario, nombre_completo: nombreCompleto, acepto_aviso: aceptoAviso },
+      },
     });
     if (error) throw error;
     set({ session: data.session });
+    // Sin sesión = hay que confirmar el correo. También ocurre con un correo YA registrado: Supabase responde
+    // igual (sin error) para no revelar qué correos existen, y la respuesta correcta es la misma.
+    return { requiereConfirmacion: !data.session };
   },
 
   cerrarSesion: async () => {

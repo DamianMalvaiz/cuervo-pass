@@ -23,6 +23,7 @@ import { evaluarPassword } from '@/lib/password';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { aviso } from '@/lib/registro';
+import { reenviarConfirmacion } from '@/lib/confirmacionCorreo';
 
 // Documento maestro v5 · §25 y §29. El aviso se lee DENTRO de la app
 // (src/app/aviso-privacidad.tsx), no en un enlace externo: pedir que se acepte
@@ -81,6 +82,9 @@ export default function RegistroScreen() {
   const registrarse = useAuthStore((s) => s.registrarse);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // Correo al que se mandó la confirmación; mientras tenga valor se enseña «Revisa tu correo».
+  const [pendiente, setPendiente] = useState<string | null>(null);
+  const [reenvio, setReenvio] = useState<'ninguno' | 'enviado' | 'fallo'>('ninguno');
 
   const {
     control,
@@ -111,12 +115,20 @@ export default function RegistroScreen() {
       // §12: la fila de `usuarios` ya NO la inserta el cliente. La crea el
       // trigger handle_new_user con estos metadatos, así que no existe la
       // ventana en la que hay cuenta de Auth sin perfil.
-      await registrarse({
+      const { requiereConfirmacion } = (await registrarse({
         email: datos.email,
         password: datos.password,
         nombreUsuario: datos.nombreUsuario,
         nombreCompleto,
-      });
+        aceptoAviso: datos.aceptoAviso,
+      })) ?? { requiereConfirmacion: false };
+
+      // Sin sesión no se puede seguir: ni el consentimiento (lo escribe el trigger) ni el cuestionario
+      // (necesita a la persona autenticada). Se espera a que abra el enlace del correo.
+      if (requiereConfirmacion) {
+        setPendiente(datos.email);
+        return;
+      }
 
       const { data: sesion } = await supabase.auth.getUser();
       if (sesion.user) {
@@ -136,6 +148,49 @@ export default function RegistroScreen() {
       setEnviando(false);
     }
   };
+
+  const onReenviar = async () => {
+    if (!pendiente) return;
+    setReenvio((await reenviarConfirmacion(pendiente)) ? 'enviado' : 'fallo');
+  };
+
+  if (pendiente) {
+    return (
+      <ThemedView style={estilos.pantalla}>
+        <ScrollView contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]}>
+          <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
+            <Ionicons name="mail-outline" size={48} color={theme.text} />
+            <ThemedText type="title" style={escalarTexto(Texto.tituloHoja, escalaTitulo)}>
+              Revisa tu correo
+            </ThemedText>
+            <ThemedText themeColor="textSecondary">
+              Te mandamos un enlace a {pendiente}. Ábrelo para activar tu cuenta y después entra con tu contraseña.
+              Si no lo ves, mira en spam.
+            </ThemedText>
+            {reenvio === 'enviado' && <ThemedText type="small">Listo, te lo mandamos otra vez.</ThemedText>}
+            {reenvio === 'fallo' && (
+              <ThemedText type="small" style={{ color: theme.errorTexto }}>
+                No pudimos reenviarlo. Espera unos minutos e inténtalo de nuevo.
+              </ThemedText>
+            )}
+            <Sello onPress={() => router.replace('/(auth)/login')} accessibilityLabel="Ya confirmé, entrar">
+              Ya confirmé · Entrar
+            </Sello>
+            <Pressable
+              onPress={onReenviar}
+              accessibilityRole="button"
+              accessibilityLabel="Reenviar correo"
+              style={estilos.enlace}
+            >
+              <ThemedText type="small" themeColor="acento">
+                Reenviar correo
+              </ThemedText>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={estilos.pantalla}>

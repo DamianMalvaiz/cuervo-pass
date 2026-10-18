@@ -11,6 +11,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 const mockIniciarSesion = jest.fn();
 const mockReplace = jest.fn();
 const mockSingle = jest.fn();
+const mockReenviar = jest.fn();
 
 jest.mock('expo-router', () => ({
   router: { replace: (...a: unknown[]) => mockReplace(...a), push: jest.fn() },
@@ -21,7 +22,10 @@ jest.mock('@/store/useAuthStore', () => ({
 }));
 jest.mock('@/lib/supabase', () => ({
   supabase: {
-    auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'u1' } } }) },
+    auth: {
+      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'u1' } } }),
+      resend: (...a: unknown[]) => mockReenviar(...a),
+    },
     from: () => ({ select: () => ({ eq: () => ({ single: () => mockSingle() }) }) }),
   },
 }));
@@ -42,6 +46,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockIniciarSesion.mockResolvedValue(undefined);
   mockSingle.mockResolvedValue({ data: { universidad: 'UTVT' } });
+  mockReenviar.mockResolvedValue({ error: null });
 });
 
 // Cuervo 360 · la portada de entrada lleva el logo y el nombre nuevo, y ya no el anterior.
@@ -98,5 +103,30 @@ describe('cuando falla', () => {
     await waitFor(() => expect(screen.getByText(/network request failed/i)).toBeTruthy());
     expect(screen.queryByText(/no coinciden/i)).toBeNull();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+});
+
+// «Email not confirmed» es el error que verá quien se registró y aún no abrió el correo. En inglés no dice qué
+// hacer; y acusarle de contraseña incorrecta lo mandaría a cambiarla sin necesidad.
+describe('correo sin confirmar', () => {
+  it('lo dice en español y ofrece reenviar el correo', async () => {
+    mockIniciarSesion.mockRejectedValue(new Error('Email not confirmed'));
+    await entrar('ana@utvtol.edu.mx');
+
+    await waitFor(() => expect(screen.getByText(/Aún no confirmas tu correo/i)).toBeTruthy());
+    expect(screen.queryByText(/Email not confirmed/i)).toBeNull();
+    expect(screen.queryByText(/no coinciden/i)).toBeNull();
+
+    await interactuar(() => fireEvent.press(screen.getByLabelText('Reenviar correo de confirmación')));
+    await waitFor(() =>
+      expect(mockReenviar).toHaveBeenCalledWith({ type: 'signup', email: 'ana@utvtol.edu.mx' })
+    );
+  });
+
+  it('con otro error no ofrece reenviar nada', async () => {
+    mockIniciarSesion.mockRejectedValue(new Error('Invalid login credentials'));
+    await entrar();
+    await waitFor(() => expect(screen.getByText(/no coinciden/i)).toBeTruthy());
+    expect(screen.queryByLabelText('Reenviar correo de confirmación')).toBeNull();
   });
 });

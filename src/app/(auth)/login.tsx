@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import '@/lib/zodEs';
@@ -16,6 +16,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto, escalarTexto } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { reenviarConfirmacion } from '@/lib/confirmacionCorreo';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -38,6 +39,9 @@ export default function LoginScreen() {
   const iniciarSesion = useAuthStore((s) => s.iniciarSesion);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // Correo que intentó entrar sin haber confirmado; con valor se ofrece reenviar el enlace.
+  const [sinConfirmar, setSinConfirmar] = useState<string | null>(null);
+  const [reenvioFallo, setReenvioFallo] = useState(false);
 
   const {
     control,
@@ -47,6 +51,8 @@ export default function LoginScreen() {
 
   const onSubmit = async (datos: FormLogin) => {
     setErrorServidor(null);
+    setSinConfirmar(null);
+    setReenvioFallo(false);
     setEnviando(true);
     try {
       await iniciarSesion(datos.email, datos.password);
@@ -65,6 +71,11 @@ export default function LoginScreen() {
       // credentials", que no le sirve a nadie. Se traduce lo único que de
       // verdad puede estar pasando.
       const crudo = e instanceof Error ? e.message : '';
+      if (/email not confirmed/i.test(crudo)) {
+        setSinConfirmar(datos.email);
+        setErrorServidor('Aún no confirmas tu correo. Abre el enlace que te mandamos (revisa también spam) y vuelve a entrar.');
+        return;
+      }
       setErrorServidor(
         /invalid login credentials/i.test(crudo)
           ? 'El correo o la contraseña no coinciden. Revísalos e intenta otra vez.'
@@ -150,6 +161,24 @@ export default function LoginScreen() {
                   {errorServidor}
                 </ThemedText>
               </View>
+            )}
+
+            {sinConfirmar && (
+              <Pressable
+                onPress={async () => setReenvioFallo(!(await reenviarConfirmacion(sinConfirmar)))}
+                accessibilityRole="button"
+                accessibilityLabel="Reenviar correo de confirmación"
+                style={estilos.enlace}
+              >
+                <ThemedText type="small" themeColor="acento">
+                  Reenviar correo de confirmación
+                </ThemedText>
+              </Pressable>
+            )}
+            {reenvioFallo && (
+              <ThemedText type="small" style={{ color: theme.errorTexto }}>
+                No pudimos reenviarlo. Espera unos minutos e inténtalo de nuevo.
+              </ThemedText>
             )}
 
             <View style={estilos.accion}>

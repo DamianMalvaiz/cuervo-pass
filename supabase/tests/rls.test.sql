@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(141);
+select plan(144);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1758,6 +1758,31 @@ select is(
   has_function_privilege('anon', 'public.favoritos_por_publicacion(uuid[])', 'execute'),
   false,
   'anon no puede ejecutar el conteo' );
+
+-- ── Consentimiento en el alta (0046) ────────────────────────────────────────
+select actuar_como_servicio();
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data)
+values
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f7',
+   'authenticated', 'authenticated', 'consiente@test.mx', '', now(), now(),
+   '{"nombre_usuario":"usuario_f7","acepto_aviso":true}'),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f8',
+   'authenticated', 'authenticated', 'dudoso@test.mx', '', now(), now(),
+   '{"nombre_usuario":"usuario_f8","acepto_aviso":"quizá"}');
+
+select isnt(
+  (select acepto_aviso_privacidad_en from usuarios where id = '00000000-0000-0000-0000-0000000000f7'),
+  null,
+  'el alta con acepto_aviso=true deja la marca de consentimiento escrita por el servidor' );
+select is(
+  (select acepto_aviso_privacidad_en from usuarios where id = '00000000-0000-0000-0000-0000000000a1'),
+  null,
+  'sin el metadato no hay marca: no se inventa un consentimiento' );
+select is(
+  (select acepto_aviso_privacidad_en from usuarios where id = '00000000-0000-0000-0000-0000000000f8'),
+  null,
+  'un valor que no es true no cuenta como consentimiento, y el alta no se tumba' );
 
 select * from finish();
 rollback;

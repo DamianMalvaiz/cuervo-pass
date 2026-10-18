@@ -13,9 +13,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 // sostiene el umbral de tres reportes de END-03.
 
 const mockRegistrarse = jest.fn();
+const mockReenviar = jest.fn();
+const mockReplace = jest.fn();
+const mockUpdate = jest.fn();
 
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), replace: jest.fn() },
+  router: { push: jest.fn(), replace: (...a: unknown[]) => mockReplace(...a) },
   Link: ({ children }: { children: unknown }) => children,
 }));
 jest.mock('@/store/useAuthStore', () => ({
@@ -23,8 +26,11 @@ jest.mock('@/store/useAuthStore', () => ({
 }));
 jest.mock('@/lib/supabase', () => ({
   supabase: {
-    auth: { getUser: jest.fn().mockResolvedValue({ data: { user: null } }) },
-    from: () => ({ update: () => ({ eq: () => Promise.resolve({ error: null }) }) }),
+    auth: {
+      getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
+      resend: (...a: unknown[]) => mockReenviar(...a),
+    },
+    from: () => ({ update: (...a: unknown[]) => { mockUpdate(...a); return { eq: () => Promise.resolve({ error: null }) }; } }),
   },
 }));
 jest.mock('@/lib/registro', () => ({ aviso: jest.fn(), fallo: jest.fn() }));
@@ -69,7 +75,10 @@ async function rellenar({
   await interactuar(() => fireEvent.press(screen.getByLabelText('Crear cuenta')));
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockReenviar.mockResolvedValue({ error: null });
+});
 
 describe('correo institucional · END-07', () => {
   it('rechaza un correo personal y dice qué se acepta', async () => {
@@ -112,5 +121,60 @@ describe('contraseñas', () => {
 
     await waitFor(() => expect(screen.getByText(/no coinciden/i)).toBeTruthy());
     expect(mockRegistrarse).not.toHaveBeenCalled();
+  });
+});
+
+// Con «Confirm email» activo en Supabase, `signUp` NO devuelve sesión: la cuenta existe pero nadie ha probado
+// que el correo sea suyo. Antes el registro seguía como si hubiera sesión y mandaba al cuestionario, donde
+// todo falla. Ahora se detiene en «Revisa tu correo».
+describe('confirmación de correo', () => {
+  it('sin sesión, avisa que revise su correo y NO sigue al cuestionario', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    await rellenar({ email: 'ana@utvtol.edu.mx' });
+
+    await waitFor(() => expect(screen.getByText('Revisa tu correo')).toBeTruthy());
+    expect(screen.getByText(/ana@utvtol\.edu\.mx/)).toBeTruthy();
+    expect(mockReplace).not.toHaveBeenCalled();
+    // Sin sesión no hay quién escriba el consentimiento desde el cliente: lo escribe el trigger.
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('manda la aceptación del aviso en los datos del alta, para que la marque el servidor', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    await rellenar();
+
+    await waitFor(() => expect(mockRegistrarse).toHaveBeenCalled());
+    expect(mockRegistrarse).toHaveBeenCalledWith(expect.objectContaining({ aceptoAviso: true }));
+  });
+
+  it('permite reenviar el correo', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    await rellenar({ email: 'ana@utvtol.edu.mx' });
+    await waitFor(() => expect(screen.getByText('Revisa tu correo')).toBeTruthy());
+
+    await interactuar(() => fireEvent.press(screen.getByLabelText('Reenviar correo')));
+
+    await waitFor(() =>
+      expect(mockReenviar).toHaveBeenCalledWith({ type: 'signup', email: 'ana@utvtol.edu.mx' })
+    );
+  });
+
+  it('si el reenvío falla lo dice, no finge que salió', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    mockReenviar.mockResolvedValue({ error: new Error('rate limit') });
+    await rellenar();
+    await waitFor(() => expect(screen.getByText('Revisa tu correo')).toBeTruthy());
+
+    await interactuar(() => fireEvent.press(screen.getByLabelText('Reenviar correo')));
+
+    await waitFor(() => expect(screen.getByText(/No pudimos reenviarlo/i)).toBeTruthy());
+  });
+
+  it('con sesión (confirmación apagada) sigue el flujo de siempre', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: false });
+    await rellenar();
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/cuestionario-inicial'));
+    expect(screen.queryByText('Revisa tu correo')).toBeNull();
   });
 });
