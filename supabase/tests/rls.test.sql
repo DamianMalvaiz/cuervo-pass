@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(185);
+select plan(190);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1983,6 +1983,39 @@ select is(
 select is(
   has_function_privilege('anon', 'public.barrer_verificaciones_programado()', 'execute'),
   false, 'anon no puede ejecutar el barrido de la INE' );
+
+-- ── Solo un arrendador aprobado publica (0051) ──────────────────────────────
+-- f7 tiene `arrendador` PENDIENTE (reenvió tras un rechazo más arriba); e9 es una cuenta nueva, sin la función.
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select throws_ok(
+  $$insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp)
+    values ('00000000-0000-0000-0000-0000000000f7', 'Sin aprobar', 'depa', 'Calle R1', 2500, '5512345678')$$,
+  '42501', null, 'publicar: con la función pendiente la base rechaza la publicación' );
+select actuar_como_servicio();
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data)
+values ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000e9', 'authenticated', 'authenticated',
+        'sinfuncion@test.mx', '', now(), now(), '{"nombre_usuario":"usuario_e9"}');
+select actuar_como('00000000-0000-0000-0000-0000000000e9');
+select throws_ok(
+  $$insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp)
+    values ('00000000-0000-0000-0000-0000000000e9', 'Sin función', 'depa', 'Calle R2', 2500, '5512345678')$$,
+  '42501', null, 'publicar: sin la función tampoco' );
+
+select actuar_como_servicio();
+select resolver_verificacion('00000000-0000-0000-0000-0000000000f7', 'arrendador', true, null, '00000000-0000-0000-0000-0000000000a1');
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select lives_ok(
+  $$insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp)
+    values ('00000000-0000-0000-0000-0000000000f7', 'Ya aprobada', 'depa', 'Calle R3', 2500, '5512345678')$$,
+  'publicar: aprobada la función, la base deja publicar' );
+select throws_ok(
+  $$insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp)
+    values ('00000000-0000-0000-0000-0000000000b2', 'A nombre de otra', 'depa', 'Calle R4', 2500, '5512345678')$$,
+  '42501', null, 'publicar: aprobada, solo a nombre propio' );
+select lives_ok(
+  $$update publicaciones set titulo = 'Ya aprobada (editada)' where usuario_id = '00000000-0000-0000-0000-0000000000f7'$$,
+  'la dueña sigue pudiendo editar lo suyo' );
 
 select * from finish();
 rollback;
