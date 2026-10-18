@@ -12,6 +12,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useMiniaturas } from '@/hooks/use-miniaturas';
+import { ANCHOS } from '@/lib/miniaturas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
@@ -55,6 +57,7 @@ export function VistaRoomies({ selector }: { selector?: ReactNode }) {
   }, [miRoomie]);
 
   const { urls: urlsFirmadas } = useFotosFirmadas(roomies.map((r) => r.foto_url));
+  const miniaturas = useMiniaturas(roomies.map((r) => r.foto_url), ANCHOS.avatar);
 
   const onGuardarMiRoomie = async (nuevoEstado: boolean) => {
     const miId = session?.user.id;
@@ -191,6 +194,7 @@ export function VistaRoomies({ selector }: { selector?: ReactNode }) {
             nombreUsuario={item.nombre_completo}
             descripcionBusqueda={item.descripcion_busqueda}
             fotoUrl={item.foto_url ? urlsFirmadas.get(item.foto_url) : null}
+            fotoMini={miniaturas(item.foto_url)}
             afinidad={item.similitud}
             compatibilidad={item.compatibilidad}
             coincidencias={item.coincidencias}

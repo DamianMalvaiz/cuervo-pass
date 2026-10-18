@@ -14,6 +14,8 @@ import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useCategoriasServicio, useNegocios } from '@/hooks/queries/useServicios';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useMiniaturas } from '@/hooks/use-miniaturas';
+import { ANCHOS } from '@/lib/miniaturas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
@@ -38,11 +40,15 @@ export function VistaServicios({ selector }: { selector?: ReactNode }) {
   const { categorias } = useCategoriasServicio();
   const { negocios, cargando, fallo, reintentar } = useNegocios({ categoriaId, texto });
   const { urls } = useFotosFirmadas(negocios.map((n) => n.fotos[0]));
+  // Miniaturas sin red (lib/miniaturas.ts): la tarjeta destacada pide más ancho que la fila.
+  const miniDestacadas = useMiniaturas(negocios.map((n) => n.fotos[0]), ANCHOS.media);
+  const miniFilas = useMiniaturas(negocios.map((n) => n.fotos[0]), ANCHOS.fila);
 
   const filtrando = Boolean(categoriaId) || texto.trim() !== '';
   const destacados = filtrando ? [] : negocios.filter((n) => n.destacado);
   const abrir = (n: Negocio) => router.push({ pathname: '/negocio/[id]', params: { id: n.id } });
   const foto = (n: Negocio) => (n.fotos[0] ? urls.get(n.fotos[0]) : null);
+  const mini = (n: Negocio, destacado: boolean) => (destacado ? miniDestacadas : miniFilas)(n.fotos[0]);
 
   const cabecera = (
     <View style={estilos.cabecera}>
@@ -100,7 +106,7 @@ export function VistaServicios({ selector }: { selector?: ReactNode }) {
           <ThemedText type="subtitle">Destacados cerca de ti</ThemedText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.carril}>
             {destacados.map((n) => (
-              <TarjetaNegocio key={n.id} negocio={n} fotoUrl={foto(n)} forma="destacado" onPress={() => abrir(n)} />
+              <TarjetaNegocio key={n.id} negocio={n} fotoUrl={foto(n)} fotoMini={mini(n, true)} forma="destacado" onPress={() => abrir(n)} />
             ))}
           </ScrollView>
         </View>
@@ -122,7 +128,7 @@ export function VistaServicios({ selector }: { selector?: ReactNode }) {
         ItemSeparatorComponent={Separador}
         renderItem={({ item }) => (
           <View style={estilos.margen}>
-            <TarjetaNegocio negocio={item} fotoUrl={foto(item)} onPress={() => abrir(item)} />
+            <TarjetaNegocio negocio={item} fotoUrl={foto(item)} fotoMini={mini(item, false)} onPress={() => abrir(item)} />
           </View>
         )}
         ListEmptyComponent={

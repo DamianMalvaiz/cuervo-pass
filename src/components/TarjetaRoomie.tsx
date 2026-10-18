@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Filete, Radios, Spacing } from '@/constants/theme';
+import { FotoLista } from '@/components/FotoLista';
+import type { FuenteFoto } from '@/lib/miniaturas';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
 
@@ -12,6 +13,8 @@ interface Props {
   descripcionBusqueda?: string;
   /** URL ya FIRMADA: el bucket es privado (§14). */
   fotoUrl?: string | null;
+  /** La miniatura del avatar (lib/miniaturas.ts); si falla, se usa `fotoUrl`. */
+  fotoMini?: FuenteFoto | null;
   /** Similitud de coseno 0–1 (la de antes de la 0066). Solo se usa si el servidor aún no manda la compatibilidad. */
   afinidad?: number | null;
   /** Compatibilidad por REGLAS, 0–1 (0066): ruido, tabaco, horario, mascotas y aportación. Nula = no hay dato que comparar. */
@@ -54,7 +57,7 @@ export function etiquetaCompatibilidad(c: number | null | undefined): 'Alta' | '
 }
 
 export function TarjetaRoomie({
-  nombreUsuario, descripcionBusqueda, fotoUrl, afinidad, compatibilidad, coincidencias = [], diferencias = [], onPress,
+  nombreUsuario, descripcionBusqueda, fotoUrl, fotoMini, afinidad, compatibilidad, coincidencias = [], diferencias = [], onPress,
 }: Props) {
   const theme = useTheme();
   const etiquetaNueva = etiquetaCompatibilidad(compatibilidad);
@@ -86,8 +89,8 @@ export function TarjetaRoomie({
       ]}
     >
       <View style={estilos.cabecera}>
-        {fotoUrl ? (
-          <Image source={{ uri: fotoUrl }} style={[estilos.avatar, { borderColor: theme.filete }]} contentFit="cover" />
+        {fotoUrl || fotoMini ? (
+          <FotoLista miniatura={fotoMini} completa={fotoUrl} style={[estilos.avatar, { borderColor: theme.filete }]} transition={0} />
         ) : (
           <View
             style={[

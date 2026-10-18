@@ -7,6 +7,8 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useMisNegocios } from '@/hooks/queries/useMisNegocios';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useMiniaturas } from '@/hooks/use-miniaturas';
+import { ANCHOS } from '@/lib/miniaturas';
 import { useAuthStore } from '@/store/useAuthStore';
 
 /**
@@ -18,6 +20,7 @@ export function SeccionMiNegocio() {
   const miId = useAuthStore((s) => s.session?.user.id);
   const { negocios, cargando, fallo, reintentar } = useMisNegocios(miId);
   const { urls } = useFotosFirmadas(negocios.map((n) => n.fotos[0]));
+  const miniaturas = useMiniaturas(negocios.map((n) => n.fotos[0]), ANCHOS.fila);
 
   return (
     <View style={estilos.seccion}>
@@ -46,6 +49,7 @@ export function SeccionMiNegocio() {
             <TarjetaNegocio
               negocio={n}
               fotoUrl={n.fotos[0] ? urls.get(n.fotos[0]) : null}
+              fotoMini={miniaturas(n.fotos[0])}
               onPress={() => router.push({ pathname: '/negocio/editar/[id]', params: { id: n.id } })}
             />
             {!n.activo ? (

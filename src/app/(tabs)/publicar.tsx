@@ -14,6 +14,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useMiniaturas } from '@/hooks/use-miniaturas';
+import { ANCHOS } from '@/lib/miniaturas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
@@ -44,6 +46,7 @@ function MisPublicaciones({ extra }: { extra?: React.ReactNode }) {
   const { conteos: guardadas } = useConteoFavoritos(publicaciones.map((p) => p.id));
 
   const { urls: urlsFirmadas } = useFotosFirmadas(publicaciones.map((p) => p.fotos?.[0]));
+  const miniaturas = useMiniaturas(publicaciones.map((p) => p.fotos?.[0]), ANCHOS.ancha);
 
   const onCambiarEstado = (publicacion: Publicacion) => {
     const activar = !publicacion.activa;
@@ -134,6 +137,7 @@ function MisPublicaciones({ extra }: { extra?: React.ReactNode }) {
                   precio={item.precio_renta}
                   direccion={item.direccion}
                   fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
+                  fotoMini={miniaturas(item.fotos?.[0])}
                   tipo={item.tipo}
                   permiteMascotas={item.permite_mascotas}
                   amueblado={item.amueblado}

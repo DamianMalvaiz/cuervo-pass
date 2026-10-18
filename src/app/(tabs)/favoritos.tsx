@@ -10,6 +10,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useMiniaturas } from '@/hooks/use-miniaturas';
+import { ANCHOS } from '@/lib/miniaturas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useMisFavoritos } from '@/hooks/queries/useFavoritos';
@@ -32,6 +34,7 @@ export default function FavoritosScreen() {
   const perfil = usePerfilStore((s) => s.perfil);
   const { publicaciones, noDisponibles, cargando, fallo, reintentar } = useMisFavoritos(miId);
   const { urls: urlsFirmadas } = useFotosFirmadas(publicaciones.map((p) => p.fotos?.[0]));
+  const miniaturas = useMiniaturas(publicaciones.map((p) => p.fotos?.[0]), ANCHOS.ancha);
 
   // La distancia sale de la universidad de esta cuenta, si la tiene; si no, la fila dice «—» en vez
   // de inventarla.
@@ -71,6 +74,7 @@ export default function FavoritosScreen() {
             tipo={item.tipo}
             precio={item.precio_renta}
             fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
+            fotoMini={miniaturas(item.fotos?.[0])}
             distanciaKm={distanciaDe(item.latitud, item.longitud)}
             onPress={() => router.push({ pathname: '/publicacion/[id]', params: { id: item.id } })}
           />

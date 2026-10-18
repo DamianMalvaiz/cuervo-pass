@@ -15,6 +15,10 @@ const supabaseAnonKey =
 // en vez de intentar cargar la sesión con credenciales inexistentes.
 export const supabaseConfigurado = Boolean(supabaseUrl && supabaseAnonKey);
 
+// Los dos valores son PÚBLICOS por diseño (van en el paquete): se exponen para armar las URLs de miniaturas (lib/miniaturas.ts).
+export const supabaseUrlPublica: string | undefined = supabaseUrl;
+export const supabaseClavePublica: string | undefined = supabaseAnonKey;
+
 // `expo export`/`expo start --web` renderizan de forma estática en Node antes de
 // llegar al navegador; ahí no existe `window` y el AsyncStorage web (que sí lo
 // usa) truena el proceso entero. Sin storage/autoRefresh en ese entorno, el

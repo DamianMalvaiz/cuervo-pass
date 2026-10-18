@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CampoFicha, FileteHoja } from '@/components/ficha/CampoFicha';
 import { Calificacion } from '@/components/ficha/Calificacion';
 import { ThemedText } from '@/components/themed-text';
 import { Filete, Radios, Spacing } from '@/constants/theme';
+import { FotoLista } from '@/components/FotoLista';
 import { useTheme } from '@/hooks/use-theme';
+import type { FuenteFoto } from '@/lib/miniaturas';
 import { PorQue } from '@/components/ficha/PorQue';
 
 /**
@@ -29,6 +30,8 @@ interface Props {
   direccion: string;
   /** URL ya FIRMADA. El bucket es privado (§14): una ruta cruda no carga. */
   fotoUrl?: string | null;
+  /** La miniatura (lib/miniaturas.ts); si falla, se usa `fotoUrl`. */
+  fotoMini?: FuenteFoto | null;
   distanciaKm?: number | null;
   /** Score del motor en [0,1]. Se presenta como calificación sobre 10. */
   score?: number | null;
@@ -57,6 +60,7 @@ export function FichaPublicacion({
   precio,
   direccion,
   fotoUrl,
+  fotoMini,
   distanciaKm,
   score,
   similitud,
@@ -114,13 +118,8 @@ export function FichaPublicacion({
         )}
       </View>
 
-      {fotoUrl ? (
-        <Image
-          source={{ uri: fotoUrl }}
-          style={[estilos.foto, { borderColor: theme.filete }]}
-          contentFit="cover"
-          transition={160}
-        />
+      {fotoUrl || fotoMini ? (
+        <FotoLista miniatura={fotoMini} completa={fotoUrl} style={[estilos.foto, { borderColor: theme.filete }]} />
       ) : (
         // Sin foto NO se pinta un rectángulo gris. Se pinta un campo del
         // documento que dice que está vacío, que es lo que hace un formulario

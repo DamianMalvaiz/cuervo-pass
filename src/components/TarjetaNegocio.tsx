@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
 import { Estrellas } from '@/components/ficha/Estrellas';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
 import { AltoFotoTarjeta, Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { FotoLista } from '@/components/FotoLista';
+import type { FuenteFoto } from '@/lib/miniaturas';
 import { useTheme } from '@/hooks/use-theme';
 import type { Negocio } from '@/types/database.types';
 
@@ -21,11 +22,14 @@ export const signosDePrecio = (rango: number | null): string | null =>
 export function TarjetaNegocio({
   negocio,
   fotoUrl,
+  fotoMini,
   forma = 'fila',
   onPress,
 }: {
   negocio: Negocio;
   fotoUrl?: string | null;
+  /** La miniatura (lib/miniaturas.ts); si falla, se usa `fotoUrl`. */
+  fotoMini?: FuenteFoto | null;
   forma?: 'fila' | 'destacado';
   onPress: () => void;
 }) {
@@ -36,8 +40,8 @@ export function TarjetaNegocio({
   const distancia = negocio.distancia_km != null && Number.isFinite(negocio.distancia_km) ? `a ${negocio.distancia_km.toFixed(1)} km` : null;
   const detalle = [distancia, negocio.horario, precio].filter(Boolean).join(' · ');
 
-  const foto = fotoUrl ? (
-    <Image source={{ uri: fotoUrl }} style={forma === 'fila' ? estilos.fotoFila : estilos.fotoDestacado} contentFit="cover" transition={160} />
+  const foto = fotoUrl || fotoMini ? (
+    <FotoLista miniatura={fotoMini} completa={fotoUrl} style={forma === 'fila' ? estilos.fotoFila : estilos.fotoDestacado} />
   ) : (
     <View
       style={[forma === 'fila' ? estilos.fotoFila : estilos.fotoDestacado, estilos.sinFoto, { backgroundColor: theme.backgroundSelected }]}

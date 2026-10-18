@@ -18,6 +18,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useMiniaturas } from '@/hooks/use-miniaturas';
+import { ANCHOS } from '@/lib/miniaturas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useMovimientoReducido } from '@/hooks/use-movimiento-reducido';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
@@ -206,6 +208,9 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
     ...sugerencias.map((s) => s.fotos?.[0]),
     ...nuevas.map((n) => n.fotos?.[0]),
   ]);
+  // Miniaturas (lib/miniaturas.ts): sin red, solo URLs con la sesión en cabeceras. La foto completa de arriba queda de respaldo.
+  const miniaturasLista = useMiniaturas(sugerencias.map((s) => s.fotos?.[0]), ANCHOS.ancha);
+  const miniaturasCarrusel = useMiniaturas(nuevas.map((n) => n.fotos?.[0]), ANCHOS.compacta);
 
   // B.3 · El filtro ya corre en Postgres, dentro de la función que trunca a
   // treinta, así que lo que llega aquí es el top-30 DE ESE TIPO y no lo que
@@ -228,12 +233,13 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
         tipo={item.tipo}
         precio={item.precio_renta}
         fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
+        fotoMini={miniaturasCarrusel(item.fotos?.[0])}
         distanciaKm={item.distancia}
         score={item.score}
         onPress={() => router.push({ pathname: '/publicacion/[id]', params: { id: item.id } })}
       />
     ),
-    [urlsFirmadas]
+    [urlsFirmadas, miniaturasCarrusel]
   );
 
   return (
@@ -342,6 +348,7 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
               tipo={item.tipo}
               precio={item.precio_renta}
               fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
+              fotoMini={miniaturasLista(item.fotos?.[0])}
               distanciaKm={item.distancia}
               onPress={() => irADetalle(item)}
             />

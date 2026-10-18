@@ -1,12 +1,13 @@
 import { BotonFavorito } from '@/components/BotonFavorito';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { SelloTipo } from '@/components/ficha/SelloTipo';
 import { ThemedText } from '@/components/themed-text';
 import { AltoFotoTarjeta, Radios, Spacing, Texto } from '@/constants/theme';
+import { FotoLista } from '@/components/FotoLista';
+import type { FuenteFoto } from '@/lib/miniaturas';
 import { useTheme } from '@/hooks/use-theme';
 import type { TipoPublicacion } from '@/types/database.types';
 
@@ -39,6 +40,7 @@ export function FilaPublicacion({
   tipo,
   precio,
   fotoUrl,
+  fotoMini,
   distanciaKm,
   onPress,
 }: {
@@ -48,6 +50,8 @@ export function FilaPublicacion({
   tipo?: TipoPublicacion;
   precio: number;
   fotoUrl?: string | null;
+  /** La miniatura (lib/miniaturas.ts): pesa ~60 % menos; si falla, se usa `fotoUrl`. */
+  fotoMini?: FuenteFoto | null;
   distanciaKm?: number | null;
   onPress?: () => void;
 }) {
@@ -71,8 +75,8 @@ export function FilaPublicacion({
       }
     >
       <View>
-        {fotoUrl ? (
-          <Image source={{ uri: fotoUrl }} style={estilos.foto} contentFit="cover" transition={160} />
+        {fotoUrl || fotoMini ? (
+          <FotoLista miniatura={fotoMini} completa={fotoUrl} style={estilos.foto} />
         ) : (
           <View
             style={[estilos.foto, estilos.sinFoto, { backgroundColor: theme.backgroundElement }]}

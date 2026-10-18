@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
 import { Filete, Radios, Spacing } from '@/constants/theme';
+import { FotoLista } from '@/components/FotoLista';
+import type { FuenteFoto } from '@/lib/miniaturas';
 import { useTheme } from '@/hooks/use-theme';
 import type { TipoPublicacion } from '@/types/database.types';
 import { Calificacion } from '@/components/ficha/Calificacion';
@@ -26,6 +27,7 @@ export function FichaCompacta({
   tipo,
   precio,
   fotoUrl,
+  fotoMini,
   distanciaKm,
   score,
   onPress,
@@ -34,6 +36,8 @@ export function FichaCompacta({
   tipo?: TipoPublicacion;
   precio: number;
   fotoUrl?: string | null;
+  /** La miniatura (lib/miniaturas.ts): pesa ~79 % menos; si falla, se usa `fotoUrl`. */
+  fotoMini?: FuenteFoto | null;
   distanciaKm?: number | null;
   score?: number | null;
   onPress?: () => void;
@@ -60,13 +64,8 @@ export function FichaCompacta({
       style={estilos.tarjeta}
     >
       <View>
-        {fotoUrl ? (
-          <Image
-            source={{ uri: fotoUrl }}
-            style={[estilos.foto, { borderColor: theme.filete }]}
-            contentFit="cover"
-            transition={160}
-          />
+        {fotoUrl || fotoMini ? (
+          <FotoLista miniatura={fotoMini} completa={fotoUrl} style={[estilos.foto, { borderColor: theme.filete }]} />
         ) : (
           <View style={[estilos.foto, estilos.sinFoto, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
             <Ionicons name="image-outline" size={18} color={theme.textSecondary} />
