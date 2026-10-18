@@ -5,6 +5,7 @@
 // búsqueda corren en el SERVIDOR (invariante 5): filtrar en el teléfono una página ya recortada haría que la app
 // afirmara «no hay nada» cuando sí lo hay. Toda lectura que falla LANZA (invariante 2).
 
+import { recortarHora, type DiaIso, type Turno } from '@/lib/horario';
 import { supabase } from '@/lib/supabase';
 
 import type { CategoriaServicio, Negocio, NegocioItem } from '@/types/database.types';
@@ -13,7 +14,7 @@ export type { CategoriaServicio, Negocio, NegocioItem };
 
 // Enumeradas (END-28): nada de `select *`.
 const COLUMNAS_NEGOCIO =
-  'id, categoria_id, nombre, descripcion, direccion, latitud, longitud, rango_precio, horario, fotos, destacado, origen, calificacion, num_resenas';
+  'id, categoria_id, nombre, descripcion, direccion, latitud, longitud, rango_precio, horario, fotos, destacado, origen, calificacion, num_resenas, abierto_ahora';
 
 export async function listarCategorias(): Promise<CategoriaServicio[]> {
   const { data, error } = await supabase
@@ -33,21 +34,37 @@ export async function listarCategorias(): Promise<CategoriaServicio[]> {
 export async function listarNegocios({
   categoriaId,
   texto,
+  soloAbiertos,
 }: {
   categoriaId?: string;
   texto?: string;
+  /** Solo los que SE SABE que están abiertos ahora (los sin horario estructurado no cuentan). Se filtra en el servidor (0070). */
+  soloAbiertos?: boolean;
 }): Promise<Negocio[]> {
   const { data, error } = await supabase.rpc('negocios_ordenados', {
     p_categoria: categoriaId ?? null,
     p_texto: texto?.trim() || null,
     p_limite: 100,
+    p_solo_abiertos: Boolean(soloAbiertos),
   });
   if (error) throw error;
   return (data ?? []) as Negocio[];
 }
 
-/** El negocio y su menú. `null` si no existe o no es visible: no es un fallo. */
-export async function obtenerNegocio(id: string): Promise<{ negocio: Negocio; items: NegocioItem[] } | null> {
+/** Los turnos de un negocio VISIBLE (vacío = sin horario estructurado). */
+export async function obtenerHorarioPublico(negocioId: string): Promise<Turno[]> {
+  const { data, error } = await supabase
+    .from('negocio_horarios_publicos')
+    .select('dia, abre, cierra')
+    .eq('negocio_id', negocioId)
+    .order('dia', { ascending: true })
+    .order('abre', { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as { dia: number; abre: string; cierra: string }[]).map((t) => ({ dia: t.dia as DiaIso, abre: recortarHora(t.abre), cierra: recortarHora(t.cierra) }));
+}
+
+/** El negocio, su menú y su horario. `null` si no existe o no es visible: no es un fallo. */
+export async function obtenerNegocio(id: string): Promise<{ negocio: Negocio; items: NegocioItem[]; turnos: Turno[] } | null> {
   const { data: negocio, error } = await supabase
     .from('negocios_publicos')
     .select(COLUMNAS_NEGOCIO)
@@ -63,5 +80,5 @@ export async function obtenerNegocio(id: string): Promise<{ negocio: Negocio; it
     .order('orden', { ascending: true });
   if (errorItems) throw errorItems;
 
-  return { negocio: negocio as Negocio, items: (items ?? []) as NegocioItem[] };
+  return { negocio: negocio as Negocio, items: (items ?? []) as NegocioItem[], turnos: await obtenerHorarioPublico(id) };
 }

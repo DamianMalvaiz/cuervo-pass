@@ -33,7 +33,7 @@ describe('parsearHorarioTexto (los formatos que ya existen)', () => {
   });
   it('con minutos', () => expect(parsearHorarioTexto('Lun a vie · 9:30 am a 6:15 pm')).toEqual(semana(1, 5, '09:30', '18:15')));
   it('el rango que cruza el domingo (vie a lun) da los cuatro días', () => {
-    expect(parsearHorarioTexto('Vie a lun · 8 pm a 2 am').map((t) => t.dia)).toEqual([5, 6, 7, 1]);
+    expect(parsearHorarioTexto('Vie a lun · 8 pm a 2 am')?.map((t) => t.dia)).toEqual([5, 6, 7, 1]);
   });
   it('un día suelto', () => expect(parsearHorarioTexto('Sáb · 10 am a 2 pm')).toEqual([T(6, '10:00', '14:00')]));
   it('nombres de día completos y con acento', () => {

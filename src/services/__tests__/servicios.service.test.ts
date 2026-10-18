@@ -8,7 +8,7 @@ const mockDesde = jest.fn();
 const mockRpc = jest.fn();
 jest.mock('@/lib/supabase', () => ({ supabase: { from: (...a: unknown[]) => mockDesde(...a), rpc: (...a: unknown[]) => mockRpc(...a) } }));
 
-import { listarCategorias, listarNegocios, obtenerNegocio } from '../servicios.service';
+import { listarCategorias, listarNegocios, obtenerHorarioPublico, obtenerNegocio } from '../servicios.service';
 
 function cadena(resultado: { data?: unknown; error?: unknown }) {
   const c: Record<string, unknown> = {};
@@ -43,8 +43,14 @@ describe('listarNegocios', () => {
   test('pide el orden al SERVIDOR (negocios_ordenados), con tope de 100', async () => {
     mockRpc.mockResolvedValue({ data: [{ id: 'n1', puntaje: 0.8 }], error: null });
     await expect(listarNegocios({})).resolves.toEqual([{ id: 'n1', puntaje: 0.8 }]);
-    expect(mockRpc).toHaveBeenCalledWith('negocios_ordenados', { p_categoria: null, p_texto: null, p_limite: 100 });
+    expect(mockRpc).toHaveBeenCalledWith('negocios_ordenados', { p_categoria: null, p_texto: null, p_limite: 100, p_solo_abiertos: false });
     expect(mockDesde).not.toHaveBeenCalled();
+  });
+
+  test('«abierto ahora» se filtra en el SERVIDOR (p_solo_abiertos)', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    await listarNegocios({ soloAbiertos: true });
+    expect(mockRpc).toHaveBeenCalledWith('negocios_ordenados', expect.objectContaining({ p_solo_abiertos: true }));
   });
 
   test('la categoría viaja al servidor', async () => {
@@ -71,13 +77,29 @@ describe('listarNegocios', () => {
   });
 });
 
+describe('obtenerHorarioPublico', () => {
+  test('recorta «HH:MM:SS» a «HH:MM»', async () => {
+    mockDesde.mockReturnValue(cadena({ data: [{ dia: 7, abre: '18:00:00', cierra: '02:30:00' }] }));
+    await expect(obtenerHorarioPublico('n1')).resolves.toEqual([{ dia: 7, abre: '18:00', cierra: '02:30' }]);
+  });
+  test('si falla, LANZA: no se enseña «sin horario» por un fallo', async () => {
+    mockDesde.mockReturnValue(cadena({ error: { message: 'sin red' } }));
+    await expect(obtenerHorarioPublico('n1')).rejects.toMatchObject({ message: 'sin red' });
+  });
+});
+
 describe('obtenerNegocio', () => {
   test('devuelve el negocio con sus productos en orden', async () => {
     const negocio = cadena({ data: { id: 'n1', nombre: 'Café' } });
     const items = cadena({ data: [{ id: 'i1', nombre: 'Americano', precio: 35, orden: 0 }] });
-    mockDesde.mockImplementation((t: string) => (t === 'negocios_publicos' ? negocio : items));
+    const turnos = cadena({ data: [{ dia: 1, abre: '09:00:00', cierra: '18:00:00' }] });
+    mockDesde.mockImplementation((t: string) => (t === 'negocios_publicos' ? negocio : t === 'negocio_horarios_publicos' ? turnos : items));
     const r = await obtenerNegocio('n1');
-    expect(r).toEqual({ negocio: { id: 'n1', nombre: 'Café' }, items: [{ id: 'i1', nombre: 'Americano', precio: 35, orden: 0 }] });
+    expect(r).toEqual({
+      negocio: { id: 'n1', nombre: 'Café' },
+      items: [{ id: 'i1', nombre: 'Americano', precio: 35, orden: 0 }],
+      turnos: [{ dia: 1, abre: '09:00', cierra: '18:00' }],
+    });
     expect(negocio.eq).toHaveBeenCalledWith('id', 'n1');
     expect(items.eq).toHaveBeenCalledWith('negocio_id', 'n1');
     expect(items.order).toHaveBeenCalledWith('orden', { ascending: true });

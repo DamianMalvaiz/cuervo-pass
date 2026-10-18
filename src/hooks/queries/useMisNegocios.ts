@@ -5,10 +5,11 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import type { Turno } from '@/lib/horario';
 import { borrarFotos, subirFotoNegocio, subirFotoProducto } from '@/lib/storage';
 import { parsearPrecio, type ProductoEditable } from '@/lib/menu';
 import {
-  actualizarNegocio, borrarNegocio, crearNegocio, guardarMenu, listarMisNegocios, obtenerMiNegocio,
+  actualizarNegocio, borrarNegocio, crearNegocio, guardarHorario, guardarMenu, listarMisNegocios, obtenerMiNegocio,
   type DatosNegocio,
 } from '@/services/negociosPropios.service';
 
@@ -39,6 +40,7 @@ export function useMiNegocio(id: string | undefined) {
   return {
     negocio: q.data?.negocio ?? null,
     items: q.data?.items ?? [],
+    turnos: q.data?.turnos ?? [],
     cargando: q.isPending && Boolean(id),
     fallo: q.isError,
     reintentar: () => void q.refetch(),
@@ -62,6 +64,8 @@ export interface EntradaGuardado {
   fotosQuitadas: string[];
   /** URIs locales de fotos nuevas. */
   fotosNuevas: string[];
+  /** El horario completo (0070). `undefined` = no se toca; `[]` = se borra. */
+  turnos?: Turno[];
 }
 
 export function useGuardarNegocio(usuarioId: string | undefined) {
@@ -84,6 +88,8 @@ export function useGuardarNegocio(usuarioId: string | undefined) {
         for (const uri of e.fotosNuevas) subidas.push(await subirFotoNegocio(id, uri));
         const fotos = [...e.fotosConservadas, ...subidas];
         if (esNuevo || e.fotosNuevas.length > 0 || e.fotosQuitadas.length > 0) await actualizarNegocio(id, { fotos });
+        // El horario va después de que el negocio EXISTE (los turnos cuelgan de su id); si falla, el negocio ya está guardado y se avisa como cualquier paso posterior.
+        if (e.turnos !== undefined) await guardarHorario(id, e.turnos);
         // 3. Lo quitado se borra al FINAL: si algo anterior falló, las fotos viejas siguen siendo las de la fila.
         await borrarFotos(e.fotosQuitadas);
       } catch (err) {

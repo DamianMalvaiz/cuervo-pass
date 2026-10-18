@@ -12,11 +12,11 @@ export function useCategoriasServicio() {
   return { categorias: q.data ?? [], cargando: q.isPending, fallo: q.isError, reintentar: () => void q.refetch() };
 }
 
-export function useNegocios({ categoriaId, texto }: { categoriaId?: string; texto?: string }) {
+export function useNegocios({ categoriaId, texto, soloAbiertos }: { categoriaId?: string; texto?: string; soloAbiertos?: boolean }) {
   const buscado = texto?.trim() ?? '';
   const q = useQuery({
-    queryKey: ['negocios', categoriaId ?? '', buscado],
-    queryFn: () => listarNegocios({ categoriaId, texto: buscado }),
+    queryKey: ['negocios', categoriaId ?? '', buscado, Boolean(soloAbiertos)],
+    queryFn: () => listarNegocios({ categoriaId, texto: buscado, soloAbiertos }),
     // Mientras se teclea, la lista anterior se queda en pantalla en vez de parpadear a vacío.
     placeholderData: (previa) => previa,
   });
@@ -38,6 +38,7 @@ export function useNegocio(id: string | undefined) {
   return {
     negocio: q.data?.negocio ?? null,
     items: q.data?.items ?? [],
+    turnos: q.data?.turnos ?? [],
     cargando: q.isPending && Boolean(id),
     fallo: q.isError,
     reintentar: () => void q.refetch(),

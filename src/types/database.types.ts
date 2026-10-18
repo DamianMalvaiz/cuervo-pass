@@ -332,6 +332,8 @@ export interface Negocio {
   distancia_km?: number | null;
   /** Solo en la lista ordenada: el puntaje de ranking, entre 0 y 1. */
   puntaje?: number;
+  /** Abierto ahora, calculado en el servidor (0070): `null` = sin horario estructurado (no se sabe). */
+  abierto_ahora?: boolean | null;
 }
 
 /** Un negocio visto por su DUEÑA (tabla `negocios`, 0052): trae lo que la vista pública no expone. */
@@ -340,6 +342,15 @@ export interface NegocioPropio extends Negocio {
   activo: boolean;
   oculto_por_reportes: boolean;
   creado_en: string;
+}
+
+/** Un turno semanal de un negocio (0070). `abre`/`cierra` llegan como «HH:MM:SS» de Postgres. */
+export interface NegocioHorarioFila {
+  [key: string]: unknown;
+  negocio_id: string;
+  dia: number;
+  abre: string;
+  cierra: string;
 }
 
 export interface NegocioItem {
@@ -435,6 +446,7 @@ export interface Database {
       resenas: Tabla<MiResena>;
       pagos: Tabla<PagoRegistrado>;
       negocio_items: Tabla<NegocioItem>;
+      negocio_horarios: Tabla<NegocioHorarioFila>;
       geocodificaciones: Tabla<{
         [key: string]: unknown;
         consulta: string;
@@ -449,6 +461,7 @@ export interface Database {
       publicaciones_publicas: Vista<PublicacionPublica>;
       negocios_publicos: Vista<Negocio>;
       negocio_items_publicos: Vista<NegocioItem>;
+      negocio_horarios_publicos: Vista<NegocioHorarioFila>;
       resenas_publicas: Vista<ResenaPublica>;
       calificacion_publicaciones: Vista<{ [key: string]: unknown; publicacion_id: string; calificacion: number; num_resenas: number }>;
     };
@@ -548,8 +561,13 @@ export interface Database {
       };
       // La lista de Servicios, ordenada y filtrada en el servidor (migración 0055).
       negocios_ordenados: {
-        Args: { p_categoria: string | null; p_texto: string | null; p_limite: number };
+        Args: { p_categoria: string | null; p_texto: string | null; p_limite: number; p_solo_abiertos?: boolean };
         Returns: Negocio[];
+      };
+      // Reemplaza TODO el horario de un negocio propio (0070).
+      guardar_horario: {
+        Args: { p_negocio: string; p_turnos: { dia: number; abre: string; cierra: string }[] };
+        Returns: undefined;
       };
       abrir_conversacion: {
         Args: { p_otro: string };

@@ -16,6 +16,9 @@ const HHMM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 const ABREVIATURAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] as const;
 const ABREV_MINUSCULAS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'] as const;
 
+/** Postgres devuelve `time` como «09:00:00»; la app trabaja con «09:00». */
+export const recortarHora = (t: string): string => (/^\d{2}:\d{2}:\d{2}/.test(t) ? t.slice(0, 5) : t);
+
 /** «13:05» → «1:05 pm»; «08:00» → «8 am»; «00:00» → «12 am». Lo que no es una hora se devuelve tal cual. */
 export function formatearHora(hhmm: string): string {
   const m = /^([0-9]{2}):([0-9]{2})$/.exec(hhmm);

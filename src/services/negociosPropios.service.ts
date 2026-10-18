@@ -4,6 +4,7 @@
 // acota las filas a las propias, también los inactivos) y escribe por columnas: `destacado`, `origen` y la ocultación por
 // reportes NO se pueden fijar desde aquí (privilegios por columna). Toda lectura que falla LANZA (END-11).
 
+import { recortarHora, type DiaIso, type Turno } from '@/lib/horario';
 import { borrarFotos } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import type { NegocioItem, NegocioPropio } from '@/types/database.types';
@@ -39,7 +40,7 @@ export async function listarMisNegocios(usuarioId: string): Promise<NegocioPropi
 /** Un negocio propio con su menú, o `null` si no existe o no es tuyo (no es un fallo). */
 export async function obtenerMiNegocio(
   id: string
-): Promise<{ negocio: NegocioPropio; items: NegocioItem[] } | null> {
+): Promise<{ negocio: NegocioPropio; items: NegocioItem[]; turnos: Turno[] } | null> {
   const { data: negocio, error } = await supabase.from('negocios').select(COLUMNAS).eq('id', id).maybeSingle();
   if (error) throw error;
   if (!negocio) return null;
@@ -49,7 +50,24 @@ export async function obtenerMiNegocio(
     .eq('negocio_id', id)
     .order('orden', { ascending: true });
   if (errorItems) throw errorItems;
-  return { negocio: negocio as unknown as NegocioPropio, items: (items ?? []) as NegocioItem[] };
+  const { data: turnos, error: errorTurnos } = await supabase
+    .from('negocio_horarios')
+    .select('dia, abre, cierra')
+    .eq('negocio_id', id)
+    .order('dia', { ascending: true })
+    .order('abre', { ascending: true });
+  if (errorTurnos) throw errorTurnos;
+  return {
+    negocio: negocio as unknown as NegocioPropio,
+    items: (items ?? []) as NegocioItem[],
+    turnos: ((turnos ?? []) as { dia: number; abre: string; cierra: string }[]).map((t) => ({ dia: t.dia as DiaIso, abre: recortarHora(t.abre), cierra: recortarHora(t.cierra) })),
+  };
+}
+
+/** Reemplaza TODOS los turnos del negocio de golpe (0070). Una lista vacía borra el horario: vuelve a «no sé». */
+export async function guardarHorario(negocioId: string, turnos: Turno[]): Promise<void> {
+  const { error } = await supabase.rpc('guardar_horario', { p_negocio: negocioId, p_turnos: turnos });
+  if (error) throw error;
 }
 
 /** Crea el negocio SIN fotos (las fotos viven en una carpeta con el id, que aún no existe) y devuelve su id. */

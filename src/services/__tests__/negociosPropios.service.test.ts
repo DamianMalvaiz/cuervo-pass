@@ -7,7 +7,7 @@ jest.mock('@/lib/supabase', () => ({ supabase: { from: (...a: unknown[]) => mock
 jest.mock('@/lib/storage', () => ({ borrarFotos: (...a: unknown[]) => mockBorrarFotos(...a) }));
 
 import {
-  actualizarNegocio, borrarNegocio, crearNegocio, guardarMenu, listarMisNegocios, obtenerMiNegocio,
+  actualizarNegocio, borrarNegocio, crearNegocio, guardarHorario, guardarMenu, listarMisNegocios, obtenerMiNegocio,
 } from '../negociosPropios.service';
 
 function cadena(resultado: { data?: unknown; error?: unknown }) {
@@ -48,8 +48,11 @@ describe('obtenerMiNegocio', () => {
   test('devuelve el negocio y su menú en orden', async () => {
     const neg = cadena({ data: { id: 'n1' } });
     const items = cadena({ data: [{ id: 'i1' }] });
-    mockDesde.mockImplementation((t: string) => (t === 'negocios' ? neg : items));
-    await expect(obtenerMiNegocio('n1')).resolves.toEqual({ negocio: { id: 'n1' }, items: [{ id: 'i1' }] });
+    const turnos = cadena({ data: [{ dia: 2, abre: '08:00:00', cierra: '14:00:00' }] });
+    mockDesde.mockImplementation((t: string) => (t === 'negocios' ? neg : t === 'negocio_horarios' ? turnos : items));
+    await expect(obtenerMiNegocio('n1')).resolves.toEqual({
+      negocio: { id: 'n1' }, items: [{ id: 'i1' }], turnos: [{ dia: 2, abre: '08:00', cierra: '14:00' }],
+    });
     expect(items.order).toHaveBeenCalledWith('orden', { ascending: true });
   });
   test('uno que no existe o no es tuyo devuelve null', async () => {
@@ -61,6 +64,19 @@ describe('obtenerMiNegocio', () => {
     const items = cadena({ error: { message: 'sin red' } });
     mockDesde.mockImplementation((t: string) => (t === 'negocios' ? neg : items));
     await expect(obtenerMiNegocio('n1')).rejects.toMatchObject({ message: 'sin red' });
+  });
+});
+
+describe('guardarHorario', () => {
+  test('manda los turnos a la función del servidor', async () => {
+    mockRpc.mockResolvedValue({ error: null });
+    const turnos = [{ dia: 1 as const, abre: '09:00', cierra: '18:00' }];
+    await guardarHorario('n1', turnos);
+    expect(mockRpc).toHaveBeenCalledWith('guardar_horario', { p_negocio: 'n1', p_turnos: turnos });
+  });
+  test('si falla, LANZA', async () => {
+    mockRpc.mockResolvedValue({ error: { message: 'no' } });
+    await expect(guardarHorario('n1', [])).rejects.toMatchObject({ message: 'no' });
   });
 });
 
