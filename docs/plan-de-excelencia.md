@@ -65,7 +65,7 @@ Tamaños: S = horas, M = una sesión larga, L = varias sesiones. **Congelar func
 |---|---|---|---|
 | 1.1 | **Horario estructurado + «Abierto ahora»** (hecho en código, `tsc`, lint, 1864 pruebas de Jest y 557 de pgTAP en verde; la migración 0070 y la carga de los sembrados están **sin aplicar**): tabla de horarios, editor semanal, insignia en tarjeta y ficha, filtro en el servidor, y los negocios sembrados se migran con `scripts/horarios-sembrados.mjs`. Solo falta la prueba en dispositivo | L | B8 |
 | 1.2 | **(hecho en código, con `tsc`, lint, 1874 pruebas de Jest y 573 de pgTAP en verde; la migración 0071 está **sin aplicar**) Personalización real**: el vector del perfil se mueve hacia lo que guardas (Rocchio sobre `favoritos`) y «Parecidos a este» en la ficha (pgvector entre publicaciones). Explicable: «te lo mostramos porque guardaste X» | M | B7 |
-| 1.3 | **Conjunto de evaluación etiquetado**: tú calificas ~40 pares (perfil, publicación) y medimos NDCG de cada versión del orden. Lo único que permite decir «mejoramos» con honestidad | M | B7 |
+| 1.3 | **(herramienta lista; faltan las etiquetas de la persona responsable) Conjunto de evaluación etiquetado** (`scripts/evaluacion-depas.mjs`: 4 personas fabricadas, 40 pares con pooling de 4 variantes del orden, página `evaluacion/etiquetar.html`, NDCG@4; probado de punta a punta solo con etiquetas aleatorias): tú calificas ~40 pares (perfil, publicación) y medimos NDCG de cada versión del orden. Lo único que permite decir «mejoramos» con honestidad | M | B7 |
 | 1.4 | Calibrar Depas (afinidad reescalada, ruido ordinal), con la métrica de 1.3 | S | B7 |
 | 1.5 | **Centro de notificaciones** con insignia (la tabla ya existe) | M | B8 |
 | 1.6 | **Favoritos de negocios** | M | B8 |
