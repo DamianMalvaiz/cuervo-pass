@@ -43,85 +43,85 @@ colors:
   whatsapp-verde: "#25D366"
 typography:
   calificacion:
-    fontFamily: "Archivo_900Black"
+    fontFamily: "PlusJakartaSans_800ExtraBold"
     fontSize: "56px"
     lineHeight: "56px"
     letterSpacing: "-1.8px"
     fontFeature: "tabular-nums"
   cifra-lista:
-    fontFamily: "Archivo_900Black"
+    fontFamily: "PlusJakartaSans_800ExtraBold"
     fontSize: "40px"
     lineHeight: "44px"
     letterSpacing: "-1.2px"
     fontFeature: "tabular-nums"
   cifra-compacta:
-    fontFamily: "Archivo_900Black"
+    fontFamily: "PlusJakartaSans_800ExtraBold"
     fontSize: "18px"
     lineHeight: "24px"
     letterSpacing: "-0.5px"
     fontFeature: "tabular-nums"
   titulo-hoja:
-    fontFamily: "Archivo_700Bold"
+    fontFamily: "PlusJakartaSans_700Bold"
     fontSize: "32px"
     lineHeight: "36px"
     letterSpacing: "-0.6px"
   title:
-    fontFamily: "Archivo_700Bold"
+    fontFamily: "PlusJakartaSans_700Bold"
     fontSize: "26px"
     lineHeight: "30px"
     letterSpacing: "-0.4px"
   titulo-medio:
-    fontFamily: "Archivo_700Bold"
+    fontFamily: "PlusJakartaSans_700Bold"
     fontSize: "24px"
     lineHeight: "30px"
     letterSpacing: "-0.3px"
   titulo-seccion:
-    fontFamily: "Archivo_600SemiBold"
+    fontFamily: "PlusJakartaSans_600SemiBold"
     fontSize: "22px"
     lineHeight: "28px"
   subtitle:
-    fontFamily: "Archivo_600SemiBold"
+    fontFamily: "PlusJakartaSans_600SemiBold"
     fontSize: "20px"
     lineHeight: "26px"
     letterSpacing: "-0.2px"
   cifra:
-    fontFamily: "Archivo_700Bold"
+    fontFamily: "PlusJakartaSans_700Bold"
     fontSize: "17px"
     lineHeight: "22px"
     fontFeature: "tabular-nums"
   default:
-    fontFamily: "Archivo_400Regular"
+    fontFamily: "PlusJakartaSans_400Regular"
     fontSize: "16px"
     lineHeight: "24px"
   sello-texto:
-    fontFamily: "Archivo_700Bold"
+    fontFamily: "PlusJakartaSans_700Bold"
     fontSize: "15px"
     letterSpacing: "0.4px"
   small:
-    fontFamily: "Archivo_400Regular"
+    fontFamily: "PlusJakartaSans_400Regular"
     fontSize: "14px"
     lineHeight: "20px"
   smallBold:
-    fontFamily: "Archivo_600SemiBold"
+    fontFamily: "PlusJakartaSans_600SemiBold"
     fontSize: "14px"
     lineHeight: "20px"
   link:
-    fontFamily: "Archivo_500Medium"
+    fontFamily: "PlusJakartaSans_500Medium"
     fontSize: "14px"
     lineHeight: "20px"
   etiqueta:
-    fontFamily: "Archivo_600SemiBold"
+    fontFamily: "PlusJakartaSans_600SemiBold"
     fontSize: "11px"
     lineHeight: "14px"
     letterSpacing: "0.9px"
   folio:
-    fontFamily: "Archivo_500Medium"
+    fontFamily: "PlusJakartaSans_500Medium"
     fontSize: "11px"
     lineHeight: "14px"
     letterSpacing: "0.6px"
     fontFeature: "tabular-nums"
   micro:
-    fontFamily: "Archivo_400Regular"
+    fontFamily: "PlusJakartaSans_400Regular"
     fontSize: "11px"
     lineHeight: "14px"
 rounded:
@@ -255,7 +255,7 @@ La categoría entrega siempre una rejilla de fotos con corazón. Eso ordena por 
 **Key Characteristics:**
 - El sello es lo único que compromete: carbón con texto lima en claro, blanco hueso con texto carbón en oscuro. El botón primario es lima con texto carbón y nunca se parece al sello.
 - Cero sombras y cero `elevation` en toda la app: la separación es filete, color plano y lavado.
-- Tipografía propia (Archivo, Omnibus-Type) con cinco cortes y cifras tabulares en todo lo que forma columna.
+- Tipografía Plus Jakarta Sans (desde el 17/10/2026; antes Archivo) con cinco cortes y cifras tabulares en todo lo que forma columna.
 - La jerarquía está invertida a propósito: la calificación (56px) es más grande que el título de pantalla (26px).
 - Pares etiqueta/valor como unidad de composición; no existe texto suelto ni placeholder haciendo de etiqueta.
 - Tres radios (8/12/16) que crecen con la superficie, y la píldora (`full`) para etiquetas pequeñas como el tipo de publicación sobre la foto.
@@ -325,7 +325,7 @@ Dos filas son honestas a propósito: `backgroundElement` y `tintedSurface` **no 
 
 ## Typography
 
-**Una sola familia:** Archivo (Omnibus-Type), en `Archivo_400Regular`, `_500Medium`, `_600SemiBold`, `_700Bold`, `_900Black`. La pantalla de arranque se sostiene hasta que Archivo está en memoria, para que no haya un fotograma con la tipografía del sistema.
+**Una sola familia:** Archivo (Omnibus-Type), en `PlusJakartaSans_400Regular`, `_500Medium`, `_600SemiBold`, `_700Bold`, `_900Black`. La pantalla de arranque se sostiene hasta que Archivo está en memoria, para que no haya un fotograma con la tipografía del sistema.
 
 ### Hierarchy
 Cinco cuerpos de cifra, porque la misma casilla vive en tres densidades:

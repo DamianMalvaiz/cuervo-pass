@@ -159,21 +159,20 @@ export const AppColors = {
 // TypeScript señala cada sitio que hay que repuntar en vez de dejarlo pasar.
 
 /**
- * Archivo — grotesca de impresos de Omnibus-Type, fundidora latinoamericana.
+ * Plus Jakarta Sans — geométrica amable, de formas redondeadas y buena lectura en pantallas pequeñas.
  *
- * No se eligió por el nombre. Se eligió porque este mundo vive de cifras que
- * tienen que alinearse en columna (`fontVariant: ['tabular-nums']`), y porque su
- * corte Black aguanta una calificación a cuerpo enorme sin deshacerse. Una
- * tipografía del sistema como voz display de un mundo propio es un fallo, no un
- * respaldo.
+ * Desde el 17/10/2026 (Cuervo 360): la app dejó de verse como un documento oficial y pasó a un mercado
+ * cercano, con fotos grandes y etiquetas en frase normal. Archivo, la grotesca del sistema anterior, se
+ * retiró. La clave `black` se conserva por compatibilidad y apunta a ExtraBold (800), el peso más grueso
+ * que se usa. Las cifras que van en columna siguen llevando `tabular-nums`.
  */
 export const Tipografia = {
-  regular: 'Archivo_400Regular',
-  medium: 'Archivo_500Medium',
-  semibold: 'Archivo_600SemiBold',
-  bold: 'Archivo_700Bold',
+  regular: 'PlusJakartaSans_400Regular',
+  medium: 'PlusJakartaSans_500Medium',
+  semibold: 'PlusJakartaSans_600SemiBold',
+  bold: 'PlusJakartaSans_700Bold',
   /** Solo para la calificación y las cifras que mandan en la pantalla. */
-  black: 'Archivo_900Black',
+  black: 'PlusJakartaSans_800ExtraBold',
 } as const;
 
 export const Fonts = Platform.select({
