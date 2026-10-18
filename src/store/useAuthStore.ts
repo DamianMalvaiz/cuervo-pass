@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { create } from 'zustand';
 
 import { supabase } from '@/lib/supabase';
+import { VERSION_AVISO } from '@/lib/verificacion';
 import { borrarTokenPush } from '@/lib/tokenPush';
 
 import { useChatStore } from './useChatStore';
@@ -151,7 +152,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       email,
       password,
       options: {
-        data: { nombre_usuario: nombreUsuario, nombre_completo: nombreCompleto, acepto_aviso: aceptoAviso },
+        data: {
+          nombre_usuario: nombreUsuario,
+          nombre_completo: nombreCompleto,
+          acepto_aviso: aceptoAviso,
+          // QUÉ versión se aceptó, no solo que se aceptó (migración 0059).
+          aviso_version: VERSION_AVISO,
+        },
       },
     });
     if (error) throw error;

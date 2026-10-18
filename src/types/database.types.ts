@@ -32,6 +32,8 @@ export interface Usuario {
   longitud_universidad: number | null;
   cuestionario_completo: boolean;
   acepto_aviso_privacidad_en: string | null;
+  /** Versión del aviso que aceptó la cuenta (0059). null = anterior al registro de versiones: hay que aceptar la vigente. */
+  version_aviso_aceptada?: string | null;
   consiente_analisis_ia: boolean;
   // pgvector: se ESCRIBE como number[] plano (supabase-js lo serializa a JSON
   // y Postgres lo parsea porque coincide con la sintaxis literal de vector),
@@ -480,6 +482,11 @@ export interface Database {
       favoritos_por_publicacion: {
         Args: { p_ids: string[] };
         Returns: { publicacion_id: string; total: number }[];
+      };
+      // Registra que la cuenta aceptó esta versión del aviso de privacidad (migración 0059). 22023 si la versión no tiene forma `vN`.
+      aceptar_aviso: {
+        Args: { p_version: string };
+        Returns: undefined;
       };
       // Solo comerciante o arrendador, siempre en sin_verificar. admin y estudiante → CP003.
       agregar_funcion: {

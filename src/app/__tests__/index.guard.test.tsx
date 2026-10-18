@@ -43,6 +43,8 @@ jest.mock('@/lib/supabase', () => ({
   supabase: { from: (...a: unknown[]) => mockDesde(...a) },
 }));
 
+import { VERSION_AVISO } from '@/lib/verificacion';
+
 import Index from '../index';
 
 /**
@@ -94,7 +96,7 @@ test('sin sesión manda al login', async () => {
 
 test('con cuestionario completo manda a las pestañas', async () => {
   mockAuth.session = SESION;
-  mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true } }).cadena);
+  mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO } }).cadena);
 
   await render(<Index />);
   await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/inicio'));
@@ -104,7 +106,7 @@ test('con cuestionario completo manda a las pestañas', async () => {
 // una pantalla de sugerencias vacía y la app parecía rota.
 test('con sesión y sin cuestionario manda al cuestionario', async () => {
   mockAuth.session = SESION;
-  mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: false } }).cadena);
+  mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: false, version_aviso_aceptada: VERSION_AVISO } }).cadena);
 
   await render(<Index />);
   await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(auth)/cuestionario-inicial'));
@@ -136,7 +138,7 @@ test('mientras no se sabe, NO redirige a ningún sitio', async () => {
   expect(mockRedirigir).not.toHaveBeenCalled();
 
   // Y al llegar la respuesta, sí.
-  resolver({ data: { cuestionario_completo: true } });
+  resolver({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO } });
   await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/inicio'));
 });
 
@@ -175,14 +177,14 @@ test('configurado, sí carga la sesión al montar', async () => {
 // universidad y abandonaba antes del presupuesto pasaba el filtro igual.
 test('pregunta por cuestionario_completo del usuario de la sesión', async () => {
   mockAuth.session = SESION;
-  const { cadena } = consulta({ data: { cuestionario_completo: true } });
+  const { cadena } = consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO } });
   mockDesde.mockReturnValue(cadena);
 
   await render(<Index />);
   await waitFor(() => expect(mockRedirigir).toHaveBeenCalled());
 
   expect(mockDesde).toHaveBeenCalledWith('usuarios');
-  expect(cadena.select).toHaveBeenCalledWith('cuestionario_completo');
+  expect(cadena.select).toHaveBeenCalledWith('cuestionario_completo, version_aviso_aceptada');
   expect(cadena.eq).toHaveBeenCalledWith('id', 'u1');
 });
 
@@ -240,7 +242,7 @@ test('Reintentar vuelve a preguntar y, si ahora responde, entra', async () => {
   mockAuth.session = SESION;
   mockDesde
     .mockReturnValueOnce(consulta({ data: null, error: { message: 'sin red' } }).cadena)
-    .mockReturnValue(consulta({ data: { cuestionario_completo: true } }).cadena);
+    .mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO } }).cadena);
 
   await render(<Index />);
   fireEvent.press(await screen.findByLabelText('Reintentar'));
@@ -270,7 +272,7 @@ test('si Reintentar vuelve a fallar, sigue en el aviso y no redirige', async () 
 // app sin su ficha.
 test('al cambiar de cuenta no se reutiliza la respuesta de la anterior', async () => {
   mockAuth.session = { user: { id: 'u1' } };
-  mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true } }).cadena);
+  mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO } }).cadena);
 
   const { rerender } = await render(<Index />);
   await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/inicio'));
@@ -281,4 +283,48 @@ test('al cambiar de cuenta no se reutiliza la respuesta de la anterior', async (
   await rerender(<Index />);
 
   expect(mockRedirigir).not.toHaveBeenCalled();
+});
+
+// ── El aviso de privacidad vigente (0059) ────────────────────────────────────
+// Quien no aceptó la versión actual pasa primero por la pantalla que se la pide. Va ANTES del cuestionario: no tiene sentido pedir más datos
+// a quien no aceptó cómo se tratan.
+describe('aviso de privacidad vigente', () => {
+  it('sin versión registrada (cuenta anterior al registro de versiones) pide aceptar el aviso', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: null } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/aviso-actualizado'));
+    expect(mockRedirigir).not.toHaveBeenCalledWith('/(tabs)/inicio');
+  });
+
+  it('con una versión anterior también', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: 'v2' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/aviso-actualizado'));
+  });
+
+  it('va antes que el cuestionario', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: false, version_aviso_aceptada: null } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/aviso-actualizado'));
+    expect(mockRedirigir).not.toHaveBeenCalledWith('/(auth)/cuestionario-inicial');
+  });
+
+  it('con la versión vigente entra normal', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/inicio'));
+    expect(mockRedirigir).not.toHaveBeenCalledWith('/aviso-actualizado');
+  });
+
+  it('un fallo de lectura NO manda a aceptar el aviso: se dice y se reintenta', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: null, error: { message: 'sin red' } }).cadena);
+    await render(<Index />);
+    expect(await screen.findByText(/No pudimos comprobar tu cuenta/)).toBeTruthy();
+    expect(mockRedirigir).not.toHaveBeenCalledWith('/aviso-actualizado');
+  });
 });

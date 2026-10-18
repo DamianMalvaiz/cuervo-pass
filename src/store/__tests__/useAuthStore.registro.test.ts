@@ -55,6 +55,13 @@ describe('registrarse', () => {
     );
   });
 
+  it('manda la versión del aviso que se aceptó, no solo que se aceptó', async () => {
+    mockSignUp.mockResolvedValue({ data: { user: { id: 'u1' }, session: null }, error: null });
+    await useAuthStore.getState().registrarse(datos);
+    const { VERSION_AVISO } = jest.requireActual('@/lib/verificacion');
+    expect(mockSignUp.mock.calls[0][0].options.data.aviso_version).toBe(VERSION_AVISO);
+  });
+
   it('un error de Supabase se propaga', async () => {
     mockSignUp.mockResolvedValue({ data: { user: null, session: null }, error: new Error('boom') });
     await expect(useAuthStore.getState().registrarse(datos)).rejects.toThrow('boom');

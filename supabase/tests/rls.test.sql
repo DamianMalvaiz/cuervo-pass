@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(348);
+select plan(360);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1077,6 +1077,7 @@ select is(
   ejecutables_por('authenticated'),
   array[
     'abrir_conversacion',
+    'aceptar_aviso',
     'afinidad_de',
     'afinidad_roomie_de',
     'agregar_funcion',
@@ -1774,7 +1775,7 @@ insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
 values
   ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f7',
    'authenticated', 'authenticated', 'consiente@test.mx', '', now(), now(),
-   '{"nombre_usuario":"usuario_f7","acepto_aviso":true}'),
+   '{"nombre_usuario":"usuario_f7","acepto_aviso":true,"aviso_version":"v3"}'),
   ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f8',
    'authenticated', 'authenticated', 'dudoso@test.mx', '', now(), now(),
    '{"nombre_usuario":"usuario_f8","acepto_aviso":"quizá"}');
@@ -2715,6 +2716,32 @@ select actuar_como('00000000-0000-0000-0000-0000000000e9');
 select throws_ok(
   $$select * from ine_huerfanas()$$,
   '42501', null, 'huérfanas: el cliente autenticado no puede listarlas' );
+
+-- ── Versión del aviso aceptado (0059) ───────────────────────────────────────
+select actuar_como_servicio();
+select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000f7'), 'v3',
+  'el alta con aviso_version deja la versión aceptada escrita por el servidor' );
+select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000f8'), null,
+  'sin consentimiento válido no hay versión, aunque el metadato la traiga' );
+select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000a1'), null,
+  'una cuenta anterior a la versión queda en null: la base no inventa qué vio' );
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select lives_ok($$select aceptar_aviso('v3')$$, 'aceptar_aviso: la persona acepta la versión vigente' );
+select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000a1'), 'v3',
+  'aceptar_aviso: queda la versión' );
+select isnt((select acepto_aviso_privacidad_en from usuarios where id = '00000000-0000-0000-0000-0000000000a1'), null,
+  'aceptar_aviso: queda la hora, escrita por el servidor' );
+select throws_ok($$select aceptar_aviso('v3; drop table usuarios')$$, '22023', null, 'aceptar_aviso: una versión con formato raro se rechaza' );
+select throws_ok($$select aceptar_aviso('')$$, '22023', null, 'aceptar_aviso: una versión vacía se rechaza' );
+select throws_ok($$select aceptar_aviso(null)$$, '22023', null, 'aceptar_aviso: una versión nula se rechaza' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select aceptar_aviso('v4');
+select actuar_como_servicio();
+select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000a1'), 'v3',
+  'aceptar_aviso: solo toca la fila de quien llama, no la de otra cuenta (a1 sigue en v3 tras aceptar b2)' );
+select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000b2'), 'v4',
+  'aceptar_aviso: la fila de quien llama sí cambió' );
+select is(has_function_privilege('anon', 'public.aceptar_aviso(text)', 'execute'), false, 'aceptar_aviso: anon no puede ejecutarla' );
 
 select * from finish();
 rollback;

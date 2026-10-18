@@ -8,12 +8,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing, Texto } from '@/constants/theme';
 import { aviso } from '@/lib/registro';
+import { VERSION_AVISO } from '@/lib/verificacion';
 import { supabase, supabaseConfigurado } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
 // Documento maestro v5 · §26 — el guard de sesión tiene TRES estados, no dos:
 //
 //   sin sesión                      → login
+//   con sesión, aviso sin aceptar   → aviso (la versión vigente; migración 0059)
 //   con sesión, sin cuestionario    → cuestionario
 //   con sesión y cuestionario       → pestañas
 //
@@ -24,7 +26,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 // alguien que guardó universidad y abandonó antes del presupuesto pasaba el
 // filtro igual. Ahora hay una columna explícita, `cuestionario_completo`, que
 // se escribe una sola vez al terminar de verdad.
-type EstadoCuestionario = 'completo' | 'incompleto' | 'error';
+type EstadoCuestionario = 'completo' | 'incompleto' | 'aviso' | 'error';
 
 export default function Index() {
   const { session, cargando, cargarSesionInicial } = useAuthStore();
@@ -48,7 +50,7 @@ export default function Index() {
     };
     supabase
       .from('usuarios')
-      .select('cuestionario_completo')
+      .select('cuestionario_completo, version_aviso_aceptada')
       .eq('id', usuarioId)
       .maybeSingle()
       .then(
@@ -65,6 +67,12 @@ export default function Index() {
           }
           // Sin fila en `usuarios` (registro interrumpido entre el signUp y el
           // alta del perfil) SÍ es «sin cuestionario»: que lo haga ahora.
+          // El aviso va ANTES que el cuestionario: no se piden más datos a quien no aceptó cómo se tratan. Sin fila no hay nada que
+          // aceptar todavía (el alta se interrumpió): sigue el camino de siempre. Un FALLO de lectura nunca llega aquí (se trata arriba).
+          if (data && data.version_aviso_aceptada !== VERSION_AVISO) {
+            terminar('aviso');
+            return;
+          }
           terminar(data?.cuestionario_completo ? 'completo' : 'incompleto');
         },
         // Sin esta rama, una excepción dejaba el indicador girando para siempre.
@@ -127,6 +135,8 @@ export default function Index() {
       </ThemedView>
     );
   }
+
+  if (estado === 'aviso') return <Redirect href="/aviso-actualizado" />;
 
   return <Redirect href={estado === 'completo' ? '/(tabs)/inicio' : '/(auth)/cuestionario-inicial'} />;
 }

@@ -23,6 +23,7 @@ import { evaluarPassword } from '@/lib/password';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { aviso } from '@/lib/registro';
+import { VERSION_AVISO } from '@/lib/verificacion';
 import { reenviarConfirmacion } from '@/lib/confirmacionCorreo';
 
 // Documento maestro v5 · §25 y §29. El aviso se lee DENTRO de la app
@@ -137,7 +138,7 @@ export default function RegistroScreen() {
         // un problema de cumplimiento que hay que poder detectar.
         const { error: errorConsentimiento } = await supabase
           .from('usuarios')
-          .update({ acepto_aviso_privacidad_en: new Date().toISOString() })
+          .update({ acepto_aviso_privacidad_en: new Date().toISOString(), version_aviso_aceptada: VERSION_AVISO })
           .eq('id', sesion.user.id);
         if (errorConsentimiento) aviso('No se guardó la marca de consentimiento', undefined, errorConsentimiento);
       }

@@ -112,6 +112,8 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(auth)" />
+        {/* Aceptar la versión vigente del aviso (0059). Sin gesto de volver: no se entra sin aceptar. */}
+        <Stack.Screen name="aviso-actualizado" options={{ gestureEnabled: false }} />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="publicacion/[id]" options={{ ...encabezado, title: 'Ficha' }} />
         <Stack.Screen name="publicacion/nueva" options={{ ...encabezado, title: 'Nueva publicación' }} />
