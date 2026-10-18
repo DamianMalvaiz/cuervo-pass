@@ -12,6 +12,8 @@ import { clienteDePrueba } from '@pruebas/consultas';
 // habrían colapsado en una: cargando, falló la lectura, y no tienes ninguna función extra.
 
 const mockObtener = jest.fn();
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(...a) } }));
 const mockAgregar = jest.fn();
 jest.mock('@/services/roles.service', () => ({
   obtenerMisRoles: (...a: unknown[]) => mockObtener(...a),
@@ -85,6 +87,7 @@ test('una función que ya tienes no se vuelve a ofrecer, y dice su estado', asyn
   expect(await screen.findByText('Comerciante')).toBeTruthy();
   expect(screen.getByText('Sin verificar')).toBeTruthy();
   expect(screen.getByText(/no te da acceso todavía/)).toBeTruthy();
+  expect(screen.getByText(/Toca su pastilla para verificar/)).toBeTruthy();
   expect(screen.queryByLabelText(/Agregar función de comerciante/)).toBeNull();
   expect(screen.getByLabelText(/Agregar función de arrendador/)).toBeTruthy();
 });
@@ -140,4 +143,34 @@ test('un fallo de red al agregar se dice como fallo de red, no como rechazo', as
   confirmarAlerta();
   await waitFor(() => expect(mockError).toHaveBeenCalled());
   expect(String(mockError.mock.calls[0][0])).toMatch(/conexi/i);
+});
+
+// Verificación de vendedor · una función que aún no está aprobada lleva a la pantalla de verificación.
+describe('verificar la identidad', () => {
+  it('tocar una función sin verificar abre su pantalla de verificación', async () => {
+    mockObtener.mockResolvedValue([fila('comerciante', 'sin_verificar')]);
+    await pintar();
+    await fireEvent.press(await screen.findByLabelText(/Comerciante, sin verificar/));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/verificacion/[rol]', params: { rol: 'comerciante' } });
+  });
+
+  it('una rechazada también: se puede corregir y reenviar', async () => {
+    mockObtener.mockResolvedValue([fila('arrendador', 'rechazado')]);
+    await pintar();
+    await fireEvent.press(await screen.findByLabelText(/Arrendador, rechazada/));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/verificacion/[rol]', params: { rol: 'arrendador' } });
+  });
+
+  it('una pendiente lleva a ver el estado', async () => {
+    mockObtener.mockResolvedValue([fila('comerciante', 'pendiente')]);
+    await pintar();
+    expect(await screen.findByLabelText(/Toca para ver el estado/)).toBeTruthy();
+  });
+
+  it('una aprobada es solo una insignia: no se puede tocar', async () => {
+    mockObtener.mockResolvedValue([fila('comerciante', 'aprobado')]);
+    await pintar();
+    await screen.findByText('Verificada');
+    expect(screen.queryByLabelText(/Comerciante, verificada/)).toBeNull();
+  });
 });

@@ -8,7 +8,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { agregarFuncion, obtenerMisRoles } from '@/services/roles.service';
 
-const clave = (usuarioId: string | undefined) => ['misRoles', usuarioId ?? ''] as const;
+export const claveMisRoles = (usuarioId: string | undefined) => ['misRoles', usuarioId ?? ''] as const;
+const clave = claveMisRoles;
 
 export function useMisRoles(usuarioId: string | undefined) {
   const q = useQuery({

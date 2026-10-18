@@ -130,6 +130,7 @@ export default function RootLayout() {
         <Stack.Screen name="chat/[conversacionId]" options={{ ...encabezado, title: 'Chat' }} />
         {/* §29 — se abre desde el registro ANTES de aceptar, y desde Mi perfil
             después. Con cabecera para que haya "atrás" sin gestos. */}
+        <Stack.Screen name="verificacion/[rol]" options={{ ...encabezado, title: 'Verificación' }} />
         <Stack.Screen name="configuracion" options={{ ...encabezado, title: 'Configuración' }} />
         <Stack.Screen name="aviso-privacidad" options={{ ...encabezado, title: 'Aviso de privacidad' }} />
       </Stack>

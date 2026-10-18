@@ -65,6 +65,30 @@ async function subirArchivo(ruta: string, uriLocal: string, anchoMax: number): P
   return ruta;
 }
 
+/**
+ * Sube UN archivo de evidencia de la verificación de vendedor al bucket PRIVADO `verificacion` y devuelve su RUTA.
+ *
+ * El nombre es único por subida (hora + azar) y NO se sobrescribe: ese bucket solo concede INSERT y SELECT a la dueña
+ * (0049), así que no hay UPDATE ni DELETE desde el cliente. Reenviar tras un rechazo sube archivos nuevos. 1600 px de
+ * ancho: más que una foto de publicación porque la INE tiene que poder leerse al revisarla.
+ */
+export async function subirEvidenciaVerificacion(
+  usuarioId: string,
+  rol: string,
+  etiqueta: string,
+  uriLocal: string
+): Promise<string> {
+  const ruta = `${usuarioId}/${rol}/${etiqueta}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const uriComprimida = await comprimirImagen(uriLocal, 1600);
+  const arrayBuffer = await fetch(uriComprimida).then((res) => res.arrayBuffer());
+  const { error } = await supabase.storage.from('verificacion').upload(ruta, arrayBuffer, {
+    contentType: 'image/jpeg',
+    upsert: false,
+  });
+  if (error) throw error;
+  return ruta;
+}
+
 export function subirFotoPerfil(usuarioId: string, uriLocal: string): Promise<string> {
   return subirArchivo(`perfiles/${usuarioId}.jpg`, uriLocal, 512);
 }

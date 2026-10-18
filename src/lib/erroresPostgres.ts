@@ -44,6 +44,8 @@ export const CP = {
   ROL_NO_PERMITIDO: 'CP003',
   /** Tope de 200 favoritos por cuenta (migración 0044). */
   FAVORITOS_LLENOS: 'CP004',
+  /** `enviar_verificacion` sin la función, o con la verificación ya pendiente o aprobada (migración 0049). */
+  VERIFICACION_NO_ENVIABLE: 'CP005',
 } as const;
 
 /** El `code` de un error de PostgREST/supabase-js, si lo trae. */

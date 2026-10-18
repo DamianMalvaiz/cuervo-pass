@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { Seccion } from '@/components/ficha/Seccion';
@@ -96,19 +97,40 @@ export function SeccionFunciones({ usuarioId }: { usuarioId: string | undefined 
         </View>
 
         {!cargando && !fallo
-          ? roles.map((r) => (
-              <View
-                key={r.rol}
-                style={[estilos.pastilla, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}
-              >
-                <ThemedText type="small" style={Texto.pesoFuerte}>
-                  {TEXTO[r.rol].etiqueta}
-                </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {estadoCorto(r)}
-                </ThemedText>
-              </View>
-            ))
+          ? roles.map((r) => {
+              const contenido = (
+                <>
+                  <ThemedText type="small" style={Texto.pesoFuerte}>
+                    {TEXTO[r.rol].etiqueta}
+                  </ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {estadoCorto(r)}
+                  </ThemedText>
+                </>
+              );
+              const estiloPastilla = { backgroundColor: theme.backgroundElement, borderColor: theme.filete };
+              // Lo que aún no está aprobado lleva a la pantalla de verificación (formulario, o su estado si ya
+              // está en revisión). Lo aprobado es solo una insignia.
+              const verificable = r.estado !== 'aprobado' && (r.rol === 'comerciante' || r.rol === 'arrendador');
+              return verificable ? (
+                <Pressable
+                  key={r.rol}
+                  onPress={() => router.push({ pathname: '/verificacion/[rol]', params: { rol: r.rol } })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${TEXTO[r.rol].etiqueta}, ${estadoCorto(r).toLowerCase()}. Toca para ${
+                    r.estado === 'pendiente' ? 'ver el estado' : 'verificar tu identidad'
+                  }`}
+                  style={({ pressed }) => [estilos.pastilla, estiloPastilla, pressed && estilos.presionada]}
+                >
+                  {contenido}
+                  <Ionicons name="chevron-forward" size={14} color={theme.textSecondary} />
+                </Pressable>
+              ) : (
+                <View key={r.rol} style={[estilos.pastilla, estiloPastilla]}>
+                  {contenido}
+                </View>
+              );
+            })
           : null}
 
         {!cargando && !fallo
@@ -155,7 +177,7 @@ export function SeccionFunciones({ usuarioId }: { usuarioId: string | undefined 
 
       {!cargando && !fallo && haySinVerificar && (
         <ThemedText type="small" themeColor="textSecondary" style={estilos.nota}>
-          Una función sin verificar no te da acceso todavía: falta la verificación de vendedor.
+          Una función sin verificar no te da acceso todavía. Toca su pastilla para verificar tu identidad.
         </ThemedText>
       )}
       {!cargando && !fallo && hayHeredada && (

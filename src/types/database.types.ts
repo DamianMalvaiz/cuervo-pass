@@ -327,6 +327,18 @@ export interface NegocioItem {
   orden: number;
 }
 
+/** Verificación de vendedor · 0049. Privado: solo su dueña lee su fila. */
+export interface VerificacionVendedor {
+  [key: string]: unknown;
+  usuario_id: string;
+  rol: 'comerciante' | 'arrendador';
+  nombre_legal: string;
+  direccion: string;
+  enviada_en: string;
+  revisada_en: string | null;
+  motivo_rechazo: string | null;
+}
+
 type Tabla<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relationships: [] };
 // Las vistas de §13 son de solo lectura, pero supabase-js exige la misma forma
 // que una tabla para poder inferir el tipo de `select()`; sin Insert/Update el
@@ -348,6 +360,7 @@ export interface Database {
       roles_usuario: Tabla<RolUsuario>;
       favoritos: Tabla<Favorito>;
       categorias_servicio: Tabla<CategoriaServicio>;
+      verificaciones_vendedor: Tabla<VerificacionVendedor>;
       geocodificaciones: Tabla<{
         [key: string]: unknown;
         consulta: string;
@@ -402,6 +415,19 @@ export interface Database {
       // Solo comerciante o arrendador, siempre en sin_verificar. admin y estudiante → CP003.
       agregar_funcion: {
         Args: { p_rol: 'comerciante' | 'arrendador' };
+        Returns: undefined;
+      };
+      // Envía la verificación de vendedor a revisión (migración 0049). CP005 si ya no se puede enviar.
+      enviar_verificacion: {
+        Args: {
+          p_rol: 'comerciante' | 'arrendador';
+          p_nombre_legal: string;
+          p_direccion: string;
+          p_ine_frente: string;
+          p_ine_reverso: string;
+          p_fotos: string[];
+          p_version_aviso: string;
+        };
         Returns: undefined;
       };
       abrir_conversacion: {

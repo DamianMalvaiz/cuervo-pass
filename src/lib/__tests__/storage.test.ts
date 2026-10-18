@@ -28,7 +28,7 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
-import { borrarFotos, subirFotoPerfil, subirFotoPublicacion } from '../storage';
+import { borrarFotos, subirEvidenciaVerificacion, subirFotoPerfil, subirFotoPublicacion } from '../storage';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -135,5 +135,37 @@ describe('borrarFotos', () => {
   test('una excepción tampoco se propaga', async () => {
     mockRemover.mockRejectedValue(new Error('se cayó la red'));
     await expect(borrarFotos(['a.jpg'])).resolves.toBeUndefined();
+  });
+});
+
+// Verificación de vendedor · la evidencia va a un bucket privado aparte, con nombre único y sin sobrescribir.
+describe('subirEvidenciaVerificacion', () => {
+  it('sube a la carpeta de la cuenta y del rol, y devuelve la ruta', async () => {
+    const ruta = await subirEvidenciaVerificacion('u1', 'comerciante', 'ine-frente', 'file:///x.jpg');
+    expect(ruta).toMatch(/^u1\/comerciante\/ine-frente-\d+-[a-z0-9]+\.jpg$/);
+    expect(mockSubir.mock.calls.at(-1)?.[0]).toBe(ruta);
+  });
+
+  it('no sobrescribe: ese bucket no tiene UPDATE', async () => {
+    await subirEvidenciaVerificacion('u1', 'comerciante', 'ine-frente', 'file:///x.jpg');
+    expect(mockSubir.mock.calls.at(-1)?.[2]).toMatchObject({ upsert: false, contentType: 'image/jpeg' });
+  });
+
+  it('comprime a 1600 px de ancho para que la INE siga siendo legible', async () => {
+    await subirEvidenciaVerificacion('u1', 'comerciante', 'ine-frente', 'file:///x.jpg');
+    expect(mockResize).toHaveBeenCalledWith({ width: 1600 });
+  });
+
+  it('dos subidas del mismo archivo no chocan en nombre', async () => {
+    const a = await subirEvidenciaVerificacion('u1', 'comerciante', 'ine-frente', 'file:///x.jpg');
+    const b = await subirEvidenciaVerificacion('u1', 'comerciante', 'ine-frente', 'file:///x.jpg');
+    expect(a).not.toBe(b);
+  });
+
+  it('si Storage rechaza, LANZA (no se envía una verificación con rutas que no existen)', async () => {
+    mockSubir.mockResolvedValue({ error: { message: 'rechazado' } });
+    await expect(subirEvidenciaVerificacion('u1', 'comerciante', 'ine-frente', 'file:///x.jpg')).rejects.toMatchObject({
+      message: 'rechazado',
+    });
   });
 });
