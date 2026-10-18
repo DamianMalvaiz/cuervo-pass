@@ -1,6 +1,6 @@
 # Algoritmos de Cuervo 360
 
-Estado: ranking de **Servicios**, **Depas** y **Roomies** documentados (los dos últimos ya existían; aquí se escriben a partir de las migraciones 0031, 0037 y 0024, leídas el 17/10/2026). Las reseñas se agregan al cerrarse su fase.
+Estado: ranking de **Servicios**, **Depas** y **Roomies** documentados (los dos últimos ya existían; aquí se escriben a partir de las migraciones 0031, 0037 y 0024, leídas el 17/10/2026). La **verificación de rostro** (fase 6) se documenta al final. Las reseñas se agregan al cerrarse su fase.
 
 ## Ranking de Servicios (`negocios_ordenados`, migración 0055)
 
@@ -64,3 +64,53 @@ del roomie; quien aún no tiene vector sale al final, no desaparece. Solo roomie
 ### Brecha honesta de explicabilidad
 Servicios y Depas dicen *por qué* (distancia, precio, reseñas). **Roomies no puede**: el orden sale de un embedding de texto
 libre y no se descompone en razones legibles. Se declara así en lugar de inventar razones. Umbrales 0.75/0.55 sin calibrar con datos reales.
+
+## Verificación de rostro (fase 6: `/verificar-rostro`, Edge Function `verificar-rostro`, migración 0056)
+
+**Qué es:** una AYUDA para el admin que revisa una verificación de vendedor. Compara una selfie con la foto de la INE. **No aprueba
+nada**: aprobar sigue siendo `resolver_verificacion`, llamada por una persona.
+
+| Pieza | Decisión |
+|---|---|
+| Modelo | InsightFace `buffalo_l` (identidad) + addon de liveness, en CPU: ~1.4 s por verificación, ~12 s de carga la primera vez |
+| Identidad | coseno ≥ **0.30** entre la selfie y la cara mayor de la INE |
+| Vida | puntaje ≥ **0.90**; **sin puntaje no pasa** (se pide otra selfie) |
+| Orden de decisión | 1 sola cara en la selfie → puntaje de vida presente → vida ≥ 0.90 → identidad ≥ 0.30 |
+| Estados | `coincide` · `no_coincide` · `no_vivo` · `repetir_selfie` · `sin_rostro_ine` |
+| Intentos | 5 por cada envío de verificación; se reinician si la persona reenvía la evidencia |
+| Qué se guarda | estado + 2 cifras + modelo + consentimiento (fecha y versión del aviso), en `verificaciones_biometria` |
+| Qué NO se guarda | la selfie, la imagen de la INE usada, el vector facial |
+| Quién lo ve | solo el servicio (script del admin). La persona recibe «recibida» o «repite la foto»: ni cifras ni causa |
+
+### Por qué la persona no ve las cifras
+`no_coincide` y `no_vivo` se ven iguales para ella. Si supiera cuál falló, o qué tan cerca quedó, tendría un instrumento para afinar una
+suplantación contra los umbrales. La tabla ni siquiera se concede a `authenticated` (RLS filtra filas, no columnas).
+
+### Qué se midió (local, `experimentos/biometrico/RESULTADOS.md`, fuera de git por llevar fotos personales)
+Rondas del 17/10/2026, `buffalo_l`, la credencial de una sola persona como referencia:
+
+| Prueba | Resultado |
+|---|---|
+| Impostores (LFW, 299 personas) | 0 aceptados; similitud máxima 0.137 |
+| Tus fotos normales y con filtro | identidad ≥ 0.478 |
+| Tus fotos difíciles (tapabocas, gorra, celular tapando…) | 0.243 a 0.611 (2 de 6 por debajo de 0.30: rechazo deseado) |
+| Ataques de pantalla (11) | 0 aceptados. Liveness máx. 0.788 contra 0.950 mínimo de las reales |
+| La identidad SIN liveness ante esos ataques | 10 de 11 habrían pasado: lo que protege es el liveness |
+| Motor real del servicio (ronda 5) | reales: 5 coinciden, 4 piden repetir, 2 no coinciden · ataques 0/11 · impostores 0/60 |
+
+### Límites honestos (no minimizar)
+- **Uso real:** ~1 de cada 3 selfies reales pide repetir (selfie demasiado cerca o recortada). Es un costo de usabilidad, no una falla de seguridad.
+- **Cotas, no tasas:** «0 de 299» ≈ hasta ~1 % de falsos aceptados; «0 de 11 ataques» ≈ hasta ~25 %. Se probó **un monitor, una luz, una persona**; sin fotos impresas, vídeo ni máscaras.
+- **Umbrales sin calibrar con estudiantes mexicanos** y el 0.90 de vida se eligió con los mismos datos (puede estar sobreajustado).
+- **Un parecido entre estudiantes de la misma universidad** puede dar similitudes más altas que las de LFW (figuras públicas, mayoría de otros países).
+- **Licencias:** código de InsightFace MIT; los modelos `buffalo_*` son **solo para investigación no comercial**; el addon de liveness **no declara licencia**.
+  Es un proyecto académico sin fines de lucro. Para una producción comercial habría que cambiar de modelo y repetir las mediciones.
+- **Intento perdido:** si el ai-service falla tras reservar el intento, la persona pierde uno de sus 5 (haría falta una migración 0057 para devolverlo).
+
+### Cómo se comprueba
+- `cd ai-service && .venv/bin/python -m pytest tests/test_rostro.py` (reglas con un motor falso; CI no instala InsightFace).
+- `npx jest test-utils/__tests__/verificar-rostro` (política de la Edge Function) · `npx jest src/components/__tests__/SeccionRostro src/lib/__tests__/rostro`.
+- `npx supabase test db` (0056: permisos, tope de intentos, reinicio al reenviar).
+- Motor real: `experimentos/biometrico/probar_servicio.py` dentro de la imagen del experimento (local).
+- **Sin verificar de punta a punta:** la Edge Function desplegada llamando al ai-service real, y la pantalla en un teléfono. Está apagada
+  (`BIOMETRIA_ACTIVA=false` en el servicio, `BIOMETRIA_HABILITADA=false` en la app) hasta que el aviso de privacidad v3 esté publicado.

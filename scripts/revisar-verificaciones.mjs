@@ -74,6 +74,29 @@ if (!pendientes?.length) {
   process.exit(0);
 }
 
+// Verificación de rostro (0056): una AYUDA, nunca una decisión. Solo el servicio lee esta tabla; la persona no ve estas cifras.
+const LECTURA = {
+  coincide: 'COINCIDE: la selfie y la foto de la INE parecen la misma persona y la selfie parece una cara viva.',
+  no_coincide: 'NO COINCIDE: la selfie no se parece lo bastante a la foto de la INE. Mira las fotos tú: una INE vieja o con reflejos también da esto.',
+  no_vivo: 'NO PARECE VIVA: la selfie pudo ser una foto de otra pantalla o papel, o salió mal. Pide revisar con cuidado.',
+  repetir_selfie: 'SIN RESULTADO: las selfies enviadas no se pudieron medir. No es una señal contra la persona.',
+  sin_rostro_ine: 'SIN ROSTRO EN LA INE: no se detectó la cara en la foto del frente. Revisa la foto tú.',
+  pendiente_de_foto: 'RESERVADO: se reservó un intento pero no hay resultado (fallo del servicio o la persona no terminó).',
+};
+
+async function lineasDeRostro(usuarioId, rol) {
+  const { data: b, error } = await supabase
+    .from('verificaciones_biometria').select('*').eq('usuario_id', usuarioId).eq('rol', rol).maybeSingle();
+  if (error) return [`Rostro       : (no se pudo leer: ${error.code ?? error.message})`];
+  if (!b) return ['Rostro       : la persona no hizo la comparación (es opcional). Decide solo con los documentos.'];
+  return [
+    `Rostro       : ${LECTURA[b.estado] ?? b.estado}`,
+    `               identidad ${b.identidad ?? '—'} (umbral 0.30) · vida ${b.vivo ?? '—'} (umbral 0.90) · modelo ${b.modelo ?? '—'} · intentos ${b.intentos}/5`,
+    `               consentimiento biométrico: ${b.consentimiento_en} (aviso ${b.version_aviso})`,
+    '               AYUDA, no decisión: umbrales sin calibrar con estudiantes; en pruebas ~1 de cada 3 selfies reales pide repetir.',
+  ];
+}
+
 for (const p of pendientes) {
   const { data: v, error } = await supabase
     .from('verificaciones_vendedor').select('*').eq('usuario_id', p.usuario_id).eq('rol', p.rol).maybeSingle();
@@ -92,6 +115,7 @@ for (const p of pendientes) {
   console.log(`INE frente   : ${enlace(v.ine_frente)}`);
   console.log(`INE reverso  : ${enlace(v.ine_reverso)}`);
   v.fotos.forEach((f, i) => console.log(`Foto ${i + 1}       : ${enlace(f)}`));
+  for (const linea of await lineasDeRostro(v.usuario_id, p.rol)) console.log(linea);
   console.log(`→ aprobar : --aprobar ${v.usuario_id} ${p.rol}`);
   console.log(`→ rechazar: --rechazar ${v.usuario_id} ${p.rol} "<motivo>"`);
 }
