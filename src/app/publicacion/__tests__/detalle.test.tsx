@@ -87,6 +87,14 @@ jest.mock('@/components/SeccionResenas', () => ({
   },
 }));
 
+// «Parecidos a este» tiene sus propias pruebas; aquí solo importa que la ficha lo monte con el id correcto.
+jest.mock('@/components/SeccionParecidas', () => ({
+  SeccionParecidas: ({ publicacionId }: { publicacionId: string }) => {
+    const { Text } = require('react-native');
+    return <Text>{`PARECIDOS ${publicacionId}`}</Text>;
+  },
+}));
+
 import DetalleScreen from '../[id]';
 
 const PUBLICACION = {
@@ -509,5 +517,24 @@ describe('las reseñas en la ficha de una vivienda', () => {
   it('pide la calificación de ESTA publicación', async () => {
     await pintar();
     expect(mockCalificacion).toHaveBeenCalledWith('p1');
+  });
+});
+
+describe('personalización con favoritos (0071)', () => {
+  it('monta «Parecidos a este» con el id de la publicación', async () => {
+    await pintar();
+    expect(screen.getByText('PARECIDOS p1')).toBeTruthy();
+  });
+
+  it('dice a qué favorito se parece, y solo cuando el servidor lo dice', async () => {
+    mockAfinidad.mockReturnValue({ scoreFinal: 0.7, score: 0.7, similitud: 0.6, parecidoA: 'Depa junto al metro' });
+    await pintar();
+    expect(screen.getByText(/Se parece a «Depa junto al metro», que guardaste en favoritos/)).toBeTruthy();
+  });
+
+  it('sin «parecido a» no inventa una explicación', async () => {
+    mockAfinidad.mockReturnValue({ scoreFinal: 0.7, score: 0.7, similitud: 0.6, parecidoA: null });
+    await pintar();
+    expect(screen.queryByText(/Se parece a/)).toBeNull();
   });
 });

@@ -49,6 +49,7 @@ import {
   contarContactosRecibidos,
   crearPublicacion,
   obtenerAfinidad,
+  obtenerParecidas,
   obtenerNuevasEstaSemana,
   obtenerPublicacionPublica,
   obtenerSugerencias,
@@ -240,6 +241,24 @@ test('la afinidad se pregunta por publicacion, sin pasar el usuario', async () =
   mockRpc.mockResolvedValue({ data: [{ score: 0.8, similitud: 0.9, score_final: 0.84, nivel: 2 }], error: null });
   await obtenerAfinidad('p1');
   expect(mockRpc).toHaveBeenCalledWith('afinidad_de', { p_publicacion_id: 'p1' });
+});
+
+test('la afinidad trae el «parecido a» del servidor, o null', async () => {
+  mockRpc.mockResolvedValue({ data: [{ score: 0.8, similitud: 0.9, score_final: 0.84, nivel: 2, parecido_a: 'Depa A' }], error: null });
+  await expect(obtenerAfinidad('p1')).resolves.toMatchObject({ parecidoA: 'Depa A' });
+  mockRpc.mockResolvedValue({ data: [{ score: 0.8, similitud: 0.9, score_final: 0.84, nivel: 2 }], error: null });
+  await expect(obtenerAfinidad('p1')).resolves.toMatchObject({ parecidoA: null });
+});
+
+test('«parecidos a este» pide a la base la publicación y un tope', async () => {
+  mockRpc.mockResolvedValue({ data: [{ id: 'q1' }], error: null });
+  await expect(obtenerParecidas('p1')).resolves.toEqual([{ id: 'q1' }]);
+  expect(mockRpc).toHaveBeenCalledWith('publicaciones_parecidas', { p_publicacion: 'p1', p_limite: 4 });
+});
+
+test('si falla pedir los parecidos, LANZA y no devuelve una lista vacía', async () => {
+  mockRpc.mockResolvedValue({ data: null, error: { message: 'sin red' } });
+  await expect(obtenerParecidas('p1')).rejects.toMatchObject({ message: 'sin red' });
 });
 
 // ── Escritura ─────────────────────────────────────────────────────────────

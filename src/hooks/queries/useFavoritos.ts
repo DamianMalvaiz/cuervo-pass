@@ -83,6 +83,9 @@ export function useAlternarFavorito(usuarioId: string | undefined) {
       void cliente.invalidateQueries({ queryKey: claveLista(usuarioId) });
       // El número de personas que la guardaron cambia con cada corazón.
       void cliente.invalidateQueries({ queryKey: ['conteoFavoritos'] });
+      // Lo que guardas mueve tu orden y tu afinidad (0071): la lista y la ficha se piden de nuevo.
+      void cliente.invalidateQueries({ queryKey: ['sugerencias'] });
+      void cliente.invalidateQueries({ queryKey: ['afinidad'] });
     },
   });
 }

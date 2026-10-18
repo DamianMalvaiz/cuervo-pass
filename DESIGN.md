@@ -537,7 +537,7 @@ Esta sección existe porque la versión anterior de este archivo describía un s
 
 ## Estado de la implementación
 
-El sistema está aplicado a las **30 pantallas** de `src/app` y a los **55 componentes** de `src/components`. Los dos números se cuentan, no se recuerdan:
+El sistema está aplicado a las **30 pantallas** de `src/app` y a los **56 componentes** de `src/components`. Los dos números se cuentan, no se recuerdan:
 
 ```bash
 find src/app -name '*.tsx' ! -path '*__tests__*' ! -name '_layout.tsx' | wc -l

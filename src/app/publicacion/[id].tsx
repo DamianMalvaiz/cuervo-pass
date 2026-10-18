@@ -18,6 +18,7 @@ import { Pastilla } from '@/components/ficha/Pastilla';
 import { SeccionResenas } from '@/components/SeccionResenas';
 import { PorQueEsBuena } from '@/components/ficha/PorQueEsBuena';
 import { Seccion } from '@/components/ficha/Seccion';
+import { SeccionParecidas } from '@/components/SeccionParecidas';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { BotonEscribir } from '@/components/BotonEscribir';
 import { BotonFavorito } from '@/components/BotonFavorito';
@@ -341,11 +342,20 @@ export default function DetallePublicacionScreen() {
 
         {afinidad?.scoreFinal != null ? <PorQueEsBuena razones={razones} /> : null}
 
+        {/* 0071 · Explicable: se dice solo cuando de verdad se parece a algo que guardaste (coseno ≥ 0.70). */}
+        {afinidad?.parecidoA ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Se parece a «{afinidad.parecidoA}», que guardaste en favoritos.
+          </ThemedText>
+        ) : null}
+
         {publicacion.descripcion ? (
           <Seccion titulo="Descripción">
             <ThemedText style={estilos.descripcion}>{publicacion.descripcion}</ThemedText>
           </Seccion>
         ) : null}
+
+        <SeccionParecidas publicacionId={id} />
 
         {tieneUbicacion && (
           <Seccion titulo="Ubicación">

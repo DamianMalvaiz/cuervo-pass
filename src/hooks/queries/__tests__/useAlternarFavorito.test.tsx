@@ -119,6 +119,16 @@ test('pase lo que pase se vuelve a pedir al servidor: ids, lista y conteos', asy
   expect(claves).toEqual(expect.arrayContaining([JSON.stringify(CLAVE_IDS), JSON.stringify(['favoritos', 'u1']), JSON.stringify(['conteoFavoritos'])]));
 });
 
+test('lo que guardas mueve tu orden y tu afinidad (0071): se vuelven a pedir', async () => {
+  mockGuardar.mockResolvedValue(undefined);
+  const { cliente, Envoltura } = montar([]);
+  const invalidar = jest.spyOn(cliente, 'invalidateQueries');
+  const { result } = await renderHook(() => useAlternarFavorito('u1'), { wrapper: Envoltura });
+  await act(async () => { await result.current.mutateAsync({ publicacionId: 'p1', guardar: true }); });
+  const claves = invalidar.mock.calls.map((c) => JSON.stringify((c[0] as { queryKey: unknown }).queryKey));
+  expect(claves).toEqual(expect.arrayContaining([JSON.stringify(['sugerencias']), JSON.stringify(['afinidad'])]));
+});
+
 test('sin lista previa también funciona (la primera vez que se guarda algo)', async () => {
   let resolver!: () => void;
   mockGuardar.mockReturnValue(new Promise<void>((r) => { resolver = r; }));

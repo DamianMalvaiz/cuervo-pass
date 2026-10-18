@@ -20,6 +20,7 @@ import {
   listarMisPublicaciones,
   obtenerPublicacionPublica,
   obtenerNuevasEstaSemana,
+  obtenerParecidas,
   obtenerSugerencias,
   reintentarGeocodingPendiente,
 } from '@/services/publicaciones.service';
@@ -114,6 +115,16 @@ export function useAfinidad(id: string | undefined) {
     enabled: Boolean(id),
   });
   return q.data ?? null;
+}
+
+/** «Parecidos a este». Un fallo se distingue de «no hay parecidos» (invariante 2): `fallo` aparte de `parecidas` vacío. */
+export function useParecidas(id: string | undefined) {
+  const q = useQuery({
+    queryKey: ['parecidas', id ?? ''],
+    queryFn: () => obtenerParecidas(id as string),
+    enabled: Boolean(id),
+  });
+  return { parecidas: q.data ?? [], cargando: q.isPending && Boolean(id), fallo: q.isError };
 }
 
 export function useMisPublicaciones(usuarioId: string | undefined) {

@@ -12,6 +12,7 @@ import { borrarFotos, subirFotoPublicacion } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import type {
   OrdenSugerencias,
+  PublicacionParecida,
   Publicacion,
   PublicacionNueva,
   PublicacionSugerida,
@@ -480,8 +481,16 @@ export async function obtenerAfinidad(publicacionId: string) {
         similitud: fila.similitud as number | null,
         scoreFinal: fila.score_final as number | null,
         nivel: fila.nivel as 1 | 2,
+        parecidoA: (fila.parecido_a ?? null) as string | null,
       }
     : null;
+}
+
+/** «Parecidos a este» (0071): lo visible más cercano por contenido. Si falla, LANZA: no es «no hay parecidos». */
+export async function obtenerParecidas(publicacionId: string, limite = 4): Promise<PublicacionParecida[]> {
+  const { data, error } = await supabase.rpc('publicaciones_parecidas', { p_publicacion: publicacionId, p_limite: limite });
+  if (error) throw error;
+  return (data ?? []) as PublicacionParecida[];
 }
 
 /** El ocultamiento automático a los 3 reportes lo hace el trigger `al_reportar`

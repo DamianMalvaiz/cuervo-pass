@@ -152,6 +152,20 @@ export interface PublicacionSugerida {
   // conviven publicaciones ordenadas por afinidad y publicaciones ordenadas
   // solo por filtros.
   nivel?: 1 | 2;
+  /** Título de TU favorito más cercano, si se parece lo bastante (coseno ≥ 0.70, 0071). Null = no se explica. */
+  parecido_a?: string | null;
+}
+
+/** Fila de `publicaciones_parecidas` (0071): lo visible más cercano a una publicación. */
+export interface PublicacionParecida {
+  [key: string]: unknown;
+  id: string;
+  titulo: string;
+  tipo: TipoPublicacion;
+  direccion: string;
+  precio_renta: number;
+  fotos: string[] | null;
+  similitud: number;
 }
 
 /**
@@ -594,7 +608,13 @@ export interface Database {
           similitud: number | null;
           score_final: number | null;
           nivel: 1 | 2;
+          parecido_a: string | null;
         }[];
+      };
+      // Lo visible más parecido a una publicación (0071). Mínimo 0.60 de coseno; tope 12.
+      publicaciones_parecidas: {
+        Args: { p_publicacion: string; p_limite?: number };
+        Returns: PublicacionParecida[];
       };
       revelar_contacto: {
         Args: { p_publicacion_id: string};

@@ -28,7 +28,7 @@ No tolera erratas («taqeria») ni sinónimos: eso pediría trigramas o un dicci
 El horario es estructurado (`negocio_horarios`: día ISO 1–7, `abre`, `cierra`, hasta 21 turnos; `cierra` < `abre` cruza la medianoche; `cierra` es exclusivo; zona
 `America/Mexico_City`). `negocio_abierto_en(negocio, instante)` mira el turno de HOY y el que empezó AYER y sigue abierto. **Tres estados**: abierto, cerrado y
 `null` (sin horario estructurado: no se sabe, y no se inventa). El filtro «Abierto ahora» (`p_solo_abiertos`) se aplica en el servidor y solo deja los que **se sabe**
-que están abiertos. El estado **no entra al puntaje**: filtra, no reordena. Se comprueba con `npx supabase test db` (557 aserciones) y con `npx jest src/lib/__tests__/horario.test.ts`.
+que están abiertos. El estado **no entra al puntaje**: filtra, no reordena. Se comprueba con `npx supabase test db` (573 aserciones) y con `npx jest src/lib/__tests__/horario.test.ts`.
 
 ### Límites honestos
 - Sin personalización: no existe historial de uso de Servicios; no se inventa.
