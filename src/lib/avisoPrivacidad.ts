@@ -427,7 +427,9 @@ export const SECCIONES: Seccion[] = [
             titulo: 'Acceso',
             detalle:
               'Mi perfil → Descargar mis datos. Entrega un archivo JSON con tu perfil, ' +
-              'tus publicaciones, tus mensajes y los contactos que solicitaste.',
+              'tus publicaciones, tus mensajes enviados, los contactos que solicitaste, tus ' +
+              'funciones y su verificación (sin las rutas internas de tu INE), tus negocios y ' +
+              'su menú, tus favoritos, tus reseñas y tus suscripciones y pagos.',
           },
           {
             titulo: 'Rectificación',

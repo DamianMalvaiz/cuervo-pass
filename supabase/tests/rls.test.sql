@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(408);
+select plan(417);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2830,6 +2830,25 @@ select throws_ok($$insert into publicaciones_publicas (id) values (gen_random_uu
 select throws_ok($$update roomies_publicos set descripcion_busqueda = 'HACKEADO'$$, '42501', null, 'vistas: no se puede ACTUALIZAR un anuncio de roomie ajeno a través de la vista' );
 select throws_ok($$delete from roomies_publicos$$, '42501', null, 'vistas: no se puede BORRAR un anuncio de roomie ajeno a través de la vista' );
 select is(has_table_privilege('authenticated', 'public.perfiles_publicos', 'update'), false, 'vistas: perfiles_publicos tampoco se escribe (no tiene UPDATE)' );
+
+-- ── Acceso a TODOS mis datos (0062) ─────────────────────────────────────────
+-- f7 tiene funciones y una verificación (bloque de la 0049) y negocios (0052); b2 es ajena.
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select is(
+  (select array_agg(k order by k) from jsonb_object_keys(exportar_mis_datos()) k),
+  array['contactos','favoritos','funciones','generado_en','mensajes','menu','negocios','pagos','perfil','publicaciones','resenas','roomie','suscripciones','verificaciones'],
+  'exportar: trae todas las secciones, también las nuevas' );
+select is(jsonb_array_length(exportar_mis_datos()->'funciones'), (select count(*)::int from roles_usuario where usuario_id = '00000000-0000-0000-0000-0000000000f7'),
+  'exportar: las funciones son las propias' );
+select ok(jsonb_array_length(exportar_mis_datos()->'verificaciones') >= 1, 'exportar: incluye la verificación propia (nombre legal, domicilio, estado)' );
+select ok((exportar_mis_datos()->'verificaciones'->0) ? 'nombre_legal', 'exportar: la verificación trae el nombre legal' );
+select ok(exportar_mis_datos()::text !~ 'ine-frente|ine-reverso', 'exportar: NO trae las rutas internas de la INE' );
+select is(jsonb_array_length(exportar_mis_datos()->'negocios'), (select count(*)::int from negocios where usuario_id = '00000000-0000-0000-0000-0000000000f7'),
+  'exportar: los negocios son los propios' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is(jsonb_array_length(exportar_mis_datos()->'verificaciones'), 0, 'exportar: una cuenta ajena NO recibe la verificación de otra' );
+select is(jsonb_array_length(exportar_mis_datos()->'negocios'), 0, 'exportar: ni sus negocios' );
+select is(exportar_mis_datos()->'perfil'->>'id', '00000000-0000-0000-0000-0000000000b2', 'exportar: el perfil es el de quien llama' );
 
 select * from finish();
 rollback;

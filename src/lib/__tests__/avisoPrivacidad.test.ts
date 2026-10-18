@@ -125,3 +125,19 @@ test('el aviso dice que hoy no se tratan datos biométricos, en las dos copias',
   expect(JSON.stringify(SECCIONES)).toContain('Hoy no tratamos datos biométricos');
   expect(markdown).toContain('Hoy no tratamos datos biométricos');
 });
+
+// El aviso dice qué trae «Descargar mis datos». Lo que promete lo cumple `exportar_mis_datos` (0062): si alguien quita una sección de la función,
+// esto falla en vez de dejar un aviso que describe una descarga que ya no existe.
+test('el aviso describe las secciones que trae la exportación de datos (0062)', () => {
+  const migracion = readFileSync(join(__dirname, '..', '..', '..', 'supabase', 'migrations', '0062_exportar_todos_mis_datos.sql'), 'utf-8');
+  const acceso = JSON.stringify(SECCIONES.find((s) => s.numero === 7));
+  const porSeccion: [string, RegExp][] = [
+    ["'funciones'", /funciones/], ["'verificaciones'", /verificaci/], ["'negocios'", /negocios/], ["'menu'", /men[úu]/],
+    ["'favoritos'", /favoritos/], ["'resenas'", /rese/], ["'suscripciones'", /suscripciones/], ["'pagos'", /pagos/],
+  ];
+  for (const [clave, patron] of porSeccion) {
+    expect(migracion).toContain(clave);
+    expect(acceso).toMatch(patron);
+    expect(markdown).toMatch(patron);
+  }
+});

@@ -14,6 +14,8 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+import { carpetasDeLaCuenta, rutasDeEntradas } from './politica.ts';
+
 // CORS · END-14 · `req.method !== 'POST'` devolvía 405 también al preflight, así
 // que un navegador nunca llegaba a hacer la petición real. `package.json` tiene
 // script `web` y `react-native-web` en dependencias, así que la app web está
@@ -30,6 +32,33 @@ const json = (cuerpo: unknown, status: number) =>
     status,
     headers: { 'Content-Type': 'application/json', ...CORS },
   });
+
+/** Lo mínimo de Storage que esta función usa: así no depende de los genéricos del cliente completo. */
+interface Almacen {
+  storage: {
+    from: (bucket: string) => {
+      list: (
+        carpeta: string,
+        opciones: { limit: number; offset: number },
+      ) => Promise<{ data: { name: string; id: string | null }[] | null; error: { message: string } | null }>;
+    };
+  };
+}
+
+/** Lista TODOS los archivos de una carpeta (pagina de 100 en 100) y devuelve sus rutas completas. */
+async function archivosDe(servicio: Almacen, bucket: string, carpeta: string): Promise<string[]> {
+  const rutas: string[] = [];
+  for (let desplazamiento = 0; ; desplazamiento += 100) {
+    const { data, error } = await servicio.storage.from(bucket).list(carpeta, { limit: 100, offset: desplazamiento });
+    if (error) {
+      console.error('eliminar-cuenta: no se pudo listar una carpeta', { bucket, mensaje: error.message });
+      break;
+    }
+    rutas.push(...rutasDeEntradas(carpeta, data));
+    if (!data || data.length < 100) break;
+  }
+  return rutas;
+}
 
 Deno.serve(async (req) => {
   // El preflight va ANTES de cualquier comprobación: no lleva credenciales por
@@ -88,8 +117,23 @@ Deno.serve(async (req) => {
   // Si esto falla, se sigue: dejar archivos huérfanos es malo, pero negarle a
   // alguien el borrado de su cuenta por un fallo de almacenamiento es peor. Lo
   // que quede sin borrar lo encola el trigger y lo recoge el barredor.
-  const { error: eStorage } = await servicio.storage.from('fotos').remove(rutas);
+  // Lo que las filas NO alcanzan: las fotos de los NEGOCIOS (y las de sus productos) y la evidencia de verificación (INE, reverso, fotos del
+  // lugar). Las filas se borran en cascada; los archivos no. Antes quedaban para siempre, y el aviso de privacidad promete lo contrario.
+  const { data: negocios } = await servicio.from('negocios').select('id').eq('usuario_id', user.id);
+  const carpetas = carpetasDeLaCuenta(user.id, (negocios ?? []).map((n: { id: string }) => n.id));
+  const deVerificacion: string[] = [];
+  for (const c of carpetas.fotos) rutas.push(...(await archivosDe(servicio, 'fotos', c)));
+  for (const c of carpetas.verificacion) deVerificacion.push(...(await archivosDe(servicio, 'verificacion', c)));
+
+  const { error: eStorage } = await servicio.storage.from('fotos').remove([...new Set(rutas)]);
   if (eStorage) console.error('eliminar-cuenta: fallo al borrar fotos', { usuario: user.id, mensaje: eStorage.message });
+  if (deVerificacion.length > 0) {
+    const { error: eVerificacion } = await servicio.storage.from('verificacion').remove(deVerificacion);
+    if (eVerificacion) {
+      // Se sigue: negar el borrado de la cuenta por esto sería peor. La INE la recoge el barrido de huérfanas (0058) en cuanto su fila desaparece.
+      console.error('eliminar-cuenta: fallo al borrar la evidencia de verificación', { usuario: user.id, mensaje: eVerificacion.message });
+    }
+  }
 
   const { error } = await servicio.auth.admin.deleteUser(user.id);
   if (error) return json({ error: error.message }, 500);
@@ -98,5 +142,5 @@ Deno.serve(async (req) => {
   // evita que el verificador pre-demo señale trabajo que ya está hecho.
   await servicio.from('fotos_huerfanas').delete().in('ruta', rutas);
 
-  return json({ eliminada: true, fotosBorradas: rutas.length }, 200);
+  return json({ eliminada: true, fotosBorradas: rutas.length, evidenciaBorrada: deVerificacion.length }, 200);
 });

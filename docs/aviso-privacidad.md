@@ -223,7 +223,7 @@ a su tratamiento para fines específicos.
 
 | Derecho | Dónde |
 |---|---|
-| **Acceso** | *Mi perfil → Descargar mis datos*. Entrega un archivo JSON con tu perfil, tus publicaciones, tus mensajes y los contactos que solicitaste. |
+| **Acceso** | *Mi perfil → Descargar mis datos*. Entrega un archivo JSON con tu perfil, tus publicaciones, tus mensajes enviados, los contactos que solicitaste, tus funciones y su verificación (sin las rutas internas de tu INE), tus negocios y su menú, tus favoritos, tus reseñas y tus suscripciones y pagos. |
 | **Rectificación** | *Mi perfil* y *Editar mis preferencias* corrigen cualquier dato que hayas proporcionado. |
 | **Cancelación** | *Mi perfil → Eliminar mi cuenta*. |
 | **Oposición** | Desmarcar la casilla de análisis con IA en *Editar mis preferencias*. |
