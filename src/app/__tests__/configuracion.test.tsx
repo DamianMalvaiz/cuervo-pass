@@ -28,6 +28,14 @@ jest.mock('@/store/usePerfilStore', () => ({
   usePerfilStore: () => ({ perfil: { id: 'u1', consiente_analisis_ia: almacen.consiente } }),
 }));
 
+// «Mi plan» tiene sus propias pruebas; aquí solo importa que Configuración lo monte.
+jest.mock('@/components/GrupoMiPlan', () => ({
+  GrupoMiPlan: () => {
+    const { Text } = require('react-native');
+    return <Text>GRUPO MI PLAN</Text>;
+  },
+}));
+
 import ConfiguracionScreen from '../configuracion';
 
 const pintar = async () => render(<ConfiguracionScreen />);
@@ -196,4 +204,9 @@ test('sin consentimiento de IA dice «Desactivadas»', async () => {
   await pintar();
   expect(screen.getByText('Desactivadas')).toBeTruthy();
   expect(screen.queryByText('Activadas')).toBeNull();
+});
+
+test('Configuración monta «Mi plan»', async () => {
+  await pintar();
+  expect(screen.getByText('GRUPO MI PLAN')).toBeTruthy();
 });

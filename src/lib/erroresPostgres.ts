@@ -52,6 +52,10 @@ export const CP = {
   LIMITE_ITEMS_MENU: 'CP009',
   /** Más fotos de galería de las que permite el plan (migración 0053). */
   LIMITE_FOTOS_PLAN: 'CP012',
+  /** `simular_pago` con el modo de demostración apagado (migración 0053). */
+  DEMO_APAGADO: 'CP010',
+  /** `simular_pago` con un plan inexistente, gratuito o de una función que la cuenta no tiene aprobada. */
+  PLAN_NO_DISPONIBLE: 'CP011',
 } as const;
 
 /** El `code` de un error de PostgREST/supabase-js, si lo trae. */

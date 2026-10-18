@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView, Share, StyleSheet, View } from 'react-native';
 
+import { GrupoMiPlan } from '@/components/GrupoMiPlan';
 import { FilaAjuste } from '@/components/ficha/FilaAjuste';
 import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
 import { Pulsable } from '@/components/ficha/Pulsable';
@@ -85,6 +86,8 @@ export default function ConfiguracionScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
+          <GrupoMiPlan />
+
           <GrupoAjustes titulo="Privacidad">
             <FilaAjuste
               icono="sparkles-outline"

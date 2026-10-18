@@ -1,3 +1,5 @@
+import type { MiSuscripcion } from '@/lib/planes';
+
 // Tipos mínimos a mano, mientras existe un proyecto Supabase real para generar
 // los definitivos con: supabase gen types typescript --linked > src/types/database.types.ts
 // No los reescribas a mano una vez que ese comando funcione.
@@ -351,6 +353,35 @@ export interface VerificacionVendedor {
   motivo_rechazo: string | null;
 }
 
+/** Un plan de pago (migración 0053). Catálogo público: lo lee cualquier cuenta con sesión. */
+export interface PlanDePago {
+  [key: string]: unknown;
+  id: string;
+  rol: 'comerciante' | 'arrendador';
+  nombre: string;
+  precio_centavos: number;
+  limite_principal: number;
+  max_fotos: number;
+  max_productos: number;
+  destaca: boolean;
+  es_prueba: boolean;
+  orden: number;
+}
+
+/** Un pago registrado (0053). Privado: solo su dueña lo lee, y solo el servidor lo escribe. */
+export interface PagoRegistrado {
+  [key: string]: unknown;
+  id: string;
+  usuario_id: string;
+  rol: 'comerciante' | 'arrendador';
+  plan_id: string;
+  monto_centavos: number;
+  origen: 'simulado' | 'mercadopago';
+  periodo_inicio: string;
+  periodo_fin: string;
+  creado_en: string;
+}
+
 type Tabla<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relationships: [] };
 // Las vistas de §13 son de solo lectura, pero supabase-js exige la misma forma
 // que una tabla para poder inferir el tipo de `select()`; sin Insert/Update el
@@ -374,6 +405,8 @@ export interface Database {
       categorias_servicio: Tabla<CategoriaServicio>;
       verificaciones_vendedor: Tabla<VerificacionVendedor>;
       negocios: Tabla<NegocioPropio>;
+      planes: Tabla<PlanDePago>;
+      pagos: Tabla<PagoRegistrado>;
       negocio_items: Tabla<NegocioItem>;
       geocodificaciones: Tabla<{
         [key: string]: unknown;
@@ -448,6 +481,16 @@ export interface Database {
       guardar_menu: {
         Args: { p_negocio: string; p_items: unknown };
         Returns: undefined;
+      };
+      // El plan efectivo de esta cuenta para una función (0053). Sin la función, no devuelve filas.
+      mi_suscripcion: {
+        Args: { p_rol: 'comerciante' | 'arrendador' };
+        Returns: MiSuscripcion[];
+      };
+      // Pago de DEMOSTRACIÓN: solo con demo_mode activo (CP010 si está apagado, CP011 si el plan no aplica).
+      simular_pago: {
+        Args: { p_plan: string };
+        Returns: string;
       };
       abrir_conversacion: {
         Args: { p_otro: string };
