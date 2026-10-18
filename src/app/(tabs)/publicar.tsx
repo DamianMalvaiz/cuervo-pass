@@ -4,6 +4,7 @@ import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { FichaPublicacion } from '@/components/FichaPublicacion';
 import { GuardaPublicar } from '@/components/GuardaPublicar';
+import { SeccionMiNegocio } from '@/components/SeccionMiNegocio';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Sello } from '@/components/ficha/Sello';
@@ -20,12 +21,14 @@ import { folioDe } from '@/lib/folio';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
 import { useConteoFavoritos } from '@/hooks/queries/useFavoritos';
+import { useMisRoles } from '@/hooks/queries/useRoles';
+import { tieneFuncionAprobada } from '@/lib/funciones';
 import { useCambiarEstadoPublicacion, useContactosRecibidos, useMisPublicaciones } from '@/hooks/queries/usePublicaciones';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
 import { toast } from '@/lib/toast';
 
 // Documento maestro v5 · §25 y §27.
-function MisPublicaciones() {
+function MisPublicaciones({ extra }: { extra?: React.ReactNode }) {
   const theme = useTheme();
   const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
@@ -101,6 +104,7 @@ function MisPublicaciones() {
         >
           Nueva publicación
         </Sello>
+        {extra}
       </View>
 
       {cargando ? (
@@ -240,11 +244,34 @@ const estilos = StyleSheet.create({
   accion: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, minHeight: 44 },
 });
 
+/**
+ * Lo que hay detrás de la guarda: según las funciones APROBADAS. Un arrendador ve «Mis publicaciones»; un comerciante,
+ * «Mi negocio»; con las dos, las dos (el negocio debajo de «Nueva publicación»). La guarda ya cerró el paso a quien no
+ * tiene ninguna.
+ */
+function ContenidoPublicar() {
+  const miId = useAuthStore((s) => s.session?.user.id);
+  const margenSuperior = useMargenSuperior();
+  const { roles } = useMisRoles(miId);
+  const esArrendador = tieneFuncionAprobada(roles, 'arrendador');
+  const esComerciante = tieneFuncionAprobada(roles, 'comerciante');
+
+  if (esArrendador) return <MisPublicaciones extra={esComerciante ? <SeccionMiNegocio /> : undefined} />;
+  return (
+    <ThemedView style={estilos.pantalla}>
+      <View style={[estilos.encabezado, { paddingTop: margenSuperior }]}>
+        <Encabezado titulo="Mi negocio" />
+        <SeccionMiNegocio />
+      </View>
+    </ThemedView>
+  );
+}
+
 /** La pestaña «Publicar» · Cuervo 360. Solo con una función de vendedor aprobada (ver GuardaPublicar). */
 export default function PublicarScreen() {
   return (
     <GuardaPublicar>
-      <MisPublicaciones />
+      <ContenidoPublicar />
     </GuardaPublicar>
   );
 }

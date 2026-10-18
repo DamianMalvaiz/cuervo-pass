@@ -1,6 +1,6 @@
 import type { RolUsuario } from '@/types/database.types';
 
-import { puedePublicar } from '../funciones';
+import { puedePublicar, tieneFuncionAprobada } from '../funciones';
 
 // Cuervo 360 · quién puede publicar.
 //
@@ -37,4 +37,16 @@ test('basta una función de vendedor aprobada aunque otra no lo esté', () => {
 // El administrador revisa, no vende: ser admin no da derecho a publicar.
 test('admin por sí solo no puede publicar', () => {
   expect(puedePublicar([rol('admin', 'aprobado')])).toBe(false);
+});
+
+describe('tieneFuncionAprobada', () => {
+  const rol = (r: string, estado: string) => ({ usuario_id: 'u', rol: r, estado, origen: 'solicitud', desde: 'x' }) as never;
+  it('solo cuenta la función pedida y aprobada', () => {
+    const roles = [rol('comerciante', 'aprobado'), rol('arrendador', 'pendiente')];
+    expect(tieneFuncionAprobada(roles, 'comerciante')).toBe(true);
+    expect(tieneFuncionAprobada(roles, 'arrendador')).toBe(false);
+  });
+  it('sin roles no tiene ninguna', () => {
+    expect(tieneFuncionAprobada([], 'comerciante')).toBe(false);
+  });
 });

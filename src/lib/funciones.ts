@@ -13,3 +13,8 @@ const DE_VENDEDOR: readonly RolUsuario['rol'][] = ['arrendador', 'comerciante'];
 export function puedePublicar(roles: readonly RolUsuario[]): boolean {
   return roles.some((r) => DE_VENDEDOR.includes(r.rol) && r.estado === 'aprobado');
 }
+
+/** ¿Tiene esta cuenta ESA función de vendedor aprobada? (`puedePublicar` solo dice si tiene alguna.) */
+export function tieneFuncionAprobada(roles: readonly RolUsuario[], rol: 'comerciante' | 'arrendador'): boolean {
+  return roles.some((r) => r.rol === rol && r.estado === 'aprobado');
+}

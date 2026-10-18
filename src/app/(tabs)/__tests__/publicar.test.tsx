@@ -41,11 +41,17 @@ jest.mock('@/hooks/use-fotos-firmadas', () => ({
 }));
 // Cuervo 360 · la pantalla pasa por `GuardaPublicar`; estas pruebas son de la pantalla del dueño, así
 // que se le da una cuenta con una función aprobada. La guarda tiene sus propias pruebas.
+const rolAprobado = (rol: string) => ({ usuario_id: 'u1', rol, estado: 'aprobado', origen: 'solicitud', desde: 'x' });
+let mockRolesPublicar: ReturnType<typeof rolAprobado>[] = [rolAprobado('arrendador')];
 jest.mock('@/hooks/queries/useRoles', () => ({
-  useMisRoles: () => ({
-    roles: [{ usuario_id: 'u1', rol: 'arrendador', estado: 'aprobado', origen: 'solicitud', desde: 'x' }],
-    cargando: false, fallo: false, reintentar: jest.fn(),
-  }),
+  useMisRoles: () => ({ roles: mockRolesPublicar, cargando: false, fallo: false, reintentar: jest.fn() }),
+}));
+// «Mi negocio» tiene sus propias pruebas; aquí solo importa que la pantalla la monte según las funciones.
+jest.mock('@/components/SeccionMiNegocio', () => ({
+  SeccionMiNegocio: () => {
+    const { Text } = require('react-native');
+    return <Text>SECCION MI NEGOCIO</Text>;
+  },
 }));
 jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) => sel({ session: { user: { id: 'u1' } } }),
@@ -280,4 +286,35 @@ test('pide el conteo de TODAS sus publicaciones en una sola consulta', async () 
   await render(<PublicacionesScreen />);
   await screen.findAllByText('Depa centro');
   expect(mockConteo).toHaveBeenCalledWith(['p1', 'p2']);
+});
+
+// Cuervo 360 · lo que se ve depende de las funciones APROBADAS.
+describe('según la función', () => {
+  beforeEach(() => {
+    mockMisPublicaciones.mockReturnValue({ datos: [], cargando: false });
+  });
+  afterEach(() => { mockRolesPublicar = [rolAprobado('arrendador')]; });
+
+  test('un arrendador ve sus publicaciones y NO la sección de negocio', async () => {
+    mockRolesPublicar = [rolAprobado('arrendador')];
+    await render(<PublicacionesScreen />);
+    expect(screen.getByText('Mis publicaciones')).toBeTruthy();
+    expect(screen.queryByText('SECCION MI NEGOCIO')).toBeNull();
+  });
+
+  test('un comerciante ve «Mi negocio» y NO las publicaciones de depas', async () => {
+    mockRolesPublicar = [rolAprobado('comerciante')];
+    await render(<PublicacionesScreen />);
+    expect(screen.getByText('Mi negocio')).toBeTruthy();
+    expect(screen.getByText('SECCION MI NEGOCIO')).toBeTruthy();
+    expect(screen.queryByText('Mis publicaciones')).toBeNull();
+    expect(screen.queryByLabelText('Crear una nueva publicación')).toBeNull();
+  });
+
+  test('con las dos funciones ve las dos cosas', async () => {
+    mockRolesPublicar = [rolAprobado('arrendador'), rolAprobado('comerciante')];
+    await render(<PublicacionesScreen />);
+    expect(screen.getByText('Mis publicaciones')).toBeTruthy();
+    expect(screen.getByText('SECCION MI NEGOCIO')).toBeTruthy();
+  });
 });

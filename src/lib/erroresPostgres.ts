@@ -46,6 +46,10 @@ export const CP = {
   FAVORITOS_LLENOS: 'CP004',
   /** `enviar_verificacion` sin la función, o con la verificación ya pendiente o aprobada (migración 0049). */
   VERIFICACION_NO_ENVIABLE: 'CP005',
+  /** Tope de negocios ACTIVOS por cuenta (migración 0052). */
+  LIMITE_NEGOCIOS: 'CP008',
+  /** Tope de 40 productos en el menú de un negocio (migración 0052). */
+  LIMITE_ITEMS_MENU: 'CP009',
 } as const;
 
 /** El `code` de un error de PostgREST/supabase-js, si lo trae. */
