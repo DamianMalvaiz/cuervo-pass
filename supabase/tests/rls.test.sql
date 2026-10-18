@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(158);
+select plan(182);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1083,6 +1083,7 @@ select is(
     'consumir_cuota',
     'contactos_de_mis_publicaciones',
     'distancia_km',
+    'enviar_verificacion',
     'exportar_mis_datos',
     'favoritos_por_publicacion',
     'nuevas_esta_semana',
@@ -1091,7 +1092,8 @@ select is(
     'score_ajuste',
     'sugerencias_con_ranking',
     'sugerencias_publicaciones',
-    'sugerencias_roomies'
+    'sugerencias_roomies',
+    'tiene_rol_aprobado'
   ],
   'solo la lista blanca es ejecutable por authenticated' );
 
@@ -1862,6 +1864,113 @@ select is(
   (select count(*)::int from storage.objects where name = 'negocios/00000000-0000-0000-0000-00000000b003/0.jpg'),
   0,
   'storage: no se lee la foto de un negocio oculto por reportes' );
+
+-- ── Verificación de vendedor (0049) ─────────────────────────────────────────
+-- Vendedora: f7. Ajena: b2. Admin responsable: a1.
+select actuar_como_servicio();
+insert into roles_usuario (usuario_id, rol) values ('00000000-0000-0000-0000-0000000000f7', 'comerciante'), ('00000000-0000-0000-0000-0000000000f7', 'arrendador');
+insert into roles_usuario (usuario_id, rol, estado, origen) values ('00000000-0000-0000-0000-0000000000a1', 'admin', 'aprobado', 'sembrado')
+  on conflict (usuario_id, rol) do update set estado = 'aprobado';
+
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select lives_ok(
+  $$select enviar_verificacion('comerciante', 'Ana Prueba Ruiz', 'Calle 1, Lerma',
+      '00000000-0000-0000-0000-0000000000f7/ine-frente.jpg', '00000000-0000-0000-0000-0000000000f7/ine-reverso.jpg', array['00000000-0000-0000-0000-0000000000f7/local-1.jpg'], 'v3')$$,
+  'enviar: la dueña envía su verificación' );
+select is(
+  (select estado from roles_usuario where usuario_id = '00000000-0000-0000-0000-0000000000f7' and rol = 'comerciante'),
+  'pendiente', 'enviar: la función pasa a pendiente' );
+select is((select count(*)::int from verificaciones_vendedor), 1, 'la dueña lee su propia verificación');
+
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is((select count(*)::int from verificaciones_vendedor), 0, 'otra cuenta NO lee la verificación ajena');
+select throws_ok(
+  $$select enviar_verificacion('comerciante', 'Beto Prueba', 'Calle 2, Lerma',
+      '00000000-0000-0000-0000-0000000000b2/a.jpg', '00000000-0000-0000-0000-0000000000b2/b.jpg', array['00000000-0000-0000-0000-0000000000b2/c.jpg'], 'v3')$$,
+  'CP005', null, 'enviar: sin tener la función no hay nada que enviar' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select throws_ok(
+  $$select enviar_verificacion('comerciante', 'Ana Prueba Ruiz', 'Calle 1, Lerma',
+      '00000000-0000-0000-0000-0000000000f7/a.jpg', '00000000-0000-0000-0000-0000000000f7/b.jpg', array['00000000-0000-0000-0000-0000000000f7/c.jpg'], 'v3')$$,
+  'CP005', null, 'enviar: con la verificación ya pendiente no se reenvía' );
+select throws_ok(
+  $$select enviar_verificacion('arrendador', 'Ana Prueba Ruiz', 'Calle 1, Lerma',
+      '00000000-0000-0000-0000-0000000000b2/ine-frente.jpg', '00000000-0000-0000-0000-0000000000f7/b.jpg', array['00000000-0000-0000-0000-0000000000f7/c.jpg'], 'v3')$$,
+  '23514', null, 'enviar: una ruta de la carpeta de OTRA cuenta se rechaza' );
+select throws_ok(
+  $$select resolver_verificacion('00000000-0000-0000-0000-0000000000f7', 'comerciante', true, null, '00000000-0000-0000-0000-0000000000a1')$$,
+  '42501', null, 'resolver: el cliente autenticado no puede ejecutarla' );
+
+select actuar_como_servicio();
+select throws_ok(
+  $$select resolver_verificacion('00000000-0000-0000-0000-0000000000f7', 'comerciante', true, null, '00000000-0000-0000-0000-0000000000f7')$$,
+  'CP007', null, 'resolver: el responsable debe ser un admin aprobado' );
+select throws_ok(
+  $$select resolver_verificacion('00000000-0000-0000-0000-0000000000f7', 'comerciante', false, '  ', '00000000-0000-0000-0000-0000000000a1')$$,
+  'CP006', null, 'resolver: un rechazo exige motivo' );
+select lives_ok(
+  $$select resolver_verificacion('00000000-0000-0000-0000-0000000000f7', 'comerciante', true, null, '00000000-0000-0000-0000-0000000000a1')$$,
+  'resolver: un admin aprueba' );
+select is(
+  (select estado from roles_usuario where usuario_id = '00000000-0000-0000-0000-0000000000f7' and rol = 'comerciante'),
+  'aprobado', 'resolver: la función queda aprobada' );
+select ok(
+  (select ine_borrar_en between now() + interval '29 days' and now() + interval '31 days'
+     from verificaciones_vendedor where usuario_id = '00000000-0000-0000-0000-0000000000f7' and rol = 'comerciante'),
+  'resolver: al aprobar, la INE queda programada para borrarse a los 30 días' );
+select is(
+  (select revisada_por from verificaciones_vendedor where usuario_id = '00000000-0000-0000-0000-0000000000f7' and rol = 'comerciante'),
+  '00000000-0000-0000-0000-0000000000a1'::uuid, 'resolver: queda escrito quién aprobó' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select is(tiene_rol_aprobado('comerciante'), true, 'tiene_rol_aprobado: sí, tras la aprobación');
+select is(tiene_rol_aprobado('arrendador'), false, 'tiene_rol_aprobado: no, sin aprobar');
+
+select actuar_como_servicio();
+select throws_ok(
+  $$select resolver_verificacion('00000000-0000-0000-0000-0000000000f7', 'comerciante', true, null, '00000000-0000-0000-0000-0000000000a1')$$,
+  'CP005', null, 'resolver: lo ya aprobado no se vuelve a resolver' );
+
+-- Rechazo, motivo y reenvío.
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select enviar_verificacion('arrendador', 'Ana Prueba Ruiz', 'Calle 1, Lerma',
+  '00000000-0000-0000-0000-0000000000f7/ine-frente.jpg', '00000000-0000-0000-0000-0000000000f7/ine-reverso.jpg', array['00000000-0000-0000-0000-0000000000f7/casa-1.jpg'], 'v3');
+select actuar_como_servicio();
+select lives_ok(
+  $$select resolver_verificacion('00000000-0000-0000-0000-0000000000f7', 'arrendador', false, 'La INE no se lee', '00000000-0000-0000-0000-0000000000a1')$$,
+  'resolver: un admin rechaza con motivo' );
+select is(
+  (select estado || ':' || coalesce(v.motivo_rechazo, '')
+     from roles_usuario r join verificaciones_vendedor v using (usuario_id, rol)
+    where r.usuario_id = '00000000-0000-0000-0000-0000000000f7' and r.rol = 'arrendador'),
+  'rechazado:La INE no se lee', 'resolver: queda rechazada y con su motivo' );
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select lives_ok(
+  $$select enviar_verificacion('arrendador', 'Ana Prueba Ruiz', 'Calle 1, Lerma',
+      '00000000-0000-0000-0000-0000000000f7/ine-frente-2.jpg', '00000000-0000-0000-0000-0000000000f7/ine-reverso-2.jpg', array['00000000-0000-0000-0000-0000000000f7/casa-2.jpg'], 'v3')$$,
+  'enviar: tras un rechazo se puede volver a enviar' );
+select is(
+  (select r.estado || ':' || coalesce(v.motivo_rechazo, '-')
+     from roles_usuario r join verificaciones_vendedor v using (usuario_id, rol)
+    where r.usuario_id = '00000000-0000-0000-0000-0000000000f7' and r.rol = 'arrendador'),
+  'pendiente:-', 'enviar: el reenvío vuelve a pendiente y borra el motivo anterior' );
+
+-- Bucket privado de evidencia.
+select actuar_como_servicio();
+insert into storage.objects (bucket_id, name) values ('verificacion', '00000000-0000-0000-0000-0000000000f7/ine-frente.jpg');
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select is(
+  (select count(*)::int from storage.objects where bucket_id = 'verificacion' and name = '00000000-0000-0000-0000-0000000000f7/ine-frente.jpg'),
+  1, 'storage: la dueña lee su propia INE' );
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is(
+  (select count(*)::int from storage.objects where bucket_id = 'verificacion' and name = '00000000-0000-0000-0000-0000000000f7/ine-frente.jpg'),
+  0, 'storage: nadie más lee la INE de otra cuenta' );
+select actuar_como_servicio();
+select is(
+  has_table_privilege('anon', 'public.verificaciones_vendedor', 'select'),
+  false, 'anon no puede leer verificaciones' );
 
 select * from finish();
 rollback;
