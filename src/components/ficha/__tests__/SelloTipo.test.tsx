@@ -1,48 +1,61 @@
-// D.11 · Codificar el tipo sin gastar color.
+// El tipo de publicación sobre la foto · Cuervo 360.
 //
-// Lo que estas pruebas protegen no es el aspecto —eso se juzga en un
-// dispositivo— sino las dos propiedades que hacen que el codigo CODIFIQUE algo:
-// que los tres tipos tengan tres tratamientos distintos, y que la trama nunca
-// viaje sin su palabra.
+// Hasta el 17/10/2026 se distinguía con tres BORDES: continuo (depa), de guiones (cuarto) y de puntos (casa
+// compartida), un recurso del sistema de «documento oficial». Probado en un iPhone real, se veía mal. Ahora es
+// una píldora limpia. Lo que sigue protegiéndose es lo que hace que el código CODIFIQUE algo: que los tres
+// tipos tengan tres iconos DISTINTOS y que el icono nunca viaje sin su palabra. Un tipo que solo se distingue
+// por un adorno es una clave sin leyenda, y falla para la misma gente a la que falla distinguir por color.
 
 import { render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
-import { Tramas } from '@/constants/theme';
-import { SelloTipo, TRAMA_DE } from '../SelloTipo';
+import { Colors, Radios } from '@/constants/theme';
+import { ICONO_DE, SelloTipo } from '../SelloTipo';
 
-// LA prueba. Si dos tipos acabaran en la misma trama, el sello seguiria
-// pintandose, seguiria viendose bien, y habria dejado de distinguir nada.
-test('los tres tipos usan tres tramas distintas', () => {
-  const usadas = Object.values(TRAMA_DE);
-  expect(new Set(usadas).size).toBe(usadas.length);
+// LA prueba. Si dos tipos acabaran con el mismo icono, el sello seguiría pintándose, seguiría viéndose bien,
+// y habría dejado de distinguir nada.
+test('los tres tipos usan tres iconos distintos', () => {
+  const usados = Object.values(ICONO_DE);
+  expect(new Set(usados).size).toBe(usados.length);
 });
 
-test('las tres tramas son tres borderStyle distintos', () => {
-  const estilos = Object.values(Tramas).map((t) => t.borderStyle);
-  expect(new Set(estilos).size).toBe(estilos.length);
-});
-
-// Un patron sin leyenda es una clave que nadie tiene. Codificar informacion SOLO
-// con un tratamiento visual falla para la misma gente para la que falla
-// codificarla solo con color.
-test('la trama nunca va sola: el tipo tambien va escrito', async () => {
+test('el icono nunca va solo: el tipo también va escrito', async () => {
   await render(<SelloTipo tipo="casa_compartida" />);
-  expect(screen.getByText('CASA', { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.getByText('Casa', { includeHiddenElements: true })).toBeTruthy();
 });
 
-test('cada tipo estampa su propia palabra', async () => {
-  const vista = await render(<SelloTipo tipo="cuarto" />);
-  expect(screen.getByText('CUARTO', { includeHiddenElements: true })).toBeTruthy();
-  vista.unmount();
+test.each([
+  ['depa', 'Depa'],
+  ['cuarto', 'Cuarto'],
+  ['casa_compartida', 'Casa'],
+] as const)('el tipo %s estampa «%s»', async (tipo, palabra) => {
+  await render(<SelloTipo tipo={tipo} />);
+  expect(screen.getByText(palabra, { includeHiddenElements: true })).toBeTruthy();
 });
 
-// En Android, `borderStyle` de guiones y puntos se degrada a linea continua en
-// cuanto hay `borderRadius`: las tres tramas se volverian una sola sin que nada
-// fallara. Por eso el sello es un rectangulo, y por eso esto se comprueba.
-test('el sello no lleva borderRadius, o en Android no habria tramas', async () => {
+// Una píldora limpia: esquinas redondeadas del todo y ningún borde de guiones ni de puntos.
+test('es una píldora: radio completo y sin borde punteado ni rayado', async () => {
+  await render(<SelloTipo tipo="cuarto" />);
+  const contenedor = screen.getByText('Cuarto', { includeHiddenElements: true }).parent!;
+  const estilo = StyleSheet.flatten(contenedor.props.style) as Record<string, unknown>;
+  expect(estilo.borderRadius).toBe(Radios.full);
+  expect(estilo.borderStyle).not.toBe('dashed');
+  expect(estilo.borderStyle).not.toBe('dotted');
+});
+
+// Va encima de una fotografía cualquiera: fondo OPACO, no translúcido. Sobre una foto clara un texto a media
+// opacidad deja de leerse, y el par fondo/texto ya está medido por el verificador de contraste.
+test('el fondo es opaco y del tema', async () => {
   await render(<SelloTipo tipo="depa" />);
-  const texto = screen.getByText('DEPA', { includeHiddenElements: true });
-  const estilo = texto.parent?.props?.style;
-  const aplanado = JSON.stringify(estilo ?? {});
-  expect(aplanado).not.toContain('borderRadius');
+  const contenedor = screen.getByText('Depa', { includeHiddenElements: true }).parent!;
+  const estilo = StyleSheet.flatten(contenedor.props.style) as { backgroundColor?: string };
+  expect(estilo.backgroundColor).toBe(Colors.light.background);
+});
+
+// El tipo ya viaja en la etiqueta accesible de la fila entera: aquí sobra, y repetirlo haría que el lector de
+// pantalla dijera lo mismo dos veces.
+test('queda fuera del lector de pantalla', async () => {
+  await render(<SelloTipo tipo="depa" />);
+  const contenedor = screen.getByText('Depa', { includeHiddenElements: true }).parent!;
+  expect(contenedor.props.accessibilityElementsHidden).toBe(true);
 });

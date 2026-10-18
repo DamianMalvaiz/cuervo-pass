@@ -77,11 +77,6 @@ const MINIMO_CARRUSEL = 3;
  *  de lo visible no escalona: retrasa. */
 const TOPE_ESCALONADO = 8;
 
-const ORDENES: { valor: OrdenSugerencias; etiqueta: string }[] = [
-  { valor: 'ajuste', etiqueta: 'Ajuste' },
-  { valor: 'cercania', etiqueta: 'Cercanía' },
-  { valor: 'precio', etiqueta: 'Renta' },
-];
 
 /**
  * El resumen de tus filtros, tocable.
@@ -174,68 +169,14 @@ function ChipsTipo({
   );
 }
 
-/**
- * El control de orden, pegado a la lista que ordena.
- *
- * No son pastillas como los chips de tipo, a propósito: el tipo FILTRA —cambia
- * qué hay— y el orden solo reordena lo mismo. Dos controles con el mismo peso
- * visual harían creer que hacen lo mismo. Aquí el estado activo se marca con el
- * peso de la letra y un filete debajo, que es como un documento marca la columna
- * por la que está ordenado.
- */
-function ControlOrden({
-  valor,
-  onCambiar,
-}: {
-  valor: OrdenSugerencias;
-  onCambiar: (v: OrdenSugerencias) => void;
-}) {
-  const theme = useTheme();
-  return (
-    <View style={estilos.filaOrden} accessibilityRole="tablist">
-      <ThemedText type="etiqueta" themeColor="textSecondary">
-        ORDENAR POR
-      </ThemedText>
-      <View style={estilos.opcionesOrden}>
-        {ORDENES.map((o) => {
-          const activo = valor === o.valor;
-          return (
-            <Pressable
-              key={o.valor}
-              onPress={() => onCambiar(o.valor)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: activo }}
-              accessibilityLabel={`Ordenar por ${o.etiqueta}`}
-              style={({ pressed }) => [estilos.opcionOrden, pressed && estilos.presionado]}
-            >
-              <ThemedText
-                type="small"
-                themeColor={activo ? 'text' : 'textSecondary'}
-                style={activo ? estilos.ordenActivo : undefined}
-              >
-                {o.etiqueta}
-              </ThemedText>
-              <View
-                style={[
-                  estilos.fileteOrden,
-                  { backgroundColor: activo ? theme.text : 'transparent' },
-                ]}
-              />
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 function VistaDepas({ selector }: { selector?: ReactNode }) {
   const session = useAuthStore((s) => s.session);
   const cargarPerfil = usePerfilStore((s) => s.cargarPerfil);
   // Dos números y no una bandera: en una misma lista conviven publicaciones
   // ordenadas por afinidad y publicaciones ordenadas solo por filtros (END-08).
   const [tipo, setTipo] = useState<TipoPublicacion | null>(null);
-  const [orden, setOrden] = useState<OrdenSugerencias>('ajuste');
+  // El orden es AUTOMÁTICO: lo decide el servidor por compatibilidad y nadie lo elige (antes había un control «Ordenar por»).
+  const orden: OrdenSugerencias = 'ajuste';
   const theme = useTheme();
   const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
@@ -245,7 +186,7 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
   // backoff y el estado de error. Lo que había antes eran seis `useState` y un
   // `useFocusEffect` que reconsultaba el motor COMPLETO en cada regreso desde
   // el detalle, reemplazando el arreglo entero — parpadeo y pérdida del scroll.
-  const { datos: sugerencias, conAfinidad, total, cargando, refrescando, fallo, refrescar, emitido } =
+  const { datos: sugerencias, cargando, refrescando, fallo, refrescar, emitido } =
     useSugerencias(tipo, orden);
 
   // El resumen de filtros necesita el perfil, y esta pantalla es la primera que
@@ -323,24 +264,6 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
             {selector ? <View style={estilos.margen}>{selector}</View> : null}
             <View style={estilos.margen}>
               <Encabezado
-                kicker={
-                  // END-38 · Mientras carga NO se afirma el nivel. Al quitar el
-                  // `return` temprano, este membrete quedaba visible con
-                  // `conAfinidad = 0` y declaraba «NIVEL 1 · FILTROS
-                  // PONDERADOS» antes de haber preguntado — y si la respuesta
-                  // traía afinidad, se corregía solo, delante de quien lo
-                  // estuviera leyendo. Un esqueleto honesto no puede tener un
-                  // encabezado que adivina.
-                  //
-                  // El conteo prueba que el motor corre y hasta dónde alcanza.
-                  // Una bandera binaria solo lo afirmaba — y mentía cuando una
-                  // sola publicación vectorizada la ponía en 2.
-                  cargando
-                    ? 'CONSULTANDO EXPEDIENTE'
-                    : conAfinidad === 0
-                      ? 'NIVEL 1 · FILTROS PONDERADOS'
-                      : `NIVEL 2 · ${conAfinidad} DE ${total} CON AFINIDAD SEMÁNTICA`
-                }
                 titulo="Sugerencias"
                 meta={
                   cargando
@@ -392,15 +315,8 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
             {filtradas.length > 0 && (
               <View style={[estilos.margen, estilos.tituloLista]}>
                 <ThemedText type="subtitle">
-                  {conAfinidad > 0 ? 'Todas, por afinidad y filtros' : 'Todas, por filtros'}
+                  Todas las publicaciones
                 </ThemedText>
-                <ControlOrden
-                  valor={orden}
-                  onCambiar={(v) => {
-                    toque();
-                    setOrden(v);
-                  }}
-                />
                 <View style={[estilos.fileteLista, { backgroundColor: theme.filete }]} />
               </View>
             )}
@@ -436,7 +352,6 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
               fotoUrl={item.fotos?.[0] ? urlsFirmadas.get(item.fotos[0]) : null}
               distanciaKm={item.distancia}
               score={item.score_final ?? item.score}
-              similitud={item.similitud}
               onPress={() => irADetalle(item)}
             />
           </Animated.View>

@@ -80,25 +80,12 @@ test('el titulo se muestra completo hasta dos renglones', async () => {
   expect(t.props.numberOfLines).toBe(2);
 });
 
-// END-30 · La afinidad va como nota, NO como columna: no todas las filas la
-// tienen —el nivel es por fila desde END-08— y una columna medio vacía se lee
-// como un dato perdido en vez de como un dato ausente.
-test('muestra la afinidad cuando la fila es de Nivel 2', async () => {
-  await render(<FilaPublicacion titulo="Depa" precio={2800} score={0.9} similitud={0.87} />);
-  expect(await screen.findByText('afinidad 0.87', {}, { timeout: 5000 })).toBeTruthy();
-});
-
-test('sin afinidad no deja una nota vacia', async () => {
-  await render(<FilaPublicacion titulo="Depa" precio={2800} score={0.9} similitud={null} />);
+// Cuervo 360 · el número de afinidad es un interno del motor y ya no se muestra. END-30 lo ponía como nota bajo las
+// columnas («afinidad 0.87»); quien mira ve AJUSTE, RENTA y DISTANCIA, y la lista llega ordenada sola.
+test('la fila no muestra la afinidad numérica', async () => {
+  await render(<FilaPublicacion titulo="Depa" precio={2800} score={0.9} distanciaKm={1.2} />);
+  await screen.findByText('AJUSTE', {}, { timeout: 5000 });
   expect(screen.queryByText(/afinidad/)).toBeNull();
-});
-
-// La renta y la distancia NO se repiten en la nota: ya son columnas, y
-// repetirlas gastaría el único renglón libre en decir dos veces lo mismo.
-test('la nota no repite lo que ya dicen las columnas', async () => {
-  await render(<FilaPublicacion titulo="Depa" precio={2800} score={0.9} distanciaKm={1.2} similitud={0.8} />);
-  expect(screen.queryByText(/tu tope/)).toBeNull();
-  expect(await screen.findByText('afinidad 0.80', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 // Reproducido en un Android real (17/10/2026): «DISTANCIA» y «0.2 km» salían

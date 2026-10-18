@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useEffect } from 'react';
-import { StyleSheet, View, type ColorValue } from 'react-native';
+import { Platform, StyleSheet, View, type ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AltoBarraPestanas, Filete, Spacing, Tipografia } from '@/constants/theme';
+import { AltoBarraPestanas, DescuentoBarraIOS, Filete, Spacing, Tipografia } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useMisRoles } from '@/hooks/queries/useRoles';
 import { puedePublicar } from '@/lib/funciones';
@@ -40,7 +40,9 @@ function crearIcono(activo: NombreIcono, inactivo: NombreIcono) {
 export default function TabsLayout() {
   const theme = useTheme();
   const miId = useAuthStore((s) => s.session?.user.id);
-  const { bottom } = useSafeAreaInsets();
+  const { bottom: insetInferior } = useSafeAreaInsets();
+  // En iPhone se resta un poco del área segura para que la barra no quede tan alta; en Android, completa.
+  const bottom = Math.max(insetInferior - (Platform.OS === 'ios' ? DescuentoBarraIOS : 0), 0);
   // «Publicar» solo con una función de vendedor aprobada. Mientras se comprueba, o si la lectura
   // falla, `roles` viene vacío y la pestaña queda oculta: ante la duda, cerrada. Es una regla de
   // interfaz; la de la base llega con la verificación de vendedor.

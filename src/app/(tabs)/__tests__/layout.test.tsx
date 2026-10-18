@@ -76,7 +76,9 @@ jest.mock('@/store/useAuthStore', () => ({
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AltoBarraPestanas } from '@/constants/theme';
+import { Platform } from 'react-native';
+
+import { AltoBarraPestanas, DescuentoBarraIOS as DESCUENTO_IOS } from '@/constants/theme';
 import TabsLayout from '../_layout';
 
 const conInsetInferior = (bottom: number) =>
@@ -223,12 +225,33 @@ test('la barra de encima ocupa su sitio esté activa o no', async () => {
 // sistema se comía parte de esos 64 puntos. Con botones de tres teclas el inset
 // es otro, y en iPhone con muesca también: la altura tiene que sumarlo, no
 // suponerlo.
-test('la altura de la barra suma el área segura inferior', async () => {
+// En iPhone el área segura inferior (34 pt) deja la barra más alta de lo que se siente natural: probado en un
+// iPhone real el 17/10/2026 («bajarla un poquito»). Se le resta `DESCUENTO_IOS`. En Android NO: ahí la barra
+// del sistema se comía el icono y la etiqueta, y quitarle área segura lo volvería a romper.
+test('en iPhone la barra suma el área segura inferior MENOS un pequeño descuento', async () => {
+  jest.replaceProperty(Platform, 'OS', 'ios');
   conInsetInferior(34);
   await render(<TabsLayout />);
   const barra = opcionesTabs.at(-1)!.tabBarStyle as Record<string, number>;
-  expect(barra.height).toBe(AltoBarraPestanas + 34);
+  expect(barra.paddingBottom).toBe(34 - DESCUENTO_IOS);
+  expect(barra.height).toBe(AltoBarraPestanas + 34 - DESCUENTO_IOS);
+});
+
+test('en Android la barra suma el área segura COMPLETA', async () => {
+  jest.replaceProperty(Platform, 'OS', 'android');
+  conInsetInferior(34);
+  await render(<TabsLayout />);
+  const barra = opcionesTabs.at(-1)!.tabBarStyle as Record<string, number>;
   expect(barra.paddingBottom).toBe(34);
+  expect(barra.height).toBe(AltoBarraPestanas + 34);
+});
+
+test('el descuento nunca deja el relleno negativo (iPhone sin área segura)', async () => {
+  jest.replaceProperty(Platform, 'OS', 'ios');
+  conInsetInferior(3);
+  await render(<TabsLayout />);
+  const barra = opcionesTabs.at(-1)!.tabBarStyle as Record<string, number>;
+  expect(barra.paddingBottom).toBe(0);
 });
 
 test('sin área segura la barra conserva su alto base', async () => {

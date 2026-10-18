@@ -137,10 +137,6 @@ spacing:
   four: "24px"
   five: "32px"
   six: "64px"
-tramas:
-  solido: "borderStyle: solid"
-  rayado: "borderStyle: dashed"
-  punteado: "borderStyle: dotted"
 anchos:
   formulario: "480px"
   lista: "800px"
@@ -262,7 +258,7 @@ La categoría entrega siempre una rejilla de fotos con corazón. Eso ordena por 
 - Tipografía propia (Archivo, Omnibus-Type) con cinco cortes y cifras tabulares en todo lo que forma columna.
 - La jerarquía está invertida a propósito: la calificación (56px) es más grande que el título de pantalla (26px).
 - Pares etiqueta/valor como unidad de composición; no existe texto suelto ni placeholder haciendo de etiqueta.
-- Tres radios (8/12/16) que crecen con la superficie — y **una excepción documentada**: el sello de tipo no lleva radio, porque en Android el radio destruye el `borderStyle` de guiones y puntos.
+- Tres radios (8/12/16) que crecen con la superficie, y la píldora (`full`) para etiquetas pequeñas como el tipo de publicación sobre la foto.
 - Cinco accesos fijos (Inicio, Favoritos, Publicar, Chats, Perfil); «Publicar» solo se ve con una función de vendedor aprobada.
 
 ## Colors
@@ -324,7 +320,7 @@ Dos filas son honestas a propósito: `backgroundElement` y `tintedSurface` **no 
 
 **La Regla de las Dos Líneas.** `filete` y `border` son tokens DISTINTOS y nunca se sustituyen. WCAG 1.4.11 exige 3:1 al segundo y no al primero; usar `filete` para delimitar un control lo vuelve inaccesible, y usar `border` para separar renglones convierte el documento en una reja.
 
-**La Regla de la Segunda Señal.** Ningún estado se codifica solo con color. La pestaña activa lleva barra superior, icono relleno y contraste pleno; el módulo activo del selector cambia relleno, borde y peso; el corazón cambia de glifo y de etiqueta; el Nivel 2 lleva icono, texto y conteo; **el tipo de publicación lleva trama Y palabra** (D.11). Un patrón sin leyenda falla para la misma gente que un color sin etiqueta.
+**La Regla de la Segunda Señal.** Ningún estado se codifica solo con color. La pestaña activa lleva barra superior, icono relleno y contraste pleno; el módulo activo del selector cambia relleno, borde y peso; el corazón cambia de glifo y de etiqueta; el Nivel 2 lleva icono, texto y conteo; **el tipo de publicación lleva icono Y palabra**. Un icono sin leyenda falla para la misma gente que un color sin etiqueta.
 
 
 ## Typography
@@ -394,12 +390,8 @@ El grosor es 1px físico, no `hairlineWidth`: en un teléfono de 3x, `hairlineWi
 
 La fotografía es 3:2 y va al ras de la hoja, con filete arriba y abajo, porque una foto engomada llega hasta la regla del formulario.
 
-**Tramas** (`Tramas` en `theme.ts`): `solido`, `rayado`, `punteado` — tres tratamientos de filete con la misma tinta, para codificar sin gastar color.
-
 ### Named Rules
 **La Regla de la Escala por Superficie.** Una casilla de 24px con radio 16 se ve deforme y una hoja de 360px con radio 8 se ve tacaña.
-
-**La Regla del Rectángulo Tramado.** Lo que lleve trama de guiones o puntos va SIN `borderRadius`. En Android, `borderStyle` se degrada a línea continua en cuanto hay radio: las tres tramas se volverían una sola y nada fallaría. No es una preferencia estética, es la condición para que la trama exista.
 
 ## Components
 
@@ -448,8 +440,8 @@ La pieza que define el mundo. Tres tamaños reales: `compacta` (56px de ancho, c
 
 Sustituyó a la ficha grande en la lista porque `FichaPublicacion` mide 420–450px —una y media por pantalla— y este producto ordena por ajuste: el ajuste se evalúa comparando, y comparar exige ver varias opciones a la vez. Comprobado en dispositivo: caben cuatro.
 
-### Sello de tipo · `src/components/ficha/SelloTipo.tsx`
-Rectángulo estampado en la esquina inferior izquierda de la foto, en el renglón y en la ficha del carrusel. Fondo opaco (va sobre una fotografía cualquiera), borde de 2px con la trama del tipo, y **la palabra**: `DEPA` continuo, `CUARTO` de guiones, `CASA` de puntos. Queda fuera del árbol de accesibilidad porque el tipo ya viaja en la etiqueta de la fila entera, en frase y no en versalitas — un lector de pantalla deletrea «DEPA» como D-E-P-A.
+### Etiqueta de tipo · `src/components/ficha/SelloTipo.tsx`
+Píldora estampada en la esquina inferior izquierda de la foto, en el renglón y en la ficha del carrusel. Radio completo (`full`), fondo opaco (va sobre una fotografía cualquiera), un icono y **la palabra**: `Depa` (edificio), `Cuarto` (cama), `Casa` (personas). Los tres iconos son distintos, y una prueba lo fija. Hasta el 17/10/2026 el tipo se distinguía con tres bordes (continuo, de guiones y de puntos); probado en un iPhone real se veía mal y se retiró. Queda fuera del árbol de accesibilidad porque el tipo ya viaja en la etiqueta de la fila entera, en frase.
 
 ### Ficha de publicación (hoja) · `src/components/FichaPublicacion.tsx`
 Se conserva para **Mis publicaciones**, donde la pregunta es «cómo va la mía» y no «cuál de estas». Borde de filete, radio `hoja`, `overflow: hidden`. Tira de folio, fotografía 3:2 al ras, cuerpo con título, dirección y la fila de calificación + renta + distancia. Sin foto no se pinta un rectángulo gris: se pinta un campo que dice «SIN FOTOGRAFÍA».
@@ -511,7 +503,6 @@ El tacto (`src/lib/tacto.ts`) son **dos** funciones: `sello()` para lo que qued�
 - **Don't** pintar el sello como el botón primario ni al revés: dejaría de señalar «esto compromete».
 - **Don't** asumir que el texto sobre un relleno de color es blanco.
 - **Don't** añadir `shadowColor`, `elevation` distinto de 0, gradiente ni glow.
-- **Don't** poner `borderRadius` a algo que lleve trama de guiones o puntos.
 - **Don't** usar un `placeholder` como etiqueta de un campo.
 - **Don't** escribir `borderWidth: 1` ni `borderRadius: 8` a mano; usa `Filete.*` y `Radios.*`.
 - **Don't** dejar que un título compita en tamaño con el dato que la pantalla existe para mostrar.
@@ -528,7 +519,7 @@ Esta sección existe porque la versión anterior de este archivo describía un s
 
 **3. Ningún par de contraste se ha muestreado sobre el render.** Los valores salen de los tokens declarados, no de píxeles capturados de la pantalla. Un color que llegue por encima —una foto detrás, una capa de sistema— no lo ve el script.
 
-**4. Las tres tramas no se han comparado en Android.** `borderStyle` de guiones y puntos es donde Android más se desvía. La regla del rectángulo existe para protegerlas, pero que se DISTINGAN entre sí a 11px solo se sabe con el teléfono en la mano.
+**4. El campo vacío sigue punteado.** `Campo` pinta un borde de guiones cuando está vacío (`punteado`: cuestionario, biografía, roomies). Es de la misma familia que las tramas que se retiraron del tipo de publicación y puede que tampoco guste; está sin decidir.
 
 **5. El mapa de Google se pinta con su tema claro de fábrica** dentro de una hoja en modo oscuro (`MapaUbicacion.tsx`). Es el único rectángulo de la app que no pertenece a este mundo. Y sin clave de Google, en Android no hay mapa: el respaldo es la dirección con «Abrir en Maps», pero **el mapa embebido sigue sin verse en un Android real**.
 

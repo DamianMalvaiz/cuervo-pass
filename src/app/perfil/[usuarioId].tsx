@@ -96,6 +96,7 @@ export default function PerfilRoomieScreen() {
   }, [usuarioId]);
 
   const { urls: urlsFirmadas } = useFotosFirmadas([usuario?.foto_url]);
+  const esPropio = Boolean(session?.user.id) && session?.user.id === usuarioId;
 
   // AUD-07: la conversación la abre una función de Postgres, no un insert desde
   // el cliente. Dos personas tocando el botón a la vez reciben el MISMO
@@ -280,29 +281,39 @@ export default function PerfilRoomieScreen() {
           </Seccion>
         ) : null}
 
-        {/* Iniciar el chat SÍ compromete: crea la fila en `conversaciones`
-            (abrir_conversacion, AUD-07). Es el único ámbar de esta pantalla. */}
-        <Sello
-          onPress={onIniciarChat}
-          cargando={abriendoChat}
-          icono="chatbubble-ellipses-outline"
-          accessibilityLabel={`Iniciar chat con ${usuario.nombre_completo}`}
-        >
-          Iniciar chat
-        </Sello>
-
-        <Pulsable
-          onPress={onReportar}
-          style={estilos.reportar}
-          accessibilityRole="button"
-          accessibilityLabel="Reportar usuario"
-          hitSlop={8}
-        >
-          <Ionicons name="flag-outline" size={14} color={theme.error} />
-          <ThemedText type="small" themeColor="error">
-            Reportar usuario
+        {/* En tu PROPIO perfil no hay acciones sobre ti: ofrecer «Iniciar chat» era ofrecer hablar contigo
+            mismo (la base responde «destinatario inválido») y reportarte no tiene sentido. */}
+        {esPropio ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Así te ven las demás personas.
           </ThemedText>
-        </Pulsable>
+        ) : (
+          <>
+          {/* Iniciar el chat SÍ compromete: crea la fila en `conversaciones`
+              (abrir_conversacion, AUD-07). Es el único ámbar de esta pantalla. */}
+          <Sello
+            onPress={onIniciarChat}
+            cargando={abriendoChat}
+            icono="chatbubble-ellipses-outline"
+            accessibilityLabel={`Iniciar chat con ${usuario.nombre_completo}`}
+          >
+            Iniciar chat
+          </Sello>
+
+          <Pulsable
+            onPress={onReportar}
+            style={estilos.reportar}
+            accessibilityRole="button"
+            accessibilityLabel="Reportar usuario"
+            hitSlop={8}
+          >
+            <Ionicons name="flag-outline" size={14} color={theme.error} />
+            <ThemedText type="small" themeColor="error">
+              Reportar usuario
+            </ThemedText>
+          </Pulsable>
+          </>
+        )}
       </Animated.View>
     </ScrollView>
   );

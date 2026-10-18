@@ -87,49 +87,52 @@ beforeEach(() => {
   mockNuevas.mockReturnValue({ datos: [], cargando: false });
 });
 
-describe('el membrete del nivel · END-08', () => {
-  it('mientras carga NO afirma ningún nivel', async () => {
-    // Con `conAfinidad = 0` por omisión, un membrete que no espera declara
-    // «NIVEL 1» antes de haber preguntado — y si la respuesta trae afinidad se
-    // corrige solo, delante de quien lo esté leyendo.
+// Cuervo 360 · el orden y el nivel son AUTOMÁTICOS. Hasta el 17/10/2026 Inicio decía «NIVEL 1 · FILTROS PONDERADOS» o
+// «NIVEL 2 · N DE N CON AFINIDAD SEMÁNTICA» (END-08), mostraba «afinidad 0.39» en cada fila y ofrecía «Ordenar por».
+// Eran los internos del motor puestos en la cara de quien solo quiere ver depas. El motor sigue calculando el nivel
+// por fila (END-08); lo que ya no hace es presumirlo: la lista llega ordenada sola.
+describe('el nivel y el orden son automáticos', () => {
+  const sinTecnicismos = () => {
+    expect(screen.queryByText(/NIVEL/)).toBeNull();
+    expect(screen.queryByText(/FILTROS PONDERADOS/)).toBeNull();
+    expect(screen.queryByText(/AFINIDAD SEMÁNTICA/i)).toBeNull();
+    expect(screen.queryByText('ORDENAR POR')).toBeNull();
+    expect(screen.queryByText(/afinidad \d/)).toBeNull();
+  };
+
+  it('mientras carga no muestra ningún nivel', async () => {
     mockSugerencias.mockReturnValue(respuesta({ cargando: true }));
     await render(<InicioScreen />);
-
-    expect(screen.getByText('CONSULTANDO EXPEDIENTE')).toBeTruthy();
-    expect(screen.queryByText(/NIVEL 1/)).toBeNull();
-    expect(screen.queryByText(/NIVEL 2/)).toBeNull();
+    sinTecnicismos();
   });
 
-  it('sin ninguna afinidad, dice Nivel 1', async () => {
+  it('con filtros solamente (Nivel 1) no lo dice', async () => {
     mockSugerencias.mockReturnValue(
       respuesta({ datos: [publicacion('p1'), publicacion('p2')], conAfinidad: 0, total: 2 })
     );
     await render(<InicioScreen />);
-
-    expect(screen.getByText('NIVEL 1 · FILTROS PONDERADOS')).toBeTruthy();
+    sinTecnicismos();
   });
 
-  it('con afinidad PARCIAL dice cuántas de cuántas, no solo «Nivel 2»', async () => {
-    // Esta es la aserción que END-08 existe para sostener. Con doce de veinte,
-    // una bandera binaria diría «Nivel 2» y quien mira no sabría que ocho
-    // publicaciones no participaron del reordenamiento.
+  it('con afinidad (Nivel 2) tampoco lo dice, ni cuántas de cuántas', async () => {
     mockSugerencias.mockReturnValue(
       respuesta({ datos: [publicacion('p1', 2)], conAfinidad: 12, total: 20 })
     );
     await render(<InicioScreen />);
-
-    expect(screen.getByText('NIVEL 2 · 12 DE 20 CON AFINIDAD SEMÁNTICA')).toBeTruthy();
+    sinTecnicismos();
   });
 
-  it('con UNA sola vectorizada no presume de Nivel 2 a secas', async () => {
-    // El caso exacto que delataba la bandera: una publicación con vector de
-    // veinte ponía la app en «Nivel 2» y escondía las otras diecinueve.
-    mockSugerencias.mockReturnValue(
-      respuesta({ datos: [publicacion('p1', 2)], conAfinidad: 1, total: 20 })
-    );
+  it('la lista se ofrece completa y sin «por afinidad y filtros»', async () => {
+    mockSugerencias.mockReturnValue(respuesta({ datos: [publicacion('p1', 2)], conAfinidad: 5, total: 5 }));
     await render(<InicioScreen />);
+    expect(screen.getByText('Todas las publicaciones')).toBeTruthy();
+    expect(screen.queryByText(/por afinidad/)).toBeNull();
+  });
 
-    expect(screen.getByText('NIVEL 2 · 1 DE 20 CON AFINIDAD SEMÁNTICA')).toBeTruthy();
+  it('el orden va fijo en «ajuste»: se le pide al servidor sin que nadie lo elija', async () => {
+    mockSugerencias.mockReturnValue(respuesta({ datos: [publicacion('p1')], conAfinidad: 0, total: 1 }));
+    await render(<InicioScreen />);
+    expect(mockSugerencias).toHaveBeenCalledWith(null, 'ajuste');
   });
 });
 

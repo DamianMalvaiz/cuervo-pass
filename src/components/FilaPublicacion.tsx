@@ -61,7 +61,6 @@ export function FilaPublicacion({
   fotoUrl,
   distanciaKm,
   score,
-  similitud,
   onPress,
 }: {
   /** Con el id, la fila pinta el corazón de Favoritos; sin él (una fila de solo lectura), no. */
@@ -74,8 +73,6 @@ export function FilaPublicacion({
   fotoUrl?: string | null;
   distanciaKm?: number | null;
   score?: number | null;
-  /** Afinidad semántica en [0,1]. Null cuando esta fila es de Nivel 1 (END-08). */
-  similitud?: number | null;
   onPress?: () => void;
 }) {
   const theme = useTheme();
@@ -139,11 +136,6 @@ export function FilaPublicacion({
           <Columna etiqueta="DISTANCIA" valor={distancia} atenuado={distancia === '—'} />
         </View>
 
-        {similitud != null && Number.isFinite(similitud) && (
-          <ThemedText type="folio" themeColor="textSecondary" numberOfLines={1}>
-            afinidad {similitud.toFixed(2)}
-          </ThemedText>
-        )}
       </View>
       {publicacionId ? (
         <View style={estilos.corazon}>

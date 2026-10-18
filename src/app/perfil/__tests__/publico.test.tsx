@@ -23,10 +23,12 @@ const mockAbrirConversacion = jest.fn();
 const mockReportar = jest.fn();
 const mockPush = jest.fn();
 const mockReducido = jest.fn();
+// Mutable para poder abrir el perfil PROPIO (`u1`) además del ajeno (`otro1`).
+const mockParams = { usuarioId: 'otro1' };
 
 jest.mock('expo-router', () => ({
   router: { push: (...a: unknown[]) => mockPush(...a) },
-  useLocalSearchParams: () => ({ usuarioId: 'otro1' }),
+  useLocalSearchParams: () => mockParams,
   Stack: { Screen: () => null },
 }));
 jest.mock('@/services/usuarios.service', () => ({
@@ -79,6 +81,7 @@ const pintar = async () => {
 };
 
 beforeEach(() => {
+  mockParams.usuarioId = 'otro1';
   jest.clearAllMocks();
   jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   useToastStore.setState({ actual: null });
@@ -353,4 +356,40 @@ test('un valor desconocido no pinta «undefined»', async () => {
   expect(screen.queryByText('undefined')).toBeNull();
   expect(screen.getByText('Sin especificar')).toBeTruthy();
   expect(screen.getByText('Variable')).toBeTruthy();
+});
+
+// ── Tu propio perfil público ─────────────────────────────────────────────────
+// «Ver mi perfil público» abre esta pantalla con TU id. Ofrecer «Iniciar chat» ahí era ofrecer hablar contigo
+// mismo: la base responde «destinatario inválido» (P0001) y la app lo decía como «esta persona ya no está
+// disponible». Tampoco tiene sentido reportarse. Se ve cómo te ven los demás, sin acciones sobre ti.
+
+const pintarPropio = async () => {
+  mockParams.usuarioId = 'u1';
+  mockPerfilPublico.mockResolvedValue({ ...PERFIL, id: 'u1', usuario_id: 'u1', nombre_completo: 'Yo Mismo' });
+  mockAfinidad.mockResolvedValue(null);
+  await render(<PerfilPublicoScreen />);
+  await screen.findByText('Yo Mismo');
+};
+
+test('en tu propio perfil NO se ofrece iniciar un chat contigo mismo', async () => {
+  await pintarPropio();
+  expect(screen.queryByLabelText(/Iniciar chat con/)).toBeNull();
+});
+
+test('en tu propio perfil NO se ofrece reportarte', async () => {
+  await pintarPropio();
+  expect(screen.queryByLabelText('Reportar usuario')).toBeNull();
+});
+
+test('en tu propio perfil se dice que así te ven las demás personas', async () => {
+  await pintarPropio();
+  expect(screen.getByText(/Así te ven las demás personas/)).toBeTruthy();
+});
+
+test('en el perfil de OTRA persona sí están el chat y el reporte', async () => {
+  mockPerfilPublico.mockResolvedValue(PERFIL);
+  mockAfinidad.mockResolvedValue(null);
+  await render(<PerfilPublicoScreen />);
+  expect(await screen.findByLabelText('Iniciar chat con Ana Pérez')).toBeTruthy();
+  expect(screen.getByLabelText('Reportar usuario')).toBeTruthy();
 });
