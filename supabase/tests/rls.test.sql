@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(610);
+select plan(612);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -117,7 +117,8 @@ select throws_ok( $$ select consumir_cuota('revelar_contacto', 1) $$, null,
            'la llamada que supera la cuota diaria falla' );
 
 -- ════════════════ 11 · cuotas_uso es tabla de servicio: nadie la lee ════════════════
-select is( (select count(*)::int from cuotas_uso), 0,
+-- Desde la 0074 no basta con que RLS devuelva cero filas: el cliente ni siquiera tiene el privilegio (42501).
+select throws_ok( $$select count(*) from cuotas_uso$$, '42501', null,
            'cuotas_uso no es legible desde el cliente, ni por su propio dueño' );
 
 -- ════════════════ 12 · AUD-26: el límite de publicaciones activas ════════════════
@@ -238,7 +239,7 @@ select is(
 -- La cola guarda rutas de almacenamiento de OTRAS personas: es tabla de
 -- servicio, como cuotas_uso, y no debe leerse desde el cliente.
 select actuar_como('00000000-0000-0000-0000-0000000000a1');
-select is( (select count(*)::int from fotos_huerfanas), 0,
+select throws_ok( $$select count(*) from fotos_huerfanas$$, '42501', null,
            'fotos_huerfanas no es legible desde el cliente' );
 
 -- ════════════════ 22 a 25 · Storage: la lectura del bucket ════════════════
@@ -3385,6 +3386,15 @@ select throws_ok($$insert into favoritos_negocios (usuario_id, negocio_id) selec
 -- Exportación (derecho de acceso).
 select actuar_como('00000000-0000-0000-0000-0000000000a1');
 select is(jsonb_array_length(exportar_mis_datos() -> 'favoritos_negocios'), 1, 'exportar_mis_datos incluye los favoritos de negocios' );
+
+-- ═══════ Tablas de servicio sin privilegios para el cliente (0074) ═══════
+select actuar_como_servicio();
+select is((select bool_or(has_table_privilege(r, 'public.' || t, p))
+             from unnest(array['acciones_admin','codigos_postales','configuracion_app','cuotas_uso','errores_app','fotos_huerfanas','geocodificaciones_ritmo','resenas_reportes','verificaciones_biometria']) t,
+                  unnest(array['anon','authenticated']) r,
+                  unnest(array['select','insert','update','delete','truncate']) p),
+  false, 'ninguna tabla de servicio concede privilegios a anon ni a authenticated (el Advisor las lista como «RLS sin policy»)' );
+select is(has_table_privilege('service_role', 'public.cuotas_uso', 'select'), true, 'y el servicio sigue pudiendo leer' );
 
 select * from finish();
 rollback;
