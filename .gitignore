@@ -73,3 +73,7 @@ coverage/
 
 # Imágenes de MUESTRA de la demo (scripts/generar-muestras-demo.py): se regeneran.
 demo-material/
+
+# Credenciales del túnel con nombre de Cloudflare: viven en ~/.cloudflared, pero si alguien las copia al repo, que no se versionen.
+.cloudflared/
+cert.pem

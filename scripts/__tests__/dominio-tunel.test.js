@@ -37,6 +37,8 @@ describe('dominio-tunel · acepta', () => {
     'https://mi-cuervo.ngrok-free.app',
     'https://mi-cuervo.ngrok-free.dev',
     'https://laptop.tail1234.ts.net',
+    // El dominio propio, con el túnel con nombre de Cloudflare.
+    'https://ia.cuervo360.com',
   ])('%s', (v) => expect(codigo(v)).toBe(0));
 });
 
@@ -58,5 +60,10 @@ describe('dominio-tunel · rechaza', () => {
     ['impostor de ngrok', 'https://ngrok-free.app.atacante.net'],
     ['impostor de tailscale', 'https://laptop.ts.net.evil.io'],
     ['ngrok sin subdominio', 'https://ngrok-free.app'],
+    ['el apex del dominio propio no es un túnel', 'https://cuervo360.com'],
+    ['impostor del dominio propio', 'https://ia.cuervo360.com.atacante.net'],
+    ['dominio que solo se le parece', 'https://ia-cuervo360.com'],
+    ['ruta pegada al dominio propio', 'https://ia.cuervo360.com/listo'],
+    ['http contra el dominio propio', 'http://ia.cuervo360.com'],
   ])('%s', (_, v) => expect(codigo(v)).toBe(1));
 });

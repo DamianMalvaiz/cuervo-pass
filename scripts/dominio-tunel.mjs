@@ -38,10 +38,10 @@
  *   · `.ngrok-free.app`, `.ngrok-free.dev`, `.ngrok.app`, `.ngrok.dev` — un dominio ESTÁTICO de ngrok (la cuenta gratuita trae uno): no cambia, así que el secret
  *     `AI_SERVICE_URL` se fija UNA vez. Es lo que se recomienda (docs/ia-local.md).
  *   · `.ts.net` — Tailscale Funnel, también estable.
- *
- * Si mañana se usa un dominio propio, se añade aquí y las dos comprobaciones lo heredan.
+ *   · `.cuervo360.com` — el dominio PROPIO (comprado el 19/10/2026) con un túnel con nombre de Cloudflare (`ia.cuervo360.com`). Es el recomendado. Se exige un
+ *     SUBDOMINIO (el punto inicial): el apex `cuervo360.com` no es un túnel, y `ia-cuervo360.com` (otro dominio que solo se le parece) no termina en `.cuervo360.com`.
  */
-export const SUFIJOS_DE_TUNEL = ['.trycloudflare.com', '.ngrok-free.app', '.ngrok-free.dev', '.ngrok.app', '.ngrok.dev', '.ts.net'];
+export const SUFIJOS_DE_TUNEL = ['.cuervo360.com', '.trycloudflare.com', '.ngrok-free.app', '.ngrok-free.dev', '.ngrok.app', '.ngrok.dev', '.ts.net'];
 
 export function esDominioDeTunel(valor) {
   if (typeof valor !== 'string') return false;
@@ -78,7 +78,7 @@ export function esDominioDeTunel(valor) {
 export function motivoRechazo(valor) {
   const mostrado = typeof valor === 'string' && valor.trim() ? valor.trim() : '(vacío)';
   return `El valor no es un dominio de túnel: ${mostrado}. `
-    + `Se esperaba https://<algo>.ngrok-free.app (recomendado, estable), https://<algo>.ts.net o https://<algo>.trycloudflare.com — corre ./scripts/tunel.sh.`;
+    + `Se esperaba https://ia.cuervo360.com (recomendado, estable), https://<algo>.ngrok-free.app, https://<algo>.ts.net o https://<algo>.trycloudflare.com — corre ./scripts/tunel.sh.`;
 }
 
 // Modo CLI, para que `tunel.sh` use la misma definición que `verificar.mjs`.

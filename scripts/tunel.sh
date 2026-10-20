@@ -17,7 +17,7 @@
 #   ./scripts/tunel.sh --rapido   # ignora la URL fija y usa un túnel rápido de Cloudflare
 #
 # DOS MODOS:
-#   · URL FIJA (recomendado): si `.env.server` trae `AI_SERVICE_URL_FIJA=https://<tu-dominio>.ngrok-free.app` (o un `.ts.net`), NO se abre ningún túnel
+#   · URL FIJA (recomendado): si `.env.server` trae `AI_SERVICE_URL_FIJA=https://ia.cuervo360.com` (o un ngrok/`.ts.net`), NO se abre ningún túnel
 #     aquí: tú mantienes el tuyo (`ngrok http --url=<tu-dominio> 8000`) y este script SOLO comprueba que responde y que el secret apunta ahí. El dominio no
 #     cambia, así que el secret se fija una vez. Ver docs/ia-local.md.
 #   · RÁPIDO (por omisión si no hay URL fija): abre un túnel de cloudflared. Su dominio cambia en cada arranque y su DNS llegó a tardar MÁS DE MEDIA HORA.
@@ -112,9 +112,15 @@ if [ -n "$URL_FIJA" ] && [ "$RAPIDO" -eq 0 ]; then
   # `ngrok-skip-browser-warning`: la cuenta gratuita de ngrok muestra una página intermedia a las peticiones que parecen de un navegador; con esta cabecera no.
   if ! curl -sf -m 10 -H 'ngrok-skip-browser-warning: 1' "$URL_FIJA/listo" >/dev/null 2>&1; then
     echo "   $URL_FIJA NO responde." >&2
-    echo "   El microservicio local sí (puerto 8000), así que falta el TÚNEL. En otra terminal:" >&2
-    echo "     ngrok http --url=${URL_FIJA#https://} 8000" >&2
-    echo "   (si es Tailscale:  tailscale funnel --bg 8000)   y vuelve a correr este script." >&2
+    echo "   El microservicio local sí (puerto 8000), así que falta el TÚNEL." >&2
+    case "$URL_FIJA" in
+      *.cuervo360.com)
+        echo "   Es el túnel con nombre de Cloudflare:  systemctl --user status cloudflared-ia   (y   systemctl --user restart cloudflared-ia )" >&2
+        echo "   Registro:  journalctl --user -u cloudflared-ia -n 30     Guía: docs/ia-local.md" >&2 ;;
+      *)
+        echo "   En otra terminal:  ngrok http --url=${URL_FIJA#https://} 8000" >&2
+        echo "   (si es Tailscale:  tailscale funnel --bg 8000)   y vuelve a correr este script." >&2 ;;
+    esac
     exit 1
   fi
   echo "   responde por el camino público."

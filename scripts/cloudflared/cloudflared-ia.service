@@ -1,0 +1,18 @@
+# Servicio de USUARIO (sin root): mantiene vivo el túnel con nombre y lo reinicia si cae o si la laptop se reinicia.
+# Instalación (una vez):
+#   mkdir -p ~/.config/systemd/user && cp scripts/cloudflared/cloudflared-ia.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now cloudflared-ia
+#   loginctl enable-linger "$USER"     # que arranque aunque no haya sesión abierta (puede pedir tu contraseña)
+# Estado:  systemctl --user status cloudflared-ia      Registro:  journalctl --user -u cloudflared-ia -f
+[Unit]
+Description=Túnel de Cloudflare hacia el microservicio de IA (ia.cuervo360.com)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=%h/.local/bin/cloudflared tunnel --no-autoupdate --config %h/.cloudflared/config.yml run cuervo-ia
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

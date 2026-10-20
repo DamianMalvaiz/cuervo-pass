@@ -1,0 +1,13 @@
+# Configuración del túnel con nombre de Cloudflare · ia.cuervo360.com → el microservicio de IA local.
+#
+# Cópiala a ~/.cloudflared/config.yml y reemplaza <UUID> por el que imprimió `cloudflared tunnel create cuervo-ia`.
+# El archivo de credenciales (<UUID>.json) y el certificado (cert.pem) viven SOLO en ~/.cloudflared y NO se versionan nunca: quien los tenga puede
+# levantar un túnel en tu dominio.
+tunnel: <UUID>
+credentials-file: /home/damianml/.cloudflared/<UUID>.json
+
+ingress:
+  # Solo el microservicio de IA. Todo lo demás, 404: este túnel no expone nada más de la laptop.
+  - hostname: ia.cuervo360.com
+    service: http://127.0.0.1:8000
+  - service: http_status:404
