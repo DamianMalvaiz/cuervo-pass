@@ -3,8 +3,8 @@
 Captura del 20/10/2026 (panel: 8 errores, 24 advertencias, 9 sugerencias). Se revisó lo que el panel muestra y las exportaciones CSV de las pestañas *Info* y *Warnings*.
 
 ## Errores · `security_definer_view` (8)
-`resenas_publicas`, `calificacion_publicaciones`, `negocios_publicos`, `perfiles_publicos`, `publicaciones_publicas`, `roomies_publicos` y `negocio_horarios_publicos`
-(el octavo no salía en la captura; probablemente `negocio_items_publicos`, sin confirmar).
+`resenas_publicas`, `calificacion_publicaciones`, `negocios_publicos`, `perfiles_publicos`, `publicaciones_publicas`, `roomies_publicos`, `negocio_horarios_publicos`
+y `negocio_items_publicos` (el octavo, confirmado con `npx supabase db advisors --linked --type security` el 20/10/2026).
 
 **Decisión: se mantienen, a propósito.** Es el patrón de la invariante 3 de `AGENTS.md`: las tablas están cerradas y la lectura de lo ajeno va por vistas de lista
 blanca con los permisos de su dueño. Convertirlas en `security invoker` obligaría a abrir policies de lectura sobre tablas que hoy están cerradas, que es el riesgo real.
