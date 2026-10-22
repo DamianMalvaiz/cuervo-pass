@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
@@ -24,6 +24,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { aviso } from '@/lib/registro';
 import { VERSION_AVISO } from '@/lib/verificacion';
+import { LONGITUD_CODIGO, verificarCodigo } from '@/lib/codigoCorreo';
 import { reenviarConfirmacion } from '@/lib/confirmacionCorreo';
 
 // Documento maestro v5 · §25 y §29. El aviso se lee DENTRO de la app
@@ -77,6 +78,13 @@ const esquemaRegistro = z
 
 type FormRegistro = z.infer<typeof esquemaRegistro>;
 
+// Cada estado de `verificarCodigo` se pinta distinto: un fallo de red NUNCA se dice «código incorrecto».
+const MENSAJE_CODIGO = {
+  invalido: 'Código incorrecto o vencido. Revísalo o pide uno nuevo.',
+  limite: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
+  fallo: 'No pudimos verificar el código. Revisa tu conexión e inténtalo de nuevo.',
+} as const;
+
 export default function RegistroScreen() {
   const theme = useTheme();
   const { anchoContenido, clase, escalaTitulo } = useTamanoPantalla();
@@ -86,6 +94,12 @@ export default function RegistroScreen() {
   // Correo al que se mandó la confirmación; mientras tenga valor se enseña «Revisa tu correo».
   const [pendiente, setPendiente] = useState<string | null>(null);
   const [reenvio, setReenvio] = useState<'ninguno' | 'enviado' | 'fallo'>('ninguno');
+  const [codigo, setCodigo] = useState('');
+  const [verificando, setVerificando] = useState(false);
+  const [errorCodigo, setErrorCodigo] = useState<keyof typeof MENSAJE_CODIGO | null>(null);
+  // Un ref y no solo el estado: dos toques en el mismo fotograma pasan antes de que el estado se actualice, y
+  // el código sirve una sola vez (el segundo envío diría «incorrecto» justo después de un éxito).
+  const verificandoAhora = useRef(false);
 
   const {
     control,
@@ -103,6 +117,23 @@ export default function RegistroScreen() {
     email: watch('email'),
     nombreUsuario: watch('nombreUsuario'),
     nombre: watch('nombre'),
+  };
+
+  // Lo que sigue a tener sesión: la marca de consentimiento y el cuestionario. Lo comparten el alta con sesión
+  // (confirmación apagada) y la confirmación con código.
+  const entrar = async () => {
+    const { data: sesion } = await supabase.auth.getUser();
+    if (sesion.user) {
+      // La evidencia del consentimiento. Si esto falla no se tumba el
+      // registro, pero sí se registra: una cuenta sin marca de aceptación es
+      // un problema de cumplimiento que hay que poder detectar.
+      const { error: errorConsentimiento } = await supabase
+        .from('usuarios')
+        .update({ acepto_aviso_privacidad_en: new Date().toISOString(), version_aviso_aceptada: VERSION_AVISO })
+        .eq('id', sesion.user.id);
+      if (errorConsentimiento) aviso('No se guardó la marca de consentimiento', undefined, errorConsentimiento);
+    }
+    router.replace('/(auth)/cuestionario-inicial');
   };
 
   const onSubmit = async (datos: FormRegistro) => {
@@ -131,22 +162,28 @@ export default function RegistroScreen() {
         return;
       }
 
-      const { data: sesion } = await supabase.auth.getUser();
-      if (sesion.user) {
-        // La evidencia del consentimiento. Si esto falla no se tumba el
-        // registro, pero sí se registra: una cuenta sin marca de aceptación es
-        // un problema de cumplimiento que hay que poder detectar.
-        const { error: errorConsentimiento } = await supabase
-          .from('usuarios')
-          .update({ acepto_aviso_privacidad_en: new Date().toISOString(), version_aviso_aceptada: VERSION_AVISO })
-          .eq('id', sesion.user.id);
-        if (errorConsentimiento) aviso('No se guardó la marca de consentimiento', undefined, errorConsentimiento);
-      }
-      router.replace('/(auth)/cuestionario-inicial');
+      await entrar();
     } catch (e) {
       setErrorServidor(e instanceof Error ? e.message : 'No se pudo crear la cuenta');
     } finally {
       setEnviando(false);
+    }
+  };
+
+  const onConfirmarCodigo = async () => {
+    if (!pendiente || verificandoAhora.current) return;
+    verificandoAhora.current = true;
+    setVerificando(true);
+    setErrorCodigo(null);
+    try {
+      const r = await verificarCodigo(pendiente, codigo, 'signup');
+      if (r.estado === 'ok') await entrar();
+      else setErrorCodigo(r.estado);
+    } catch {
+      setErrorCodigo('fallo');
+    } finally {
+      verificandoAhora.current = false;
+      setVerificando(false);
     }
   };
 
@@ -165,16 +202,49 @@ export default function RegistroScreen() {
               Revisa tu correo
             </ThemedText>
             <ThemedText themeColor="textSecondary">
-              Te mandamos un enlace a {pendiente}. Ábrelo para activar tu cuenta y después entra con tu contraseña.
-              Si no lo ves, mira en spam.
+              Te mandamos un correo a {pendiente}. Escribe aquí el código de {LONGITUD_CODIGO} dígitos que trae para
+              activar tu cuenta, o abre el enlace y después entra con tu contraseña. Si no lo ves, mira en spam.
             </ThemedText>
+            <Campo
+              etiqueta={`Código de ${LONGITUD_CODIGO} dígitos`}
+              value={codigo}
+              onChangeText={(t) => setCodigo(t.replace(/\D/g, ''))}
+              keyboardType="number-pad"
+              maxLength={LONGITUD_CODIGO}
+              autoComplete="one-time-code"
+              textContentType="oneTimeCode"
+            />
+            {errorCodigo && (
+              <View style={[estilos.errorServidor, { borderColor: theme.error }]}>
+                <Ionicons name="alert-circle-outline" size={18} color={theme.error} />
+                <ThemedText
+                  type="small"
+                  style={[{ color: theme.error }, estilos.textoError]}
+                  accessibilityLiveRegion="assertive"
+                >
+                  {MENSAJE_CODIGO[errorCodigo]}
+                </ThemedText>
+              </View>
+            )}
+            <Sello
+              onPress={onConfirmarCodigo}
+              cargando={verificando}
+              deshabilitado={codigo.length !== LONGITUD_CODIGO}
+              accessibilityLabel="Confirmar código"
+            >
+              Confirmar código
+            </Sello>
             {reenvio === 'enviado' && <ThemedText type="small">Listo, te lo mandamos otra vez.</ThemedText>}
             {reenvio === 'fallo' && (
               <ThemedText type="small" style={{ color: theme.errorTexto }}>
                 No pudimos reenviarlo. Espera unos minutos e inténtalo de nuevo.
               </ThemedText>
             )}
-            <Sello onPress={() => router.replace('/(auth)/login')} accessibilityLabel="Ya confirmé, entrar">
+            <Sello
+              variante="contorno"
+              onPress={() => router.replace('/(auth)/login')}
+              accessibilityLabel="Ya confirmé, entrar"
+            >
               Ya confirmé · Entrar
             </Sello>
             <Pressable
