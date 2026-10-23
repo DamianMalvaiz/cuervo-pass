@@ -9,6 +9,7 @@ export type Solicitud =
   | { accion: 'verificaciones' }
   | { accion: 'moderacion' }
   | { accion: 'errores' }
+  | { accion: 'auditoria' }
   | { accion: 'borrar_error'; id: string }
   | { accion: 'documentos'; usuarioId: string; rol: Rol }
   | { accion: 'resolver'; usuarioId: string; rol: Rol; aprobar: boolean; motivo: string | null }
@@ -48,6 +49,7 @@ export function validarSolicitud(c: unknown): Validacion {
     case 'verificaciones':
     case 'moderacion':
     case 'errores':
+    case 'auditoria':
       return { ok: true, solicitud: { accion: d.accion } };
 
     case 'borrar_error':

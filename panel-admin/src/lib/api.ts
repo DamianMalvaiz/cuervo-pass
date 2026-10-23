@@ -40,6 +40,26 @@ export interface DocumentoAdmin {
   url: string | null;
 }
 
+export interface ItemModeracion {
+  tipo: 'resena' | 'negocio';
+  id: string;
+  titulo: string;
+  texto: string | null;
+  autor: string;
+  reportes: number;
+  oculto: boolean;
+  creado_en: string;
+}
+
+export interface EntradaAuditoria {
+  accion: string;
+  admin: string;
+  objetivo_id: string | null;
+  objetivo: string | null;
+  detalle: string | null;
+  creado_en: string;
+}
+
 const esNumero = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const esObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -83,6 +103,28 @@ function leerDocumentos(lista: unknown, origenArchivos: string | undefined): Doc
     etiqueta: d.etiqueta,
     url: prefijo && esTexto(d.url) && d.url.startsWith(prefijo) ? d.url : null,
   }));
+}
+
+const textoONulo = (v: unknown): v is string | null => v === null || esTexto(v);
+
+function leerModeracion(lista: unknown): ItemModeracion[] {
+  const buenas =
+    Array.isArray(lista) &&
+    lista.every(
+      (i) =>
+        esObjeto(i) && (i.tipo === 'resena' || i.tipo === 'negocio') && esTexto(i.id) && esTexto(i.titulo) && textoONulo(i.texto) && esTexto(i.autor) &&
+        esNumero(i.reportes) && typeof i.oculto === 'boolean' && esTexto(i.creado_en),
+    );
+  if (!buenas) throw new ErrorAdmin('desconocido');
+  return lista as ItemModeracion[];
+}
+
+function leerAuditoria(lista: unknown): EntradaAuditoria[] {
+  const buenas =
+    Array.isArray(lista) &&
+    lista.every((e) => esObjeto(e) && esTexto(e.accion) && esTexto(e.admin) && textoONulo(e.objetivo_id) && textoONulo(e.objetivo) && textoONulo(e.detalle) && esTexto(e.creado_en));
+  if (!buenas) throw new ErrorAdmin('desconocido');
+  return lista as EntradaAuditoria[];
 }
 
 /** Lo mínimo del cliente de Supabase que necesita la API: así se prueba sin red. */
@@ -138,6 +180,15 @@ export function crearApi(cliente: ClienteAdmin, opciones: { origenArchivos?: str
     },
     async resolver(usuarioId: string, rol: Rol, aprobar: boolean, motivo: string | null): Promise<void> {
       await llamar({ accion: 'resolver', usuario_id: usuarioId, rol, aprobar, motivo });
+    },
+    async moderacion(): Promise<ItemModeracion[]> {
+      return leerModeracion((await llamar({ accion: 'moderacion' })).moderacion);
+    },
+    async moderar(tipo: 'resena' | 'negocio', id: string, ocultar: boolean, motivo: string | null): Promise<void> {
+      await llamar({ accion: 'moderar', tipo, id, ocultar, motivo });
+    },
+    async auditoria(): Promise<EntradaAuditoria[]> {
+      return leerAuditoria((await llamar({ accion: 'auditoria' })).auditoria);
     },
   };
 }

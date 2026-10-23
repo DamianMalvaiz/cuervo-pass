@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(672);
+select plan(678);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2800,7 +2800,8 @@ select is(fijar_demo_mode('00000000-0000-0000-0000-0000000000a1', false), false,
 select is((select string_agg(accion, ',' order by creado_en, accion) from acciones_admin where admin_id = '00000000-0000-0000-0000-0000000000a1'
            and accion in ('ocultar_resena','restaurar_resena','ocultar_negocio','restaurar_negocio','modo_demo')) is not null, true,
   'bitácora: cada acción dejó su fila' );
-select is((select count(*)::int from acciones_admin where admin_id = '00000000-0000-0000-0000-0000000000a1'), 6,
+-- Desde la 0079 aprobar y rechazar verificaciones TAMBIÉN dejan fila (y las pruebas anteriores las hacen): se excluyen aquí, que lo que se cuenta es que ningún intento fallido deje rastro de más.
+select is((select count(*)::int from acciones_admin where admin_id = '00000000-0000-0000-0000-0000000000a1' and accion not in ('aprobar_verificacion', 'rechazar_verificacion')), 6,
   'bitácora: exactamente 6 acciones hasta aquí (ocultar y restaurar una reseña, ocultar y restaurar un negocio, encender y apagar el modo demo), ninguna de más' );
 select is((select detalle from acciones_admin where accion = 'ocultar_resena'), 'Insulta al negocio', 'bitácora: queda el motivo' );
 -- Ver documentos: solo con verificación pendiente, solo un admin, y deja rastro.
@@ -2818,6 +2819,7 @@ select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a
   'moderar: el cliente autenticado no puede ejecutarla, ni diciendo que es admin' );
 select throws_ok($$select * from admin_resumen('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_resumen: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select admin_resumen_detalle('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_resumen_detalle: el cliente autenticado no puede ejecutarla' );
+select throws_ok($$select * from admin_listar_auditoria('00000000-0000-0000-0000-0000000000a1', 50)$$, '42501', null, 'admin_listar_auditoria: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select fijar_demo_mode('00000000-0000-0000-0000-0000000000a1', true)$$, '42501', null, 'modo demo: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select registrar_acceso_documentos('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000e9', 'comerciante')$$,
   '42501', null, 'documentos: el cliente autenticado no puede registrar (ni ver) nada' );
@@ -2945,6 +2947,15 @@ select is(
 select is(
   (select count(*)::int from net.http_request_queue where convert_from(body, 'utf8') like '%ExponentPushToken[e9]%' and (convert_from(body, 'utf8') like '%domicilio%' or convert_from(body, 'utf8') like '%Eva Soto%')),
   0, 'aviso: el MOTIVO no sale en la notificación (se lee en la pantalla de bloqueo)' );
+-- ── Auditoría: las decisiones sobre verificaciones también quedan en la bitácora (0079) ──
+select is((select count(*)::int from acciones_admin where accion = 'aprobar_verificacion' and objetivo_id = '00000000-0000-0000-0000-0000000000d9' and admin_id = '00000000-0000-0000-0000-0000000000a1'), 1,
+  'auditoría: aprobar una verificación queda en la bitácora, con quién fue' );
+select ok(exists (select 1 from acciones_admin where accion = 'rechazar_verificacion' and objetivo_id = '00000000-0000-0000-0000-0000000000e9' and detalle like '%comerciante%' and detalle like '%El domicilio no coincide%'),
+  'auditoría: rechazar queda en la bitácora con la función y el motivo' );
+select throws_ok($$select * from admin_listar_auditoria('00000000-0000-0000-0000-0000000000e9', 50)$$, 'CP007', null, 'admin_listar_auditoria: una cuenta que no es admin recibe CP007' );
+select ok((select count(*) from admin_listar_auditoria('00000000-0000-0000-0000-0000000000a1', 200) where accion in ('aprobar_verificacion', 'rechazar_verificacion')) >= 2,
+  'admin_listar_auditoria: trae las decisiones sobre verificaciones' );
+select is((select count(*)::int from admin_listar_auditoria('00000000-0000-0000-0000-0000000000a1', 1)), 1, 'admin_listar_auditoria: el límite acota la lista' );
 -- Sin token no se avisa, pero la resolución no se rompe: rechazar la verificación de un tercero sin token es el mismo camino.
 select actuar_como_servicio();
 delete from push_tokens where usuario_id = '00000000-0000-0000-0000-0000000000d9';

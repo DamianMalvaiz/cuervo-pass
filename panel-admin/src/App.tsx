@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Estado } from './components/Estado';
 import { Login } from './components/Login';
+import { Auditoria } from './components/Auditoria';
+import { Moderacion } from './components/Moderacion';
 import { Resumen, type EstadoDetalle } from './components/Resumen';
 import { Verificaciones } from './components/Verificaciones';
 import { crearApi, type ResumenAdmin } from './lib/api';
 import { ORIGEN_SUPABASE, type ClienteApp } from './lib/cliente';
 import { ErrorAdmin, MENSAJE_ERROR_ADMIN, type TipoErrorAdmin } from './lib/errores';
 
-type Ruta = 'resumen' | 'verificaciones';
-const rutaDeHash = (): Ruta => (window.location.hash === '#verificaciones' ? 'verificaciones' : 'resumen');
+type Ruta = 'resumen' | 'verificaciones' | 'moderacion' | 'auditoria';
+const RUTAS: Ruta[] = ['resumen', 'verificaciones', 'moderacion', 'auditoria'];
+const rutaDeHash = (): Ruta => RUTAS.find((r) => window.location.hash === `#${r}`) ?? 'resumen';
 
 type Sesion = 'cargando' | 'no' | 'si';
 type Panel = { fase: 'comprobando' } | { fase: 'ok'; resumen: ResumenAdmin } | { fase: 'error'; tipo: TipoErrorAdmin };
@@ -73,6 +76,24 @@ export function App({ cliente }: { cliente: ClienteApp }) {
     };
   }, [api, sesion, hayPanel, intentoDetalle]);
 
+  // Las insignias del menú y las cifras del Resumen salen del resumen: se refresca AL CAMBIAR de sección, SIN volver a la pantalla de «Cargando…» (y un fallo aquí no tumba
+  // nada: se queda la cifra anterior). La primera carga ya trae su propio resumen: `rutaPrevia` evita pedirlo dos veces.
+  const rutaPrevia = useRef(ruta);
+  useEffect(() => {
+    if (rutaPrevia.current === ruta) return;
+    rutaPrevia.current = ruta;
+    if (sesion !== 'si' || !hayPanel) return;
+    let vivo = true;
+    if (ruta === 'resumen') setIntentoDetalle((n) => n + 1);
+    api.resumen().then(
+      (resumen) => vivo && setPanel((p) => (p.fase === 'ok' ? { fase: 'ok', resumen } : p)),
+      () => undefined,
+    );
+    return () => {
+      vivo = false;
+    };
+  }, [api, sesion, hayPanel, ruta]);
+
   const salir = () => {
     void cliente.auth.signOut().then(() => setSesion('no'));
   };
@@ -111,6 +132,11 @@ export function App({ cliente }: { cliente: ClienteApp }) {
           Verificaciones
           {panel.resumen.verificaciones_pendientes > 0 && <span className="insignia">{panel.resumen.verificaciones_pendientes}</span>}
         </a>
+        <a href="#moderacion" aria-current={ruta === 'moderacion' ? 'page' : undefined}>
+          Moderación
+          {panel.resumen.resenas_reportadas > 0 && <span className="insignia">{panel.resumen.resenas_reportadas}</span>}
+        </a>
+        <a href="#auditoria" aria-current={ruta === 'auditoria' ? 'page' : undefined}>Auditoría</a>
       </nav>
       <main className="contenido">
         {ruta === 'resumen' ? (
@@ -118,8 +144,12 @@ export function App({ cliente }: { cliente: ClienteApp }) {
             <h1>Panel de administración</h1>
             <Resumen resumen={panel.resumen} detalle={detalle} onReintentarDetalle={() => setIntentoDetalle((n) => n + 1)} />
           </>
-        ) : (
+        ) : ruta === 'verificaciones' ? (
           <Verificaciones api={api} />
+        ) : ruta === 'moderacion' ? (
+          <Moderacion api={api} />
+        ) : (
+          <Auditoria api={api} />
         )}
       </main>
     </div>

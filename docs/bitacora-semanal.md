@@ -1201,13 +1201,18 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
   `npm --prefix panel-admin test` (76 pruebas) y `npx supabase test db` (672 aserciones, con una mutación que la prueba de las ocho semanas detecta). Probado en Chromium contra el
   Supabase local con un vendedor pendiente de prueba: las tres imágenes cargan bajo la CSP, aprobar deja el rol en `aprobado` con la prueba de 15 días y la bitácora registra `ver_documentos`.
   Las imágenes solo se aceptan si salen de NUESTRO Supabase (origen exacto); en local la función firma con `kong:8000` y hubo que reescribirlo en la prueba.
-  **0078 aplicada a producción (respaldo `respaldos/2026-10-23-antes-0078.sql`) y función `admin` desplegada.** El panel nuevo **NO** está desplegado en `admin.cuervo360.com`: ahí sigue la app de estudiantes exportada.
+  **0078 aplicada a producción (respaldo `respaldos/2026-10-23-antes-0078.sql`) y función `admin` desplegada.** El panel nuevo (pasos 1 a 3) **SÍ está desplegado** en `admin.cuervo360.com` (Worker `cuervo360-admin`, 23/10/2026), detrás de Cloudflare Access: comprobado con `curl`, cualquier ruta sin sesión responde 302 a `cloudflareaccess.com`.
+  **Paso 4 (Moderación y Auditoría), sin desplegar:** migración **0079** (trigger sobre `verificaciones_vendedor` que escribe `aprobar_verificacion`/`rechazar_verificacion` en `acciones_admin`, con relleno de lo anterior,
+  y `admin_listar_auditoria`) y acción `auditoria` de la función `admin`. **Hallazgo:** la bitácora NO registraba aprobar ni rechazar verificaciones (quedaba solo `revisada_por`/`revisada_en`, que además se borran
+  al reenviar); ahora lo registra el trigger en la misma transacción. pgTAP 678 (con mutación: apagar el trigger rompe las pruebas); panel 116 pruebas. Probado en Chromium contra el Supabase local: aprobar deja su fila en Auditoría,
+  ocultar una reseña exige motivo y queda registrado, y el HTML de una reseña ajena se muestra como texto. **0079 y la función `admin` con `auditoria` NO están en producción.**
+  Las insignias del menú (verificaciones y reportes pendientes) se refrescan al cambiar de sección.
   **Sin verificar:** modo oscuro y móvil en pantalla; el rechazo y la lista contra producción; imágenes con un documento real.
 - **Hallazgos corregidos.** (1) `/admin` sin sesión se quedaba en «Cargando…» para siempre y solo la pantalla de inicio leía la sesión guardada: `useEsAdmin` ahora la lee
   y redirige al login con `volverA` (solo rutas del panel). (2) Metro cachea `EXPO_PUBLIC_*`: un export web sin `--clear` apuntó a producción cuando se quería local.
   (3) **«Email OTP length» estaba en 8 en producción** y la app espera 6: ningún código se podía escribir completo. Cambiado a 6 en el panel de Supabase; la caducidad se baja a 600 s.
   (4) La plantilla «Reset password» seguía con el enlace: el enlace gasta el código, así que las plantillas llevan solo `{{ .Token }}`.
-- **Pendiente.** Quitar las pantallas de admin de la app móvil al terminar el panel; pasos 3 a 6 del panel (verificaciones, moderación y auditoría, ingresos, salud); correr las
+- **Pendiente.** Quitar las pantallas de admin de la app móvil al terminar el panel; pasos 5 y 6 del panel (ingresos y planes, salud de la app); correr las
   pruebas del panel en el CI; decidir qué hacer con el admin `damianmalvaizadm@utvtol.edu.mx`; mover widgets (fase 2).
 
 ### Pendientes abiertos

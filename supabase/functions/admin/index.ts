@@ -111,6 +111,11 @@ Deno.serve(async (req) => {
       if (error) return respuestaDeError(error);
       return json({ errores: data ?? [] }, 200);
     }
+    case 'auditoria': {
+      const { data, error } = await servicio.rpc('admin_listar_auditoria', { p_admin: admin, p_limite: 100 });
+      if (error) return respuestaDeError(error);
+      return json({ auditoria: data ?? [] }, 200);
+    }
     case 'borrar_error': {
       const { error } = await servicio.rpc('admin_borrar_error', { p_admin: admin, p_id: s.id });
       if (error) return respuestaDeError(error);

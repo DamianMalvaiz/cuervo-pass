@@ -41,3 +41,4 @@ textarea { width: 100%; padding: .55rem .75rem; border-radius: .6rem; border: 1p
 button.peligro { background: var(--error); border-color: var(--error); color: #ffffff; font-weight: 700; }
 .documentos { display: grid; gap: 1rem; margin-top: .75rem; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); } .documentos > p { grid-column: 1 / -1; } figure { margin: 0; } figcaption { font-weight: 600; color: var(--suave); margin-bottom: .25rem; } figure img { max-width: 100%; max-height: 24rem; border: 1px solid var(--filete); border-radius: .5rem; background: var(--fondo); }
 @media (prefers-color-scheme: dark) { button.peligro { color: #171a18; } }
+.tabla { overflow-x: auto; } .tabla th, .tabla td { text-align: left; vertical-align: top; } .tabla td:first-child { white-space: nowrap; }

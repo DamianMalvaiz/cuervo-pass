@@ -164,3 +164,56 @@ describe('api.resolver', () => {
     await expect(crearApi(clienteCon(invoke)).resolver(VERIF.usuario_id, 'comerciante', true, null)).rejects.toMatchObject({ tipo });
   });
 });
+
+const ITEM = { tipo: 'resena', id: 'c1', titulo: 'Tacos El Güero · 1 estrellas', texto: 'Mala atención', autor: 'eva', reportes: 2, oculto: false, creado_en: '2026-10-21T10:00:00Z' };
+const ENTRADA = { accion: 'aprobar_verificacion', admin: 'ana_admin', objetivo_id: 'u1', objetivo: 'vend_t', detalle: 'comerciante', creado_en: '2026-10-22T10:00:00Z' };
+
+describe('api.moderacion y api.moderar', () => {
+  test('moderacion pide la lista y la devuelve', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { moderacion: [ITEM, { ...ITEM, tipo: 'negocio', texto: null }] }, error: null });
+    const r = await crearApi(clienteCon(invoke)).moderacion();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'moderacion' } });
+    expect(r).toHaveLength(2);
+  });
+
+  test.each([
+    ['sin la clave', {}],
+    ['tipo inventado', { moderacion: [{ ...ITEM, tipo: 'usuario' }] }],
+    ['reportes que no es número', { moderacion: [{ ...ITEM, reportes: '2' }] }],
+    ['oculto que no es booleano', { moderacion: [{ ...ITEM, oculto: 'no' }] }],
+    ['autor sin texto', { moderacion: [{ ...ITEM, autor: null }] }],
+  ])('forma rota (%s) → «desconocido»', async (_n, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).moderacion()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+
+  test('moderar manda tipo, id, si se oculta y el motivo', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { ok: true }, error: null });
+    await crearApi(clienteCon(invoke)).moderar('negocio', 'n1', true, 'Publicidad engañosa');
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'moderar', tipo: 'negocio', id: 'n1', ocultar: true, motivo: 'Publicidad engañosa' } });
+  });
+
+  test('moderar sin motivo suficiente lanza «motivo_requerido» (400 del servidor)', async () => {
+    const invoke = vi.fn().mockResolvedValue(respuestaConError(400, { error: 'motivo_requerido' }));
+    await expect(crearApi(clienteCon(invoke)).moderar('resena', 'c1', true, null)).rejects.toMatchObject({ tipo: 'motivo_requerido' });
+  });
+});
+
+describe('api.auditoria', () => {
+  test('pide la acción «auditoria» y devuelve las entradas', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { auditoria: [ENTRADA, { ...ENTRADA, objetivo_id: null, objetivo: null, detalle: null }] }, error: null });
+    const r = await crearApi(clienteCon(invoke)).auditoria();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'auditoria' } });
+    expect(r).toHaveLength(2);
+  });
+
+  test.each([
+    ['sin la clave', {}],
+    ['entrada sin acción', { auditoria: [{ ...ENTRADA, accion: undefined }] }],
+    ['fecha que no es texto', { auditoria: [{ ...ENTRADA, creado_en: 5 }] }],
+    ['admin que no es texto', { auditoria: [{ ...ENTRADA, admin: null }] }],
+  ])('forma rota (%s) → «desconocido»', async (_n, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).auditoria()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+});

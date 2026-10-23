@@ -42,7 +42,7 @@ function cliente({ sesion = false, invoke, login }: Opciones = {}) {
       signInWithPassword: login ?? vi.fn(async () => { hay = true; return { data: { session: {} }, error: null }; }),
       signOut: salir,
     },
-    functions: { invoke: invoke ?? vi.fn(async (_n: string, o: { body: { accion: string } }) => ({ data: o.body.accion === 'resumen_detalle' ? { detalle: DETALLE } : o.body.accion === 'verificaciones' ? { verificaciones: [VERIFICACION] } : { resumen: RESUMEN }, error: null })) },
+    functions: { invoke: invoke ?? vi.fn(async (_n: string, o: { body: { accion: string } }) => ({ data: o.body.accion === 'resumen_detalle' ? { detalle: DETALLE } : o.body.accion === 'verificaciones' ? { verificaciones: [VERIFICACION] } : o.body.accion === 'moderacion' ? { moderacion: [] } : o.body.accion === 'auditoria' ? { auditoria: [] } : { resumen: RESUMEN }, error: null })) },
   };
   return { c: c as unknown as ClienteApp, salir };
 }
@@ -146,5 +146,49 @@ describe('App', () => {
     expect(await screen.findByText('Ana Pérez')).toBeInTheDocument();
     expect(screen.queryByText('Panel de administración')).not.toBeInTheDocument();
     window.location.hash = '';
+  });
+
+  test.each([
+    ['Moderación', 'No hay nada que moderar.'],
+    ['Auditoría', 'Todavía no hay acciones registradas.'],
+  ])('el menú lleva a «%s»', async (nombre, vacio) => {
+    render(<App cliente={cliente({ sesion: true }).c} />);
+    await userEvent.click(await screen.findByRole('link', { name: new RegExp(nombre) }));
+    expect(await screen.findByText(vacio)).toBeInTheDocument();
+  });
+
+  test('las insignias del menú se actualizan al navegar (no se quedan con la cifra de la primera carga)', async () => {
+    let pendientes = 2;
+    const invoke = vi.fn(async (_n: string, o: { body: { accion: string } }) => {
+      if (o.body.accion === 'resumen') return { data: { resumen: { ...RESUMEN, verificaciones_pendientes: pendientes } }, error: null };
+      if (o.body.accion === 'resumen_detalle') return { data: { detalle: DETALLE }, error: null };
+      return { data: { verificaciones: [], moderacion: [], auditoria: [] }, error: null };
+    });
+    render(<App cliente={cliente({ sesion: true, invoke }).c} />);
+    const enlace = await screen.findByRole('link', { name: /Verificaciones/ });
+    expect(enlace).toHaveTextContent('2');
+    pendientes = 0;
+    await userEvent.click(screen.getByRole('link', { name: /Auditoría/ }));
+    await waitFor(() => expect(screen.getByRole('link', { name: /Verificaciones/ })).not.toHaveTextContent('2'));
+    expect(screen.getByRole('link', { name: 'Verificaciones' })).toBeInTheDocument();
+    // Sin pantalla de «Cargando…» a pantalla completa mientras se refresca: el menú sigue ahí.
+    expect(screen.getByRole('navigation', { name: 'Secciones' })).toBeInTheDocument();
+  });
+
+  test('al volver a «Resumen» las cifras se piden de nuevo, y la primera carga no las pide dos veces', async () => {
+    let cuentas = 106;
+    const invoke = vi.fn(async (_n: string, o: { body: { accion: string } }) => {
+      if (o.body.accion === 'resumen') return { data: { resumen: { ...RESUMEN, cuentas } }, error: null };
+      if (o.body.accion === 'resumen_detalle') return { data: { detalle: DETALLE }, error: null };
+      return { data: { auditoria: [] }, error: null };
+    });
+    render(<App cliente={cliente({ sesion: true, invoke }).c} />);
+    expect(await screen.findByText('106')).toBeInTheDocument();
+    const pedidosAlEntrar = invoke.mock.calls.filter(([, o]) => o.body.accion === 'resumen').length;
+    expect(pedidosAlEntrar).toBe(1);
+    await userEvent.click(screen.getByRole('link', { name: /Auditoría/ }));
+    cuentas = 107;
+    await userEvent.click(await screen.findByRole('link', { name: 'Resumen' }));
+    expect(await screen.findByText('107')).toBeInTheDocument();
   });
 });
