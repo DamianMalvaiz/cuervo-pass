@@ -5,6 +5,7 @@ export type Rol = 'comerciante' | 'arrendador';
 
 export type Solicitud =
   | { accion: 'resumen' }
+  | { accion: 'resumen_detalle' }
   | { accion: 'verificaciones' }
   | { accion: 'moderacion' }
   | { accion: 'errores' }
@@ -43,6 +44,7 @@ export function validarSolicitud(c: unknown): Validacion {
 
   switch (d.accion) {
     case 'resumen':
+    case 'resumen_detalle':
     case 'verificaciones':
     case 'moderacion':
     case 'errores':

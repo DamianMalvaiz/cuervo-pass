@@ -91,6 +91,11 @@ Deno.serve(async (req) => {
       if (error) return respuestaDeError(error);
       return json({ resumen: data?.[0] ?? null }, 200);
     }
+    case 'resumen_detalle': {
+      const { data, error } = await servicio.rpc('admin_resumen_detalle', { p_admin: admin });
+      if (error) return respuestaDeError(error);
+      return json({ detalle: data ?? null }, 200);
+    }
     case 'verificaciones': {
       const { data, error } = await servicio.rpc('admin_listar_verificaciones', { p_admin: admin });
       if (error) return respuestaDeError(error);

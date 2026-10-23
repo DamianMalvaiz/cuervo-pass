@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { Estado } from './components/Estado';
 import { Login } from './components/Login';
-import { Resumen } from './components/Resumen';
+import { Resumen, type EstadoDetalle } from './components/Resumen';
 import { crearApi, type ResumenAdmin } from './lib/api';
 import type { ClienteApp } from './lib/cliente';
 import { ErrorAdmin, MENSAJE_ERROR_ADMIN, type TipoErrorAdmin } from './lib/errores';
@@ -19,6 +19,8 @@ export function App({ cliente }: { cliente: ClienteApp }) {
   const [sesion, setSesion] = useState<Sesion>('cargando');
   const [panel, setPanel] = useState<Panel>({ fase: 'comprobando' });
   const [intento, setIntento] = useState(0);
+  const [detalle, setDetalle] = useState<EstadoDetalle>({ fase: 'cargando' });
+  const [intentoDetalle, setIntentoDetalle] = useState(0);
 
   useEffect(() => {
     let vivo = true;
@@ -44,6 +46,21 @@ export function App({ cliente }: { cliente: ClienteApp }) {
       vivo = false;
     };
   }, [api, sesion, intento]);
+
+  // El detalle se pide APARTE: si falla, las cifras básicas siguen a la vista y solo él dice su fallo.
+  const hayPanel = panel.fase === 'ok';
+  useEffect(() => {
+    if (sesion !== 'si' || !hayPanel) return;
+    let vivo = true;
+    setDetalle({ fase: 'cargando' });
+    api.resumenDetalle().then(
+      (datos) => vivo && setDetalle({ fase: 'ok', datos }),
+      (e: unknown) => vivo && setDetalle({ fase: 'error', tipo: e instanceof ErrorAdmin ? e.tipo : 'desconocido' }),
+    );
+    return () => {
+      vivo = false;
+    };
+  }, [api, sesion, hayPanel, intentoDetalle]);
 
   const salir = () => {
     void cliente.auth.signOut().then(() => setSesion('no'));
@@ -82,7 +99,7 @@ export function App({ cliente }: { cliente: ClienteApp }) {
       </nav>
       <main className="contenido">
         <h1>Panel de administración</h1>
-        <Resumen resumen={panel.resumen} />
+        <Resumen resumen={panel.resumen} detalle={detalle} onReintentarDetalle={() => setIntentoDetalle((n) => n + 1)} />
       </main>
     </div>
   );

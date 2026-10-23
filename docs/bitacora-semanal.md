@@ -1187,6 +1187,26 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
 - Las tres tramas no se han comparado en un Android real, que es donde
   `borderStyle` más se desvía.
 
+### Web pública, panel de admin web y correo con código (23/10/2026)
+
+- **Mercado Pago en producción.** 0077 aplicada tras respaldo (`respaldos/2026-10-23-antes-0077.sql`); `crear-pago` y `mp-webhook` desplegadas; secretos puestos; la
+  «Simular notificación» del panel de Mercado Pago dio 200 (firma y token funcionan juntos). Permisos de las funciones comprobados en producción con una consulta de solo
+  lectura al catálogo. **Sin verificar:** un pago completo de punta a punta (la orden de la tarjeta de prueba quedó en `creada` y no se supo por qué).
+- **Web pública** (`web-publica/`, rama `web-publica`): HTML estático con el aviso de privacidad generado desde `src/lib/avisoPrivacidad.ts`, publicada en `cuervo360.com`
+  como Worker `cuervo360-web`. `npx jest web-publica` (7 pruebas).
+- **Panel de admin web** (`panel-admin/`, rama `admin-web`): app aparte (Vite, React, TypeScript) detrás de **Cloudflare Access** (código por correo, solo una dirección)
+  en `admin.cuervo360.com`. Comprobado con `curl`: cualquier ruta sin sesión responde 302 a `cloudflareaccess.com`. La construcción
+  (`node --env-file=.env scripts/construir-web-admin.mjs`) exige que el bundle apunte al Supabase de producción; la CSP no permite scripts ni estilos en línea.
+  Paso 1 (login, guard, marco) y paso 2 (resumen con detalle, migración 0078): `npm --prefix panel-admin test` (43 pruebas) y `npx supabase test db` (672 aserciones, con una
+  mutación que la prueba de las ocho semanas detecta). Probado en Chromium contra el Supabase local. **Sin verificar:** modo oscuro y móvil en pantalla; uso real contra producción.
+  **0078 y la Edge Function `admin` actualizada NO están aplicadas/desplegadas en producción.**
+- **Hallazgos corregidos.** (1) `/admin` sin sesión se quedaba en «Cargando…» para siempre y solo la pantalla de inicio leía la sesión guardada: `useEsAdmin` ahora la lee
+  y redirige al login con `volverA` (solo rutas del panel). (2) Metro cachea `EXPO_PUBLIC_*`: un export web sin `--clear` apuntó a producción cuando se quería local.
+  (3) **«Email OTP length» estaba en 8 en producción** y la app espera 6: ningún código se podía escribir completo. Cambiado a 6 en el panel de Supabase; la caducidad se baja a 600 s.
+  (4) La plantilla «Reset password» seguía con el enlace: el enlace gasta el código, así que las plantillas llevan solo `{{ .Token }}`.
+- **Pendiente.** Quitar las pantallas de admin de la app móvil al terminar el panel; pasos 3 a 6 del panel (verificaciones, moderación y auditoría, ingresos, salud); correr las
+  pruebas del panel en el CI; decidir qué hacer con el admin `damianmalvaizadm@utvtol.edu.mx`; mover widgets (fase 2).
+
 ### Pendientes abiertos
 
 Actualizado el 19/09/2026 por la noche. El plan completo, con sus órdenes

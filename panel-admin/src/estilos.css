@@ -29,3 +29,8 @@ label { display: block; margin: .9rem 0 .25rem; font-weight: 600; color: var(--s
 .rejilla { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
 .cifra .valor { margin: .25rem 0 0; font-size: 2rem; font-weight: 700; }
 @media (max-width: 720px) { .marco { grid-template-columns: 1fr; grid-template-areas: 'barra' 'menu' 'contenido'; } .menu { flex-direction: row; border-right: 0; border-bottom: 1px solid var(--filete); } }
+.ancha { grid-column: 1 / -1; } h3 { font-size: 1rem; margin: 0 0 .75rem; } .rejilla + h2 { margin-top: 1.5rem; } h2 + .rejilla { margin-top: .5rem; }
+.suave { color: var(--suave); }
+.grafica { width: 100%; max-width: 40rem; height: auto; }
+.barra { fill: var(--acento); } .valor-barra { fill: var(--texto); font-size: 12px; font-weight: 700; } .etiqueta-barra { fill: var(--suave); font-size: 10px; }
+table { width: 100%; border-collapse: collapse; } th, td { padding: .5rem .75rem; text-align: right; border-bottom: 1px solid var(--filete); } th[scope='row'], thead th:first-child { text-align: left; } thead th { color: var(--suave); font-weight: 600; font-size: .85rem; }

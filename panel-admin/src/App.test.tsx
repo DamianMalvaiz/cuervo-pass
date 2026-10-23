@@ -12,6 +12,15 @@ const RESUMEN = {
   verificaciones_pendientes: 2, resenas_reportadas: 1, resenas_ocultas: 3, negocios_ocultos: 0, cuentas: 106, negocios_activos: 26, modo_demo: false,
 };
 
+const DETALLE = {
+  altas_por_semana: Array.from({ length: 8 }, (_, i) => ({ semana: `2026-09-${String(i * 7 + 1).padStart(2, '0')}`, cuentas: i })),
+  roles_por_estado: [{ rol: 'comerciante', estado: 'aprobado', total: 4 }, { rol: 'arrendador', estado: 'pendiente', total: 2 }],
+  publicaciones: { total: 10, activas: 7 },
+  negocios: { total: 12, activos: 9 },
+  conversaciones: 5,
+  mensajes_7d: 31,
+};
+
 interface Opciones {
   sesion?: boolean;
   invoke?: ReturnType<typeof vi.fn>;
@@ -28,7 +37,7 @@ function cliente({ sesion = false, invoke, login }: Opciones = {}) {
       signInWithPassword: login ?? vi.fn(async () => { hay = true; return { data: { session: {} }, error: null }; }),
       signOut: salir,
     },
-    functions: { invoke: invoke ?? vi.fn(async () => ({ data: { resumen: RESUMEN }, error: null })) },
+    functions: { invoke: invoke ?? vi.fn(async (_n: string, o: { body: { accion: string } }) => ({ data: o.body.accion === 'resumen_detalle' ? { detalle: DETALLE } : { resumen: RESUMEN }, error: null })) },
   };
   return { c: c as unknown as ClienteApp, salir };
 }
@@ -96,5 +105,31 @@ describe('App', () => {
     render(<App cliente={cliente({ sesion: true, invoke }).c} />);
     await userEvent.click(await screen.findByRole('button', { name: 'Reintentar' }));
     expect(await screen.findByText('106')).toBeInTheDocument();
+  });
+
+  test('muestra el detalle: gráfica de altas, vendedores por estado y cifras de actividad', async () => {
+    render(<App cliente={cliente({ sesion: true }).c} />);
+    expect(await screen.findByRole('img', { name: /Altas por semana/ })).toBeInTheDocument();
+    expect(screen.getByRole('table', { name: /Vendedores por estado/ })).toBeInTheDocument();
+    expect(screen.getByText('Mensajes (7 días)')).toBeInTheDocument();
+    expect(screen.getByText('31')).toBeInTheDocument();
+    expect(screen.getByText('7 de 10')).toBeInTheDocument();
+  });
+
+  test('si el detalle falla pero el resumen no: las cifras básicas siguen, el detalle dice su fallo y se reintenta solo él', async () => {
+    let detalleOk = false;
+    const invoke = vi.fn(async (_n: string, o: { body: { accion: string } }) => {
+      if (o.body.accion === 'resumen') return { data: { resumen: RESUMEN }, error: null };
+      if (!detalleOk) throw new TypeError('fetch failed');
+      return { data: { detalle: DETALLE }, error: null };
+    });
+    render(<App cliente={cliente({ sesion: true, invoke }).c} />);
+    expect(await screen.findByText('106')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos conectar');
+    expect(screen.queryByRole('img', { name: /Altas por semana/ })).not.toBeInTheDocument();
+    detalleOk = true;
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar detalle' }));
+    expect(await screen.findByRole('img', { name: /Altas por semana/ })).toBeInTheDocument();
+    expect(screen.getByText('106')).toBeInTheDocument();
   });
 });

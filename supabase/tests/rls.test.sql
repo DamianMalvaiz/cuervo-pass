@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(666);
+select plan(672);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2770,6 +2770,13 @@ select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000e
   'moderar: quien no es admin no oculta nada' );
 select throws_ok($$select fijar_demo_mode('00000000-0000-0000-0000-0000000000e9', true)$$, 'CP007', null, 'modo demo: quien no es admin no lo enciende' );
 select ok((select verificaciones_pendientes >= 0 and cuentas > 0 from admin_resumen('00000000-0000-0000-0000-0000000000a1')), 'admin_resumen: devuelve cifras a un admin' );
+-- ── Resumen con detalle (0078) ──────────────────────────────────────────────
+select throws_ok($$select admin_resumen_detalle('00000000-0000-0000-0000-0000000000e9')$$, 'CP007', null, 'admin_resumen_detalle: una cuenta que no es admin recibe CP007' );
+select ok(admin_resumen_detalle('00000000-0000-0000-0000-0000000000a1') ?& array['altas_por_semana', 'roles_por_estado', 'publicaciones', 'negocios', 'conversaciones', 'mensajes_7d'],
+  'admin_resumen_detalle: trae las seis secciones' );
+select is(jsonb_array_length(admin_resumen_detalle('00000000-0000-0000-0000-0000000000a1')->'altas_por_semana'), 8, 'admin_resumen_detalle: ocho semanas, también las que tuvieron cero altas' );
+select ok(((admin_resumen_detalle('00000000-0000-0000-0000-0000000000a1')->'altas_por_semana'->7->>'cuentas')::int) >= 1, 'admin_resumen_detalle: la semana en curso cuenta las cuentas de hoy' );
+select is((admin_resumen_detalle('00000000-0000-0000-0000-0000000000a1')->'publicaciones'->>'total')::int, (select count(*)::int from publicaciones), 'admin_resumen_detalle: el total de publicaciones es el real' );
 select ok((select count(*) from admin_listar_moderacion('00000000-0000-0000-0000-0000000000a1') where id = '00000000-0000-0000-0000-00000000c001' and reportes = 1 and not oculto) = 1,
   'moderación: la reseña reportada aparece con su número de reportes' );
 select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a1', 'resena', '00000000-0000-0000-0000-00000000c001', true, '  ')$$, 'CP006', null,
@@ -2810,6 +2817,7 @@ select throws_ok($$select * from acciones_admin$$, '42501', null, 'bitácora: el
 select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a1', 'resena', '00000000-0000-0000-0000-00000000c001', true, 'intento desde el cliente')$$, '42501', null,
   'moderar: el cliente autenticado no puede ejecutarla, ni diciendo que es admin' );
 select throws_ok($$select * from admin_resumen('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_resumen: el cliente autenticado no puede ejecutarla' );
+select throws_ok($$select admin_resumen_detalle('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_resumen_detalle: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select fijar_demo_mode('00000000-0000-0000-0000-0000000000a1', true)$$, '42501', null, 'modo demo: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select registrar_acceso_documentos('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000e9', 'comerciante')$$,
   '42501', null, 'documentos: el cliente autenticado no puede registrar (ni ver) nada' );
