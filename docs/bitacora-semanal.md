@@ -1230,6 +1230,12 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
   puede corregir actualizando y NO está en el bundle (`expo export --platform android --dump-sourcemap`: 2076 fuentes, 88 paquetes). Para tapar solo esa copia la puerta ganó **excepciones por copia** (`copias` y `linea`):
   si el aviso aparece en otra copia, o la copia cubierta cambia de línea, o hay corrección dentro de su línea, falla. `scripts/__tests__/verificar-audit.test.js` (21 pruebas, con mutaciones). **Sin verificar:** que el CI de GitHub
   quede en verde tras subirlo (no se ha corrido desde entonces). `deno check` de las funciones `admin` y `mp-webhook` nuevas tampoco se ha corrido (no hay Deno local): lo hará el CI.
+- **Segunda capa del CI rojo (23/10/2026, corrida de `04d784c`):** con la auditoría ya en verde, `frontend` llegó por fin a `npm test --coverage` —paso que llevaba meses sin ejecutarse— y falló por **el umbral de
+  cobertura de `src/app/(tabs)/`: 91,63 % de ramas contra 92 %** (idéntico en GitHub y en local: determinista). Desde que se fijó (26/09) se añadió el segmento Negocios de Favoritos y otras cosas sin cubrir todas sus ramas.
+  Se escribieron 8 pruebas de comportamiento en `favoritos.test.tsx` (la distancia no se inventa sin coordenadas, publicaciones y negocios con foto, segmento activo, singular y carga de negocios); sin bajar el umbral.
+  Medido: `npm test -- --watchAll=false --coverage` → 190 suites, 2451 pruebas, `(tabs)` 93,91 % de ramas. **Pruebas intermitentes, SIN resolver:** en GitHub falló `BotonFavorito` («el tope de 200», `waitFor` de 1 s sin que
+  `mockError` se llamara) y en una corrida local con cobertura falló `useNotificaciones`; ninguna falla aislada (`BotonFavorito` 3 de 3) y en la corrida posterior no fallaron. Parecen carreras de tiempo bajo carga.
+  Si reaparecen en el CI hay que arreglarlas de raíz, no repetir la corrida. Nota: un comentario de `favoritos.tsx` dice que la fila muestra «—» sin distancia, pero el código no muestra nada.
 - **CI del panel de admin:** job `panel-admin` (`npm ci`, `typecheck`, `npm test`, `npm run build`, `verificar:audit`), reproducido desde cero en local (borrando `node_modules`); `ci-panel-admin.test.ts` (con mutaciones).
 - **Pendiente.** Quitar las pantallas de admin de la app móvil al terminar el panel;  correr las
   pruebas del panel en el CI; decidir qué hacer con el admin `damianmalvaizadm@utvtol.edu.mx`; mover widgets (fase 2).
