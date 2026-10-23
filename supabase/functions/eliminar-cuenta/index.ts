@@ -14,7 +14,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-import { carpetasDeLaCuenta, rutasDeEntradas } from './politica.ts';
+import { carpetasDeLaCuenta, ejecutarBorrado, rutasDeEntradas } from './politica.ts';
 
 // CORS · END-14 · `req.method !== 'POST'` devolvía 405 también al preflight, así
 // que un navegador nunca llegaba a hacer la petición real. `package.json` tiene
@@ -85,62 +85,65 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // Las fotos se borran AQUÍ, por la Storage API, y no desde el trigger.
+  // El ORDEN lo decide `ejecutarBorrado` (politica.ts): rutas, luego la CUENTA, y solo después los archivos. Antes se borraban los archivos
+  // primero y, si `deleteUser` fallaba, la cuenta seguía viva con sus fotos y su evidencia ya destruidas.
   //
-  // Hasta la migración 0021, `trg_limpiar_fotos` hacía `delete from
-  // storage.objects`. Supabase añadió después una barrera que lo prohíbe
-  // ("Direct deletion from storage tables is not allowed"), así que el trigger
-  // reventaba y con él la transacción entera: esta función devolvía un no-2xx y
-  // la cuenta seguía existiendo. El derecho de cancelación que promete el aviso
-  // de privacidad llevaba días sin funcionar para cualquiera que hubiera subido
-  // una foto, y nadie lo notó porque ninguna prueba borraba una publicación CON
-  // fotos.
-  //
-  // El trigger ahora solo ENCOLA las rutas en `fotos_huerfanas`. Borrarlas de
-  // verdad es trabajo de quien sí puede hablar con la Storage API: esto.
-  const rutas: string[] = [`perfiles/${user.id}.jpg`];
+  // Las fotos se borran AQUÍ, por la Storage API, y no desde el trigger. Hasta la migración 0021, `trg_limpiar_fotos` hacía `delete from
+  // storage.objects`; Supabase añadió una barrera que lo prohíbe y el trigger reventaba con toda la transacción: la cuenta seguía existiendo y el
+  // derecho de cancelación llevaba días sin funcionar para quien hubiera subido una foto. El trigger ahora solo ENCOLA las rutas en
+  // `fotos_huerfanas`; borrarlas de verdad es trabajo de quien sí puede hablar con la Storage API: esto.
+  const resultado = await ejecutarBorrado({
+    recogerRutas: async () => {
+      const fotos: string[] = [`perfiles/${user.id}.jpg`];
 
-  const { data: publicaciones } = await servicio
-    .from('publicaciones')
-    .select('fotos')
-    .eq('usuario_id', user.id);
+      const { data: publicaciones } = await servicio.from('publicaciones').select('fotos').eq('usuario_id', user.id);
+      for (const p of publicaciones ?? []) {
+        for (const ruta of (p.fotos ?? []) as string[]) {
+          // Las publicaciones sembradas guardan URLs de Unsplash, no rutas del bucket: pedir a Storage que borre una URL externa no es un
+          // error, pero sí ruido en una operación que conviene poder leer.
+          if (!ruta.startsWith('http')) fotos.push(ruta);
+        }
+      }
 
-  for (const p of publicaciones ?? []) {
-    for (const ruta of (p.fotos ?? []) as string[]) {
-      // Las publicaciones sembradas guardan URLs de Unsplash, no rutas del
-      // bucket. Pedir a Storage que borre una URL externa no es un error, pero
-      // sí es ruido en una operación que conviene poder leer.
-      if (!ruta.startsWith('http')) rutas.push(ruta);
-    }
-  }
+      // Lo que las filas NO alcanzan: las fotos de los NEGOCIOS (y las de sus productos) y la evidencia de verificación (INE, reverso, fotos
+      // del lugar). Las filas se borran en cascada; los archivos no. Antes quedaban para siempre, y el aviso de privacidad promete lo contrario.
+      const { data: negocios } = await servicio.from('negocios').select('id').eq('usuario_id', user.id);
+      const carpetas = carpetasDeLaCuenta(user.id, (negocios ?? []).map((n: { id: string }) => n.id));
+      const verificacion: string[] = [];
+      for (const c of carpetas.fotos) fotos.push(...(await archivosDe(servicio, 'fotos', c)));
+      for (const c of carpetas.verificacion) verificacion.push(...(await archivosDe(servicio, 'verificacion', c)));
+      return { fotos: [...new Set(fotos)], verificacion };
+    },
 
-  // Si esto falla, se sigue: dejar archivos huérfanos es malo, pero negarle a
-  // alguien el borrado de su cuenta por un fallo de almacenamiento es peor. Lo
-  // que quede sin borrar lo encola el trigger y lo recoge el barredor.
-  // Lo que las filas NO alcanzan: las fotos de los NEGOCIOS (y las de sus productos) y la evidencia de verificación (INE, reverso, fotos del
-  // lugar). Las filas se borran en cascada; los archivos no. Antes quedaban para siempre, y el aviso de privacidad promete lo contrario.
-  const { data: negocios } = await servicio.from('negocios').select('id').eq('usuario_id', user.id);
-  const carpetas = carpetasDeLaCuenta(user.id, (negocios ?? []).map((n: { id: string }) => n.id));
-  const deVerificacion: string[] = [];
-  for (const c of carpetas.fotos) rutas.push(...(await archivosDe(servicio, 'fotos', c)));
-  for (const c of carpetas.verificacion) deVerificacion.push(...(await archivosDe(servicio, 'verificacion', c)));
+    borrarCuenta: async () => {
+      const { error } = await servicio.auth.admin.deleteUser(user.id);
+      if (!error) return null;
+      // El mensaje de Auth puede traer nombres internos de tablas o restricciones: va al registro del servidor, no al cliente.
+      console.error('eliminar-cuenta: no se pudo borrar la cuenta', { usuario: user.id, mensaje: error.message });
+      return error.message;
+    },
 
-  const { error: eStorage } = await servicio.storage.from('fotos').remove([...new Set(rutas)]);
-  if (eStorage) console.error('eliminar-cuenta: fallo al borrar fotos', { usuario: user.id, mensaje: eStorage.message });
-  if (deVerificacion.length > 0) {
-    const { error: eVerificacion } = await servicio.storage.from('verificacion').remove(deVerificacion);
-    if (eVerificacion) {
-      // Se sigue: negar el borrado de la cuenta por esto sería peor. La INE la recoge el barrido de huérfanas (0058) en cuanto su fila desaparece.
-      console.error('eliminar-cuenta: fallo al borrar la evidencia de verificación', { usuario: user.id, mensaje: eVerificacion.message });
-    }
-  }
+    borrarFotos: async (rutas) => {
+      // Si esto falla se sigue: dejar archivos huérfanos es malo, pero negarle a alguien el borrado de su cuenta por un fallo de almacenamiento
+      // es peor. Lo que quede sin borrar lo encola el trigger y lo recoge el barredor.
+      const { error: eStorage } = await servicio.storage.from('fotos').remove(rutas);
+      if (eStorage) {
+        console.error('eliminar-cuenta: fallo al borrar fotos', { usuario: user.id, mensaje: eStorage.message });
+        return; // las rutas se quedan en la cola: el barredor aún las puede recoger
+      }
+      // Las rutas ya borradas no necesitan barrido. Quitarlas de la cola evita que el verificador pre-demo señale trabajo que ya está hecho.
+      await servicio.from('fotos_huerfanas').delete().in('ruta', rutas);
+    },
 
-  const { error } = await servicio.auth.admin.deleteUser(user.id);
-  if (error) return json({ error: error.message }, 500);
+    borrarVerificacion: async (rutas) => {
+      if (rutas.length === 0) return;
+      const { error } = await servicio.storage.from('verificacion').remove(rutas);
+      // Se sigue: la INE la recoge el barrido de huérfanas (0058/0063) en cuanto su fila desaparece.
+      if (error) console.error('eliminar-cuenta: fallo al borrar la evidencia de verificación', { usuario: user.id, mensaje: error.message });
+    },
+  });
 
-  // Las rutas ya borradas arriba no necesitan barrido. Quitarlas de la cola
-  // evita que el verificador pre-demo señale trabajo que ya está hecho.
-  await servicio.from('fotos_huerfanas').delete().in('ruta', rutas);
-
-  return json({ eliminada: true, fotosBorradas: rutas.length, evidenciaBorrada: deVerificacion.length }, 200);
+  // Mismo cuerpo para cualquier fallo: la causa ya quedó en el registro del servidor.
+  if (!resultado.ok) return json({ error: 'no_se_pudo_eliminar' }, 500);
+  return json({ eliminada: true, fotosBorradas: resultado.fotos, evidenciaBorrada: resultado.evidencia }, 200);
 });

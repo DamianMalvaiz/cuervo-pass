@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 
 import {
+  clasificarErrorDeCuota,
   clasificarRespuesta,
   secretsFaltantes,
+  validarSolicitud,
 } from '../../supabase/functions/ai-proxy/politica';
 
 // ai-proxy · dos defectos del mismo tipo: la función decidía mal QUÉ hacer con la
@@ -118,5 +120,61 @@ describe('index.ts aplica la política', () => {
 
   test('ya no hay `!` ni «Bearer undefined» sobre los secrets del microservicio', () => {
     expect(fuente).not.toMatch(/Deno\.env\.get\('AI_SHARED_TOKEN'\)\}/);
+  });
+});
+
+
+// Hallazgo 4 de la auditoría del 23/10/2026. `ai-proxy` hacía `const { ruta, texto } = await req.json()` sin comprobar que fuera un objeto: un
+// cuerpo `null` lanzaba TypeError y la función contestaba 500 (`admin` y `verificar-rostro` sí validan la forma). Y cualquier error al consumir la
+// cuota se contestaba 429 «cuota diaria agotada», aunque fuera una caída de la base: un fallo del sistema se leía como un límite del usuario
+// (invariante 2: «falló» no es «no hay»).
+describe('validarSolicitud', () => {
+  test.each([null, undefined, 5, 'texto', true, []])('un cuerpo que no es un objeto (%p) es «cuerpo inválido», no una excepción', (c) => {
+    expect(validarSolicitud(c)).toEqual({ ok: false, error: 'cuerpo inválido' });
+  });
+
+  test('una solicitud completa pasa', () => {
+    expect(validarSolicitud({ ruta: 'generar-embedding', texto: 'hola' })).toEqual({ ok: true, ruta: 'generar-embedding', texto: 'hola' });
+    expect(validarSolicitud({ ruta: 'parsear-perfil', texto: 'x'.repeat(2000) }).ok).toBe(true);
+  });
+
+  test.each([undefined, 5, null, '', 'otra-ruta', '../admin', 'generar-embedding/../x'])('una ruta fuera de la lista (%p) no pasa', (ruta) => {
+    expect(validarSolicitud({ ruta, texto: 'hola' })).toEqual({ ok: false, error: 'ruta no permitida' });
+  });
+
+  test.each([undefined, 5, null, '', 'x'.repeat(2001)])('un texto vacío, no textual o de más de 2000 caracteres (%p) no pasa', (texto) => {
+    expect(validarSolicitud({ ruta: 'generar-embedding', texto })).toEqual({ ok: false, error: 'texto inválido' });
+  });
+});
+
+describe('clasificarErrorDeCuota', () => {
+  test('solo CP001 (la que lanza consumir_cuota, migración 0032) es «cuota agotada»', () => {
+    expect(clasificarErrorDeCuota({ code: 'CP001' })).toBe('agotada');
+  });
+
+  test.each([{ code: '23514' }, { code: 'XX000' }, { code: '42501' }, { code: '57014' }, { code: undefined }, {}])(
+    'cualquier otro error (%p) NO es un límite: es un fallo del sistema',
+    (e) => {
+      expect(clasificarErrorDeCuota(e)).toBe('no-disponible');
+    },
+  );
+
+  test('sin error no hay nada que clasificar como límite', () => {
+    expect(clasificarErrorDeCuota(null)).toBe('no-disponible');
+    expect(clasificarErrorDeCuota(undefined)).toBe('no-disponible');
+  });
+});
+
+describe('index.ts aplica la validación y la clasificación de la cuota', () => {
+  const fuente = readFileSync('supabase/functions/ai-proxy/index.ts', 'utf8');
+
+  test('valida el cuerpo con la política y ya no lo desestructura a ciegas', () => {
+    expect(fuente).toContain('validarSolicitud(');
+    expect(fuente).not.toMatch(/const \{ ruta, texto \} = cuerpo;/);
+  });
+
+  test('el 429 depende de clasificarErrorDeCuota, no de «hubo algún error»', () => {
+    expect(fuente).toContain('clasificarErrorDeCuota(');
+    expect(fuente).not.toMatch(/if \(errCuota\) return json\(\{ error: 'cuota diaria agotada' \}, 429\);/);
   });
 });

@@ -1384,8 +1384,16 @@ ejecutables y su secuencia, está en
       `aviso_invalido` cuando la base rechaza la versión. `deno check` corre en el CI; aquí no hay `deno`.
 - [ ] **Reconstruir el contenedor de IA** (`./scripts/ia-arrancar.sh`) para llevar el arreglo del 500 por una cabecera
       `Authorization` con un byte no ASCII (ahora 401). Hasta entonces `verificar.mjs` verá un contenedor un commit atrás.
-- [ ] Hallazgos 4 a 7 de la misma auditoría, sin tocar: `ai-proxy` con cuerpo `null` y errores de base como «cuota agotada»,
-      el orden de borrado de `eliminar-cuenta`, la copia de `igualEnTiempoConstante` y `respaldos/`.
+- [ ] **Hallazgos 4 y 5 arreglados en código, sin desplegar.** Desplegar `ai-proxy` y `eliminar-cuenta`
+      (`supabase functions deploy ai-proxy` y `supabase functions deploy eliminar-cuenta`).
+      · **`ai-proxy`:** un cuerpo `null` daba 500 (ahora 400 `cuerpo inválido`), y cualquier error al consumir la cuota se contestaba 429 «cuota
+      agotada». Ahora solo `CP001` es 429; lo demás es un 503 `degradado` (`cuota-no-disponible`) y la app lo trata como fallo, no como límite.
+      · **`eliminar-cuenta`:** borraba fotos e INE y solo al final la cuenta; si `deleteUser` fallaba, quedaba la cuenta viva con sus archivos
+      destruidos. Ahora el orden es rutas, CUENTA, archivos (`ejecutarBorrado`); si la cuenta no se borra no se toca un archivo, y el cuerpo del
+      error es genérico. De paso: ya no se sacan las rutas de `fotos_huerfanas` si el borrado de Storage falló (antes el barredor las perdía).
+      Comprobado con `npx jest test-utils/__tests__/ai-proxy-politica.test.ts test-utils/__tests__/eliminar-cuenta-politica.test.ts`.
+      **`deno check` solo corre en el CI** (aquí no hay `deno`): la sintaxis se comprobó con el compilador de TypeScript, los tipos no.
+- [ ] Hallazgos 6 y 7 de la misma auditoría, sin tocar: la copia de `igualEnTiempoConstante` y `respaldos/`.
 - [ ] **Antes de enseñar «Contratar plan»** hay que encender `demo_mode` desde el panel de administración: en producción está en
       `false` (comprobado el 23/10/2026) y la app dice «los pagos de demostración no están activos».
 
