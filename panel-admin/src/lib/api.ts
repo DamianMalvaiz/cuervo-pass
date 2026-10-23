@@ -21,6 +21,25 @@ export interface DetalleAdmin {
   mensajes_7d: number;
 }
 
+export type Rol = 'comerciante' | 'arrendador';
+
+export interface VerificacionPendiente {
+  usuario_id: string;
+  rol: Rol;
+  nombre_usuario: string;
+  nombre_legal: string;
+  direccion: string;
+  enviada_en: string;
+  version_aviso: string;
+  fotos_del_lugar: number;
+  rostro_estado: string | null;
+}
+
+export interface DocumentoAdmin {
+  etiqueta: string;
+  url: string | null;
+}
+
 const esNumero = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const esObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -38,6 +57,34 @@ function leerDetalle(d: unknown): DetalleAdmin {
   return d as unknown as DetalleAdmin;
 }
 
+const esTexto = (v: unknown): v is string => typeof v === 'string';
+const esRol = (v: unknown): v is Rol => v === 'comerciante' || v === 'arrendador';
+
+function leerVerificaciones(lista: unknown): VerificacionPendiente[] {
+  const buenas =
+    Array.isArray(lista) &&
+    lista.every(
+      (v) =>
+        esObjeto(v) && esTexto(v.usuario_id) && esRol(v.rol) && esTexto(v.nombre_usuario) && esTexto(v.nombre_legal) && esTexto(v.direccion) &&
+        esTexto(v.enviada_en) && esTexto(v.version_aviso) && esNumero(v.fotos_del_lugar) && (v.rostro_estado === null || esTexto(v.rostro_estado)),
+    );
+  if (!buenas) throw new ErrorAdmin('desconocido');
+  return lista as VerificacionPendiente[];
+}
+
+/**
+ * Solo se pintan imágenes de NUESTRO Supabase (el origen exacto, con `/` detrás: `x.supabase.co.atacante.com` no pasa). Lo demás se descarta como «no
+ * disponible». Sin origen configurado no se acepta ninguna: falla cerrado.
+ */
+function leerDocumentos(lista: unknown, origenArchivos: string | undefined): DocumentoAdmin[] {
+  if (!Array.isArray(lista) || !lista.every((d) => esObjeto(d) && esTexto(d.etiqueta))) throw new ErrorAdmin('desconocido');
+  const prefijo = origenArchivos ? `${origenArchivos}/` : null;
+  return (lista as { etiqueta: string; url?: unknown }[]).map((d) => ({
+    etiqueta: d.etiqueta,
+    url: prefijo && esTexto(d.url) && d.url.startsWith(prefijo) ? d.url : null,
+  }));
+}
+
 /** Lo mínimo del cliente de Supabase que necesita la API: así se prueba sin red. */
 export interface ClienteAdmin {
   functions: {
@@ -49,7 +96,7 @@ interface ErrorDeFuncion {
   context?: { status?: number; json?: () => Promise<unknown> };
 }
 
-export function crearApi(cliente: ClienteAdmin) {
+export function crearApi(cliente: ClienteAdmin, opciones: { origenArchivos?: string } = {}) {
   async function llamar(body: Record<string, unknown>): Promise<Record<string, unknown>> {
     let respuesta;
     try {
@@ -81,6 +128,16 @@ export function crearApi(cliente: ClienteAdmin) {
     async resumenDetalle(): Promise<DetalleAdmin> {
       const d = await llamar({ accion: 'resumen_detalle' });
       return leerDetalle(d.detalle);
+    },
+    async verificaciones(): Promise<VerificacionPendiente[]> {
+      return leerVerificaciones((await llamar({ accion: 'verificaciones' })).verificaciones);
+    },
+    /** Pide los enlaces (10 min) a la evidencia. El servidor deja registrado que se miraron. */
+    async documentos(usuarioId: string, rol: Rol): Promise<DocumentoAdmin[]> {
+      return leerDocumentos((await llamar({ accion: 'documentos', usuario_id: usuarioId, rol })).documentos, opciones.origenArchivos);
+    },
+    async resolver(usuarioId: string, rol: Rol, aprobar: boolean, motivo: string | null): Promise<void> {
+      await llamar({ accion: 'resolver', usuario_id: usuarioId, rol, aprobar, motivo });
     },
   };
 }

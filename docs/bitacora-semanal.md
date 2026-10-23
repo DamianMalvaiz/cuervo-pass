@@ -1197,9 +1197,12 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
 - **Panel de admin web** (`panel-admin/`, rama `admin-web`): app aparte (Vite, React, TypeScript) detrás de **Cloudflare Access** (código por correo, solo una dirección)
   en `admin.cuervo360.com`. Comprobado con `curl`: cualquier ruta sin sesión responde 302 a `cloudflareaccess.com`. La construcción
   (`node --env-file=.env scripts/construir-web-admin.mjs`) exige que el bundle apunte al Supabase de producción; la CSP no permite scripts ni estilos en línea.
-  Paso 1 (login, guard, marco) y paso 2 (resumen con detalle, migración 0078): `npm --prefix panel-admin test` (43 pruebas) y `npx supabase test db` (672 aserciones, con una
-  mutación que la prueba de las ocho semanas detecta). Probado en Chromium contra el Supabase local. **Sin verificar:** modo oscuro y móvil en pantalla; uso real contra producción.
-  **0078 y la Edge Function `admin` actualizada NO están aplicadas/desplegadas en producción.**
+  Paso 1 (login, guard, marco), paso 2 (resumen con detalle, migración 0078) y paso 3 (Verificaciones: ver documentos con confirmación y rastro, aprobar, rechazar con motivo):
+  `npm --prefix panel-admin test` (76 pruebas) y `npx supabase test db` (672 aserciones, con una mutación que la prueba de las ocho semanas detecta). Probado en Chromium contra el
+  Supabase local con un vendedor pendiente de prueba: las tres imágenes cargan bajo la CSP, aprobar deja el rol en `aprobado` con la prueba de 15 días y la bitácora registra `ver_documentos`.
+  Las imágenes solo se aceptan si salen de NUESTRO Supabase (origen exacto); en local la función firma con `kong:8000` y hubo que reescribirlo en la prueba.
+  **0078 aplicada a producción (respaldo `respaldos/2026-10-23-antes-0078.sql`) y función `admin` desplegada.** El panel nuevo **NO** está desplegado en `admin.cuervo360.com`: ahí sigue la app de estudiantes exportada.
+  **Sin verificar:** modo oscuro y móvil en pantalla; el rechazo y la lista contra producción; imágenes con un documento real.
 - **Hallazgos corregidos.** (1) `/admin` sin sesión se quedaba en «Cargando…» para siempre y solo la pantalla de inicio leía la sesión guardada: `useEsAdmin` ahora la lee
   y redirige al login con `volverA` (solo rutas del panel). (2) Metro cachea `EXPO_PUBLIC_*`: un export web sin `--clear` apuntó a producción cuando se quería local.
   (3) **«Email OTP length» estaba en 8 en producción** y la app espera 6: ningún código se podía escribir completo. Cambiado a 6 en el panel de Supabase; la caducidad se baja a 600 s.

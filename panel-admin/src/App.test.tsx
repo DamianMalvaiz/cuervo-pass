@@ -21,6 +21,11 @@ const DETALLE = {
   mensajes_7d: 31,
 };
 
+const VERIFICACION = {
+  usuario_id: 'a3b1c2d4-0000-4000-8000-123456789abc', rol: 'comerciante', nombre_usuario: 'ana', nombre_legal: 'Ana Pérez', direccion: 'Calle 1, Toluca',
+  enviada_en: '2026-10-20T10:00:00Z', version_aviso: 'v3', fotos_del_lugar: 2, rostro_estado: null,
+};
+
 interface Opciones {
   sesion?: boolean;
   invoke?: ReturnType<typeof vi.fn>;
@@ -37,7 +42,7 @@ function cliente({ sesion = false, invoke, login }: Opciones = {}) {
       signInWithPassword: login ?? vi.fn(async () => { hay = true; return { data: { session: {} }, error: null }; }),
       signOut: salir,
     },
-    functions: { invoke: invoke ?? vi.fn(async (_n: string, o: { body: { accion: string } }) => ({ data: o.body.accion === 'resumen_detalle' ? { detalle: DETALLE } : { resumen: RESUMEN }, error: null })) },
+    functions: { invoke: invoke ?? vi.fn(async (_n: string, o: { body: { accion: string } }) => ({ data: o.body.accion === 'resumen_detalle' ? { detalle: DETALLE } : o.body.accion === 'verificaciones' ? { verificaciones: [VERIFICACION] } : { resumen: RESUMEN }, error: null })) },
   };
   return { c: c as unknown as ClienteApp, salir };
 }
@@ -131,5 +136,15 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Reintentar detalle' }));
     expect(await screen.findByRole('img', { name: /Altas por semana/ })).toBeInTheDocument();
     expect(screen.getByText('106')).toBeInTheDocument();
+  });
+
+  test('el menú lleva a Verificaciones y muestra cuántas hay pendientes', async () => {
+    render(<App cliente={cliente({ sesion: true }).c} />);
+    const enlace = await screen.findByRole('link', { name: /Verificaciones/ });
+    expect(enlace).toHaveTextContent('2');
+    await userEvent.click(enlace);
+    expect(await screen.findByText('Ana Pérez')).toBeInTheDocument();
+    expect(screen.queryByText('Panel de administración')).not.toBeInTheDocument();
+    window.location.hash = '';
   });
 });

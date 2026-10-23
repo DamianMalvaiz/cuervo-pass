@@ -13,3 +13,12 @@ export function crearClienteReal(): ClienteApp {
   if (!url?.trim() || !clave?.trim()) throw new Error('Falta VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY al construir el panel.');
   return createClient(url, clave, { auth: { persistSession: true, autoRefreshToken: true } });
 }
+
+/** El origen de nuestro Supabase (las imágenes firmadas de Storage salen de ahí), o `undefined` si no hay configuración. */
+export const ORIGEN_SUPABASE: string | undefined = (() => {
+  try {
+    return new URL(import.meta.env.VITE_SUPABASE_URL as string).origin;
+  } catch {
+    return undefined;
+  }
+})();

@@ -3,9 +3,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Estado } from './components/Estado';
 import { Login } from './components/Login';
 import { Resumen, type EstadoDetalle } from './components/Resumen';
+import { Verificaciones } from './components/Verificaciones';
 import { crearApi, type ResumenAdmin } from './lib/api';
-import type { ClienteApp } from './lib/cliente';
+import { ORIGEN_SUPABASE, type ClienteApp } from './lib/cliente';
 import { ErrorAdmin, MENSAJE_ERROR_ADMIN, type TipoErrorAdmin } from './lib/errores';
+
+type Ruta = 'resumen' | 'verificaciones';
+const rutaDeHash = (): Ruta => (window.location.hash === '#verificaciones' ? 'verificaciones' : 'resumen');
 
 type Sesion = 'cargando' | 'no' | 'si';
 type Panel = { fase: 'comprobando' } | { fase: 'ok'; resumen: ResumenAdmin } | { fase: 'error'; tipo: TipoErrorAdmin };
@@ -15,12 +19,19 @@ type Panel = { fase: 'comprobando' } | { fase: 'ok'; resumen: ResumenAdmin } | {
  * «Sin acceso». Un fallo de red se dice como fallo y deja reintentar: jamás se pinta como cifras en cero.
  */
 export function App({ cliente }: { cliente: ClienteApp }) {
-  const api = useMemo(() => crearApi(cliente), [cliente]);
+  const api = useMemo(() => crearApi(cliente, { origenArchivos: ORIGEN_SUPABASE }), [cliente]);
   const [sesion, setSesion] = useState<Sesion>('cargando');
   const [panel, setPanel] = useState<Panel>({ fase: 'comprobando' });
   const [intento, setIntento] = useState(0);
+  const [ruta, setRuta] = useState<Ruta>(rutaDeHash);
   const [detalle, setDetalle] = useState<EstadoDetalle>({ fase: 'cargando' });
   const [intentoDetalle, setIntentoDetalle] = useState(0);
+
+  useEffect(() => {
+    const alCambiar = () => setRuta(rutaDeHash());
+    window.addEventListener('hashchange', alCambiar);
+    return () => window.removeEventListener('hashchange', alCambiar);
+  }, []);
 
   useEffect(() => {
     let vivo = true;
@@ -95,11 +106,21 @@ export function App({ cliente }: { cliente: ClienteApp }) {
         <button type="button" onClick={salir}>Cerrar sesión</button>
       </header>
       <nav aria-label="Secciones" className="menu">
-        <a href="#resumen" aria-current="page">Resumen</a>
+        <a href="#resumen" aria-current={ruta === 'resumen' ? 'page' : undefined}>Resumen</a>
+        <a href="#verificaciones" aria-current={ruta === 'verificaciones' ? 'page' : undefined}>
+          Verificaciones
+          {panel.resumen.verificaciones_pendientes > 0 && <span className="insignia">{panel.resumen.verificaciones_pendientes}</span>}
+        </a>
       </nav>
       <main className="contenido">
-        <h1>Panel de administración</h1>
-        <Resumen resumen={panel.resumen} detalle={detalle} onReintentarDetalle={() => setIntentoDetalle((n) => n + 1)} />
+        {ruta === 'resumen' ? (
+          <>
+            <h1>Panel de administración</h1>
+            <Resumen resumen={panel.resumen} detalle={detalle} onReintentarDetalle={() => setIntentoDetalle((n) => n + 1)} />
+          </>
+        ) : (
+          <Verificaciones api={api} />
+        )}
       </main>
     </div>
   );
