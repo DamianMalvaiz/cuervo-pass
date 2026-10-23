@@ -1224,6 +1224,13 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
   y redirige al login con `volverA` (solo rutas del panel). (2) Metro cachea `EXPO_PUBLIC_*`: un export web sin `--clear` apuntó a producción cuando se quería local.
   (3) **«Email OTP length» estaba en 8 en producción** y la app espera 6: ningún código se podía escribir completo. Cambiado a 6 en el panel de Supabase; la caducidad se baja a 600 s.
   (4) La plantilla «Reset password» seguía con el enlace: el enlace gasta el código, así que las plantillas llevan solo `{{ .Token }}`.
+- **CI en rojo desde el 18/10, sin que nadie lo hubiera visto** (`gh run list`: rojo en `cuervo-360`, `endurecer-auditoria`, `mercado-pago`, `web-publica` y `admin-web`). Solo fallaba el job `frontend`, en `verificar:audit`;
+  `base-de-datos`, `edge-functions` (`deno check`), `secretos`, `servicio-ia` e `imagen` pasaban. Dos causas: (1) la excepción de `braces` ya no aparecía en la auditoría y la puerta pide quitarla; (2) un aviso ALTO NUEVO de
+  `zod` (GHSA-mrhx-c7xc-m3w5, `<4.6.6`): la zod directa de la app era la 4.6.5 y SÍ está en el bundle → subida a 4.6.7. Quedó una copia anidada (3.25.76, la trae `@expo/cli`, que ni en su última versión deja de pedirla): no se
+  puede corregir actualizando y NO está en el bundle (`expo export --platform android --dump-sourcemap`: 2076 fuentes, 88 paquetes). Para tapar solo esa copia la puerta ganó **excepciones por copia** (`copias` y `linea`):
+  si el aviso aparece en otra copia, o la copia cubierta cambia de línea, o hay corrección dentro de su línea, falla. `scripts/__tests__/verificar-audit.test.js` (21 pruebas, con mutaciones). **Sin verificar:** que el CI de GitHub
+  quede en verde tras subirlo (no se ha corrido desde entonces). `deno check` de las funciones `admin` y `mp-webhook` nuevas tampoco se ha corrido (no hay Deno local): lo hará el CI.
+- **CI del panel de admin:** job `panel-admin` (`npm ci`, `typecheck`, `npm test`, `npm run build`, `verificar:audit`), reproducido desde cero en local (borrando `node_modules`); `ci-panel-admin.test.ts` (con mutaciones).
 - **Pendiente.** Quitar las pantallas de admin de la app móvil al terminar el panel;  correr las
   pruebas del panel en el CI; decidir qué hacer con el admin `damianmalvaizadm@utvtol.edu.mx`; mover widgets (fase 2).
 

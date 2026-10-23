@@ -4,5 +4,15 @@
     "paquete": "node-forge",
     "motivo": "La verificación de firmas RSA PKCS#1 v1.5 acepta elementos DigestAlgorithm anidados de más. No existe versión corregida: 1.4.0 es la última publicada y el aviso cubre <=1.4.0. Lo trae @expo/code-signing-certificates, parte de la CLI de Expo (firma de actualizaciones), no de la app. VERIFICADO el 15/10/2026 y de nuevo el 17/10/2026 con `npx expo export --platform android --dump-sourcemap`: ni node-forge ni @expo/code-signing-certificates están en el bundle de producción (2159 fuentes y 89 paquetes el 15/10; 2160 y 90 el 17/10). Para renovar: volver a correr ese export y comprobar con `npm view node-forge versions` si ya salió una versión posterior a 1.4.0.",
     "revisar": "2026-12-15"
+  },
+  {
+    "advisory": "GHSA-mrhx-c7xc-m3w5",
+    "paquete": "zod",
+    "motivo": "Agotamiento de memoria al validar colecciones enormes; el aviso cubre zod <4.6.6. La copia DIRECTA de la app ya se subió a 4.6.7 (corregida) y SÍ está en el bundle de producción: por eso esta excepción NO la cubre. Queda solo la copia que trae @expo/cli (herramienta de línea de comandos de Expo), node_modules/expo/node_modules/zod, de la línea 3.x: es la última 3.x publicada (3.25.76; el aviso la marca porque 3.25 incluye el código de la 4) y ni el @expo/cli más reciente (57.0.32) deja de pedir zod ^3.25.76, así que NO se puede corregir actualizando. VERIFICADO el 23/10/2026 con `npx expo export --platform android --dump-sourcemap`: el bundle tiene 2076 fuentes de 88 paquetes, la copia anidada NO está en él y la zod raíz (ya corregida) sí. Para renovar: volver a correr ese export, comprobar con `npm view @expo/cli versions` y `npm view @expo/cli@<última> dependencies.zod` si ya salió una que pida zod 4, y con `npm view zod@3 version` si salió una 3.x posterior.",
+    "revisar": "2026-12-15",
+    "copias": [
+      "node_modules/expo/node_modules/zod"
+    ],
+    "linea": "3"
   }
 ]
