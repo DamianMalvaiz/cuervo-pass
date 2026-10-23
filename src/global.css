@@ -7,3 +7,19 @@
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
 }
+
+/* Solo web (el panel de admin): sin tope, el contenido se estira a todo el ancho de una pantalla grande. Los colores de fuera son los de `theme.ts`. */
+#root {
+  max-width: 60rem;
+  margin-inline: auto;
+}
+html,
+body {
+  background-color: #f4f6f2;
+}
+@media (prefers-color-scheme: dark) {
+  html,
+  body {
+    background-color: #171a18;
+  }
+}

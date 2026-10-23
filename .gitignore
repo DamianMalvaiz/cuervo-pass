@@ -80,3 +80,6 @@ cert.pem
 
 # Salida generada de la web pública (node scripts/construir-web-publica.mjs)
 web-publica/dist/
+
+# Salida generada del panel de admin web (node scripts/construir-web-admin.mjs)
+web-admin/dist/
