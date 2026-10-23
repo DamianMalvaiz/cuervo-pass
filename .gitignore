@@ -77,3 +77,6 @@ demo-material/
 # Credenciales del túnel con nombre de Cloudflare: viven en ~/.cloudflared, pero si alguien las copia al repo, que no se versionen.
 .cloudflared/
 cert.pem
+
+# Salida generada de la web pública (node scripts/construir-web-publica.mjs)
+web-publica/dist/

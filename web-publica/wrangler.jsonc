@@ -1,0 +1,10 @@
+{
+  // Web pública estática de Cuervo 360. Se construye con `node scripts/construir-web-publica.mjs` y se publica con `npx wrangler deploy -c web-publica/wrangler.jsonc`.
+  "name": "cuervo360-web",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  }
+}
