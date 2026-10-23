@@ -1419,9 +1419,14 @@ ejecutables y su secuencia, está en
       propia pantalla y vuelve a la app a mano.
 - [ ] **ANTES de llevar este código a un teléfono: aplicar la 0077 a producción.** La pantalla de planes lee `ordenes_pago`; sin la migración, esa lectura
       falla y la pantalla dice «No pudimos comprobar si tienes un pago pendiente» a todo el mundo.
-- [ ] Pasos pendientes: 3 Edge Function `mp-webhook` (sin JWT; sin ella pagar en Mercado Pago NO activa el plan) · 5 prueba completa con las cuentas de
-      prueba. **El paso 3 necesita lo tuyo de abajo** (aplicación de prueba, secreto del webhook, `MP_ACCESS_TOKEN`). `crear-pago` sin `MP_ACCESS_TOKEN`
-      contesta 503 `sin-configurar` y no crea ninguna orden.
+- [ ] **Paso 3 escrito, SIN desplegar:** `supabase/functions/mp-webhook/index.ts` (+ `clasificarConsultaPago`, `respuestaDeFirmaFallida` y
+      `respuestaDeDecisionFallida` en `politica.ts`). Orden: secretos → forma del aviso → firma → consulta del pago a Mercado Pago → decisión → RPC → respuesta.
+      Orden, estado y monto salen de la respuesta de Mercado Pago, no del aviso. Comprobado con `npx jest test-utils/__tests__/mp-webhook` (131 pruebas,
+      las de `index.ts` son guardas estáticas de orden) y la suite completa (2340), tsc, lint y verificar:env/toques en verde. Sintaxis de `index.ts`
+      revisada con TypeScript; **sin `deno check` ni ejecución real** (no hay Deno local): el primer contacto real es el despliegue.
+- [ ] Paso pendiente: 5 prueba completa con las cuentas de prueba. **Necesita lo tuyo de abajo** (aplicación de prueba, secreto del webhook,
+      `MP_ACCESS_TOKEN`) y desplegar con `supabase functions deploy mp-webhook --no-verify-jwt`. `crear-pago` y `mp-webhook` sin sus secretos contestan
+      503 `sin-configurar` y no hacen nada. Antes: aplicar la 0077 a producción (con respaldo).
 - [ ] **Tuyo (Mercado Pago):** crear la aplicación de Checkout Pro DENTRO de la cuenta vendedora de prueba, crear las cuentas de prueba (vendedora y
       compradora), configurar Webhooks con el evento «Pagos» y copiar el secreto. Luego `supabase secrets set MP_ACCESS_TOKEN=… MP_WEBHOOK_SECRET=…`
       (los valores nunca en el chat ni en el repo).

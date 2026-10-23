@@ -150,3 +150,47 @@ export function respuestaDeRegistro(resultado: unknown): RespuestaDeRegistro {
   }
   return { status: 500, nivel: 'alerta', etiqueta: 'resultado-desconocido' };
 }
+
+// ── Lo que no es el camino feliz ────────────────────────────────────────────
+// La regla de las tres: lo que un reintento puede arreglar es 5xx (Mercado Pago reintenta cada 15 min); lo que no, 200 con su registro; y lo que
+// no demostró venir de Mercado Pago, 401/503. Nunca un 200 que pierda un pago ni un 500 eterno por algo que no cambia.
+
+export interface RespuestaWebhook {
+  status: 200 | 400 | 401 | 500 | 503;
+  nivel: 'info' | 'alerta';
+  etiqueta: string;
+}
+
+/** El aviso no demostró venir de Mercado Pago. Un motivo desconocido NO deja pasar. */
+export function respuestaDeFirmaFallida(motivo: string): RespuestaWebhook {
+  if (motivo === 'sin-secreto') return { status: 503, nivel: 'alerta', etiqueta: 'sin-secreto' };
+  if (motivo === 'no-coincide') return { status: 401, nivel: 'alerta', etiqueta: 'no-coincide' };
+  if (['sin-firma', 'firma-mal-formada', 'sin-id'].includes(motivo)) return { status: 401, nivel: 'info', etiqueta: motivo };
+  return { status: 401, nivel: 'alerta', etiqueta: 'firma-desconocida' };
+}
+
+export type ConsultaPago =
+  | { accion: 'procesar'; pago: object }
+  | ({ accion: 'responder' } & RespuestaWebhook);
+
+/** Qué hacer con lo que contestó `GET /v1/payments/{id}`. */
+export function clasificarConsultaPago(status: number, cuerpo: unknown): ConsultaPago {
+  const responder = (s: 200 | 500, nivel: 'info' | 'alerta', etiqueta: string): ConsultaPago => ({ accion: 'responder', status: s, nivel, etiqueta });
+  if (status === 200) {
+    if (cuerpo && typeof cuerpo === 'object' && !Array.isArray(cuerpo)) return { accion: 'procesar', pago: cuerpo };
+    return responder(500, 'alerta', 'consulta-mal-formada');
+  }
+  if (status === 404) return responder(200, 'info', 'pago-inexistente');
+  if (status === 401 || status === 403) return responder(500, 'alerta', 'credencial-rechazada');
+  if (status === 429 || status >= 500) return responder(500, 'alerta', 'mp-no-disponible');
+  if (status >= 400) return responder(200, 'alerta', 'consulta-rechazada');
+  return responder(500, 'alerta', 'consulta-inesperada');
+}
+
+/** Un pago que no se pudo convertir en una orden (ver `decidirPago`). */
+export function respuestaDeDecisionFallida(motivo: string): RespuestaWebhook {
+  if (motivo === 'sin-referencia') return { status: 200, nivel: 'info', etiqueta: 'pago-ajeno' };
+  if (motivo === 'moneda-no-mxn' || motivo === 'monto-invalido') return { status: 200, nivel: 'alerta', etiqueta: motivo };
+  if (motivo === 'pago-mal-formado') return { status: 500, nivel: 'alerta', etiqueta: 'pago-mal-formado' };
+  return { status: 500, nivel: 'alerta', etiqueta: 'decision-desconocida' };
+}

@@ -2,11 +2,14 @@ import { createHmac } from 'node:crypto';
 
 import { igualEnTiempoConstante } from '../../supabase/functions/_shared/tiempoConstante';
 import {
+  clasificarConsultaPago,
   construirManifiesto,
   decidirPago,
   extraerAviso,
   hmacSha256Hex,
   parsearFirma,
+  respuestaDeDecisionFallida,
+  respuestaDeFirmaFallida,
   respuestaDeRegistro,
   verificarFirma,
 } from '../../supabase/functions/mp-webhook/politica';
@@ -226,5 +229,69 @@ describe('respuestaDeRegistro · qué contesta el webhook a Mercado Pago', () =>
   });
   test.each(['', 'algo_nuevo', undefined, null, 5])('un resultado que la función no conoce (%p) es un 500: que reintente en vez de perder el pago', (r) => {
     expect(respuestaDeRegistro(r as string)).toMatchObject({ status: 500, nivel: 'alerta' });
+  });
+});
+
+// Paso 3: lo que el webhook decide con lo que le contesta Mercado Pago y con lo que no puede procesar. La regla de oro es la misma de siempre: lo que
+// un reintento puede arreglar es un 500 (Mercado Pago reintenta cada 15 minutos), y lo que no, un 200 con su registro — nunca al revés.
+describe('clasificarConsultaPago · la respuesta de GET /v1/payments/{id}', () => {
+  const pago = { id: 123, status: 'approved' };
+
+  test('un 200 con un objeto: se procesa ESE pago, el que devolvió Mercado Pago', () => {
+    expect(clasificarConsultaPago(200, pago)).toEqual({ accion: 'procesar', pago });
+  });
+
+  test.each([null, undefined, 'texto', 5, []])('un 200 con una forma inesperada (%p) es un 500: que reintente', (cuerpo) => {
+    expect(clasificarConsultaPago(200, cuerpo)).toEqual({ accion: 'responder', status: 500, nivel: 'alerta', etiqueta: 'consulta-mal-formada' });
+  });
+
+  test('un 404: el pago no existe (la «Simular notificación» del panel manda un id inventado). Reintentar no lo arregla: 200', () => {
+    expect(clasificarConsultaPago(404, { message: 'Payment not found' })).toEqual({ accion: 'responder', status: 200, nivel: 'info', etiqueta: 'pago-inexistente' });
+  });
+
+  test.each([401, 403])('un %i: el token de Mercado Pago no sirve. Es de configuración y se arregla con el token bueno: 500 con alerta', (estado) => {
+    expect(clasificarConsultaPago(estado, null)).toEqual({ accion: 'responder', status: 500, nivel: 'alerta', etiqueta: 'credencial-rechazada' });
+  });
+
+  test.each([429, 500, 502, 503, 504])('un %i es transitorio: 500, que reintente', (estado) => {
+    expect(clasificarConsultaPago(estado, null)).toEqual({ accion: 'responder', status: 500, nivel: 'alerta', etiqueta: 'mp-no-disponible' });
+  });
+
+  test.each([400, 410, 422])('otro 4xx (%i) no se arregla reintentando: 200 con alerta', (estado) => {
+    expect(clasificarConsultaPago(estado, null)).toEqual({ accion: 'responder', status: 200, nivel: 'alerta', etiqueta: 'consulta-rechazada' });
+  });
+
+  test.each([100, 301, 302])('un %i es inesperado: 500', (estado) => {
+    expect(clasificarConsultaPago(estado, null)).toMatchObject({ accion: 'responder', status: 500, nivel: 'alerta' });
+  });
+});
+
+describe('respuestaDeDecisionFallida · un pago que no se puede convertir en una orden', () => {
+  test('sin referencia a una orden: es un pago de esa cuenta que no es de este flujo (200, sin alarma)', () => {
+    expect(respuestaDeDecisionFallida('sin-referencia')).toEqual({ status: 200, nivel: 'info', etiqueta: 'pago-ajeno' });
+  });
+  test.each(['moneda-no-mxn', 'monto-invalido'])('«%s» es anómalo y reintentar no lo cambia: 200 con ALERTA', (motivo) => {
+    expect(respuestaDeDecisionFallida(motivo)).toEqual({ status: 200, nivel: 'alerta', etiqueta: motivo });
+  });
+  test('un pago mal formado puede ser un tropiezo de Mercado Pago: 500, que reintente', () => {
+    expect(respuestaDeDecisionFallida('pago-mal-formado')).toEqual({ status: 500, nivel: 'alerta', etiqueta: 'pago-mal-formado' });
+  });
+  test('un motivo que no conoce NO se traga: 500 con alerta', () => {
+    expect(respuestaDeDecisionFallida('algo-nuevo')).toMatchObject({ status: 500, nivel: 'alerta' });
+  });
+});
+
+describe('respuestaDeFirmaFallida · el aviso no demostró venir de Mercado Pago', () => {
+  test('sin secreto configurado es NUESTRO fallo: 503 con alerta (Mercado Pago reintentará cuando esté puesto)', () => {
+    expect(respuestaDeFirmaFallida('sin-secreto')).toEqual({ status: 503, nivel: 'alerta', etiqueta: 'sin-secreto' });
+  });
+  test('una firma que NO coincide es 401 con ALERTA: o alguien falsifica, o el secreto del panel y el de Supabase no son el mismo y no entra ningún aviso', () => {
+    expect(respuestaDeFirmaFallida('no-coincide')).toEqual({ status: 401, nivel: 'alerta', etiqueta: 'no-coincide' });
+  });
+  test.each(['sin-firma', 'firma-mal-formada', 'sin-id'])('«%s» es un 401 sin alarma: cualquiera puede mandar basura a una URL pública', (motivo) => {
+    expect(respuestaDeFirmaFallida(motivo)).toEqual({ status: 401, nivel: 'info', etiqueta: motivo });
+  });
+  test('un motivo que no conoce NO deja pasar: 401', () => {
+    expect(respuestaDeFirmaFallida('algo-nuevo').status).toBe(401);
   });
 });
