@@ -24,7 +24,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { aviso } from '@/lib/registro';
 import { VERSION_AVISO } from '@/lib/verificacion';
-import { LONGITUD_CODIGO, verificarCodigo } from '@/lib/codigoCorreo';
+import { LONGITUD_CODIGO, MENSAJE_CODIGO, verificarCodigo } from '@/lib/codigoCorreo';
 import { reenviarConfirmacion } from '@/lib/confirmacionCorreo';
 
 // Documento maestro v5 · §25 y §29. El aviso se lee DENTRO de la app
@@ -78,12 +78,6 @@ const esquemaRegistro = z
 
 type FormRegistro = z.infer<typeof esquemaRegistro>;
 
-// Cada estado de `verificarCodigo` se pinta distinto: un fallo de red NUNCA se dice «código incorrecto».
-const MENSAJE_CODIGO = {
-  invalido: 'Código incorrecto o vencido. Revísalo o pide uno nuevo.',
-  limite: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
-  fallo: 'No pudimos verificar el código. Revisa tu conexión e inténtalo de nuevo.',
-} as const;
 
 export default function RegistroScreen() {
   const theme = useTheme();

@@ -37,7 +37,7 @@ jest.mock('@/lib/supabase', () => ({
 }));
 jest.mock('@/lib/registro', () => ({ aviso: jest.fn(), fallo: jest.fn() }));
 jest.mock('@/lib/codigoCorreo', () => ({
-  LONGITUD_CODIGO: 6,
+  ...jest.requireActual('@/lib/codigoCorreo'),
   verificarCodigo: (...a: unknown[]) => mockVerificar(...a),
 }));
 

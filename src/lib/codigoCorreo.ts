@@ -6,6 +6,13 @@ import { supabase } from '@/lib/supabase';
 /** Longitud del código de Supabase Auth (`otp_length`, 6 por defecto). Si cambia en el panel, cambia aquí. */
 export const LONGITUD_CODIGO = 6;
 
+/** Cada estado que no es `ok` se pinta con su propio texto: un fallo de red NUNCA se dice «código incorrecto». */
+export const MENSAJE_CODIGO = {
+  invalido: 'Código incorrecto o vencido. Revísalo o pide uno nuevo.',
+  limite: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
+  fallo: 'No pudimos verificar el código. Revisa tu conexión e inténtalo de nuevo.',
+} as const;
+
 export type ResultadoCodigo =
   | { estado: 'ok'; session: Session }
   /** Incorrecto o vencido. Supabase los responde igual, y igual que una cuenta inexistente: no se distinguen. */

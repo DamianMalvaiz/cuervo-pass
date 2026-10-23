@@ -18,6 +18,8 @@ jest.mock('@/lib/supabase', () => ({
   supabase: { auth: { resetPasswordForEmail: (...a: unknown[]) => mockReset(...a) } },
 }));
 jest.mock('@/lib/registro', () => ({ aviso: jest.fn(), fallo: jest.fn() }));
+jest.mock('@/store/useAuthStore', () => ({ useAuthStore: (sel: (s: unknown) => unknown) => sel({ cerrarSesion: jest.fn() }) }));
+jest.mock('@/lib/toast', () => ({ toast: { exito: jest.fn(), error: jest.fn(), info: jest.fn() } }));
 
 import RecuperarScreen from '../recuperar-contrasena';
 
@@ -26,7 +28,7 @@ const interactuar = async (fn: () => void) => { await act(async () => { fn(); })
 const pedirEnlace = async (email: string) => {
   await render(<RecuperarScreen />);
   await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('tucorreo@ejemplo.mx'), email));
-  await interactuar(() => fireEvent.press(screen.getByLabelText('Enviar enlace')));
+  await interactuar(() => fireEvent.press(screen.getByLabelText('Enviar código')));
 };
 
 beforeEach(() => {
