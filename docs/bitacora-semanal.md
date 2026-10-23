@@ -1403,9 +1403,13 @@ ejecutables y su secuencia, está en
       El servidor decide plan y monto desde `planes`; un pago por otro monto no activa nada; el aviso duplicado no extiende dos veces.
       Comprobado: `npx supabase test db` (666 aserciones) y `./scripts/prueba-carrera-webhook.sh` (dos sesiones reales; sin el candado
       `for update` falla con `duplicate key`, comprobado con una mutación). Los reembolsos NO se manejan todavía.
-- [ ] Pasos pendientes: 2 lógica pura de firma y decisión (Jest) · 3 Edge Function `mp-webhook` (sin JWT, HMAC-SHA256 de
-      `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`, falla cerrado sin secreto) · 4 `crear-pago` y la pantalla (`Linking.openURL`, sin APK nuevo)
-      · 5 prueba completa con las cuentas de prueba.
+- [ ] **Paso 2 hecho: la lógica pura del webhook** (`supabase/functions/mp-webhook/politica.ts`, más `_shared/tiempoConstante.ts`):
+      verificación de la firma (HMAC-SHA256 de `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`, falla cerrado sin secreto o sin id), lectura del
+      aviso, decisión sobre el pago (monto en centavos, MXN, referencia uuid; un monto con fracciones de centavo se rechaza) y qué contestar a Mercado
+      Pago. Comprobado con `npx jest test-utils/__tests__/mp-webhook-politica.test.ts` (91 pruebas; el HMAC se valida contra el vector público RFC 4231
+      y la regla de fallo cerrado con una mutación). Añade `allowImportingTsExtensions` a `tsconfig.json` (Deno exige la extensión `.ts` en los imports).
+- [ ] Pasos pendientes: 3 Edge Function `mp-webhook` (sin JWT) · 4 `crear-pago` y la pantalla (`Linking.openURL`, sin APK nuevo) · 5 prueba completa
+      con las cuentas de prueba. **El paso 3 necesita lo tuyo de abajo** (aplicación de prueba, secreto del webhook).
 - [ ] **Tuyo (Mercado Pago):** crear la aplicación de Checkout Pro DENTRO de la cuenta vendedora de prueba, crear las cuentas de prueba (vendedora y
       compradora), configurar Webhooks con el evento «Pagos» y copiar el secreto. Luego `supabase secrets set MP_ACCESS_TOKEN=… MP_WEBHOOK_SECRET=…`
       (los valores nunca en el chat ni en el repo).
