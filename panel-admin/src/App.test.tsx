@@ -26,6 +26,15 @@ const VERIFICACION = {
   enviada_en: '2026-10-20T10:00:00Z', version_aviso: 'v3', fotos_del_lugar: 2, rostro_estado: null,
 };
 
+const INGRESOS_VACIOS = {
+  por_semana: Array.from({ length: 8 }, (_, i) => ({ semana: `2026-09-${String(i * 7 + 1).padStart(2, '0')}`, mercadopago_centavos: 0, simulado_centavos: 0 })),
+  ingresos_30d: { mercadopago_centavos: 0, simulado_centavos: 0, pagos_mercadopago: 0, pagos_simulados: 0 },
+  suscripciones: { activas: 0, en_prueba: 0, vencidas: 0, por_vencer_7d: 0 },
+  por_plan: [],
+  ordenes_30d: { creada: 0, pendiente: 0, pagada: 0, rechazada: 0 },
+  ultimos_pagos: [],
+};
+
 interface Opciones {
   sesion?: boolean;
   invoke?: ReturnType<typeof vi.fn>;
@@ -42,7 +51,7 @@ function cliente({ sesion = false, invoke, login }: Opciones = {}) {
       signInWithPassword: login ?? vi.fn(async () => { hay = true; return { data: { session: {} }, error: null }; }),
       signOut: salir,
     },
-    functions: { invoke: invoke ?? vi.fn(async (_n: string, o: { body: { accion: string } }) => ({ data: o.body.accion === 'resumen_detalle' ? { detalle: DETALLE } : o.body.accion === 'verificaciones' ? { verificaciones: [VERIFICACION] } : o.body.accion === 'moderacion' ? { moderacion: [] } : o.body.accion === 'auditoria' ? { auditoria: [] } : { resumen: RESUMEN }, error: null })) },
+    functions: { invoke: invoke ?? vi.fn(async (_n: string, o: { body: { accion: string } }) => ({ data: o.body.accion === 'resumen_detalle' ? { detalle: DETALLE } : o.body.accion === 'verificaciones' ? { verificaciones: [VERIFICACION] } : o.body.accion === 'moderacion' ? { moderacion: [] } : o.body.accion === 'auditoria' ? { auditoria: [] } : o.body.accion === 'ingresos' ? { ingresos: INGRESOS_VACIOS } : { resumen: RESUMEN }, error: null })) },
   };
   return { c: c as unknown as ClienteApp, salir };
 }
@@ -190,5 +199,11 @@ describe('App', () => {
     cuentas = 107;
     await userEvent.click(await screen.findByRole('link', { name: 'Resumen' }));
     expect(await screen.findByText('107')).toBeInTheDocument();
+  });
+
+  test('el menú lleva a «Ingresos y planes»', async () => {
+    render(<App cliente={cliente({ sesion: true }).c} />);
+    await userEvent.click(await screen.findByRole('link', { name: /Ingresos/ }));
+    expect(await screen.findByText('Todavía no hay pagos.')).toBeInTheDocument();
   });
 });

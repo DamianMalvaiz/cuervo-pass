@@ -1207,12 +1207,17 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
   al reenviar); ahora lo registra el trigger en la misma transacción. pgTAP 678 (con mutación: apagar el trigger rompe las pruebas); panel 116 pruebas. Probado en Chromium contra el Supabase local: aprobar deja su fila en Auditoría,
   ocultar una reseña exige motivo y queda registrado, y el HTML de una reseña ajena se muestra como texto. **0079 y la función `admin` con `auditoria` NO están en producción.**
   Las insignias del menú (verificaciones y reportes pendientes) se refrescan al cambiar de sección.
+  **0079 aplicada a producción (respaldo `respaldos/2026-10-23-antes-0079.sql`; el relleno recuperó las 2 decisiones anteriores), función `admin` con `auditoria` y panel redesplegados (pasos 1 a 4).**
+  **Paso 5 (Ingresos y planes), sin desplegar:** migración **0080** (`admin_ingresos`: cobrado por semana y a 30 días, suscripciones activas/en prueba/por vencer/vencidas, ingresos por plan, embudo de órdenes y últimos
+  pagos; **dinero de Mercado Pago y simulado SIEMPRE por separado**) y acción `ingresos`. pgTAP 689 (con mutación: quitar el filtro de 30 días rompe dos pruebas; los datos de prueba van en un `savepoint`);
+  panel 136 pruebas. Probado en Chromium contra el Supabase local con pagos de montos conocidos: $298.00 reales (el pago de hace 60 días no cuenta), $99.00 simulados, conversión 50 % y los montos en la semana correcta.
+  **Sin verificar:** si lo de Mercado Pago es dinero real o de pruebas (depende de las credenciales con que se cobró; el panel lo dice); modo oscuro y móvil. **0080 y la función `admin` con `ingresos` NO están en producción.**
   **Sin verificar:** modo oscuro y móvil en pantalla; el rechazo y la lista contra producción; imágenes con un documento real.
 - **Hallazgos corregidos.** (1) `/admin` sin sesión se quedaba en «Cargando…» para siempre y solo la pantalla de inicio leía la sesión guardada: `useEsAdmin` ahora la lee
   y redirige al login con `volverA` (solo rutas del panel). (2) Metro cachea `EXPO_PUBLIC_*`: un export web sin `--clear` apuntó a producción cuando se quería local.
   (3) **«Email OTP length» estaba en 8 en producción** y la app espera 6: ningún código se podía escribir completo. Cambiado a 6 en el panel de Supabase; la caducidad se baja a 600 s.
   (4) La plantilla «Reset password» seguía con el enlace: el enlace gasta el código, así que las plantillas llevan solo `{{ .Token }}`.
-- **Pendiente.** Quitar las pantallas de admin de la app móvil al terminar el panel; pasos 5 y 6 del panel (ingresos y planes, salud de la app); correr las
+- **Pendiente.** Quitar las pantallas de admin de la app móvil al terminar el panel; paso 6 del panel (salud de la app); correr las
   pruebas del panel en el CI; decidir qué hacer con el admin `damianmalvaizadm@utvtol.edu.mx`; mover widgets (fase 2).
 
 ### Pendientes abiertos

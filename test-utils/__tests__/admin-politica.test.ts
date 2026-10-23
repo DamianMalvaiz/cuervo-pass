@@ -15,7 +15,7 @@ describe('validarSolicitud', () => {
     expect(validarSolicitud({ accion: 'borrar_todo' })).toEqual({ ok: false, codigo: 'accion_invalida' });
   });
 
-  it.each(['resumen', 'resumen_detalle', 'verificaciones', 'moderacion', 'errores', 'auditoria'])('«%s» no necesita más datos', (accion) => {
+  it.each(['resumen', 'resumen_detalle', 'verificaciones', 'moderacion', 'errores', 'auditoria', 'ingresos'])('«%s» no necesita más datos', (accion) => {
     expect(validarSolicitud({ accion })).toEqual({ ok: true, solicitud: { accion } });
   });
 

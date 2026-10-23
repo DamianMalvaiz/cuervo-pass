@@ -217,3 +217,40 @@ describe('api.auditoria', () => {
     await expect(crearApi(clienteCon(invoke)).auditoria()).rejects.toMatchObject({ tipo: 'desconocido' });
   });
 });
+
+const INGRESOS = {
+  por_semana: Array.from({ length: 8 }, (_, i) => ({ semana: `2026-09-${String(i * 7 + 1).padStart(2, '0')}`, mercadopago_centavos: i * 100, simulado_centavos: 0 })),
+  ingresos_30d: { mercadopago_centavos: 19800, simulado_centavos: 19900, pagos_mercadopago: 2, pagos_simulados: 1 },
+  suscripciones: { activas: 3, en_prueba: 4, vencidas: 1, por_vencer_7d: 2 },
+  por_plan: [{ plan_id: 'comerciante_basico', nombre: 'Básico', rol: 'comerciante', activas: 2, mercadopago_30d_centavos: 19800, simulado_30d_centavos: 0 }],
+  ordenes_30d: { creada: 1, pendiente: 1, pagada: 2, rechazada: 0 },
+  ultimos_pagos: [{ creado_en: '2026-10-22T10:00:00Z', origen: 'mercadopago', plan: 'Básico', monto_centavos: 9900, usuario: 'vend_t' }],
+};
+
+describe('api.ingresos', () => {
+  test('pide la acción «ingresos» y devuelve los datos', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { ingresos: INGRESOS }, error: null });
+    const r = await crearApi(clienteCon(invoke)).ingresos();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'ingresos' } });
+    expect(r.ingresos_30d.mercadopago_centavos).toBe(19800);
+  });
+
+  test.each([
+    ['sin datos', { ingresos: null }],
+    ['semanas que no es lista', { ingresos: { ...INGRESOS, por_semana: 'x' } }],
+    ['una semana sin monto simulado', { ingresos: { ...INGRESOS, por_semana: [{ semana: '2026-09-01', mercadopago_centavos: 1 }] } }],
+    ['ingresos sin número de pagos', { ingresos: { ...INGRESOS, ingresos_30d: { mercadopago_centavos: 1, simulado_centavos: 1 } } }],
+    ['suscripciones con un texto', { ingresos: { ...INGRESOS, suscripciones: { ...INGRESOS.suscripciones, activas: 'tres' } } }],
+    ['un plan sin nombre', { ingresos: { ...INGRESOS, por_plan: [{ plan_id: 'x', rol: 'comerciante', activas: 1, mercadopago_30d_centavos: 0, simulado_30d_centavos: 0 }] } }],
+    ['órdenes incompletas', { ingresos: { ...INGRESOS, ordenes_30d: { creada: 1 } } }],
+    ['un pago con origen inventado', { ingresos: { ...INGRESOS, ultimos_pagos: [{ ...INGRESOS.ultimos_pagos[0], origen: 'efectivo' }] } }],
+  ])('forma rota (%s) → «desconocido»: ni dinero ni ceros inventados', async (_n, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).ingresos()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+
+  test('un 403 lanza «prohibido»', async () => {
+    const invoke = vi.fn().mockResolvedValue(respuestaConError(403, { error: 'prohibido' }));
+    await expect(crearApi(clienteCon(invoke)).ingresos()).rejects.toMatchObject({ tipo: 'prohibido' });
+  });
+});

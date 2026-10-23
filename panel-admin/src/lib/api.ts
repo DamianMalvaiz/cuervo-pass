@@ -60,6 +60,15 @@ export interface EntradaAuditoria {
   creado_en: string;
 }
 
+export interface IngresosAdmin {
+  por_semana: { semana: string; mercadopago_centavos: number; simulado_centavos: number }[];
+  ingresos_30d: { mercadopago_centavos: number; simulado_centavos: number; pagos_mercadopago: number; pagos_simulados: number };
+  suscripciones: { activas: number; en_prueba: number; vencidas: number; por_vencer_7d: number };
+  por_plan: { plan_id: string; nombre: string; rol: string; activas: number; mercadopago_30d_centavos: number; simulado_30d_centavos: number }[];
+  ordenes_30d: { creada: number; pendiente: number; pagada: number; rechazada: number };
+  ultimos_pagos: { creado_en: string; origen: 'mercadopago' | 'simulado'; plan: string; monto_centavos: number; usuario: string | null }[];
+}
+
 const esNumero = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const esObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -127,6 +136,27 @@ function leerAuditoria(lista: unknown): EntradaAuditoria[] {
   return lista as EntradaAuditoria[];
 }
 
+const todosNumerosEn = (o: Record<string, unknown>, claves: string[]) => claves.every((k) => esNumero(o[k]));
+const todosNumeros = (o: unknown, claves: string[]) => esObjeto(o) && todosNumerosEn(o, claves);
+
+/** Dinero y cifras: una forma rota es un fallo, nunca ceros ni montos inventados. */
+function leerIngresos(d: unknown): IngresosAdmin {
+  if (!esObjeto(d)) throw new ErrorAdmin('desconocido');
+  const buenos =
+    Array.isArray(d.por_semana) && d.por_semana.every((w) => esObjeto(w) && esTexto(w.semana) && todosNumerosEn(w, ['mercadopago_centavos', 'simulado_centavos'])) &&
+    todosNumeros(d.ingresos_30d, ['mercadopago_centavos', 'simulado_centavos', 'pagos_mercadopago', 'pagos_simulados']) &&
+    todosNumeros(d.suscripciones, ['activas', 'en_prueba', 'vencidas', 'por_vencer_7d']) &&
+    Array.isArray(d.por_plan) &&
+    d.por_plan.every((p) => esObjeto(p) && esTexto(p.plan_id) && esTexto(p.nombre) && esTexto(p.rol) && todosNumerosEn(p, ['activas', 'mercadopago_30d_centavos', 'simulado_30d_centavos'])) &&
+    todosNumeros(d.ordenes_30d, ['creada', 'pendiente', 'pagada', 'rechazada']) &&
+    Array.isArray(d.ultimos_pagos) &&
+    d.ultimos_pagos.every(
+      (u) => esObjeto(u) && esTexto(u.creado_en) && (u.origen === 'mercadopago' || u.origen === 'simulado') && esTexto(u.plan) && esNumero(u.monto_centavos) && textoONulo(u.usuario),
+    );
+  if (!buenos) throw new ErrorAdmin('desconocido');
+  return d as unknown as IngresosAdmin;
+}
+
 /** Lo mínimo del cliente de Supabase que necesita la API: así se prueba sin red. */
 export interface ClienteAdmin {
   functions: {
@@ -186,6 +216,9 @@ export function crearApi(cliente: ClienteAdmin, opciones: { origenArchivos?: str
     },
     async moderar(tipo: 'resena' | 'negocio', id: string, ocultar: boolean, motivo: string | null): Promise<void> {
       await llamar({ accion: 'moderar', tipo, id, ocultar, motivo });
+    },
+    async ingresos(): Promise<IngresosAdmin> {
+      return leerIngresos((await llamar({ accion: 'ingresos' })).ingresos);
     },
     async auditoria(): Promise<EntradaAuditoria[]> {
       return leerAuditoria((await llamar({ accion: 'auditoria' })).auditoria);

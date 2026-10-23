@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Estado } from './components/Estado';
 import { Login } from './components/Login';
 import { Auditoria } from './components/Auditoria';
+import { Ingresos } from './components/Ingresos';
 import { Moderacion } from './components/Moderacion';
 import { Resumen, type EstadoDetalle } from './components/Resumen';
 import { Verificaciones } from './components/Verificaciones';
@@ -10,8 +11,8 @@ import { crearApi, type ResumenAdmin } from './lib/api';
 import { ORIGEN_SUPABASE, type ClienteApp } from './lib/cliente';
 import { ErrorAdmin, MENSAJE_ERROR_ADMIN, type TipoErrorAdmin } from './lib/errores';
 
-type Ruta = 'resumen' | 'verificaciones' | 'moderacion' | 'auditoria';
-const RUTAS: Ruta[] = ['resumen', 'verificaciones', 'moderacion', 'auditoria'];
+type Ruta = 'resumen' | 'verificaciones' | 'moderacion' | 'ingresos' | 'auditoria';
+const RUTAS: Ruta[] = ['resumen', 'verificaciones', 'moderacion', 'ingresos', 'auditoria'];
 const rutaDeHash = (): Ruta => RUTAS.find((r) => window.location.hash === `#${r}`) ?? 'resumen';
 
 type Sesion = 'cargando' | 'no' | 'si';
@@ -136,6 +137,7 @@ export function App({ cliente }: { cliente: ClienteApp }) {
           Moderación
           {panel.resumen.resenas_reportadas > 0 && <span className="insignia">{panel.resumen.resenas_reportadas}</span>}
         </a>
+        <a href="#ingresos" aria-current={ruta === 'ingresos' ? 'page' : undefined}>Ingresos y planes</a>
         <a href="#auditoria" aria-current={ruta === 'auditoria' ? 'page' : undefined}>Auditoría</a>
       </nav>
       <main className="contenido">
@@ -148,6 +150,8 @@ export function App({ cliente }: { cliente: ClienteApp }) {
           <Verificaciones api={api} />
         ) : ruta === 'moderacion' ? (
           <Moderacion api={api} />
+        ) : ruta === 'ingresos' ? (
+          <Ingresos api={api} />
         ) : (
           <Auditoria api={api} />
         )}

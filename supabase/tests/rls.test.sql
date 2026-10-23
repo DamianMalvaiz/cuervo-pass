@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(678);
+select plan(689);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2820,6 +2820,7 @@ select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a
 select throws_ok($$select * from admin_resumen('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_resumen: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select admin_resumen_detalle('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_resumen_detalle: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select * from admin_listar_auditoria('00000000-0000-0000-0000-0000000000a1', 50)$$, '42501', null, 'admin_listar_auditoria: el cliente autenticado no puede ejecutarla' );
+select throws_ok($$select admin_ingresos('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_ingresos: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select fijar_demo_mode('00000000-0000-0000-0000-0000000000a1', true)$$, '42501', null, 'modo demo: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select registrar_acceso_documentos('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000e9', 'comerciante')$$,
   '42501', null, 'documentos: el cliente autenticado no puede registrar (ni ver) nada' );
@@ -2956,6 +2957,37 @@ select throws_ok($$select * from admin_listar_auditoria('00000000-0000-0000-0000
 select ok((select count(*) from admin_listar_auditoria('00000000-0000-0000-0000-0000000000a1', 200) where accion in ('aprobar_verificacion', 'rechazar_verificacion')) >= 2,
   'admin_listar_auditoria: trae las decisiones sobre verificaciones' );
 select is((select count(*)::int from admin_listar_auditoria('00000000-0000-0000-0000-0000000000a1', 1)), 1, 'admin_listar_auditoria: el límite acota la lista' );
+-- ── Ingresos y planes (0080) ────────────────────────────────────────────────
+-- Los datos de prueba van dentro de un savepoint y se deshacen al final: no alteran los conteos de lo que sigue.
+savepoint s_ingresos;
+insert into pagos (usuario_id, rol, plan_id, monto_centavos, origen, mp_payment_id, periodo_inicio, periodo_fin, creado_en) values
+  ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 9900, 'mercadopago', 'mp-t-1', now(), now() + interval '30 days', now() - interval '1 day'),
+  ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 9900, 'mercadopago', 'mp-t-2', now(), now() + interval '30 days', now() - interval '2 days'),
+  ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_destacado', 19900, 'simulado', null, now(), now() + interval '30 days', now() - interval '10 days'),
+  ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 12345, 'mercadopago', 'mp-t-3', now(), now() + interval '30 days', now() - interval '60 days');
+insert into ordenes_pago (usuario_id, rol, plan_id, monto_centavos, estado) values
+  ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 9900, 'creada'), ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 9900, 'pendiente'),
+  ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 9900, 'pagada'), ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 9900, 'rechazada');
+
+select throws_ok($$select admin_ingresos('00000000-0000-0000-0000-0000000000e9')$$, 'CP007', null, 'admin_ingresos: una cuenta que no es admin recibe CP007' );
+select ok(admin_ingresos('00000000-0000-0000-0000-0000000000a1') ?& array['por_semana', 'ingresos_30d', 'suscripciones', 'por_plan', 'ordenes_30d', 'ultimos_pagos'], 'admin_ingresos: trae las seis secciones' );
+select is(jsonb_array_length(admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'por_semana'), 8, 'admin_ingresos: ocho semanas, también las de cero' );
+select is((admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ingresos_30d'->>'mercadopago_centavos')::bigint,
+  (select coalesce(sum(monto_centavos), 0) from pagos where origen = 'mercadopago' and creado_en >= now() - interval '30 days'),
+  'admin_ingresos: lo cobrado por Mercado Pago en 30 días es la suma real' );
+select ok((admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ingresos_30d'->>'mercadopago_centavos')::bigint < (select sum(monto_centavos) from pagos where origen = 'mercadopago'),
+  'admin_ingresos: un pago de hace 60 días NO entra en los 30 días' );
+select is((admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ingresos_30d'->>'simulado_centavos')::bigint, (select coalesce(sum(monto_centavos), 0) from pagos where origen = 'simulado' and creado_en >= now() - interval '30 days'),
+  'admin_ingresos: lo simulado se cuenta APARTE de lo real' );
+select is((admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'suscripciones'->>'activas')::int, (select count(*)::int from suscripciones where vigente_hasta > now()), 'admin_ingresos: suscripciones activas = con periodo pagado vigente' );
+select is(
+  (select sum((e->>'mercadopago_centavos')::bigint)::bigint from jsonb_array_elements(admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'por_semana') e),
+  (select coalesce(sum(monto_centavos), 0) from pagos where origen = 'mercadopago' and (creado_en at time zone 'America/Mexico_City')::date >= (date_trunc('week', now() at time zone 'America/Mexico_City'))::date - 49),
+  'admin_ingresos: la suma de las semanas es lo cobrado en esas semanas' );
+select is((admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ordenes_30d'->>'pagada')::int, (select count(*)::int from ordenes_pago where estado = 'pagada' and creada_en >= now() - interval '30 days'), 'admin_ingresos: el embudo de órdenes cuenta las pagadas' );
+select ok(jsonb_array_length(admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ultimos_pagos') between 1 and 10 and (admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ultimos_pagos'->0->>'creado_en')::timestamptz >= (admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ultimos_pagos'->1->>'creado_en')::timestamptz,
+  'admin_ingresos: los últimos pagos son a lo más 10 y van del más reciente al más antiguo' );
+rollback to savepoint s_ingresos;
 -- Sin token no se avisa, pero la resolución no se rompe: rechazar la verificación de un tercero sin token es el mismo camino.
 select actuar_como_servicio();
 delete from push_tokens where usuario_id = '00000000-0000-0000-0000-0000000000d9';
