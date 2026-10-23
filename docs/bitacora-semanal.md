@@ -1315,6 +1315,54 @@ ejecutables y su secuencia, está en
       los renders posteriores del archivo— pero no se ha comprobado si quitar
       su `afterEach(cleanup)` permite volver a juntarlas.
 
+**Abiertos, de Cuervo 360 y el código por correo (22/10/2026)**
+
+- [ ] **`theme.errorTexto` usado como color de texto sobre el fondo de la app: texto
+      invisible en 5 sitios, 3 de ellos botones destructivos.** `errorTexto` es el color
+      del texto SOBRE un relleno de `error` (blanco en claro, carbón en oscuro), no un
+      color de texto suelto. Sobre el fondo de la app queda en 1.09:1 en claro
+      (`#FFFFFF` sobre `#F4F6F2`) y en 1:1 en oscuro (`#171A18` sobre `#171A18`: el mismo
+      color). Sitios, sin relleno de `error` detrás (`estilos.accion` / `estilos.borrar`
+      solo fijan alto y alineación):
+      `SeccionResenas.tsx:195` («Borrar»), `EditorProducto.tsx:148` («Quitar del menú»),
+      `FormularioNegocio.tsx:361` («Borrar mi negocio»), `login.tsx:179` y
+      `registro.tsx:239` («No pudimos reenviarlo»).
+      Los otros tres usos sí van sobre `backgroundColor: theme.error` y están bien:
+      `configuracion.tsx:142`, `CampanaAvisos.tsx:33`, `FormularioPublicacion.tsx:903`.
+      Arreglo: `theme.error` como color de texto en los cinco, con su prueba roja primero.
+      Se localiza con `grep -rn "color: theme.errorTexto" src --include=*.tsx`.
+      `npm run verificar:contraste` sigue en verde con el defecto presente (corrida del
+      22/10/2026), así que ese par no está declarado. Sin verificar en dispositivo.
+- [ ] **Compilar un APK nuevo** con el código por correo (commits `ba35620` y `355c45c` de
+      la rama `codigo-por-correo`): `npx eas-cli build --platform android --profile preview`.
+      Conviene juntar más cambios en el mismo build.
+- [ ] **Añadir `{{ .Token }}` a la plantilla «Confirm sign up»** de Supabase **solo después
+      de instalar ese APK**: antes, el correo traería un código que la app instalada no
+      sabe usar. Hoy la plantilla está en español y solo lleva el enlace.
+- [ ] **Bajar la caducidad del código** (Authentication → Sign In / Providers → Email) a
+      unos 600 s. En el `config.toml` local es `otp_expiry = 3600`; **el valor de
+      producción está sin verificar**.
+- [ ] **Comprobar que el límite de verificaciones funciona de verdad.** El panel de
+      producción (captura del 22/10/2026, `~/Descargas/hoo.png`) muestra «token
+      verifications» en 30 por 5 min por IP (360 por hora), 30 correos por hora y 60 s
+      entre correos al mismo usuario. **Que el valor esté puesto no prueba que se aplique**:
+      en un Supabase local, con el mismo valor de 30, 60 códigos malos seguidos no
+      devolvieron ningún 429, y el código bueno seguía siendo válido después. Un intento
+      fallido no invalida el código.
+- [ ] **Recuperar contraseña con código: implementado y probado, sin verificar en
+      dispositivo.** `recuperar-contrasena.tsx` pide el código, y en un segundo paso recibe
+      código y contraseña nueva. Verificar el código abre sesión: si el usuario sale sin
+      cambiarla, se le cierra; al terminar, se cierra y se manda al login. Comprobado con
+      `npx jest "src/app/\(auth\)/__tests__/recuperar"` (incluida la prueba de abandono, que
+      falla si se quita la limpieza). **Hueco conocido:** si el usuario MATA la app después de
+      verificar el código y antes de cambiar la contraseña, la sesión queda guardada y la
+      próxima vez entra directo; cerrarlo exige una marca de «recuperación pendiente» que
+      obligue a cambiar la contraseña al reabrir.
+- [ ] **Site URL de Supabase** (Authentication → URL Configuration): hoy
+      `http://localhost:3000` y sin Redirect URLs (captura del 22/10/2026). El enlace del
+      correo confirma la cuenta y termina en «no se puede conectar». Con el código deja de
+      bloquear, pero conviene una página de confirmación en `cuervo360.com`.
+
 **Riesgo operativo permanente**
 
 - [ ] El túnel de cloudflared es efímero, y el proceso **no se muere** cuando su
