@@ -1,0 +1,31 @@
+/* Colores de `src/constants/theme.ts` de la app (claro y oscuro). Sin estilos en línea: la CSP del panel no los permite. */
+:root {
+  --fondo: #f4f6f2; --tarjeta: #ffffff; --texto: #171a18; --suave: #55605a; --acento: #2f5d3a;
+  --lima: #a5d83e; --lima-texto: #171a18; --filete: #d3dacf; --error: #b3261e; --borde: #7a857b;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --fondo: #171a18; --tarjeta: #232823; --texto: #f4f6f2; --suave: #a3ada4; --acento: #a5d83e; --filete: #2c332c; --error: #ff8a80; --borde: #6f7a70; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fondo); color: var(--texto); font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+h1 { font-size: 1.6rem; margin: 0 0 1rem; } h2 { font-size: 1.2rem; margin: 0 0 .75rem; }
+button { min-height: 44px; padding: .55rem 1rem; border-radius: .6rem; border: 1px solid var(--borde); background: transparent; color: var(--texto); font: inherit; cursor: pointer; }
+button.primario { background: var(--lima); color: var(--lima-texto); border-color: var(--lima); font-weight: 700; }
+button:disabled { opacity: .6; cursor: default; }
+input { width: 100%; min-height: 44px; padding: .55rem .75rem; border-radius: .6rem; border: 1px solid var(--borde); background: var(--tarjeta); color: var(--texto); font: inherit; }
+label { display: block; margin: .9rem 0 .25rem; font-weight: 600; color: var(--suave); }
+.centrado { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
+.tarjeta { background: var(--tarjeta); border: 1px solid var(--filete); border-radius: .75rem; padding: 1.25rem; }
+.login { width: min(26rem, 100%); } .login button { margin-top: 1.25rem; width: 100%; }
+.estado { width: min(30rem, 100%); } .estado button { margin: .5rem .5rem 0 0; }
+.etiqueta { margin: 0; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); }
+.error { color: var(--error); margin: .75rem 0 0; }
+.marco { min-height: 100vh; display: grid; grid-template-columns: 14rem 1fr; grid-template-rows: auto 1fr; grid-template-areas: 'barra barra' 'menu contenido'; }
+.barra { grid-area: barra; display: flex; justify-content: space-between; align-items: center; padding: .75rem 1.25rem; border-bottom: 1px solid var(--filete); background: var(--tarjeta); }
+.menu { grid-area: menu; padding: 1rem; border-right: 1px solid var(--filete); display: flex; flex-direction: column; gap: .25rem; }
+.menu a { padding: .6rem .75rem; border-radius: .5rem; color: var(--texto); text-decoration: none; min-height: 44px; display: flex; align-items: center; }
+.menu a[aria-current='page'] { background: var(--lima); color: var(--lima-texto); font-weight: 700; }
+.contenido { grid-area: contenido; padding: 1.5rem; max-width: 70rem; width: 100%; }
+.rejilla { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
+.cifra .valor { margin: .25rem 0 0; font-size: 2rem; font-weight: 700; }
+@media (max-width: 720px) { .marco { grid-template-columns: 1fr; grid-template-areas: 'barra' 'menu' 'contenido'; } .menu { flex-direction: row; border-right: 0; border-bottom: 1px solid var(--filete); } }

@@ -17,6 +17,11 @@ test('el script en línea se permite por hash; nunca unsafe-inline ni unsafe-eva
   expect(script).not.toMatch(/unsafe-inline|unsafe-eval/);
 });
 
+test('los estilos son solo propios: ni unsafe-inline ni comodines', () => {
+  const estilo = csp().split('; ').find((d) => d.startsWith('style-src'))!;
+  expect(estilo).toBe("style-src 'self'");
+});
+
 test('imágenes y conexiones solo hacia el Supabase de producción (sin comodines)', () => {
   const directivas = csp().split('; ');
   expect(directivas.find((d) => d.startsWith('connect-src'))).toBe(`connect-src 'self' ${PROD} wss://vhkblnazibvuqgabsazx.supabase.co`);

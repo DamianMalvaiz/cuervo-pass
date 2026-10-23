@@ -1,0 +1,100 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, test, vi } from 'vitest';
+
+import { App } from './App';
+import type { ClienteApp } from './lib/cliente';
+
+// El guard del panel: sin sesión pide login; con sesión pregunta AL SERVIDOR si es admin (el 403 decide, no la pantalla); un fallo de red nunca se
+// pinta como cifras en cero.
+
+const RESUMEN = {
+  verificaciones_pendientes: 2, resenas_reportadas: 1, resenas_ocultas: 3, negocios_ocultos: 0, cuentas: 106, negocios_activos: 26, modo_demo: false,
+};
+
+interface Opciones {
+  sesion?: boolean;
+  invoke?: ReturnType<typeof vi.fn>;
+  login?: ReturnType<typeof vi.fn>;
+}
+
+function cliente({ sesion = false, invoke, login }: Opciones = {}) {
+  let hay = sesion;
+  const salir = vi.fn(async () => { hay = false; return { error: null }; });
+  const c = {
+    auth: {
+      getSession: vi.fn(async () => ({ data: { session: hay ? { user: { id: 'u1' } } : null }, error: null })),
+      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+      signInWithPassword: login ?? vi.fn(async () => { hay = true; return { data: { session: {} }, error: null }; }),
+      signOut: salir,
+    },
+    functions: { invoke: invoke ?? vi.fn(async () => ({ data: { resumen: RESUMEN }, error: null })) },
+  };
+  return { c: c as unknown as ClienteApp, salir };
+}
+
+describe('App', () => {
+  test('sin sesión muestra el login y no pregunta nada al servidor', async () => {
+    const invoke = vi.fn();
+    render(<App cliente={cliente({ invoke }).c} />);
+    expect(await screen.findByLabelText('Correo electrónico')).toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  test('mientras lee la sesión, espera', () => {
+    render(<App cliente={cliente().c} />);
+    expect(screen.getByText('Cargando…')).toBeInTheDocument();
+  });
+
+  test('con sesión de admin muestra el panel con las cifras del servidor', async () => {
+    render(<App cliente={cliente({ sesion: true }).c} />);
+    expect(await screen.findByText('Panel de administración')).toBeInTheDocument();
+    expect(await screen.findByText('106')).toBeInTheDocument();
+  });
+
+  test('entrar con correo y contraseña lleva al panel', async () => {
+    const login = vi.fn(async () => ({ data: { session: {} }, error: null }));
+    const { c } = cliente({ login });
+    render(<App cliente={c} />);
+    await userEvent.type(await screen.findByLabelText('Correo electrónico'), 'a@b.mx');
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'Secreta#123');
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    expect(login).toHaveBeenCalledWith({ email: 'a@b.mx', password: 'Secreta#123' });
+    await waitFor(() => expect(c.functions.invoke).toHaveBeenCalled());
+  });
+
+  test('credenciales malas: lo dice en español, sin enseñar el mensaje en inglés', async () => {
+    const login = vi.fn(async () => ({ data: { session: null }, error: { message: 'Invalid login credentials', status: 400 } }));
+    render(<App cliente={cliente({ login }).c} />);
+    await userEvent.type(await screen.findByLabelText('Correo electrónico'), 'a@b.mx');
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'mala');
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Correo o contraseña incorrectos');
+    expect(screen.queryByText(/Invalid/)).not.toBeInTheDocument();
+  });
+
+  test('una cuenta que no es admin (403) ve «Sin acceso», ninguna cifra, y puede salir', async () => {
+    const invoke = vi.fn(async () => ({ data: null, error: { context: { status: 403, json: async () => ({ error: 'prohibido' }) } } }));
+    const { c, salir } = cliente({ sesion: true, invoke });
+    render(<App cliente={c} />);
+    expect(await screen.findByText(/No tienes acceso/)).toBeInTheDocument();
+    expect(screen.queryByText('106')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+    expect(salir).toHaveBeenCalled();
+  });
+
+  test('un fallo de red se dice como fallo y ofrece reintentar: nunca cifras en cero', async () => {
+    const invoke = vi.fn().mockRejectedValue(new TypeError('fetch failed'));
+    render(<App cliente={cliente({ sesion: true, invoke }).c} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos conectar');
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
+  });
+
+  test('reintentar vuelve a preguntar y, si ahora responde, muestra el panel', async () => {
+    const invoke = vi.fn().mockRejectedValueOnce(new TypeError('x')).mockResolvedValue({ data: { resumen: RESUMEN }, error: null });
+    render(<App cliente={cliente({ sesion: true, invoke }).c} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Reintentar' }));
+    expect(await screen.findByText('106')).toBeInTheDocument();
+  });
+});

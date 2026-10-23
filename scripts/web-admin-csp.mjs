@@ -1,7 +1,7 @@
 // Cabeceras de seguridad del panel de admin web (admin.cuervo360.com). Lógica pura: la usa `construir-web-admin.mjs` y la prueba la comprueba.
 //
-// La CSP sale de lo que el export REALMENTE carga: un script propio, un único script en línea (que se permite por su hash, no con 'unsafe-inline'),
-// estilos en línea (react-native-web los inyecta), tipografías propias, e imágenes/conexiones solo hacia el proyecto de Supabase.
+// La CSP sale de lo que el panel REALMENTE carga: scripts y estilos propios (sin estilos en línea), y cualquier script en línea permitido por su hash,
+// nunca con 'unsafe-inline'. Imágenes y conexiones solo hacia el proyecto de Supabase.
 import { createHash } from 'node:crypto';
 
 export const hashDeScript = (contenido) => `'sha256-${createHash('sha256').update(contenido, 'utf8').digest('base64')}'`;
@@ -18,7 +18,7 @@ export function construirCsp({ supabaseUrl, hashes }) {
   return [
     "default-src 'none'",
     `script-src 'self' ${[...hashes].join(' ')}`.trim(),
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self'",
     `img-src 'self' data: blob: ${origen}`,
     "font-src 'self' data:",
     `connect-src 'self' ${origen} wss://${url.host}`,
