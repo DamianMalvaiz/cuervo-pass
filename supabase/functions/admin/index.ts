@@ -17,7 +17,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-import { rutasDeDocumentos, validarSolicitud } from './politica.ts';
+import { interpretarSaludIa, rutasDeDocumentos, validarSolicitud, type MedidaSaludIa } from './politica.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -120,6 +120,34 @@ Deno.serve(async (req) => {
       const { data, error } = await servicio.rpc('admin_ingresos', { p_admin: admin });
       if (error) return respuestaDeError(error);
       return json({ ingresos: data ?? null }, 200);
+    }
+    case 'salud': {
+      // El servicio de IA expone `/salud` SIN token a propósito (lo usa la sonda de vida): aquí no se manda ningún secreto, y la respuesta al navegador no lleva su URL.
+      const urlIa = Deno.env.get('AI_SERVICE_URL')?.trim();
+      let medida: MedidaSaludIa;
+      if (!urlIa) {
+        medida = { configurado: false };
+      } else {
+        const t0 = Date.now();
+        try {
+          const r = await fetch(`${urlIa}/salud`, { signal: AbortSignal.timeout(5_000) });
+          medida = { configurado: true, status: r.status, cuerpo: await r.json().catch(() => null), latenciaMs: Date.now() - t0 };
+        } catch (e) {
+          medida = { configurado: true, fallo: e instanceof Error && e.name === 'TimeoutError' ? 'timeout' : 'red' };
+        }
+      }
+      return json({
+        salud: {
+          ia: interpretarSaludIa(medida),
+          // Solo si están puestas, nunca su valor.
+          mercadopago: { configurado: Boolean(Deno.env.get('MP_ACCESS_TOKEN')?.trim() && Deno.env.get('MP_WEBHOOK_SECRET')?.trim()) },
+        },
+      }, 200);
+    }
+    case 'eventos_pago': {
+      const { data, error } = await servicio.rpc('admin_eventos_pago', { p_admin: admin });
+      if (error) return respuestaDeError(error);
+      return json({ eventos_pago: data ?? null }, 200);
     }
     case 'borrar_error': {
       const { error } = await servicio.rpc('admin_borrar_error', { p_admin: admin, p_id: s.id });

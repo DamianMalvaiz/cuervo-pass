@@ -1211,13 +1211,20 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
   **Paso 5 (Ingresos y planes), sin desplegar:** migración **0080** (`admin_ingresos`: cobrado por semana y a 30 días, suscripciones activas/en prueba/por vencer/vencidas, ingresos por plan, embudo de órdenes y últimos
   pagos; **dinero de Mercado Pago y simulado SIEMPRE por separado**) y acción `ingresos`. pgTAP 689 (con mutación: quitar el filtro de 30 días rompe dos pruebas; los datos de prueba van en un `savepoint`);
   panel 136 pruebas. Probado en Chromium contra el Supabase local con pagos de montos conocidos: $298.00 reales (el pago de hace 60 días no cuenta), $99.00 simulados, conversión 50 % y los montos en la semana correcta.
-  **Sin verificar:** si lo de Mercado Pago es dinero real o de pruebas (depende de las credenciales con que se cobró; el panel lo dice); modo oscuro y móvil. **0080 y la función `admin` con `ingresos` NO están en producción.**
+  **Sin verificar:** si lo de Mercado Pago es dinero real o de pruebas (depende de las credenciales con que se cobró; el panel lo dice); modo oscuro y móvil.
+  **0080 aplicada a producción (respaldo `respaldos/2026-10-23-antes-0080.sql`), función `admin` con `ingresos` y panel redesplegados (pasos 1 a 5).**
+  **Paso 6 (Salud de la app), sin desplegar:** migración **0081** (`eventos_pago`, `registrar_evento_pago`, `admin_eventos_pago`; poda a 60 días), acciones `salud` y `eventos_pago` de la función `admin`
+  (`interpretarSaludIa` es pura; consulta `GET /salud` del servicio de IA, que es público: ningún token, y la URL no sale al navegador) y **`mp-webhook` ahora registra el resultado de cada aviso ya
+  verificado** (solo tras la firma, solo etiqueta, nivel, código e id numérico; un fallo al registrar no cambia la respuesta). Panel: servicios, avisos de pago y errores de la app con borrado confirmado.
+  pgTAP 701 (mutación: sin la poda falla), jest con guardas estáticas de `mp-webhook` y de `admin` (mutaciones: guardar el cuerpo, registrar antes de la firma y devolver un token fallan), panel 174 pruebas.
+  Probado en Chromium contra el Supabase local. **Límite conocido:** los avisos con firma inválida NO se registran (la URL es pública; quedan en el log de Supabase). **Sin verificar:** el estado real del servicio de IA
+  desde producción (en local no hay `AI_SERVICE_URL`). **0081 y las funciones `admin` y `mp-webhook` actualizadas NO están en producción.**
   **Sin verificar:** modo oscuro y móvil en pantalla; el rechazo y la lista contra producción; imágenes con un documento real.
 - **Hallazgos corregidos.** (1) `/admin` sin sesión se quedaba en «Cargando…» para siempre y solo la pantalla de inicio leía la sesión guardada: `useEsAdmin` ahora la lee
   y redirige al login con `volverA` (solo rutas del panel). (2) Metro cachea `EXPO_PUBLIC_*`: un export web sin `--clear` apuntó a producción cuando se quería local.
   (3) **«Email OTP length» estaba en 8 en producción** y la app espera 6: ningún código se podía escribir completo. Cambiado a 6 en el panel de Supabase; la caducidad se baja a 600 s.
   (4) La plantilla «Reset password» seguía con el enlace: el enlace gasta el código, así que las plantillas llevan solo `{{ .Token }}`.
-- **Pendiente.** Quitar las pantallas de admin de la app móvil al terminar el panel; paso 6 del panel (salud de la app); correr las
+- **Pendiente.** Quitar las pantallas de admin de la app móvil al terminar el panel;  correr las
   pruebas del panel en el CI; decidir qué hacer con el admin `damianmalvaizadm@utvtol.edu.mx`; mover widgets (fase 2).
 
 ### Pendientes abiertos

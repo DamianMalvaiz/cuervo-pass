@@ -44,3 +44,4 @@ button.peligro { background: var(--error); border-color: var(--error); color: #f
 .tabla { overflow-x: auto; } .tabla th, .tabla td { text-align: left; vertical-align: top; } .tabla td:first-child { white-space: nowrap; }
 .subtitulo { margin: 1.5rem 0 .5rem; } .separada { margin-top: 1.5rem; }
 .embudo { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 0 0 .75rem; } .embudo div { display: flex; flex-direction: column; } .embudo dt { color: var(--suave); font-size: .85rem; } .embudo dd { margin: 0; font-size: 1.5rem; font-weight: 700; }
+.bloque { margin-bottom: 1.5rem; } strong.error { margin: 0; }

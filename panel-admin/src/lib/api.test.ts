@@ -254,3 +254,73 @@ describe('api.ingresos', () => {
     await expect(crearApi(clienteCon(invoke)).ingresos()).rejects.toMatchObject({ tipo: 'prohibido' });
   });
 });
+
+const SALUD = { ia: { estado: 'ok', latencia_ms: 120, api_llm_configurada: true, commit: 'a3b1c2d' }, mercadopago: { configurado: true } };
+const EVENTOS = { total_24h: 3, alertas_24h: 1, eventos: [{ recibido_en: '2026-10-23T10:00:00Z', etiqueta: 'activado', nivel: 'info', status: 200, pago_id: '123' }, { recibido_en: '2026-10-23T09:00:00Z', etiqueta: 'credencial-rechazada', nivel: 'alerta', status: 500, pago_id: null }] };
+const ERROR_APP = { id: 'e1', nivel: 'error', mensaje: 'TypeError: x', detalle: null, version_app: 'v1.2', plataforma: 'android', conteo: 4, primera_vez: '2026-10-20T10:00:00Z', ultima_vez: '2026-10-23T10:00:00Z' };
+
+describe('api.salud', () => {
+  test('pide la acción «salud» y devuelve el estado', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { salud: SALUD }, error: null });
+    const r = await crearApi(clienteCon(invoke)).salud();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'salud' } });
+    expect(r.ia.estado).toBe('ok');
+  });
+
+  test.each([
+    ['sin datos', { salud: null }],
+    ['estado de IA inventado', { salud: { ...SALUD, ia: { ...SALUD.ia, estado: 'genial' } } }],
+    ['latencia que no es número ni nulo', { salud: { ...SALUD, ia: { ...SALUD.ia, latencia_ms: 'rápido' } } }],
+    ['mercadopago sin configurado', { salud: { ...SALUD, mercadopago: {} } }],
+    ['commit que no es texto ni nulo', { salud: { ...SALUD, ia: { ...SALUD.ia, commit: 5 } } }],
+  ])('forma rota (%s) → «desconocido»: nunca «todo bien»', async (_n, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).salud()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+});
+
+describe('api.eventosPago', () => {
+  test('pide los avisos de pago', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { eventos_pago: EVENTOS }, error: null });
+    const r = await crearApi(clienteCon(invoke)).eventosPago();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'eventos_pago' } });
+    expect(r.alertas_24h).toBe(1);
+    expect(r.eventos).toHaveLength(2);
+  });
+
+  test.each([
+    ['sin datos', { eventos_pago: null }],
+    ['totales que no son números', { eventos_pago: { ...EVENTOS, total_24h: 'tres' } }],
+    ['nivel inventado', { eventos_pago: { ...EVENTOS, eventos: [{ ...EVENTOS.eventos[0], nivel: 'grave' }] } }],
+    ['estado que no es número', { eventos_pago: { ...EVENTOS, eventos: [{ ...EVENTOS.eventos[0], status: '200' }] } }],
+    ['eventos que no es lista', { eventos_pago: { ...EVENTOS, eventos: 'x' } }],
+  ])('forma rota (%s) → «desconocido»', async (_n, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).eventosPago()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+});
+
+describe('api.errores y api.borrarError', () => {
+  test('errores pide la lista', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { errores: [ERROR_APP] }, error: null });
+    const r = await crearApi(clienteCon(invoke)).errores();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'errores' } });
+    expect(r).toHaveLength(1);
+  });
+
+  test.each([
+    ['sin la clave', {}],
+    ['nivel inventado', { errores: [{ ...ERROR_APP, nivel: 'fatal' }] }],
+    ['conteo que no es número', { errores: [{ ...ERROR_APP, conteo: '4' }] }],
+    ['mensaje nulo', { errores: [{ ...ERROR_APP, mensaje: null }] }],
+  ])('forma rota (%s) → «desconocido»: nunca «sin errores»', async (_n, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).errores()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+
+  test('borrarError manda el id', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { ok: true }, error: null });
+    await crearApi(clienteCon(invoke)).borrarError('e1');
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'borrar_error', id: 'e1' } });
+  });
+});

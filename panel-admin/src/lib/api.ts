@@ -69,6 +69,29 @@ export interface IngresosAdmin {
   ultimos_pagos: { creado_en: string; origen: 'mercadopago' | 'simulado'; plan: string; monto_centavos: number; usuario: string | null }[];
 }
 
+export interface SaludAdmin {
+  ia: { estado: 'sin_configurar' | 'caido' | 'cargando' | 'ok'; latencia_ms: number | null; api_llm_configurada: boolean | null; commit: string | null };
+  mercadopago: { configurado: boolean };
+}
+
+export interface EventosPagoAdmin {
+  total_24h: number;
+  alertas_24h: number;
+  eventos: { recibido_en: string; etiqueta: string; nivel: 'info' | 'alerta'; status: number; pago_id: string | null }[];
+}
+
+export interface ErrorRegistrado {
+  id: string;
+  nivel: 'aviso' | 'error';
+  mensaje: string;
+  detalle: string | null;
+  version_app: string;
+  plataforma: string;
+  conteo: number;
+  primera_vez: string;
+  ultima_vez: string;
+}
+
 const esNumero = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const esObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -157,6 +180,40 @@ function leerIngresos(d: unknown): IngresosAdmin {
   return d as unknown as IngresosAdmin;
 }
 
+const numeroONulo = (v: unknown): v is number | null => v === null || esNumero(v);
+const booleanoONulo = (v: unknown): v is boolean | null => v === null || typeof v === 'boolean';
+
+/** Salud: una forma rota es un fallo. Nunca se pinta «todo bien» por no poder leer la respuesta. */
+function leerSalud(d: unknown): SaludAdmin {
+  const ia = esObjeto(d) ? d.ia : undefined;
+  const mp = esObjeto(d) ? d.mercadopago : undefined;
+  const buena =
+    esObjeto(ia) && ['sin_configurar', 'caido', 'cargando', 'ok'].includes(ia.estado as string) && numeroONulo(ia.latencia_ms) && booleanoONulo(ia.api_llm_configurada) &&
+    textoONulo(ia.commit) && esObjeto(mp) && typeof mp.configurado === 'boolean';
+  if (!buena) throw new ErrorAdmin('desconocido');
+  return d as unknown as SaludAdmin;
+}
+
+function leerEventosPago(d: unknown): EventosPagoAdmin {
+  const buena =
+    esObjeto(d) && esNumero(d.total_24h) && esNumero(d.alertas_24h) && Array.isArray(d.eventos) &&
+    d.eventos.every((e) => esObjeto(e) && esTexto(e.recibido_en) && esTexto(e.etiqueta) && (e.nivel === 'info' || e.nivel === 'alerta') && esNumero(e.status) && textoONulo(e.pago_id));
+  if (!buena) throw new ErrorAdmin('desconocido');
+  return d as unknown as EventosPagoAdmin;
+}
+
+function leerErrores(lista: unknown): ErrorRegistrado[] {
+  const buenas =
+    Array.isArray(lista) &&
+    lista.every(
+      (e) =>
+        esObjeto(e) && esTexto(e.id) && (e.nivel === 'aviso' || e.nivel === 'error') && esTexto(e.mensaje) && textoONulo(e.detalle) && esTexto(e.version_app) &&
+        esTexto(e.plataforma) && esNumero(e.conteo) && esTexto(e.primera_vez) && esTexto(e.ultima_vez),
+    );
+  if (!buenas) throw new ErrorAdmin('desconocido');
+  return lista as ErrorRegistrado[];
+}
+
 /** Lo mínimo del cliente de Supabase que necesita la API: así se prueba sin red. */
 export interface ClienteAdmin {
   functions: {
@@ -219,6 +276,18 @@ export function crearApi(cliente: ClienteAdmin, opciones: { origenArchivos?: str
     },
     async ingresos(): Promise<IngresosAdmin> {
       return leerIngresos((await llamar({ accion: 'ingresos' })).ingresos);
+    },
+    async salud(): Promise<SaludAdmin> {
+      return leerSalud((await llamar({ accion: 'salud' })).salud);
+    },
+    async eventosPago(): Promise<EventosPagoAdmin> {
+      return leerEventosPago((await llamar({ accion: 'eventos_pago' })).eventos_pago);
+    },
+    async errores(): Promise<ErrorRegistrado[]> {
+      return leerErrores((await llamar({ accion: 'errores' })).errores);
+    },
+    async borrarError(id: string): Promise<void> {
+      await llamar({ accion: 'borrar_error', id });
     },
     async auditoria(): Promise<EntradaAuditoria[]> {
       return leerAuditoria((await llamar({ accion: 'auditoria' })).auditoria);

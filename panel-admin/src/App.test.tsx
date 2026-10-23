@@ -51,7 +51,7 @@ function cliente({ sesion = false, invoke, login }: Opciones = {}) {
       signInWithPassword: login ?? vi.fn(async () => { hay = true; return { data: { session: {} }, error: null }; }),
       signOut: salir,
     },
-    functions: { invoke: invoke ?? vi.fn(async (_n: string, o: { body: { accion: string } }) => ({ data: o.body.accion === 'resumen_detalle' ? { detalle: DETALLE } : o.body.accion === 'verificaciones' ? { verificaciones: [VERIFICACION] } : o.body.accion === 'moderacion' ? { moderacion: [] } : o.body.accion === 'auditoria' ? { auditoria: [] } : o.body.accion === 'ingresos' ? { ingresos: INGRESOS_VACIOS } : { resumen: RESUMEN }, error: null })) },
+    functions: { invoke: invoke ?? vi.fn(async (_n: string, o: { body: { accion: string } }) => ({ data: o.body.accion === 'resumen_detalle' ? { detalle: DETALLE } : o.body.accion === 'verificaciones' ? { verificaciones: [VERIFICACION] } : o.body.accion === 'moderacion' ? { moderacion: [] } : o.body.accion === 'auditoria' ? { auditoria: [] } : o.body.accion === 'ingresos' ? { ingresos: INGRESOS_VACIOS } : o.body.accion === 'salud' ? { salud: { ia: { estado: 'ok', latencia_ms: 50, api_llm_configurada: true, commit: null }, mercadopago: { configurado: true } } } : o.body.accion === 'eventos_pago' ? { eventos_pago: { total_24h: 0, alertas_24h: 0, eventos: [] } } : o.body.accion === 'errores' ? { errores: [] } : { resumen: RESUMEN }, error: null })) },
   };
   return { c: c as unknown as ClienteApp, salir };
 }
@@ -205,5 +205,11 @@ describe('App', () => {
     render(<App cliente={cliente({ sesion: true }).c} />);
     await userEvent.click(await screen.findByRole('link', { name: /Ingresos/ }));
     expect(await screen.findByText('Todavía no hay pagos.')).toBeInTheDocument();
+  });
+
+  test('el menú lleva a «Salud de la app»', async () => {
+    render(<App cliente={cliente({ sesion: true }).c} />);
+    await userEvent.click(await screen.findByRole('link', { name: /Salud de la app/ }));
+    expect(await screen.findByText('Todavía no hay avisos de pago.')).toBeInTheDocument();
   });
 });

@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(689);
+select plan(701);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2821,6 +2821,8 @@ select throws_ok($$select * from admin_resumen('00000000-0000-0000-0000-00000000
 select throws_ok($$select admin_resumen_detalle('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_resumen_detalle: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select * from admin_listar_auditoria('00000000-0000-0000-0000-0000000000a1', 50)$$, '42501', null, 'admin_listar_auditoria: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select admin_ingresos('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_ingresos: el cliente autenticado no puede ejecutarla' );
+select throws_ok($$select admin_eventos_pago('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_eventos_pago: el cliente autenticado no puede ejecutarla' );
+select throws_ok($$select registrar_evento_pago('x', 'info', 200, null, null)$$, '42501', null, 'registrar_evento_pago: el cliente autenticado no puede registrar eventos' );
 select throws_ok($$select fijar_demo_mode('00000000-0000-0000-0000-0000000000a1', true)$$, '42501', null, 'modo demo: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select registrar_acceso_documentos('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000e9', 'comerciante')$$,
   '42501', null, 'documentos: el cliente autenticado no puede registrar (ni ver) nada' );
@@ -2988,6 +2990,21 @@ select is((admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ordenes_30d'
 select ok(jsonb_array_length(admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ultimos_pagos') between 1 and 10 and (admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ultimos_pagos'->0->>'creado_en')::timestamptz >= (admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ultimos_pagos'->1->>'creado_en')::timestamptz,
   'admin_ingresos: los últimos pagos son a lo más 10 y van del más reciente al más antiguo' );
 rollback to savepoint s_ingresos;
+-- ── Eventos del webhook de pagos (0081) ─────────────────────────────────────
+savepoint s_eventos;
+select throws_ok($$select admin_eventos_pago('00000000-0000-0000-0000-0000000000e9')$$, 'CP007', null, 'admin_eventos_pago: una cuenta que no es admin recibe CP007' );
+select lives_ok($$select registrar_evento_pago('activado', 'info', 200, '1234567890', null)$$, 'registrar_evento_pago: guarda un aviso' );
+select lives_ok($$select registrar_evento_pago('no-coincide', 'alerta', 401, null, null)$$, 'registrar_evento_pago: guarda una alerta sin pago' );
+select is(admin_eventos_pago('00000000-0000-0000-0000-0000000000a1')->'eventos'->0->>'etiqueta', 'no-coincide', 'admin_eventos_pago: el más reciente va primero' );
+select is((admin_eventos_pago('00000000-0000-0000-0000-0000000000a1')->>'total_24h')::int, 2, 'admin_eventos_pago: cuenta los avisos de las últimas 24 horas' );
+select is((admin_eventos_pago('00000000-0000-0000-0000-0000000000a1')->>'alertas_24h')::int, 1, 'admin_eventos_pago: y cuántos de ellos son alertas' );
+select throws_ok($$select registrar_evento_pago('x', 'grave', 200, null, null)$$, '22023', null, 'registrar_evento_pago: un nivel que no es info ni alerta se rechaza' );
+select lives_ok($$select registrar_evento_pago(repeat('a', 300), 'info', 500, 'no-es-un-numero', null)$$, 'registrar_evento_pago: una etiqueta enorme no rompe nada' );
+select ok((select char_length(etiqueta) <= 60 and pago_id is null from eventos_pago where status = 500), 'registrar_evento_pago: acota la etiqueta y solo guarda un id de pago NUMÉRICO' );
+insert into eventos_pago (recibido_en, etiqueta, nivel, status) values (now() - interval '70 days', 'viejo', 'info', 200);
+select registrar_evento_pago('activado', 'info', 200, null, null);
+select is((select count(*)::int from eventos_pago where recibido_en < now() - interval '60 days'), 0, 'registrar_evento_pago: poda lo de más de 60 días (la tabla no crece sin fin)' );
+rollback to savepoint s_eventos;
 -- Sin token no se avisa, pero la resolución no se rompe: rechazar la verificación de un tercero sin token es el mismo camino.
 select actuar_como_servicio();
 delete from push_tokens where usuario_id = '00000000-0000-0000-0000-0000000000d9';
