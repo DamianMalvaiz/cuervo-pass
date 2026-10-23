@@ -109,7 +109,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    * veces.
    *
    * Antes, `onAuthStateChange` se registraba sin guardar nada. Cada llamada a
-   * `cargarSesionInicial` —y el layout raíz la llama al montar— dejaba UN
+   * `cargarSesionInicial` —la pantalla de inicio y el guard del panel de admin la llaman al montar— dejaba UN
    * listener más, vivo para siempre, todos escribiendo el mismo estado. En
    * desarrollo, con Fast Refresh, eso se acumula en cada guardado.
    *

@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
@@ -8,11 +8,9 @@ import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { useModoDemo, useResumenAdmin } from '@/hooks/queries/useAdmin';
-import { useMisRoles } from '@/hooks/queries/useRoles';
-import { ErrorAdmin, MENSAJE_ERROR_ADMIN, esAdmin } from '@/lib/admin';
+import { useEsAdmin, useModoDemo, useResumenAdmin } from '@/hooks/queries/useAdmin';
+import { ErrorAdmin, MENSAJE_ERROR_ADMIN } from '@/lib/admin';
 import { toast } from '@/lib/toast';
-import { useAuthStore } from '@/store/useAuthStore';
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
@@ -21,11 +19,11 @@ const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno
  * de verdad decide. Si el servidor dice que no, se dice, aunque la pantalla creyera que sí.
  */
 export default function AdminInicioScreen() {
-  const miId = useAuthStore((s) => s.session?.user.id);
-  const { roles, cargando: cargandoRoles } = useMisRoles(miId);
-  const admin = esAdmin(roles);
+  const { admin, cargando: cargandoRoles, sinSesion } = useEsAdmin();
   const resumen = useResumenAdmin(admin);
   const modoDemo = useModoDemo();
+
+  if (sinSesion) return <Redirect href={{ pathname: '/(auth)/login', params: { volverA: '/admin' } }} />;
 
   if (cargandoRoles) {
     return (

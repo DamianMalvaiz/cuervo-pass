@@ -1,3 +1,4 @@
+import { Redirect } from 'expo-router';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
@@ -53,9 +54,10 @@ function TarjetaError({ e }: { e: ErrorRegistrado }) {
  * Los errores que registra la app (migración 0068), agrupados: un problema, cuántas veces, en qué versión. No lleva quién: el servidor no lo guarda.
  */
 export default function AdminErroresScreen() {
-  const { admin, cargando: cargandoRol } = useEsAdmin();
+  const { admin, cargando: cargandoRol, sinSesion } = useEsAdmin();
   const lista = useErroresAdmin(admin);
 
+  if (sinSesion) return <Redirect href={{ pathname: '/(auth)/login', params: { volverA: '/admin/errores' } }} />;
   if (cargandoRol || (admin && lista.cargando)) {
     return (
       <ThemedView style={estilos.pantalla}>

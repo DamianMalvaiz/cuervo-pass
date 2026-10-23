@@ -1,3 +1,4 @@
+import { Redirect } from 'expo-router';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
@@ -158,9 +159,10 @@ function TarjetaVerificacion({ v }: { v: VerificacionPendiente }) {
 
 /** Verificaciones pendientes. Ver los documentos y decidir son acciones del servidor, con rastro de quién las hizo. */
 export default function AdminVerificacionesScreen() {
-  const { admin, cargando: cargandoRol } = useEsAdmin();
+  const { admin, cargando: cargandoRol, sinSesion } = useEsAdmin();
   const lista = useVerificacionesAdmin(admin);
 
+  if (sinSesion) return <Redirect href={{ pathname: '/(auth)/login', params: { volverA: '/admin/verificaciones' } }} />;
   if (cargandoRol || (admin && lista.cargando)) {
     return (
       <ThemedView style={estilos.pantalla}>

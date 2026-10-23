@@ -4,8 +4,10 @@
 // nada pendiente»: en un panel de revisión eso haría creer que no hay solicitudes cuando solo no se pudieron leer.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import { ErrorAdmin, esAdmin } from '@/lib/admin';
+import { supabaseConfigurado } from '@/lib/supabase';
 import { useMisRoles } from '@/hooks/queries/useRoles';
 import { useAuthStore } from '@/store/useAuthStore';
 import {
@@ -92,6 +94,15 @@ export function useModoDemo() {
 /** ¿Esta cuenta es admin aprobado? Es comodidad de interfaz: el servidor vuelve a comprobarlo en cada llamada. */
 export function useEsAdmin() {
   const miId = useAuthStore((s) => s.session?.user.id);
-  const { roles, cargando } = useMisRoles(miId);
-  return { admin: esAdmin(roles), cargando };
+  const cargandoSesion = useAuthStore((s) => s.cargando);
+  const cargarSesionInicial = useAuthStore((s) => s.cargarSesionInicial);
+  // La única pantalla que leía la sesión guardada era la de inicio (`app/index.tsx`): un enlace directo a /admin (la web) no pasa por ahí y la sesión
+  // se quedaba «cargando» para siempre. Llamarla dos veces es inofensivo (ver el store).
+  useEffect(() => {
+    if (supabaseConfigurado) void cargarSesionInicial();
+  }, [cargarSesionInicial]);
+  const { roles, cargando: cargandoRoles } = useMisRoles(miId);
+  // Sin sesión la consulta de roles está deshabilitada y su «cargando» no termina nunca: se decide ANTES, o `/admin` sin sesión se queda esperando.
+  const sinSesion = !cargandoSesion && !miId;
+  return { admin: esAdmin(roles), cargando: cargandoSesion || (Boolean(miId) && cargandoRoles), sinSesion };
 }
