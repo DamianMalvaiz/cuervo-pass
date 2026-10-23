@@ -1397,6 +1397,21 @@ ejecutables y su secuencia, está en
 - [ ] **Antes de enseñar «Contratar plan»** hay que encender `demo_mode` desde el panel de administración: en producción está en
       `false` (comprobado el 23/10/2026) y la app dice «los pagos de demostración no están activos».
 
+**Mercado Pago (rama `mercado-pago`, pagos reales de PRUEBA con sandbox; OXXO habilitado como «pendiente»)**
+
+- [ ] **Paso 1 hecho en local, sin aplicar a producción: la migración 0077** (`ordenes_pago`, `crear_orden_pago`, `registrar_pago_mp`).
+      El servidor decide plan y monto desde `planes`; un pago por otro monto no activa nada; el aviso duplicado no extiende dos veces.
+      Comprobado: `npx supabase test db` (666 aserciones) y `./scripts/prueba-carrera-webhook.sh` (dos sesiones reales; sin el candado
+      `for update` falla con `duplicate key`, comprobado con una mutación). Los reembolsos NO se manejan todavía.
+- [ ] Pasos pendientes: 2 lógica pura de firma y decisión (Jest) · 3 Edge Function `mp-webhook` (sin JWT, HMAC-SHA256 de
+      `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`, falla cerrado sin secreto) · 4 `crear-pago` y la pantalla (`Linking.openURL`, sin APK nuevo)
+      · 5 prueba completa con las cuentas de prueba.
+- [ ] **Tuyo (Mercado Pago):** crear la aplicación de Checkout Pro DENTRO de la cuenta vendedora de prueba, crear las cuentas de prueba (vendedora y
+      compradora), configurar Webhooks con el evento «Pagos» y copiar el secreto. Luego `supabase secrets set MP_ACCESS_TOKEN=… MP_WEBHOOK_SECRET=…`
+      (los valores nunca en el chat ni en el repo).
+- [ ] **No verificado:** cómo se simula que un pago en OXXO se completa en modo prueba (la documentación no lo dice): el estado «pendiente» sí, la
+      activación por OXXO no. La plantilla de la firma sale de dos fuentes concordantes; la prueba definitiva es «Simular notificación» del panel.
+
 **Riesgo operativo permanente**
 
 - [ ] El túnel de cloudflared es efímero, y el proceso **no se muere** cuando su
