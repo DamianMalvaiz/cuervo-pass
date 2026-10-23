@@ -124,10 +124,6 @@ export default function RootLayout() {
         <Stack.Screen name="publicacion/[id]" options={{ ...encabezado, title: 'Ficha' }} />
         <Stack.Screen name="publicacion/nueva" options={{ ...encabezado, title: 'Nueva publicación' }} />
         <Stack.Screen name="publicacion/editar/[id]" options={{ ...encabezado, title: 'Editar publicación' }} />
-        <Stack.Screen name="admin/index" options={{ ...encabezado, title: 'Administración' }} />
-        <Stack.Screen name="admin/verificaciones" options={{ ...encabezado, title: 'Verificaciones' }} />
-        <Stack.Screen name="admin/moderacion" options={{ ...encabezado, title: 'Moderación' }} />
-        <Stack.Screen name="admin/errores" options={{ ...encabezado, title: 'Errores de la app' }} />
         <Stack.Screen name="negocio/nuevo" options={{ ...encabezado, title: 'Publicar negocio' }} />
         <Stack.Screen name="negocio/editar/[id]" options={{ ...encabezado, title: 'Editar negocio' }} />
         <Stack.Screen name="negocio/menu/[id]" options={{ ...encabezado, title: 'Menú' }} />

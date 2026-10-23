@@ -1236,8 +1236,14 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
   Medido: `npm test -- --watchAll=false --coverage` → 190 suites, 2451 pruebas, `(tabs)` 93,91 % de ramas. **Pruebas intermitentes, SIN resolver:** en GitHub falló `BotonFavorito` («el tope de 200», `waitFor` de 1 s sin que
   `mockError` se llamara) y en una corrida local con cobertura falló `useNotificaciones`; ninguna falla aislada (`BotonFavorito` 3 de 3) y en la corrida posterior no fallaron. Parecen carreras de tiempo bajo carga.
   Si reaparecen en el CI hay que arreglarlas de raíz, no repetir la corrida. Nota: un comentario de `favoritos.tsx` dice que la fila muestra «—» sin distancia, pero el código no muestra nada.
+- **Admin fuera de la app móvil (23/10/2026).** Las pantallas de admin de la app (`src/app/admin/`, `EntradaAdmin`, `useAdmin`, `lib/admin`, `admin.service`) se retiraron: el panel web las reemplaza. **Antes** se llevó a la web lo único
+  que el panel no tenía, el **interruptor del modo demostración** (confirmación que avisa que los pagos de TODAS las cuentas serán simulados; muestra el estado que dejó el servidor; si lo rechaza no cambia nada).
+  Comprobado en Chromium contra el Supabase local: `configuracion_app` cambia y la bitácora registra `encendido` y `apagado`. También se quitó `destinoTrasLogin` y el `volverA` del login (solo existían para el panel
+  exportado a web). **No se tocó** la Edge Function `admin` (la usa el panel), el rol `admin` ni la base. `DESIGN.md`: 27 pantallas y 60 componentes (los cuenta `design-md-al-dia.test.ts`).
+  Medido con el comando del CI (`npm test -- --watchAll=false --coverage`): 181 suites, 2344 pruebas, todos los umbrales cumplidos (`(tabs)` 93,91 %; global de ramas 89,04 %); panel 185 pruebas. **Sin verificar:** un APK nuevo
+  sin esas pantallas (no se ha compilado); el CI de GitHub tras estos cambios.
 - **CI del panel de admin:** job `panel-admin` (`npm ci`, `typecheck`, `npm test`, `npm run build`, `verificar:audit`), reproducido desde cero en local (borrando `node_modules`); `ci-panel-admin.test.ts` (con mutaciones).
-- **Pendiente.** Quitar las pantallas de admin de la app móvil al terminar el panel;  correr las
+- **Pendiente.**  correr las
   pruebas del panel en el CI; decidir qué hacer con el admin `damianmalvaizadm@utvtol.edu.mx`; mover widgets (fase 2).
 
 ### Pendientes abiertos

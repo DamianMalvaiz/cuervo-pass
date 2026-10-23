@@ -12,12 +12,10 @@ const mockIniciarSesion = jest.fn();
 const mockReplace = jest.fn();
 const mockSingle = jest.fn();
 const mockReenviar = jest.fn();
-let mockParams: Record<string, unknown> = {};
 
 jest.mock('expo-router', () => ({
   router: { replace: (...a: unknown[]) => mockReplace(...a), push: jest.fn() },
   Link: ({ children }: { children: unknown }) => children,
-  useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) => sel({ iniciarSesion: mockIniciarSesion }),
@@ -46,7 +44,6 @@ const entrar = async (email = 'ana@utvtol.edu.mx', password = 'Contrasena#2026')
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockParams = {};
   mockIniciarSesion.mockResolvedValue(undefined);
   mockSingle.mockResolvedValue({ data: { universidad: 'UTVT' } });
   mockReenviar.mockResolvedValue({ error: null });
@@ -131,21 +128,5 @@ describe('correo sin confirmar', () => {
     await entrar();
     await waitFor(() => expect(screen.getByText(/no coinciden/i)).toBeTruthy());
     expect(screen.queryByLabelText('Reenviar correo de confirmación')).toBeNull();
-  });
-});
-
-
-describe('volverA (panel de admin web)', () => {
-  test('una ruta del panel se obedece tras entrar', async () => {
-    mockParams = { volverA: '/admin/verificaciones' };
-    await entrar();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin/verificaciones'));
-  });
-
-  test.each(['https://atacante.com', '//atacante.com', '/perfil'])('un destino que no es del panel (%s) se ignora', async (volverA) => {
-    mockParams = { volverA };
-    await entrar();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/inicio'));
-    expect(mockReplace).not.toHaveBeenCalledWith(volverA);
   });
 });

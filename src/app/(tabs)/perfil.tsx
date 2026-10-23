@@ -15,7 +15,6 @@ import {
 import { Campo } from '@/components/Campo';
 import { CampoFicha, FileteHoja } from '@/components/ficha/CampoFicha';
 import { Estadisticas } from '@/components/ficha/Estadisticas';
-import { EntradaAdmin } from '@/components/EntradaAdmin';
 import { SeccionFunciones } from '@/components/SeccionFunciones';
 import { useModuloStore } from '@/store/useModuloStore';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
@@ -470,7 +469,6 @@ export default function PerfilScreen() {
 
             {/* ── Funciones (Cuervo 360) ───────────────────────────────── */}
             <SeccionFunciones usuarioId={session?.user.id} />
-            <EntradaAdmin />
 
           </View>
         </ScrollView>

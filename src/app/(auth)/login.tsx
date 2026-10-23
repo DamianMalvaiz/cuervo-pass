@@ -1,7 +1,7 @@
 import { LogoMarca } from '@/components/LogoMarca';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, router, useLocalSearchParams, type Href } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -17,7 +17,6 @@ import { Filete, Radios, Spacing, Texto, escalarTexto } from '@/constants/theme'
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { reenviarConfirmacion } from '@/lib/confirmacionCorreo';
-import { destinoTrasLogin } from '@/lib/destinoTrasLogin';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -38,7 +37,6 @@ export default function LoginScreen() {
   const theme = useTheme();
   const { anchoContenido, clase, altoApretado, escalaTitulo } = useTamanoPantalla();
   const iniciarSesion = useAuthStore((s) => s.iniciarSesion);
-  const { volverA } = useLocalSearchParams<{ volverA?: string }>();
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   // Correo que intentó entrar sin haber confirmado; con valor se ofrece reenviar el enlace.
@@ -67,8 +65,7 @@ export default function LoginScreen() {
         .select('universidad')
         .eq('id', sesion.user?.id ?? '')
         .single();
-      // `volverA` solo se obedece si es una ruta del panel de admin (ver destinoTrasLogin).
-      router.replace(destinoTrasLogin(volverA, perfil?.universidad ? '/(tabs)/inicio' : '/(auth)/cuestionario-inicial') as Href);
+      router.replace(perfil?.universidad ? '/(tabs)/inicio' : '/(auth)/cuestionario-inicial');
     } catch (e) {
       // El mensaje de Supabase viene en inglés y dice "Invalid login
       // credentials", que no le sirve a nadie. Se traduce lo único que de
