@@ -96,6 +96,12 @@ export function App({ cliente }: { cliente: ClienteApp }) {
     };
   }, [api, sesion, hayPanel, ruta]);
 
+  // El estado que se muestra es el que DEJÓ el servidor (no el pedido): si lanza, `Resumen` lo dice y no cambia nada.
+  const cambiarModoDemo = async (activo: boolean) => {
+    const nuevo = await api.modoDemo(activo);
+    setPanel((p) => (p.fase === 'ok' ? { fase: 'ok', resumen: { ...p.resumen, modo_demo: nuevo } } : p));
+  };
+
   const salir = () => {
     void cliente.auth.signOut().then(() => setSesion('no'));
   };
@@ -146,7 +152,7 @@ export function App({ cliente }: { cliente: ClienteApp }) {
         {ruta === 'resumen' ? (
           <>
             <h1>Panel de administración</h1>
-            <Resumen resumen={panel.resumen} detalle={detalle} onReintentarDetalle={() => setIntentoDetalle((n) => n + 1)} />
+            <Resumen resumen={panel.resumen} detalle={detalle} onReintentarDetalle={() => setIntentoDetalle((n) => n + 1)} onCambiarModoDemo={cambiarModoDemo} />
           </>
         ) : ruta === 'verificaciones' ? (
           <Verificaciones api={api} />

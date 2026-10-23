@@ -1,5 +1,7 @@
+import { useState } from 'react';
+
 import type { DetalleAdmin, ResumenAdmin } from '../lib/api';
-import { MENSAJE_ERROR_ADMIN, type TipoErrorAdmin } from '../lib/errores';
+import { ErrorAdmin, MENSAJE_ERROR_ADMIN, type TipoErrorAdmin } from '../lib/errores';
 import { GraficaBarras } from './GraficaBarras';
 
 const CIFRAS: { clave: keyof Omit<ResumenAdmin, 'modo_demo'>; titulo: string }[] = [
@@ -62,7 +64,55 @@ function Detalle({ datos }: { datos: DetalleAdmin }) {
   );
 }
 
-export function Resumen({ resumen, detalle, onReintentarDetalle }: { resumen: ResumenAdmin; detalle: EstadoDetalle; onReintentarDetalle: () => void }) {
+/**
+ * El interruptor del modo de demostración. Cambiarlo afecta a TODAS las cuentas (enciende los pagos simulados), así que pide confirmación y lo dice; el estado que se muestra
+ * es el que dejó el servidor, y si lo rechaza no cambia nada.
+ */
+function ModoDemo({ encendido, onCambiar }: { encendido: boolean; onCambiar: (activo: boolean) => Promise<void> }) {
+  const [confirmando, setConfirmando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const activar = !encendido;
+
+  async function confirmar() {
+    setError(null);
+    setOcupado(true);
+    try {
+      await onCambiar(activar);
+      setConfirmando(false);
+    } catch (e) {
+      setError(MENSAJE_ERROR_ADMIN[e instanceof ErrorAdmin ? e.tipo : 'desconocido']);
+      setConfirmando(false);
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <article className="tarjeta cifra">
+      <p className="etiqueta">Modo de demostración</p>
+      <p className="valor">{encendido ? 'Encendido' : 'Apagado'}</p>
+      {confirmando ? (
+        <div className="confirmar">
+          <p>
+            {activar
+              ? 'Los pagos de TODAS las cuentas serán simulados: no se procesa ninguna tarjeta. Enciéndelo solo durante una demostración.'
+              : 'Los pagos simulados dejarán de funcionar.'}
+          </p>
+          <button type="button" className={activar ? 'primario' : 'peligro'} disabled={ocupado} onClick={() => void confirmar()}>{activar ? 'Sí, encender' : 'Sí, apagar'}</button>
+          <button type="button" onClick={() => setConfirmando(false)}>Cancelar</button>
+        </div>
+      ) : (
+        <div className="acciones"><button type="button" onClick={() => { setError(null); setConfirmando(true); }}>{activar ? 'Encender' : 'Apagar'}</button></div>
+      )}
+      {error && <p role="alert" className="error">{error}</p>}
+    </article>
+  );
+}
+
+export function Resumen({ resumen, detalle, onReintentarDetalle, onCambiarModoDemo }: {
+  resumen: ResumenAdmin; detalle: EstadoDetalle; onReintentarDetalle: () => void; onCambiarModoDemo: (activo: boolean) => Promise<void>;
+}) {
   return (
     <section aria-labelledby="titulo-resumen">
       <h2 id="titulo-resumen">Resumen</h2>
@@ -73,10 +123,7 @@ export function Resumen({ resumen, detalle, onReintentarDetalle }: { resumen: Re
             <p className="valor">{resumen[clave]}</p>
           </article>
         ))}
-        <article className="tarjeta cifra">
-          <p className="etiqueta">Modo de demostración</p>
-          <p className="valor">{resumen.modo_demo ? 'Encendido' : 'Apagado'}</p>
-        </article>
+        <ModoDemo encendido={resumen.modo_demo} onCambiar={onCambiarModoDemo} />
       </div>
       <h2>Actividad</h2>
       <div className="rejilla">

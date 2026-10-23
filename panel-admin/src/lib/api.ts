@@ -289,6 +289,12 @@ export function crearApi(cliente: ClienteAdmin, opciones: { origenArchivos?: str
     async borrarError(id: string): Promise<void> {
       await llamar({ accion: 'borrar_error', id });
     },
+    /** Enciende o apaga los pagos simulados de TODAS las cuentas. Devuelve el estado que dejó el servidor, no el pedido. */
+    async modoDemo(activo: boolean): Promise<boolean> {
+      const d = await llamar({ accion: 'modo_demo', activo });
+      if (typeof d.modo_demo !== 'boolean') throw new ErrorAdmin('desconocido');
+      return d.modo_demo;
+    },
     async auditoria(): Promise<EntradaAuditoria[]> {
       return leerAuditoria((await llamar({ accion: 'auditoria' })).auditoria);
     },

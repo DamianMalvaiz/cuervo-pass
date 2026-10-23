@@ -324,3 +324,31 @@ describe('api.errores y api.borrarError', () => {
     expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'borrar_error', id: 'e1' } });
   });
 });
+
+describe('api.modoDemo', () => {
+  test('manda la acción con el valor pedido y devuelve el estado que dejó el servidor', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { modo_demo: true }, error: null });
+    const r = await crearApi(clienteCon(invoke)).modoDemo(true);
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'modo_demo', activo: true } });
+    expect(r).toBe(true);
+  });
+
+  test('apagar manda activo=false y devuelve false', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { modo_demo: false }, error: null });
+    expect(await crearApi(clienteCon(invoke)).modoDemo(false)).toBe(false);
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'modo_demo', activo: false } });
+  });
+
+  test.each([['sin el campo', {}], ['un texto', { modo_demo: 'true' }], ['un número', { modo_demo: 1 }], ['nulo', { modo_demo: null }]])(
+    'una respuesta con %s lanza «desconocido»: no se afirma un estado que no se leyó',
+    async (_n, data) => {
+      const invoke = vi.fn().mockResolvedValue({ data, error: null });
+      await expect(crearApi(clienteCon(invoke)).modoDemo(true)).rejects.toMatchObject({ tipo: 'desconocido' });
+    },
+  );
+
+  test('un 403 lanza «prohibido»', async () => {
+    const invoke = vi.fn().mockResolvedValue(respuestaConError(403, { error: 'prohibido' }));
+    await expect(crearApi(clienteCon(invoke)).modoDemo(true)).rejects.toMatchObject({ tipo: 'prohibido' });
+  });
+});

@@ -51,7 +51,7 @@ function cliente({ sesion = false, invoke, login }: Opciones = {}) {
       signInWithPassword: login ?? vi.fn(async () => { hay = true; return { data: { session: {} }, error: null }; }),
       signOut: salir,
     },
-    functions: { invoke: invoke ?? vi.fn(async (_n: string, o: { body: { accion: string } }) => ({ data: o.body.accion === 'resumen_detalle' ? { detalle: DETALLE } : o.body.accion === 'verificaciones' ? { verificaciones: [VERIFICACION] } : o.body.accion === 'moderacion' ? { moderacion: [] } : o.body.accion === 'auditoria' ? { auditoria: [] } : o.body.accion === 'ingresos' ? { ingresos: INGRESOS_VACIOS } : o.body.accion === 'salud' ? { salud: { ia: { estado: 'ok', latencia_ms: 50, api_llm_configurada: true, commit: null }, mercadopago: { configurado: true } } } : o.body.accion === 'eventos_pago' ? { eventos_pago: { total_24h: 0, alertas_24h: 0, eventos: [] } } : o.body.accion === 'errores' ? { errores: [] } : { resumen: RESUMEN }, error: null })) },
+    functions: { invoke: invoke ?? vi.fn(async (_n: string, o: { body: { accion: string } }) => ({ data: o.body.accion === 'resumen_detalle' ? { detalle: DETALLE } : o.body.accion === 'verificaciones' ? { verificaciones: [VERIFICACION] } : o.body.accion === 'moderacion' ? { moderacion: [] } : o.body.accion === 'auditoria' ? { auditoria: [] } : o.body.accion === 'modo_demo' ? { modo_demo: (o.body as { activo?: boolean }).activo } : o.body.accion === 'ingresos' ? { ingresos: INGRESOS_VACIOS } : o.body.accion === 'salud' ? { salud: { ia: { estado: 'ok', latencia_ms: 50, api_llm_configurada: true, commit: null }, mercadopago: { configurado: true } } } : o.body.accion === 'eventos_pago' ? { eventos_pago: { total_24h: 0, alertas_24h: 0, eventos: [] } } : o.body.accion === 'errores' ? { errores: [] } : { resumen: RESUMEN }, error: null })) },
   };
   return { c: c as unknown as ClienteApp, salir };
 }
@@ -211,5 +211,64 @@ describe('App', () => {
     render(<App cliente={cliente({ sesion: true }).c} />);
     await userEvent.click(await screen.findByRole('link', { name: /Salud de la app/ }));
     expect(await screen.findByText('Todavía no hay avisos de pago.')).toBeInTheDocument();
+  });
+
+  describe('modo de demostración', () => {
+    const llamadasModoDemo = (invoke: ReturnType<typeof vi.fn>) => invoke.mock.calls.filter(([, o]) => o.body.accion === 'modo_demo');
+    const clienteConDemo = (encendido: boolean, extra: { fallaModoDemo?: boolean } = {}) => {
+      const invoke = vi.fn(async (_n: string, o: { body: { accion: string; activo?: boolean } }) => {
+        if (o.body.accion === 'resumen') return { data: { resumen: { ...RESUMEN, modo_demo: encendido } }, error: null };
+        if (o.body.accion === 'resumen_detalle') return { data: { detalle: DETALLE }, error: null };
+        if (o.body.accion === 'modo_demo') {
+          if (extra.fallaModoDemo) return { data: null, error: { context: { status: 403, json: async () => ({ error: 'prohibido' }) } } };
+          return { data: { modo_demo: o.body.activo }, error: null };
+        }
+        return { data: {}, error: null };
+      });
+      return { invoke, c: cliente({ sesion: true, invoke }).c };
+    };
+
+    test('encender pide confirmación y avisa que los pagos de TODAS las cuentas serán simulados', async () => {
+      const { invoke, c } = clienteConDemo(false);
+      render(<App cliente={c} />);
+      expect(await screen.findByText('Apagado')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Encender' }));
+      expect(screen.getByText(/Los pagos de TODAS las cuentas serán simulados/)).toBeInTheDocument();
+      expect(llamadasModoDemo(invoke)).toHaveLength(0);
+      await userEvent.click(screen.getByRole('button', { name: 'Sí, encender' }));
+      expect(await screen.findByText('Encendido')).toBeInTheDocument();
+      expect(llamadasModoDemo(invoke)).toHaveLength(1);
+      expect(llamadasModoDemo(invoke)[0][1].body).toEqual({ accion: 'modo_demo', activo: true });
+    });
+
+    test('cancelar no llama al servidor ni cambia nada', async () => {
+      const { invoke, c } = clienteConDemo(false);
+      render(<App cliente={c} />);
+      await userEvent.click(await screen.findByRole('button', { name: 'Encender' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+      expect(llamadasModoDemo(invoke)).toHaveLength(0);
+      expect(screen.getByText('Apagado')).toBeInTheDocument();
+      expect(screen.queryByText(/Los pagos de TODAS/)).not.toBeInTheDocument();
+    });
+
+    test('con el modo encendido se ofrece apagarlo, con su propio aviso', async () => {
+      const { invoke, c } = clienteConDemo(true);
+      render(<App cliente={c} />);
+      expect(await screen.findByText('Encendido')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Apagar' }));
+      expect(screen.getByText(/Los pagos simulados dejarán de funcionar/)).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Sí, apagar' }));
+      expect(await screen.findByText('Apagado')).toBeInTheDocument();
+      expect(llamadasModoDemo(invoke)[0][1].body).toEqual({ accion: 'modo_demo', activo: false });
+    });
+
+    test('si el servidor lo rechaza lo dice y NO cambia el estado mostrado', async () => {
+      const { c } = clienteConDemo(false, { fallaModoDemo: true });
+      render(<App cliente={c} />);
+      await userEvent.click(await screen.findByRole('button', { name: 'Encender' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Sí, encender' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent('no tiene permiso');
+      expect(screen.getByText('Apagado')).toBeInTheDocument();
+    });
   });
 });
