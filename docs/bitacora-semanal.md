@@ -1317,7 +1317,7 @@ ejecutables y su secuencia, está en
 
 **Abiertos, de Cuervo 360 y el código por correo (22/10/2026)**
 
-- [ ] **`theme.errorTexto` usado como color de texto sobre el fondo de la app: texto
+- [x] **`theme.errorTexto` usado como color de texto sobre el fondo de la app: texto
       invisible en 5 sitios, 3 de ellos botones destructivos.** `errorTexto` es el color
       del texto SOBRE un relleno de `error` (blanco en claro, carbón en oscuro), no un
       color de texto suelto. Sobre el fondo de la app queda en 1.09:1 en claro
@@ -1331,8 +1331,14 @@ ejecutables y su secuencia, está en
       `configuracion.tsx:142`, `CampanaAvisos.tsx:33`, `FormularioPublicacion.tsx:903`.
       Arreglo: `theme.error` como color de texto en los cinco, con su prueba roja primero.
       Se localiza con `grep -rn "color: theme.errorTexto" src --include=*.tsx`.
-      `npm run verificar:contraste` sigue en verde con el defecto presente (corrida del
-      22/10/2026), así que ese par no está declarado. Sin verificar en dispositivo.
+      `npm run verificar:contraste` seguía en verde con el defecto presente (corrida del
+      22/10/2026): el par correcto (`texto/error/background`) sí estaba declarado, pero
+      nadie vigilaba el uso incorrecto.
+      **Corregido el 22/10/2026** (rama `texto-error-visible`): los cinco sitios usan
+      `theme.error`, que como texto mide 6.01:1 y 6.54:1 en claro y 10.27:1 y 8.79:1 en
+      oscuro. Guarda nueva: `npx jest test-utils/__tests__/errortexto-sobre-relleno.test.ts`
+      exige `backgroundColor: theme.error` junto a cada `errorTexto` (fallaba con exactamente
+      esos cinco sitios antes del arreglo). **Sin verificar en dispositivo.**
 - [ ] **Compilar un APK nuevo** con el código por correo (commits `ba35620` y `355c45c` de
       la rama `codigo-por-correo`): `npx eas-cli build --platform android --profile preview`.
       Conviene juntar más cambios en el mismo build.

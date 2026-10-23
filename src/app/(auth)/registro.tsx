@@ -230,7 +230,7 @@ export default function RegistroScreen() {
             </Sello>
             {reenvio === 'enviado' && <ThemedText type="small">Listo, te lo mandamos otra vez.</ThemedText>}
             {reenvio === 'fallo' && (
-              <ThemedText type="small" style={{ color: theme.errorTexto }}>
+              <ThemedText type="small" style={{ color: theme.error }}>
                 No pudimos reenviarlo. Espera unos minutos e inténtalo de nuevo.
               </ThemedText>
             )}
