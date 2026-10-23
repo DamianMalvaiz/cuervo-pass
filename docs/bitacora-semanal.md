@@ -1369,6 +1369,26 @@ ejecutables y su secuencia, está en
       correo confirma la cuenta y termina en «no se puede conectar». Con el código deja de
       bloquear, pero conviene una página de confirmación en `cuervo360.com`.
 
+**Auditoría del 23/10/2026: hallazgos 1, 2 y 3 arreglados en código (rama `endurecer-auditoria`), sin aplicar todavía**
+
+- [ ] **Aplicar las migraciones 0075 y 0076 en producción.** Antes, el respaldo que exige AGENTS.md
+      (`npx supabase db dump --data-only -f respaldos/$(date +%F).sql`) y después `npx supabase db push`.
+      · **0075 · integridad del consentimiento.** Antes, un `update` directo guardaba cualquier versión y cualquier hora de
+      aceptación (comprobado en un Postgres local: `'zzz'` y `1999-01-01`). Ahora la versión tiene que existir en
+      `avisos_privacidad` y la dueña de la fila no escribe esas dos columnas (`CP014`); `registro.tsx` ya no las escribe.
+      · **0076 · pago atómico.** `simular_pago` leía, calculaba y escribía: dos pagos cruzados dejaban dos pagos registrados y
+      30 días. Se reproduce con `./scripts/prueba-carrera-pagos.sh` (antes: 30,0 días; ahora: 60,0).
+      Comprobado en local: `npx supabase test db` (630 aserciones), el guion de la carrera y una falsificación real contra
+      GoTrue y PostgREST. **Sin probar contra producción.**
+- [ ] **Desplegar `verificar-rostro`** (`supabase functions deploy verificar-rostro`): ahora exige la forma `v<n>` y contesta 400
+      `aviso_invalido` cuando la base rechaza la versión. `deno check` corre en el CI; aquí no hay `deno`.
+- [ ] **Reconstruir el contenedor de IA** (`./scripts/ia-arrancar.sh`) para llevar el arreglo del 500 por una cabecera
+      `Authorization` con un byte no ASCII (ahora 401). Hasta entonces `verificar.mjs` verá un contenedor un commit atrás.
+- [ ] Hallazgos 4 a 7 de la misma auditoría, sin tocar: `ai-proxy` con cuerpo `null` y errores de base como «cuota agotada»,
+      el orden de borrado de `eliminar-cuenta`, la copia de `igualEnTiempoConstante` y `respaldos/`.
+- [ ] **Antes de enseñar «Contratar plan»** hay que encender `demo_mode` desde el panel de administración: en producción está en
+      `false` (comprobado el 23/10/2026) y la app dice «los pagos de demostración no están activos».
+
 **Riesgo operativo permanente**
 
 - [ ] El túnel de cloudflared es efímero, y el proceso **no se muere** cuando su

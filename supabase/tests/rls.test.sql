@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(612);
+select plan(630);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2216,6 +2216,9 @@ select lives_ok($$select simular_pago('comerciante_destacado')$$, 'pago: pagar a
 select ok(
   (select hasta between now() + interval '59 days' and now() + interval '61 days' from mi_suscripcion('comerciante')),
   'pago: pagar antes de vencer SUMA el periodo, no lo reinicia' );
+select ok(
+  (select count(*) = 1 from pagos a join pagos b on b.usuario_id = a.usuario_id and b.periodo_inicio = a.periodo_fin where a.monto_centavos = 19900),
+  'pago: los periodos de dos pagos seguidos quedan ENCADENADOS (el inicio del segundo es el fin del primero)' );
 
 -- ── Galería y menú a escala real (0053) ─────────────────────────────────────
 -- f7 está en el plan Destacado (60 fotos, 250 productos) y su negocio visible es «Tienda F7».
@@ -2742,11 +2745,11 @@ select throws_ok($$select aceptar_aviso('v3; drop table usuarios')$$, '22023', n
 select throws_ok($$select aceptar_aviso('')$$, '22023', null, 'aceptar_aviso: una versión vacía se rechaza' );
 select throws_ok($$select aceptar_aviso(null)$$, '22023', null, 'aceptar_aviso: una versión nula se rechaza' );
 select actuar_como('00000000-0000-0000-0000-0000000000b2');
-select aceptar_aviso('v4');
+select aceptar_aviso('v2');
 select actuar_como_servicio();
 select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000a1'), 'v3',
   'aceptar_aviso: solo toca la fila de quien llama, no la de otra cuenta (a1 sigue en v3 tras aceptar b2)' );
-select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000b2'), 'v4',
+select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000b2'), 'v2',
   'aceptar_aviso: la fila de quien llama sí cambió' );
 select is(has_function_privilege('anon', 'public.aceptar_aviso(text)', 'execute'), false, 'aceptar_aviso: anon no puede ejecutarla' );
 
@@ -3395,6 +3398,71 @@ select is((select bool_or(has_table_privilege(r, 'public.' || t, p))
                   unnest(array['select','insert','update','delete','truncate']) p),
   false, 'ninguna tabla de servicio concede privilegios a anon ni a authenticated (el Advisor las lista como «RLS sin policy»)' );
 select is(has_table_privilege('service_role', 'public.cuotas_uso', 'select'), true, 'y el servicio sigue pudiendo leer' );
+
+-- ═══════ Integridad del consentimiento (0075) ═══════
+-- Hallazgo 1 de la auditoría del 23/10/2026. El cliente podía escribir CUALQUIER versión y CUALQUIER hora de aceptación con
+-- un `update` directo (comprobado: 'zzz' y 1999-01-01 quedaban guardadas). La 0046 decía que la hora la pone el servidor y ese
+-- camino la esquivaba. Y el camino biométrico solo exigía una cadena de 1 a 20 caracteres.
+select actuar_como_servicio();
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_user_meta_data)
+values
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000f9',
+   'authenticated', 'authenticated', 'inexistente@test.mx', '', now(), now(),
+   '{"nombre_usuario":"usuario_f9","acepto_aviso":true,"aviso_version":"v99"}');
+
+select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000f9'), null,
+  'alta: una versión con formato válido pero que NO existe no se guarda' );
+select isnt((select acepto_aviso_privacidad_en from usuarios where id = '00000000-0000-0000-0000-0000000000f9'), null,
+  'alta: la aceptación sí queda, sin versión: la app le pedirá aceptar la vigente' );
+
+select actuar_como('00000000-0000-0000-0000-0000000000f9');
+select throws_ok($$select aceptar_aviso('v99')$$, '22023', null,
+  'aceptar_aviso: una versión con formato válido pero inexistente se rechaza' );
+select lives_ok($$select aceptar_aviso('v2')$$, 'aceptar_aviso: una versión publicada sigue aceptándose' );
+select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000f9'), 'v2',
+  'aceptar_aviso: queda la versión publicada' );
+
+select throws_ok($$update usuarios set version_aviso_aceptada = 'zzz' where id = '00000000-0000-0000-0000-0000000000f9'$$,
+  'CP014', null, 'el cliente NO escribe la versión aceptada con un update directo' );
+select throws_ok($$update usuarios set acepto_aviso_privacidad_en = '1999-01-01' where id = '00000000-0000-0000-0000-0000000000f9'$$,
+  'CP014', null, 'el cliente NO escribe la hora de aceptación con un update directo' );
+select lives_ok($$update usuarios set nombre_completo = 'Otro Nombre' where id = '00000000-0000-0000-0000-0000000000f9'$$,
+  'el resto del perfil sigue editable por su dueño' );
+select is((select nombre_completo from usuarios where id = '00000000-0000-0000-0000-0000000000f9'), 'Otro Nombre',
+  'y el cambio quedó escrito (no afectó cero filas en silencio)' );
+
+select is(current_setting('app.aviso', true), 'off',
+  'aceptar_aviso apaga su marca al escribir: no queda abierta para el resto de la transacción' );
+
+-- Una cuenta sin fila en `usuarios` no puede aceptar el aviso. Protege que el `perform` que apaga la marca no pise FOUND (lo pone en
+-- true con su fila y el `if` dejaría de ver que el `update` no tocó nada).
+select actuar_como_servicio();
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, created_at, updated_at, raw_user_meta_data)
+values ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000fb',
+        'authenticated', 'authenticated', 'sinperfil@test.mx', '', now(), now(), '{"nombre_usuario":"usuario_fb"}');
+delete from usuarios where id = '00000000-0000-0000-0000-0000000000fb';
+select actuar_como('00000000-0000-0000-0000-0000000000fb');
+select throws_ok($$select aceptar_aviso('v3')$$, 'CP005', null, 'aceptar_aviso: sin perfil no hay a quién registrar la aceptación' );
+
+select actuar_como_servicio();
+select lives_ok($$update usuarios set version_aviso_aceptada = 'v3' where id = '00000000-0000-0000-0000-0000000000f9'$$,
+  'el servicio sí puede corregir la versión (scripts de demo y mantenimiento)' );
+
+select throws_ok(
+  $$select reservar_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'zzz')$$,
+  '22023', null, 'biometría: una versión con formato raro no cuenta como consentimiento' );
+select throws_ok(
+  $$select reservar_intento_biometria('00000000-0000-0000-0000-0000000000e9', 'comerciante', 'v99')$$,
+  '22023', null, 'biometría: una versión inexistente no cuenta como consentimiento' );
+
+select is(has_function_privilege('authenticated', 'aviso_version_valida(text)', 'execute'), false,
+  'aviso_version_valida no es ejecutable por el cliente' );
+select is(has_table_privilege('authenticated', 'public.avisos_privacidad', 'select')
+       or has_table_privilege('anon', 'public.avisos_privacidad', 'select'), false,
+  'avisos_privacidad no concede nada a anon ni a authenticated' );
+select is(has_table_privilege('service_role', 'public.avisos_privacidad', 'select'), true,
+  'y el servicio sí la lee' );
 
 select * from finish();
 rollback;

@@ -43,6 +43,17 @@ describe('validarCuerpo', () => {
     expect(validarCuerpo({ ...ok, version_aviso: 'x'.repeat(21) }).ok).toBe(false);
   });
 
+  it('la versión del aviso tiene la forma v<n>, la misma que exige la base (0075)', () => {
+    // Antes bastaba una cadena de 1 a 20 caracteres: 'zzz' llegaba a la base como «consentimiento». Si la forma del cliente y la de la base
+    // divergen, la función deja pasar lo que la base rechaza (y la persona ve un error genérico en vez de uno claro).
+    for (const mala of ['zzz', 'V3', 'v', 'v3.1', 'v3; drop table usuarios', ' v 3', 'v1234']) {
+      expect(validarCuerpo({ ...ok, version_aviso: mala })).toEqual({ ok: false, codigo: 'aviso_invalido' });
+    }
+    for (const buena of ['v2', 'v3', 'v10', 'v999']) {
+      expect(validarCuerpo({ ...ok, version_aviso: buena }).ok).toBe(true);
+    }
+  });
+
   it('la selfie debe ser base64 no vacío y de tamaño acotado', () => {
     expect(validarCuerpo({ ...ok, selfie: '' })).toEqual({ ok: false, codigo: 'selfie_invalida' });
     expect(validarCuerpo({ ...ok, selfie: 'no es base64!!' })).toEqual({ ok: false, codigo: 'selfie_invalida' });

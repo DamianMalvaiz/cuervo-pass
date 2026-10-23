@@ -20,10 +20,7 @@ import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { MENSAJE_CORREO_NO_UNIVERSITARIO, esCorreoUniversitario } from '@/lib/correoUniversitario';
 import { evaluarPassword } from '@/lib/password';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
-import { aviso } from '@/lib/registro';
-import { VERSION_AVISO } from '@/lib/verificacion';
 import { LONGITUD_CODIGO, MENSAJE_CODIGO, verificarCodigo } from '@/lib/codigoCorreo';
 import { reenviarConfirmacion } from '@/lib/confirmacionCorreo';
 
@@ -113,23 +110,6 @@ export default function RegistroScreen() {
     nombre: watch('nombre'),
   };
 
-  // Lo que sigue a tener sesión: la marca de consentimiento y el cuestionario. Lo comparten el alta con sesión
-  // (confirmación apagada) y la confirmación con código.
-  const entrar = async () => {
-    const { data: sesion } = await supabase.auth.getUser();
-    if (sesion.user) {
-      // La evidencia del consentimiento. Si esto falla no se tumba el
-      // registro, pero sí se registra: una cuenta sin marca de aceptación es
-      // un problema de cumplimiento que hay que poder detectar.
-      const { error: errorConsentimiento } = await supabase
-        .from('usuarios')
-        .update({ acepto_aviso_privacidad_en: new Date().toISOString(), version_aviso_aceptada: VERSION_AVISO })
-        .eq('id', sesion.user.id);
-      if (errorConsentimiento) aviso('No se guardó la marca de consentimiento', undefined, errorConsentimiento);
-    }
-    router.replace('/(auth)/cuestionario-inicial');
-  };
-
   const onSubmit = async (datos: FormRegistro) => {
     setErrorServidor(null);
     setEnviando(true);
@@ -156,7 +136,9 @@ export default function RegistroScreen() {
         return;
       }
 
-      await entrar();
+      // El consentimiento YA lo escribió el servidor al crear la cuenta (trigger `handle_new_user`, migración 0046/0075). Escribirlo aquí con
+      // un `update` directo se rechaza desde 0075 (CP014): la hora y la versión no las fija el cliente.
+      router.replace('/(auth)/cuestionario-inicial');
     } catch (e) {
       setErrorServidor(e instanceof Error ? e.message : 'No se pudo crear la cuenta');
     } finally {
@@ -171,7 +153,7 @@ export default function RegistroScreen() {
     setErrorCodigo(null);
     try {
       const r = await verificarCodigo(pendiente, codigo, 'signup');
-      if (r.estado === 'ok') await entrar();
+      if (r.estado === 'ok') router.replace('/(auth)/cuestionario-inicial');
       else setErrorCodigo(r.estado);
     } catch {
       setErrorCodigo('fallo');

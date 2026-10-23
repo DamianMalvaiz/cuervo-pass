@@ -189,10 +189,13 @@ describe('confirmación de correo', () => {
 
   it('con sesión (confirmación apagada) sigue el flujo de siempre', async () => {
     mockRegistrarse.mockResolvedValue({ requiereConfirmacion: false });
+    // Con usuario: sin él la app nunca habría intentado escribir y el `not.toHaveBeenCalled` de abajo pasaría por la razón equivocada.
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
     await rellenar();
 
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/cuestionario-inicial'));
     expect(screen.queryByText('Revisa tu correo')).toBeNull();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
 
@@ -210,7 +213,7 @@ describe('confirmación con código', () => {
     interactuar(() => fireEvent.changeText(screen.getByLabelText('Código de 6 dígitos'), c));
   const confirmar = () => interactuar(() => fireEvent.press(screen.getByLabelText('Confirmar código')));
 
-  it('un código correcto confirma la cuenta y sigue al cuestionario, con la marca de consentimiento', async () => {
+  it('un código correcto confirma la cuenta y sigue al cuestionario SIN escribir el consentimiento desde la app', async () => {
     mockVerificar.mockResolvedValue({ estado: 'ok', session: { user: { id: 'u1' } } });
     mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
     await llegarAlCodigo();
@@ -221,7 +224,9 @@ describe('confirmación con código', () => {
 
     await waitFor(() => expect(mockVerificar).toHaveBeenCalledWith('ana@utvtol.edu.mx', '123456', 'signup'));
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/cuestionario-inicial'));
-    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    // El consentimiento lo escribió el servidor al crear la cuenta (0046). Desde 0075 un `update` directo de esas columnas se rechaza con
+    // CP014: la app que lo intentara lo registraría como error en cada alta.
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('un código incompleto no se envía', async () => {
