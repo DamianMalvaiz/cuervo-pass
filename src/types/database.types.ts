@@ -431,6 +431,21 @@ export interface PagoRegistrado {
   creado_en: string;
 }
 
+/** Una orden de pago con Mercado Pago (0077). La dueña solo LEE la suya; el servidor la crea y la actualiza. */
+export interface OrdenPago {
+  [key: string]: unknown;
+  id: string;
+  usuario_id: string;
+  rol: 'comerciante' | 'arrendador';
+  plan_id: string;
+  monto_centavos: number;
+  /** creada: aún sin aviso · pendiente: Mercado Pago la recibió y espera (OXXO) · pagada · rechazada. */
+  estado: 'creada' | 'pendiente' | 'pagada' | 'rechazada';
+  mp_preference_id: string | null;
+  creada_en: string;
+  actualizada_en: string;
+}
+
 /** Reseña tal como la lee su AUTORA desde la tabla (0054). La pública sale de `resenas_publicas` (ver lib/resenas). */
 export interface MiResena {
   [key: string]: unknown;
@@ -468,6 +483,7 @@ export interface Database {
       planes: Tabla<PlanDePago>;
       resenas: Tabla<MiResena>;
       pagos: Tabla<PagoRegistrado>;
+      ordenes_pago: Tabla<OrdenPago>;
       negocio_items: Tabla<NegocioItem>;
       negocio_horarios: Tabla<NegocioHorarioFila>;
       favoritos_negocios: Tabla<{ [key: string]: unknown; usuario_id: string; negocio_id: string; creado_en: string }>;

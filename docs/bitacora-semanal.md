@@ -1408,8 +1408,20 @@ ejecutables y su secuencia, está en
       aviso, decisión sobre el pago (monto en centavos, MXN, referencia uuid; un monto con fracciones de centavo se rechaza) y qué contestar a Mercado
       Pago. Comprobado con `npx jest test-utils/__tests__/mp-webhook-politica.test.ts` (91 pruebas; el HMAC se valida contra el vector público RFC 4231
       y la regla de fallo cerrado con una mutación). Añade `allowImportingTsExtensions` a `tsconfig.json` (Deno exige la extensión `.ts` en los imports).
-- [ ] Pasos pendientes: 3 Edge Function `mp-webhook` (sin JWT) · 4 `crear-pago` y la pantalla (`Linking.openURL`, sin APK nuevo) · 5 prueba completa
-      con las cuentas de prueba. **El paso 3 necesita lo tuyo de abajo** (aplicación de prueba, secreto del webhook).
+- [ ] **Paso 4 hecho en local, sin desplegar: `crear-pago` y la pantalla de planes.** `crear-pago` (con sesión) crea la orden con el plan que dice la
+      cuenta, pide la preferencia a Mercado Pago (`X-Idempotency-Key` = la orden; sin datos de la persona; los avisos van a la URL del panel) y devuelve
+      la URL, que se comprueba (https y dominio de Mercado Pago) tanto en el servidor como en la app. La pantalla añade «Pagar con Mercado Pago»
+      (`Linking.openURL`, sin APK nuevo por el módulo, pero SÍ hace falta un APK para llevar el código a un teléfono), deja el pago simulado como respaldo
+      («Probar sin pagar»), avisa de la orden pendiente (OXXO) o en espera, y refresca al volver a primer plano (`use-al-volver.ts`: el cliente de consultas
+      tiene `refetchOnWindowFocus: false` a propósito). Comprobado con `npx jest test-utils/__tests__/crear-pago-politica.test.ts src/lib/__tests__/pagoMp.test.ts
+      src/services/__tests__/planes.service.test.ts src/hooks/queries/__tests__/usePlanes.test.tsx src/app/planes/__tests__/planes.test.tsx` y dos mutaciones
+      (quitar la comprobación de la URL; refrescar por una orden que ya estaba pagada). Sin `back_urls`: tras pagar, Mercado Pago deja a la persona en su
+      propia pantalla y vuelve a la app a mano.
+- [ ] **ANTES de llevar este código a un teléfono: aplicar la 0077 a producción.** La pantalla de planes lee `ordenes_pago`; sin la migración, esa lectura
+      falla y la pantalla dice «No pudimos comprobar si tienes un pago pendiente» a todo el mundo.
+- [ ] Pasos pendientes: 3 Edge Function `mp-webhook` (sin JWT; sin ella pagar en Mercado Pago NO activa el plan) · 5 prueba completa con las cuentas de
+      prueba. **El paso 3 necesita lo tuyo de abajo** (aplicación de prueba, secreto del webhook, `MP_ACCESS_TOKEN`). `crear-pago` sin `MP_ACCESS_TOKEN`
+      contesta 503 `sin-configurar` y no crea ninguna orden.
 - [ ] **Tuyo (Mercado Pago):** crear la aplicación de Checkout Pro DENTRO de la cuenta vendedora de prueba, crear las cuentas de prueba (vendedora y
       compradora), configurar Webhooks con el evento «Pagos» y copiar el secreto. Luego `supabase secrets set MP_ACCESS_TOKEN=… MP_WEBHOOK_SECRET=…`
       (los valores nunca en el chat ni en el repo).
