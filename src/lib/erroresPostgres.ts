@@ -60,6 +60,8 @@ export const CP = {
   PLAN_NO_DISPONIBLE: 'CP011',
   /** Más de 5 intentos de verificación de rostro por envío (migración 0056). Lo reserva la Edge Function, no la app. */
   INTENTOS_BIOMETRIA_AGOTADOS: 'CP013',
+  /** Una cuenta sin correo universitario intentó abrir una conversación nueva o reportar una reseña (migración 0082). */
+  CUENTA_RESTRINGIDA: 'CP016',
 } as const;
 
 /** El `code` de un error de PostgREST/supabase-js, si lo trae. */

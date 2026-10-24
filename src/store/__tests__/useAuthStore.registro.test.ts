@@ -76,6 +76,15 @@ describe('registrarse', () => {
     await expect(useAuthStore.getState().registrarse(datos)).resolves.toEqual({ requiereConfirmacion: true });
   });
 
+  it('un vendedor manda su tipo en los metadatos; un estudiante no manda ninguno', async () => {
+    mockSignUp.mockResolvedValue({ data: { user: { id: 'u1' }, session: null }, error: null });
+    await useAuthStore.getState().registrarse({ ...datos, tipoCuenta: 'arrendador' });
+    expect(mockSignUp.mock.calls[0][0].options.data.tipo_cuenta).toBe('arrendador');
+
+    await useAuthStore.getState().registrarse(datos);
+    expect(mockSignUp.mock.calls[1][0].options.data).not.toHaveProperty('tipo_cuenta');
+  });
+
   it('un error de Supabase se propaga', async () => {
     mockSignUp.mockResolvedValue({ data: { user: null, session: null }, error: new Error('boom') });
     await expect(useAuthStore.getState().registrarse(datos)).rejects.toThrow('boom');

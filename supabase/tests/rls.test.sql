@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(732);
+select plan(736);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -3655,6 +3655,15 @@ values
    'est@utvtol.edu.mx', '', now(), now(), '{"nombre_usuario":"est_ee01","nombre_completo":"Estudiante"}'),
   ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000ee02', 'authenticated', 'authenticated',
    'duena@gmail.com', '', now(), now(), '{"nombre_usuario":"vend_ee02","nombre_completo":"Vendedora","tipo_cuenta":"arrendador"}');
+-- El alta de un vendedor crea su rol (siempre sin verificar) y no le pide el cuestionario de estudiante.
+select is((select rol || ':' || estado || ':' || origen from roles_usuario where usuario_id = '00000000-0000-0000-0000-00000000ee02'), 'arrendador:sin_verificar:solicitud',
+  '0082: el alta declarada arrendador crea el rol, sin verificar');
+select is((select cuestionario_completo from usuarios where id = '00000000-0000-0000-0000-00000000ee02'), true,
+  '0082: y no le pide el cuestionario de estudiante');
+select is((select count(*)::int from roles_usuario where usuario_id = '00000000-0000-0000-0000-00000000ee01'), 0,
+  '0082: un estudiante no recibe ningún rol de vendedor');
+select is((select cuestionario_completo from usuarios where id = '00000000-0000-0000-0000-00000000ee01'), false,
+  '0082: y el estudiante sí lo hace');
 -- Una cuenta de servicio (la marca va en app_metadata, que solo escribe la clave de servicio) y una que intenta marcarse desde user_metadata.
 insert into auth.users (instance_id, id, aud, role, email, encrypted_password, created_at, updated_at, raw_user_meta_data, raw_app_meta_data)
 values

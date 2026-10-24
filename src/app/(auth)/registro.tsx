@@ -12,6 +12,7 @@ import { Campo } from '@/components/Campo';
 import { EncabezadoAuth } from '@/components/EncabezadoAuth';
 import { Entrada, GolpeDeSello } from '@/components/ficha/EntradaAuth';
 import { Casilla } from '@/components/Casilla';
+import { SelectorTipoCuenta } from '@/components/SelectorTipoCuenta';
 import { Sello } from '@/components/ficha/Sello';
 import { Seccion } from '@/components/ficha/Seccion';
 import { RequisitosPassword } from '@/components/RequisitosPassword';
@@ -21,6 +22,7 @@ import { Filete, Radios, Spacing, Texto, escalarTexto } from '@/constants/theme'
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { MENSAJE_CORREO_NO_UNIVERSITARIO, esCorreoUniversitario } from '@/lib/correoUniversitario';
+import { destinoTrasConfirmar, esVendedor, tipoParaElAlta } from '@/lib/tipoCuenta';
 import { evaluarPassword } from '@/lib/password';
 import { useAuthStore } from '@/store/useAuthStore';
 import { LONGITUD_CODIGO, MENSAJE_CODIGO, verificarCodigo } from '@/lib/codigoCorreo';
@@ -40,13 +42,11 @@ const esquemaRegistro = z
       .string()
       .min(3, 'Mínimo 3 caracteres')
       .regex(/^[a-z0-9_]+$/i, 'Solo letras, números y guion bajo'),
-    // §12 · A.7 — correo institucional. No verifica identidad; encarece crear
-    // cuentas desechables, que es lo que hacia barato el brigading de reportes
-    // (3 reportes ocultan una publicacion o suspenden una cuenta).
-    email: z
-      .string()
-      .email('Correo inválido')
-      .refine(esCorreoUniversitario, MENSAJE_CORREO_NO_UNIVERSITARIO),
+    tipoCuenta: z.enum(['estudiante', 'arrendador', 'comerciante']),
+    // §12 · A.7 — correo institucional PARA ESTUDIANTES (se exige abajo, según el tipo de cuenta). No verifica identidad; encarece crear
+    // cuentas desechables, que es lo que hacia barato el brigading de reportes (3 reportes ocultan una publicacion o suspenden una cuenta).
+    // Arrendadores y negocios entran con el correo que tengan (0082): lo que los frena es la restricción de la base, no el dominio.
+    email: z.string().email('Correo inválido'),
     password: z.string(),
     confirmarPassword: z.string(),
     // §29: la casilla NO viene premarcada y el registro no avanza sin ella. La
@@ -57,6 +57,11 @@ const esquemaRegistro = z
   .refine((datos) => datos.password === datos.confirmarPassword, {
     message: 'Las contraseñas no coinciden',
     path: ['confirmarPassword'],
+  })
+  .superRefine((datos, ctx) => {
+    if (!esVendedor(datos.tipoCuenta) && !esCorreoUniversitario(datos.email)) {
+      ctx.addIssue({ code: 'custom', message: MENSAJE_CORREO_NO_UNIVERSITARIO, path: ['email'] });
+    }
   })
   // La contraseña se valida contra el OBJETO entero, no de forma aislada: dos de
   // las reglas (no contener el correo, el usuario ni el nombre) necesitan los
@@ -101,11 +106,12 @@ export default function RegistroScreen() {
     formState: { errors },
   } = useForm<FormRegistro>({
     resolver: zodResolver(esquemaRegistro),
-    defaultValues: { aceptoAviso: false as unknown as true },
+    defaultValues: { aceptoAviso: false as unknown as true, tipoCuenta: 'estudiante' },
   });
 
   // Para que los requisitos se marquen mientras se escribe, no al enviar.
   const passwordActual = watch('password') ?? '';
+  const tipoCuenta = watch('tipoCuenta') ?? 'estudiante';
   const contextoPassword = {
     email: watch('email'),
     nombreUsuario: watch('nombreUsuario'),
@@ -129,6 +135,7 @@ export default function RegistroScreen() {
         nombreUsuario: datos.nombreUsuario,
         nombreCompleto,
         aceptoAviso: datos.aceptoAviso,
+        tipoCuenta: tipoParaElAlta(datos.tipoCuenta),
       })) ?? { requiereConfirmacion: false };
 
       // Sin sesión no se puede seguir: ni el consentimiento (lo escribe el trigger) ni el cuestionario
@@ -140,7 +147,7 @@ export default function RegistroScreen() {
 
       // El consentimiento YA lo escribió el servidor al crear la cuenta (trigger `handle_new_user`, migración 0046/0075). Escribirlo aquí con
       // un `update` directo se rechaza desde 0075 (CP014): la hora y la versión no las fija el cliente.
-      router.replace('/(auth)/cuestionario-inicial');
+      router.replace(destinoTrasConfirmar(datos.tipoCuenta));
     } catch (e) {
       setErrorServidor(e instanceof Error ? e.message : 'No se pudo crear la cuenta');
     } finally {
@@ -155,7 +162,7 @@ export default function RegistroScreen() {
     setErrorCodigo(null);
     try {
       const r = await verificarCodigo(pendiente, codigo, 'signup');
-      if (r.estado === 'ok') router.replace('/(auth)/cuestionario-inicial');
+      if (r.estado === 'ok') router.replace(destinoTrasConfirmar(tipoCuenta));
       else setErrorCodigo(r.estado);
     } catch {
       setErrorCodigo('fallo');
@@ -259,6 +266,21 @@ export default function RegistroScreen() {
                 cualquier formulario oficial y, de paso, lo que hace Airbnb con
                 sus formularios largos. */}
             <Entrada orden={1}>
+              <Seccion titulo="¿Cómo vas a usar Cuervo 360?">
+                <Controller
+                  control={control}
+                  name="tipoCuenta"
+                  render={({ field: { onChange, value } }) => <SelectorTipoCuenta valor={value} onCambiar={onChange} />}
+                />
+                <ThemedText type="small" themeColor="textSecondary">
+                  {esVendedor(tipoCuenta)
+                    ? 'Puedes usar cualquier correo. Para publicar tendrás que verificar tu identidad.'
+                    : 'Como estudiante entras con tu correo institucional (termina en .edu.mx).'}
+                </ThemedText>
+              </Seccion>
+            </Entrada>
+
+            <Entrada orden={2}>
               <Seccion titulo="Datos personales">
               <Controller
                 control={control}
@@ -307,7 +329,7 @@ export default function RegistroScreen() {
             </Seccion>
             </Entrada>
 
-            <Entrada orden={2}>
+            <Entrada orden={3}>
               <Seccion titulo="Datos de acceso">
               <Controller
                 control={control}
@@ -380,7 +402,7 @@ export default function RegistroScreen() {
             </Seccion>
             </Entrada>
 
-            <Entrada orden={3}>
+            <Entrada orden={4}>
               <Seccion titulo="Consentimiento">
               <Controller
                 control={control}

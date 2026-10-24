@@ -82,7 +82,7 @@ grant execute on function hook_alta_de_usuario(jsonb) to supabase_auth_admin;
 -- ── 3 · la marca ────────────────────────────────────────────────────────────
 alter table usuarios add column if not exists cuenta_restringida boolean not null default false;
 
--- Cuerpo de la 0075 más la marca.
+-- Cuerpo de la 0075 más la marca de restricción y, si se declaró vendedor, su rol sin verificar y el cuestionario ya hecho.
 create or replace function handle_new_user()
 returns trigger
 language plpgsql
@@ -92,8 +92,10 @@ as $$
 declare
   v_acepto boolean := new.raw_user_meta_data->>'acepto_aviso' = 'true';
   v_version text := nullif(btrim(new.raw_user_meta_data->>'aviso_version'), '');
+  -- Lo que la persona dice ser. Solo vale para pedir un rol SIN VERIFICAR (lo mismo que permite `agregar_funcion`); aprobar sigue siendo del servidor.
+  v_tipo    text := case when new.raw_user_meta_data->>'tipo_cuenta' in ('arrendador', 'comerciante') then new.raw_user_meta_data->>'tipo_cuenta' end;
 begin
-  insert into usuarios (id, nombre_usuario, nombre_completo, acepto_aviso_privacidad_en, version_aviso_aceptada, correo_verificado, cuenta_restringida)
+  insert into usuarios (id, nombre_usuario, nombre_completo, acepto_aviso_privacidad_en, version_aviso_aceptada, correo_verificado, cuenta_restringida, cuestionario_completo)
   values (
     new.id,
     coalesce(
@@ -106,9 +108,15 @@ begin
     new.email_confirmed_at is not null,
     -- `raw_app_meta_data` solo la escribe la API de administración (clave de servicio): el cliente no puede mandar esa marca. Es lo que usan
     -- los scripts que crean cuentas de demo o de verificación con correos que no son universitarios.
-    not (es_correo_universitario(new.email) or coalesce(new.raw_app_meta_data->>'sin_restriccion', '') = 'true')
+    not (es_correo_universitario(new.email) or coalesce(new.raw_app_meta_data->>'sin_restriccion', '') = 'true'),
+    -- El cuestionario es de quien BUSCA (universidad, presupuesto, hábitos). Un vendedor no lo necesita y `index.tsx` lo mandaría a hacerlo en cada entrada.
+    v_tipo is not null
   )
   on conflict (id) do nothing;
+
+  if v_tipo is not null then
+    insert into roles_usuario (usuario_id, rol) values (new.id, v_tipo) on conflict do nothing;
+  end if;
   return new;
 end;
 $$;

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 
-import { SQL, esCodigo } from '@/lib/erroresPostgres';
+import { CP, SQL, esCodigo } from '@/lib/erroresPostgres';
 import { aviso } from '@/lib/registro';
 import { toast } from '@/lib/toast';
 import { abrirConversacion } from '@/services/mensajes.service';
@@ -25,9 +25,11 @@ export async function abrirChatCon(otroUsuarioId: string): Promise<void> {
   } catch (e) {
     aviso('abrirConversacion falló', undefined, e);
     toast.error(
-      esCodigo(e, SQL.RAISE_EXCEPTION)
-        ? 'No se pudo abrir el chat. Esta persona ya no está disponible.'
-        : 'No pudimos abrir el chat. Revisa tu conexión e intenta de nuevo.'
+      esCodigo(e, CP.CUENTA_RESTRINGIDA)
+        ? 'Una cuenta de vendedor no puede iniciar conversaciones. Sí puedes responder a quien te escribe.'
+        : esCodigo(e, SQL.RAISE_EXCEPTION)
+          ? 'No se pudo abrir el chat. Esta persona ya no está disponible.'
+          : 'No pudimos abrir el chat. Revisa tu conexión e intenta de nuevo.'
     );
   }
 }

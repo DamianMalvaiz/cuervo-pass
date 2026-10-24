@@ -46,3 +46,13 @@ test('nunca lanza: la pantalla que lo llama no tiene que envolverlo', async () =
   mockAbrir.mockRejectedValue(new Error('boom'));
   await expect(abrirChatCon('otro1')).resolves.toBeUndefined();
 });
+
+// 0082 · una cuenta sin correo universitario no abre conversaciones nuevas (responde en las que ya existen). Se dice POR CÓDIGO y con la razón
+// verdadera: decir «revisa tu conexión» a quien está restringida sería mentirle, y «esta persona no está disponible» también.
+test('una cuenta restringida (CP016) recibe la razón verdadera y no navega', async () => {
+  mockAbrir.mockRejectedValue({ code: 'CP016', message: 'cuenta restringida' });
+  await abrirChatCon('otro1');
+  expect(mockPush).not.toHaveBeenCalled();
+  expect(mockError).toHaveBeenCalledWith(expect.stringMatching(/no puede iniciar conversaciones/i));
+  expect(mockError).not.toHaveBeenCalledWith(expect.stringMatching(/conexión|ya no está disponible/i));
+});

@@ -49,6 +49,8 @@ const interactuar = async (fn: () => void) => { await act(async () => { fn(); })
 
 /** Rellena todo el formulario menos lo que cada prueba quiera romper. */
 interface Datos {
+  /** Etiqueta del tipo de cuenta a elegir antes de rellenar; sin ella se queda el valor por omisión («Estudiante»). */
+  tipo?: 'Estudiante' | 'Arrendador' | 'Negocio o servicio';
   email?: string;
   password?: string;
   confirmar?: string;
@@ -56,6 +58,7 @@ interface Datos {
 }
 
 async function rellenar({
+  tipo,
   email = 'ana@utvtol.edu.mx',
   password = 'Contrasena#2026',
   // Se resuelve dentro y no como valor por omisión del parámetro: `confirmar =
@@ -69,6 +72,7 @@ async function rellenar({
   // de que `screen` quede ligado. Sin él, la primera consulta falla con
   // «`render` function has not been called», que suena a que no se llamó.
   await render(<RegistroScreen />);
+  if (tipo) await interactuar(() => fireEvent.press(screen.getByLabelText(tipo)));
   await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Angel Damian'), 'Ana'));
   await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Malvaiz'), 'Ruiz'));
   await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('damianml'), 'ana_r'));
@@ -119,6 +123,65 @@ describe('consentimiento · §29', () => {
       expect(screen.getByText('Necesitamos tu consentimiento para crear la cuenta')).toBeTruthy()
     );
     expect(mockRegistrarse).not.toHaveBeenCalled();
+  });
+});
+
+// 0082 · arrendadores y negocios entran con el correo que tengan; los estudiantes siguen con el universitario. El servidor lo exige igual
+// (hook de Auth), así que esto es lo que la app dice y manda, no lo que protege.
+describe('tipo de cuenta · 0082', () => {
+  it('por omisión es estudiante y no manda ningún tipo de vendedor', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    await rellenar();
+
+    await waitFor(() => expect(mockRegistrarse).toHaveBeenCalled());
+    expect(mockRegistrarse.mock.calls[0][0].tipoCuenta).toBeUndefined();
+  });
+
+  it('un arrendador puede registrarse con un correo que no es universitario', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    await rellenar({ tipo: 'Arrendador', email: 'duena@gmail.com' });
+
+    await waitFor(() =>
+      expect(mockRegistrarse).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'duena@gmail.com', tipoCuenta: 'arrendador' })
+      )
+    );
+  });
+
+  it('un negocio también, y manda su propio tipo', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    await rellenar({ tipo: 'Negocio o servicio', email: 'tacos@gmail.com' });
+
+    await waitFor(() =>
+      expect(mockRegistrarse).toHaveBeenCalledWith(expect.objectContaining({ tipoCuenta: 'comerciante' }))
+    );
+  });
+
+  it('un estudiante con correo personal sigue rechazado y NO se manda nada', async () => {
+    await rellenar({ tipo: 'Estudiante', email: 'ana@gmail.com' });
+
+    await waitFor(() => expect(screen.getByText(/correo de tu universidad/i)).toBeTruthy());
+    expect(mockRegistrarse).not.toHaveBeenCalled();
+  });
+
+  it('un vendedor sigue necesitando un correo válido', async () => {
+    await rellenar({ tipo: 'Arrendador', email: 'no-es-un-correo' });
+
+    await waitFor(() => expect(screen.getByText(/Correo inválido/i)).toBeTruthy());
+    expect(mockRegistrarse).not.toHaveBeenCalled();
+  });
+
+  it('un vendedor que confirma el código NO pasa por el cuestionario de estudiante', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    mockVerificar.mockResolvedValue({ estado: 'ok', session: { user: { id: 'u1' } } });
+    await rellenar({ tipo: 'Arrendador', email: 'duena@gmail.com' });
+    await waitFor(() => expect(screen.getByText('Revisa tu correo')).toBeTruthy());
+
+    await interactuar(() => fireEvent.changeText(screen.getByLabelText('Código de 6 dígitos'), '123456'));
+    await interactuar(() => fireEvent.press(screen.getByLabelText('Confirmar')));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/inicio'));
+    expect(mockReplace).not.toHaveBeenCalledWith('/(auth)/cuestionario-inicial');
   });
 });
 

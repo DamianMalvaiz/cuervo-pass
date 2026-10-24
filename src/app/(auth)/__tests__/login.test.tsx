@@ -45,7 +45,7 @@ const entrar = async (email = 'ana@utvtol.edu.mx', password = 'Contrasena#2026')
 beforeEach(() => {
   jest.clearAllMocks();
   mockIniciarSesion.mockResolvedValue(undefined);
-  mockSingle.mockResolvedValue({ data: { universidad: 'UTVT' } });
+  mockSingle.mockResolvedValue({ data: { cuestionario_completo: true } });
   mockReenviar.mockResolvedValue({ error: null });
 });
 
@@ -71,10 +71,12 @@ describe('a dónde lleva entrar', () => {
   });
 
   it('con el cuestionario a medias, DE VUELTA al cuestionario', async () => {
+    // `cuestionario_completo` y no `universidad` (la proxy frágil de la que habla `app/index.tsx`): un arrendador o un negocio no tiene
+    // universidad y su alta ya deja el cuestionario como hecho (0082); con `universidad` volverían a él en cada entrada.
     // Sin universidad, el filtro duro no tiene con qué filtrar: la lista sale
     // vacía y nada explica por qué. Mandar a Sugerencias a esta persona es
     // enseñarle un motor roto que no lo está.
-    mockSingle.mockResolvedValue({ data: { universidad: null } });
+    mockSingle.mockResolvedValue({ data: { cuestionario_completo: false } });
     await entrar();
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/cuestionario-inicial'));
   });

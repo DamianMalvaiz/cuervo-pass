@@ -63,10 +63,10 @@ export default function LoginScreen() {
       // Sugerencias sin universidad ni presupuesto configurados.
       const { data: perfil } = await supabase
         .from('usuarios')
-        .select('universidad')
+        .select('cuestionario_completo')
         .eq('id', sesion.user?.id ?? '')
         .single();
-      router.replace(perfil?.universidad ? '/(tabs)/inicio' : '/(auth)/cuestionario-inicial');
+      router.replace(perfil?.cuestionario_completo ? '/(tabs)/inicio' : '/(auth)/cuestionario-inicial');
     } catch (e) {
       // El mensaje de Supabase viene en inglés y dice "Invalid login
       // credentials", que no le sirve a nadie. Se traduce lo único que de

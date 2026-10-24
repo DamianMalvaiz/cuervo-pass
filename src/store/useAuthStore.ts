@@ -17,6 +17,8 @@ interface DatosRegistro {
   nombreCompleto: string;
   /** Se guarda en el servidor al crear la cuenta (migración 0046): sin sesión no hay quién lo escriba desde el cliente. */
   aceptoAviso: boolean;
+  /** Lo que la persona dice ser (0082). Solo los vendedores lo mandan; el servidor no lo toma como prueba de nada, solo como el rol que pide. */
+  tipoCuenta?: 'arrendador' | 'comerciante';
 }
 
 interface AuthState {
@@ -149,7 +151,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // que dejaba una ventana en la que existía la cuenta de Auth y no el perfil:
   // si la app se cerraba entre las dos llamadas, la cuenta quedaba rota y nada
   // lo reparaba.
-  registrarse: async ({ email, password, nombreUsuario, nombreCompleto, aceptoAviso }) => {
+  registrarse: async ({ email, password, nombreUsuario, nombreCompleto, aceptoAviso, tipoCuenta }) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -160,6 +162,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           acepto_aviso: aceptoAviso,
           // QUÉ versión se aceptó, no solo que se aceptó (migración 0059).
           aviso_version: VERSION_AVISO,
+          ...(tipoCuenta ? { tipo_cuenta: tipoCuenta } : {}),
         },
       },
     });

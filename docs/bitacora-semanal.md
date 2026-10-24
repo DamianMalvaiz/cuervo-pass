@@ -1268,7 +1268,7 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
   (`conversaciones_crear`, `abrir_conversacion`); sí responde en las que ya existen. La declaración «soy vendedor» la manda el cliente, así que NO es lo que protege: protege la
   restricción. Las cuentas existentes quedan sin restricción. Los scripts que crean cuentas con la clave de servicio (`seed-demo`, `preparar-demo`, `verificar`,
   `prueba-rls`) llevan `app_metadata.sin_restriccion`, que el cliente no puede escribir; Auth la escribe en un UPDATE posterior al INSERT, por eso hay un segundo trigger que la recoge.
-  Comprobado: `supabase test db` pasa (732 aserciones, 31 nuevas); mutación por mutación (quitar cada política, la rama de `abrir_conversacion`, el guardián de la columna y el hook)
+  Comprobado: `supabase test db` pasa (736 aserciones, 35 nuevas); mutación por mutación (quitar cada política, la rama de `abrir_conversacion`, el guardián de la columna y el hook)
   cada una la caza exactamente su aserción; y contra el Auth LOCAL real con el hook activo: un Gmail sin declarar da 400, uno declarado arrendador da 200 y queda restringido, uno
   universitario da 200 y no, y `admin/users` con la marca queda sin restricción. **Sin verificar:** producción (el hook se activa a mano en el panel de Supabase, ver `docs/hook-de-alta.md`);
   riesgo abierto: una cuenta restringida puede escribir en las conversaciones que otra persona abrió. Falta la parte de la app (registro «Soy arrendador o tengo un negocio»,
