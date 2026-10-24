@@ -63,7 +63,7 @@ const NEGOCIO = {
 const ITEMS = [{ id: 'i1', negocio_id: 'n1', nombre: 'Taco', precio: 18, orden: 0 }, { id: 'i2', negocio_id: 'n1', nombre: 'Revisión', precio: null, orden: 1 }];
 
 const pulsar = async (e: string | RegExp) => { await act(async () => { fireEvent.press(screen.getByLabelText(e)); }); };
-const escribir = async (e: string, t: string) => { await act(async () => { fireEvent.changeText(screen.getByLabelText(e), t); }); };
+const escribir = async (e: string | RegExp, t: string) => { await act(async () => { fireEvent.changeText(screen.getByLabelText(e), t); }); };
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -75,11 +75,20 @@ const llenarHorario = async () => {
   for (const d of DIAS.slice(1)) await pulsar(`${d}: cerrado`);
 };
 
+/** El primer producto es obligatorio: se agrega con el mismo editor del menú. */
+const agregarProducto = async (nombre = 'Café americano', precio = '35') => {
+  await pulsar('Agregar un producto');
+  await escribir('Nombre del producto', nombre);
+  await escribir(/Precio/, precio);
+  await pulsar('Guardar producto');
+};
+
 const llenarNuevo = async () => {
   await escribir('Nombre del negocio', 'Café Nuevo');
   await pulsar('Categoría Cafés');
   await escribir('Dirección', 'Calle 5, Lerma');
   await llenarHorario();
+  await agregarProducto();
 };
 
 beforeEach(() => {
@@ -106,14 +115,13 @@ describe('negocio nuevo', () => {
   it('completo, geocodifica y manda al hook SOLO columnas escribibles', async () => {
     await render(<FormularioNegocio />);
     await llenarNuevo();
-    await pulsar('Rango de precio $$');
     await pulsar('Publicar negocio');
     expect(mockGeocodificar).toHaveBeenCalledWith('Calle 5, Lerma');
     const entrada = mockMutate.mock.calls[0][0];
     expect(entrada.id).toBeUndefined();
     expect(entrada.datos).toEqual({
       categoria_id: 'cafes', nombre: 'Café Nuevo', descripcion: null, direccion: 'Calle 5, Lerma',
-      latitud: 19.32, longitud: -99.45, rango_precio: 2, horario: 'Lunes · 8 am a 8 pm', activo: true,
+      latitud: 19.32, longitud: -99.45, horario: 'Lunes · 8 am a 8 pm', activo: true,
     });
     for (const prohibida of ['destacado', 'origen', 'oculto_por_reportes']) expect(entrada.datos).not.toHaveProperty(prohibida);
   });
@@ -171,9 +179,9 @@ describe('negocio nuevo', () => {
     expect(mockReplace).toHaveBeenCalledWith({ pathname: '/negocio/editar/[id]', params: { id: 'n-creado' } });
   });
 
-  it('un negocio nuevo no abre el menú todavía: dice que se agrega después de publicar', async () => {
+  it('un negocio nuevo no abre la pantalla del menú todavía: agrega sus productos aquí mismo', async () => {
     await render(<FormularioNegocio />);
-    expect(screen.getByText(/podrás agregar su menú/)).toBeTruthy();
+    expect(screen.getByLabelText('Agregar un producto')).toBeTruthy();
     expect(screen.queryByLabelText(/Editar el menú/)).toBeNull();
   });
 
@@ -350,6 +358,67 @@ describe('el límite de fotos del plan', () => {
     await pulsar('Guardar cambios');
     expect(mockMutate).not.toHaveBeenCalled();
     expect(screen.getByText(/Tu plan permite hasta 1 fotos\. Quita 1 para guardar/)).toBeTruthy();
+  });
+});
+
+describe('lo que vende (mínimo un producto)', () => {
+  const inicial = (extra: Record<string, unknown> = {}, items: unknown[] = ITEMS) =>
+    ({ negocio: { ...NEGOCIO, ...extra } as never, items: items as never });
+
+  it('ya no hay «Rango de precio»: se publica lo que se vende, con su precio', async () => {
+    await render(<FormularioNegocio />);
+    expect(screen.queryByText('Rango de precio')).toBeNull();
+    expect(screen.queryByLabelText(/Rango de precio/)).toBeNull();
+  });
+
+  it('un negocio nuevo sin productos NO se publica y dice qué hacer', async () => {
+    await render(<FormularioNegocio />);
+    await escribir('Nombre del negocio', 'Café Nuevo');
+    await pulsar('Categoría Cafés');
+    await escribir('Dirección', 'Calle 5, Lerma');
+    await llenarHorario();
+    await pulsar('Publicar negocio');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText('Agrega al menos un producto para publicar tu negocio.')).toBeTruthy();
+  });
+
+  it('el producto agregado aparece en la lista, con su precio', async () => {
+    await render(<FormularioNegocio />);
+    await agregarProducto('Café americano', '35');
+    expect(screen.getByText('Café americano')).toBeTruthy();
+    expect(screen.getByText('$35')).toBeTruthy();
+  });
+
+  it('con un producto se publica y manda los productos junto con el negocio', async () => {
+    await render(<FormularioNegocio />);
+    await llenarNuevo();
+    await pulsar('Publicar negocio');
+    const e = mockMutate.mock.calls[0][0];
+    expect(e.productos).toHaveLength(1);
+    expect(e.productos[0]).toMatchObject({ nombre: 'Café americano', precio: '35' });
+    expect(e.datos).not.toHaveProperty('rango_precio');
+  });
+
+  it('se puede quitar el producto agregado (y entonces ya no se publica)', async () => {
+    await render(<FormularioNegocio />);
+    await llenarNuevo();
+    await pulsar('Quitar Café americano');
+    await pulsar('Publicar negocio');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText('Agrega al menos un producto para publicar tu negocio.')).toBeTruthy();
+  });
+
+  it('un negocio que ya existe sin productos tampoco se guarda visible', async () => {
+    await render(<FormularioNegocio inicial={inicial({}, [])} />);
+    await pulsar('Guardar cambios');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText('Agrega al menos un producto para publicar tu negocio.')).toBeTruthy();
+  });
+
+  it('un negocio que ya existe con productos se guarda sin tocar su menú (tiene su propia pantalla)', async () => {
+    await render(<FormularioNegocio inicial={inicial()} />);
+    await pulsar('Guardar cambios');
+    expect(mockMutate.mock.calls[0][0].productos).toBeUndefined();
   });
 });
 

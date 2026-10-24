@@ -109,6 +109,40 @@ describe('useGuardarNegocio · nuevo', () => {
     expect(mockMenu).not.toHaveBeenCalled();
   });
 
+  describe('con productos (el primer producto se publica junto con el negocio)', () => {
+    const producto = (extra: Record<string, unknown> = {}) => ({
+      clave: 'k1', nombre: ' Lavado por kilo ', precio: '28', seccion: ' Lavado ', descripcion: '', foto: null, fotoNueva: null, ...extra,
+    });
+
+    it('crea el negocio y DESPUÉS guarda el menú con la foto del producto ya subida', async () => {
+      const { Envoltura } = envolver();
+      const { result } = await renderHook(() => useGuardarNegocio('u1'), { wrapper: Envoltura });
+      await act(async () => { await result.current.mutateAsync({ ...base, productos: [producto({ fotoNueva: 'file:///p.jpg' })] }); });
+      expect(mockSubirProducto).toHaveBeenCalledWith('n-nuevo', 'file:///p.jpg');
+      expect(mockMenu).toHaveBeenCalledWith('n-nuevo', [
+        { id: undefined, nombre: 'Lavado por kilo', precio: 28, seccion: 'Lavado', descripcion: null, foto: 'negocios/n-nuevo/p/nueva.jpg' },
+      ]);
+      expect(mockCrear.mock.invocationCallOrder[0]).toBeLessThan(mockMenu.mock.invocationCallOrder[0]);
+    });
+
+    it('si falla guardar el menú, el negocio ya existe: ErrorParcial con su id', async () => {
+      mockMenu.mockRejectedValueOnce(new Error('sin red'));
+      const { Envoltura } = envolver();
+      const { result } = await renderHook(() => useGuardarNegocio('u1'), { wrapper: Envoltura });
+      let error: unknown;
+      await act(async () => { try { await result.current.mutateAsync({ ...base, productos: [producto()] }); } catch (e) { error = e; } });
+      expect(error).toBeInstanceOf(ErrorParcial);
+      expect((error as ErrorParcial).idCreado).toBe('n-nuevo');
+    });
+
+    it('sin productos no toca el menú (editar un negocio no lo pisa)', async () => {
+      const { Envoltura } = envolver();
+      const { result } = await renderHook(() => useGuardarNegocio('u1'), { wrapper: Envoltura });
+      await act(async () => { await result.current.mutateAsync({ ...base, id: 'n1' }); });
+      expect(mockMenu).not.toHaveBeenCalled();
+    });
+  });
+
   it('si falla un paso DESPUÉS de crear, avisa con el id para poder terminarlo', async () => {
     mockSubir.mockRejectedValueOnce(new Error('sin red'));
     const { Envoltura } = envolver();

@@ -18,7 +18,8 @@ export interface DatosNegocio {
   direccion: string;
   latitud: number | null;
   longitud: number | null;
-  rango_precio: number | null;
+  /** Ya no se pide (se publican los productos con su precio); la columna sigue en la base para los negocios de antes. */
+  rango_precio?: number | null;
   horario: string | null;
   activo: boolean;
 }

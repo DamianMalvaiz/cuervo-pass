@@ -7,6 +7,7 @@ import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
 import { EditorHorario } from '@/components/EditorHorario';
+import { EditorProducto } from '@/components/EditorProducto';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
@@ -21,18 +22,12 @@ import { useTheme } from '@/hooks/use-theme';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
 import { geocodificarDireccion } from '@/lib/geocoding';
 import { parsearHorarioTexto, resumenAcotado, validarHorarioCompleto, type DiaIso, type Turno } from '@/lib/horario';
+import { MAX_PRODUCTOS_TECNICO, productoVacio, seccionesDe, type ProductoEditable } from '@/lib/menu';
 import { MAX_FOTOS_NEGOCIO, validarNegocio, type ErroresNegocio } from '@/lib/negocio';
 import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { NegocioItem, NegocioPropio } from '@/types/database.types';
-
-const RANGOS: { valor: number | null; etiqueta: string }[] = [
-  { valor: 1, etiqueta: '$' },
-  { valor: 2, etiqueta: '$$' },
-  { valor: 3, etiqueta: '$$$' },
-  { valor: null, etiqueta: 'Sin dato' },
-];
 
 /** `ruta` presente = ya está en Storage; ausente = es una foto nueva y `uri` es local. */
 type FotoEnForm = { clave: string; ruta: string | null; uri: string };
@@ -60,7 +55,10 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
   const [nombre, setNombre] = useState(n?.nombre ?? '');
   const [descripcion, setDescripcion] = useState(n?.descripcion ?? '');
   const [direccion, setDireccion] = useState(n?.direccion ?? '');
-  const [rangoPrecio, setRangoPrecio] = useState<number | null>(n?.rango_precio ?? null);
+  // Los productos con que se PUBLICA un negocio nuevo (el primero es obligatorio). Un negocio que ya existe edita su menú en su propia pantalla.
+  const [productos, setProductos] = useState<ProductoEditable[]>([]);
+  const [editando, setEditando] = useState<ProductoEditable | null>(null);
+  const maxProductos = Math.min(suscripcion?.max_productos ?? MAX_PRODUCTOS_TECNICO, MAX_PRODUCTOS_TECNICO);
   // Turnos: los guardados; si el negocio solo tiene el texto de siempre y es regular, se propone su equivalente (se guarda al confirmar).
   const turnosIniciales = inicial?.turnos ?? [];
   const propuestos = turnosIniciales.length === 0 ? parsearHorarioTexto(n?.horario) ?? [] : [];
@@ -94,7 +92,8 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
 
   const onGuardar = async () => {
     const e = validarNegocio({
-      categoriaId, nombre, descripcion, direccion, rangoPrecio, horario, fotos: fotos.map((f) => f.clave),
+      categoriaId, nombre, descripcion, direccion, horario, fotos: fotos.map((f) => f.clave),
+      totalProductos: n ? (inicial?.items.length ?? 0) : productos.length, activo,
     }, maxFotos);
     setErrores(e);
     const problemaHorario = validarHorarioCompleto(turnos, cerrados);
@@ -124,7 +123,6 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
             direccion: direccion.trim(),
             latitud,
             longitud,
-            rango_precio: rangoPrecio,
             horario: horario.trim() || null,
             activo,
           },
@@ -132,6 +130,7 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
           fotosQuitadas: rutasIniciales.filter((r) => !conservadas.includes(r)),
           fotosNuevas: fotos.filter((f) => !f.ruta).map((f) => f.uri),
           turnos,
+          productos: n ? undefined : productos,
         },
         {
           onSuccess: () => {
@@ -245,27 +244,6 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
           ) : null}
 
           <View style={estilos.bloque}>
-            <ThemedText type="smallBold" themeColor="textSecondary">Rango de precio</ThemedText>
-            <View style={estilos.chips}>
-              {RANGOS.map((r) => {
-                const activo = r.valor === rangoPrecio;
-                return (
-                  <Pulsable
-                    key={r.etiqueta}
-                    onPress={() => setRangoPrecio(r.valor)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Rango de precio ${r.etiqueta}`}
-                    accessibilityState={{ selected: activo }}
-                    style={[estilos.chip, { backgroundColor: activo ? theme.lima : theme.backgroundElement, borderColor: activo ? theme.lima : theme.filete }]}
-                  >
-                    <ThemedText type="small" style={[Texto.pesoFuerte, activo && { color: theme.limaTexto }]}>{r.etiqueta}</ThemedText>
-                  </Pulsable>
-                );
-              })}
-            </View>
-          </View>
-
-          <View style={estilos.bloque}>
             <ThemedText type="smallBold" themeColor="textSecondary">
               Fotos ({fotos.length}/{maxFotos}) · la primera es la portada
             </ThemedText>
@@ -331,10 +309,63 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
               <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
             </Pulsable>
           ) : (
-            <ThemedText type="small" themeColor="textSecondary">
-              Cuando publiques tu negocio podrás agregar su menú, con secciones, precios y fotos.
-            </ThemedText>
+            <View style={estilos.bloque}>
+              <ThemedText type="smallBold" themeColor="textSecondary">Lo que vendes</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Agrega al menos un producto o servicio. Después podrás completar el menú, con secciones, precios y fotos.
+              </ThemedText>
+              {productos.map((p) => (
+                <View key={p.clave} style={[estilos.fila, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+                  <Pulsable
+                    onPress={() => setEditando(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Editar ${p.nombre}`}
+                    style={estilos.crece}
+                  >
+                    <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>{p.nombre}</ThemedText>
+                    {p.seccion.trim() ? <ThemedText type="small" themeColor="textSecondary">{p.seccion.trim()}</ThemedText> : null}
+                  </Pulsable>
+                  <ThemedText style={Texto.pesoFuerte}>{p.precio.trim() ? `$${p.precio.trim()}` : 'Consultar precio'}</ThemedText>
+                  <Pulsable
+                    onPress={() => setProductos((xs) => xs.filter((x) => x.clave !== p.clave))}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Quitar ${p.nombre}`}
+                    style={estilos.quitar}
+                  >
+                    <Ionicons name="close-circle-outline" size={24} color={theme.textSecondary} />
+                  </Pulsable>
+                </View>
+              ))}
+              {productos.length < maxProductos ? (
+                <Pulsable
+                  onPress={() => setEditando(productoVacio())}
+                  accessibilityRole="button"
+                  accessibilityLabel="Agregar un producto"
+                  style={[estilos.agregar, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
+                >
+                  <Ionicons name="add" size={20} color={theme.bosque} />
+                  <ThemedText style={Texto.pesoFuerte}>Agregar producto</ThemedText>
+                </Pulsable>
+              ) : null}
+            </View>
           )}
+          {errores.productos ? <ThemedText type="small" style={{ color: theme.error }}>{errores.productos}</ThemedText> : null}
+          {editando ? (
+            <EditorProducto
+              producto={editando}
+              esNuevo={!productos.some((x) => x.clave === editando.clave)}
+              secciones={seccionesDe(productos)}
+              onGuardar={(p) => {
+                setProductos((xs) => (xs.some((x) => x.clave === p.clave) ? xs.map((x) => (x.clave === p.clave ? p : x)) : [...xs, p]));
+                setEditando(null);
+              }}
+              onQuitar={() => {
+                setProductos((xs) => xs.filter((x) => x.clave !== editando.clave));
+                setEditando(null);
+              }}
+              onCerrar={() => setEditando(null)}
+            />
+          ) : null}
 
           <View style={[estilos.fila, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
             <View style={estilos.crece}>

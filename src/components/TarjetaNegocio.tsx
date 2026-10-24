@@ -11,10 +11,6 @@ import type { FuenteFoto } from '@/lib/miniaturas';
 import { useTheme } from '@/hooks/use-theme';
 import type { Negocio } from '@/types/database.types';
 
-/** «$», «$$» o «$$$». Sin dato no se inventa uno. */
-export const signosDePrecio = (rango: number | null): string | null =>
-  rango != null && rango >= 1 && rango <= 3 ? '$'.repeat(rango) : null;
-
 /**
  * Un negocio de Servicios · Cuervo 360. Dos formas: `fila` (foto cuadrada a la izquierda, para la lista) y `destacado`
  * (foto ancha arriba, para el carril). Un negocio sembrado se rotula «Negocio de ejemplo»: es inventado y no se
@@ -35,13 +31,12 @@ export function TarjetaNegocio({
   onPress: () => void;
 }) {
   const theme = useTheme();
-  const precio = signosDePrecio(negocio.rango_precio);
   const ejemplo = negocio.origen === 'sembrado';
   // «a 1.2 km»: lo que de verdad le sirve a quien busca; el puntaje del ranking NO se enseña.
   const distancia = negocio.distancia_km != null && Number.isFinite(negocio.distancia_km) ? `a ${negocio.distancia_km.toFixed(1)} km` : null;
   // Con horario estructurado (0070) el estado manda y el texto largo se queda para la ficha; sin él, se enseña el texto como antes.
   const estado = negocio.abierto_ahora === true ? 'Abierto ahora' : negocio.abierto_ahora === false ? 'Cerrado' : null;
-  const detalle = [estado, distancia, estado ? null : negocio.horario, precio].filter(Boolean).join(' · ');
+  const detalle = [estado, distancia, estado ? null : negocio.horario].filter(Boolean).join(' · ');
 
   const foto = fotoUrl || fotoMini ? (
     <FotoLista miniatura={fotoMini} completa={fotoUrl} style={forma === 'fila' ? estilos.fotoFila : estilos.fotoDestacado} />

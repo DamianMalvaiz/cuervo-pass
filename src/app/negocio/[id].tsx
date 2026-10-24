@@ -11,7 +11,6 @@ import { Pastilla } from '@/components/ficha/Pastilla';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
 import { SeccionResenas } from '@/components/SeccionResenas';
-import { signosDePrecio } from '@/components/TarjetaNegocio';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AltoFotoTarjeta, Filete, Radios, Spacing, Texto } from '@/constants/theme';
@@ -95,7 +94,6 @@ export default function NegocioScreen() {
   const visibles = activa === TODO ? grupos : grupos.filter((g) => claveDe(g) === activa);
   // Divide por el ancho ACOTADO con el que se pintan las fotos (como en la ficha de un depa).
   const alDesplazar = (e: NativeSyntheticEvent<NativeScrollEvent>) => setFoja(Math.round(e.nativeEvent.contentOffset.x / anchoLista));
-  const precio = signosDePrecio(negocio.rango_precio);
   const hayMapa = negocio.latitud != null && negocio.longitud != null;
 
   const comoLlegar = async () => {
@@ -152,11 +150,6 @@ export default function NegocioScreen() {
             <BotonFavoritoNegocio negocioId={negocio.id} />
           </View>
           <View style={estilos.fila}>
-            {precio ? (
-              <ThemedText type="small" style={Texto.pesoFuerte}>
-                {precio}
-              </ThemedText>
-            ) : null}
             <Estrellas calificacion={negocio.calificacion} numResenas={negocio.num_resenas ?? 0} compacta />
             {negocio.origen === 'sembrado' ? (
               <ThemedText type="small" themeColor="textSecondary">

@@ -74,10 +74,10 @@ test('un negocio sembrado se rotula «Negocio de ejemplo»; uno real no', async 
   expect(screen.getAllByText('Negocio de ejemplo')).toHaveLength(1);
 });
 
-test('el rango de precio se dice con signos de pesos', async () => {
+test('ya no se enseña un rango de precio con signos de pesos: lo que vale se ve en el menú', async () => {
   mockNegocios.mockReturnValue(estado({ negocios: [negocio({ rango_precio: 2 }), negocio({ id: 'n2', nombre: 'Sin dato', rango_precio: null })] }));
   await render(<VistaServicios />);
-  expect(screen.getAllByText(/\$\$/)).toHaveLength(1);
+  expect(screen.queryByText(/\$\$/)).toBeNull();
 });
 
 test('tocar una categoría la pide al servidor; tocarla otra vez la quita', async () => {

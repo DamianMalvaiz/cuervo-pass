@@ -7,7 +7,7 @@ jest.mock('@/components/BotonFavoritoNegocio', () => ({
     return <Text>{`CORAZON ${negocioId}`}</Text>;
   },
 }));
-import { TarjetaNegocio, signosDePrecio } from '../TarjetaNegocio';
+import { TarjetaNegocio } from '../TarjetaNegocio';
 
 // La tarjeta de un negocio de Servicios. Lo que se fija: dice la distancia en lenguaje de persona, NUNCA enseña el puntaje del
 // ranking, no inventa estrellas, y rotula lo de ejemplo.
@@ -17,12 +17,10 @@ const negocio = (extra: Record<string, unknown> = {}) => ({
   rango_precio: 1, horario: 'Lun a sáb', fotos: [], destacado: false, origen: 'sembrado', ...extra,
 });
 
-describe('signosDePrecio', () => {
-  it.each([[1, '$'], [2, '$$'], [3, '$$$']])('%s → %s', (n, t) => expect(signosDePrecio(n)).toBe(t));
-  it('sin dato o fuera de rango no inventa nada', () => {
-    expect(signosDePrecio(null)).toBeNull();
-    expect(signosDePrecio(0)).toBeNull();
-    expect(signosDePrecio(4)).toBeNull();
+describe('rango de precio', () => {
+  it.each([[1], [2], [3]])('un negocio con rango %s ya no enseña signos de pesos', async (rango) => {
+    await render(<TarjetaNegocio negocio={negocio({ rango_precio: rango }) as never} onPress={() => {}} />);
+    expect(screen.queryByText(/\$/)).toBeNull();
   });
 });
 
@@ -63,9 +61,9 @@ describe('TarjetaNegocio', () => {
     expect(screen.queryByText('Negocio de ejemplo')).toBeNull();
   });
 
-  it('la etiqueta accesible lleva distancia, horario, precio y el rótulo de ejemplo', async () => {
+  it('la etiqueta accesible lleva distancia, horario y el rótulo de ejemplo', async () => {
     await render(<TarjetaNegocio negocio={negocio({ distancia_km: 0.8 }) as never} onPress={() => {}} />);
-    expect(screen.getByLabelText('Tacos La Esquina. a 0.8 km · Lun a sáb · $. Negocio de ejemplo')).toBeTruthy();
+    expect(screen.getByLabelText('Tacos La Esquina. a 0.8 km · Lun a sáb. Negocio de ejemplo')).toBeTruthy();
   });
 
   it('tocarla la abre', async () => {

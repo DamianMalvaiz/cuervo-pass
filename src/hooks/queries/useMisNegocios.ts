@@ -66,6 +66,26 @@ export interface EntradaGuardado {
   fotosNuevas: string[];
   /** El horario completo (0070). `undefined` = no se toca; `[]` = se borra. */
   turnos?: Turno[];
+  /** Los productos con que SE PUBLICA un negocio nuevo (el primero es obligatorio). `undefined` = no se toca el menú (al editar, el menú tiene su pantalla). */
+  productos?: ProductoEditable[];
+}
+
+/** Sube las fotos NUEVAS de los productos y manda la lista entera en una sola llamada. Devuelve los renglones guardados (para saber qué fotos siguen en uso). */
+async function guardarProductos(negocioId: string, productos: ProductoEditable[]) {
+  const items = [];
+  for (const p of productos) {
+    const foto = p.fotoNueva ? await subirFotoProducto(negocioId, p.fotoNueva) : p.foto;
+    items.push({
+      id: p.id,
+      nombre: p.nombre.trim(),
+      precio: parsearPrecio(p.precio) as number | null,
+      seccion: p.seccion.trim() || null,
+      descripcion: p.descripcion.trim() || null,
+      foto,
+    });
+  }
+  await guardarMenu(negocioId, items);
+  return items;
 }
 
 export function useGuardarNegocio(usuarioId: string | undefined) {
@@ -90,6 +110,8 @@ export function useGuardarNegocio(usuarioId: string | undefined) {
         if (esNuevo || e.fotosNuevas.length > 0 || e.fotosQuitadas.length > 0) await actualizarNegocio(id, { fotos });
         // El horario va después de que el negocio EXISTE (los turnos cuelgan de su id); si falla, el negocio ya está guardado y se avisa como cualquier paso posterior.
         if (e.turnos !== undefined) await guardarHorario(id, e.turnos);
+        // El menú también cuelga del id; mismo trato: si falla, el negocio ya está guardado y se completa desde su pantalla.
+        if (e.productos !== undefined) await guardarProductos(id, e.productos);
         // 3. Lo quitado se borra al FINAL: si algo anterior falló, las fotos viejas siguen siendo las de la fila.
         await borrarFotos(e.fotosQuitadas);
       } catch (err) {
@@ -136,19 +158,7 @@ export function useGuardarMenu(negocioId: string | undefined) {
   return useMutation({
     mutationFn: async ({ productos, fotosAnteriores }: EntradaMenu): Promise<void> => {
       if (!negocioId) throw new Error('sin negocio');
-      const items = [];
-      for (const p of productos) {
-        const foto = p.fotoNueva ? await subirFotoProducto(negocioId, p.fotoNueva) : p.foto;
-        items.push({
-          id: p.id,
-          nombre: p.nombre.trim(),
-          precio: parsearPrecio(p.precio) as number | null,
-          seccion: p.seccion.trim() || null,
-          descripcion: p.descripcion.trim() || null,
-          foto,
-        });
-      }
-      await guardarMenu(negocioId, items);
+      const items = await guardarProductos(negocioId, productos);
       const usadas = new Set(items.map((i) => i.foto).filter(Boolean));
       await borrarFotos(fotosAnteriores.filter((f) => !usadas.has(f)));
     },

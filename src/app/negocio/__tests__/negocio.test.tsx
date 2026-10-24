@@ -66,7 +66,7 @@ test('pinta nombre, descripción, dirección, horario y precio', async () => {
   expect(screen.getByText('Café de olla y de especialidad.')).toBeTruthy();
   expect(screen.getByText('Av. Las Torres 408, Lerma')).toBeTruthy();
   expect(screen.getByText('Lun a sáb · 8 am a 9 pm')).toBeTruthy();
-  expect(screen.getByText('$$')).toBeTruthy();
+  expect(screen.queryByText('$$')).toBeNull();
 });
 
 test('un negocio de ejemplo se rotula', async () => {
