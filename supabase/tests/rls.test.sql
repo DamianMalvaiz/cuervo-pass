@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(630);
+select plan(666);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -3463,6 +3463,90 @@ select is(has_table_privilege('authenticated', 'public.avisos_privacidad', 'sele
   'avisos_privacidad no concede nada a anon ni a authenticated' );
 select is(has_table_privilege('service_role', 'public.avisos_privacidad', 'select'), true,
   'y el servicio sí la lee' );
+
+-- ═══════ Pagos con Mercado Pago: órdenes y registro idempotente (0077) ═══════
+-- El SERVIDOR decide plan y monto (desde `planes`), nunca lo que diga Mercado Pago; y el webhook llega duplicado y en paralelo: registrar
+-- el mismo pago dos veces no extiende dos veces (idempotente por `mp_payment_id`) ni se pisa con otro (candado de la orden, patrón de la 0076).
+select actuar_como_servicio();
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, created_at, updated_at, raw_user_meta_data)
+values
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000fc', 'authenticated', 'authenticated', 'mp1@test.mx', '', now(), now(), '{"nombre_usuario":"usuario_fc"}'),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000fd', 'authenticated', 'authenticated', 'mp2@test.mx', '', now(), now(), '{"nombre_usuario":"usuario_fd"}');
+insert into roles_usuario (usuario_id, rol, estado) values ('00000000-0000-0000-0000-0000000000fc', 'comerciante', 'aprobado'), ('00000000-0000-0000-0000-0000000000fd', 'comerciante', 'aprobado');
+insert into suscripciones (usuario_id, rol, prueba_hasta) values ('00000000-0000-0000-0000-0000000000fc', 'comerciante', now() + interval '15 days'), ('00000000-0000-0000-0000-0000000000fd', 'comerciante', now() + interval '15 days');
+
+create temp table t_orden as select * from crear_orden_pago('00000000-0000-0000-0000-0000000000fc'::uuid, 'comerciante_basico');
+select is((select monto from t_orden), 9900, 'orden: el monto sale del catálogo de planes, no de quien la pide' );
+select is((select estado from ordenes_pago where id = (select orden_id from t_orden)), 'creada', 'orden: nace «creada»' );
+select throws_ok($$select * from crear_orden_pago('00000000-0000-0000-0000-0000000000fc', 'comerciante_gratis')$$, 'CP011', null,
+  'orden: un plan gratuito no se paga' );
+select throws_ok($$select * from crear_orden_pago('00000000-0000-0000-0000-0000000000fc', 'no_existe')$$, 'CP011', null,
+  'orden: un plan inexistente tampoco' );
+select throws_ok($$select * from crear_orden_pago('00000000-0000-0000-0000-0000000000a1', 'comerciante_basico')$$, 'CP011', null,
+  'orden: sin la función de comerciante APROBADA no hay orden' );
+select throws_ok($$select * from crear_orden_pago('00000000-0000-0000-0000-0000000000fc', 'arrendador_plus')$$, 'CP011', null,
+  'orden: el plan de otra función (arrendador) tampoco, aunque la cuenta tenga la suya' );
+
+-- Tope de órdenes sin pagar: cada una cuesta una llamada a la API de Mercado Pago.
+-- La función va en la lista de selección y no en un `lateral`: con argumentos constantes el planificador la evalúa UNA vez y cruza el resultado
+-- (se creaba una sola orden y el `count` daba 10 igual).
+select is((select count(*)::int from (select (crear_orden_pago('00000000-0000-0000-0000-0000000000fd'::uuid, 'comerciante_basico')).orden_id
+                                        from generate_series(1, 10)) t), 10,
+  'orden: caben 10 órdenes sin pagar en una hora' );
+select is((select count(*)::int from ordenes_pago where usuario_id = '00000000-0000-0000-0000-0000000000fd'), 10,
+  'orden: y de verdad quedaron diez filas (no una evaluada diez veces)' );
+select throws_ok($$select * from crear_orden_pago('00000000-0000-0000-0000-0000000000fd', 'comerciante_basico')$$, 'CP015', null,
+  'orden: la número 11 en la hora se rechaza (CP015)' );
+
+-- Privilegios: el cliente no crea órdenes ni registra pagos; solo lee las suyas.
+select is(has_function_privilege('authenticated', 'crear_orden_pago(uuid,text)', 'execute')
+       or has_function_privilege('anon', 'crear_orden_pago(uuid,text)', 'execute'), false,
+  'crear_orden_pago no es ejecutable por el cliente' );
+select is(has_function_privilege('authenticated', 'registrar_pago_mp(uuid,text,text,integer)', 'execute')
+       or has_function_privilege('anon', 'registrar_pago_mp(uuid,text,text,integer)', 'execute'), false,
+  'registrar_pago_mp no es ejecutable por el cliente (sería activarse un plan gratis)' );
+select actuar_como('00000000-0000-0000-0000-0000000000fc');
+select is((select count(*)::int from ordenes_pago), 1, 'cada cuenta lee SOLO sus órdenes (fc ve la suya, no las diez de fd)' );
+select throws_ok($$insert into ordenes_pago (usuario_id, rol, plan_id, monto_centavos) values ('00000000-0000-0000-0000-0000000000fc', 'comerciante', 'comerciante_basico', 1)$$,
+  '42501', null, 'el cliente no inserta órdenes (con monto a su gusto)' );
+select throws_ok($$update ordenes_pago set estado = 'pagada'$$, '42501', null, 'el cliente no marca una orden como pagada' );
+
+-- Registro del pago.
+select actuar_como_servicio();
+select throws_ok($$select registrar_pago_mp((select orden_id from t_orden), null, 'approved', 9900)$$, '22023', null,
+  'registrar: sin el id del pago de Mercado Pago no hay idempotencia posible y se rechaza' );
+select is(registrar_pago_mp(gen_random_uuid(), 'mp-x', 'approved', 9900), 'orden_inexistente', 'registrar: una orden que no existe no activa nada' );
+
+select is(registrar_pago_mp((select orden_id from t_orden), 'mp-1', 'pending', 9900), 'pendiente', 'registrar: pendiente (OXXO) se reconoce como pendiente' );
+select is((select estado from ordenes_pago where id = (select orden_id from t_orden)), 'pendiente', 'registrar: la orden queda «pendiente»' );
+select is((select count(*)::int from pagos where usuario_id = '00000000-0000-0000-0000-0000000000fc'), 0, 'registrar: un pago pendiente NO se registra como pago ni extiende nada' );
+select is((select vigente_hasta from suscripciones where usuario_id = '00000000-0000-0000-0000-0000000000fc'), null, 'registrar: y la suscripción sigue sin periodo pagado' );
+
+select is(registrar_pago_mp((select orden_id from t_orden), 'mp-2', 'approved', 100), 'monto_distinto', 'registrar: un monto distinto al de la orden NO activa el plan' );
+select is((select count(*)::int from pagos where usuario_id = '00000000-0000-0000-0000-0000000000fc'), 0, 'registrar: y no deja pago registrado' );
+
+select is(registrar_pago_mp((select orden_id from t_orden), 'mp-1', 'approved', 9900), 'activado', 'registrar: aprobado y con el monto exacto, activa el plan' );
+select is((select estado from ordenes_pago where id = (select orden_id from t_orden)), 'pagada', 'registrar: la orden queda «pagada»' );
+select is((select origen || ':' || mp_payment_id || ':' || plan_id from pagos where usuario_id = '00000000-0000-0000-0000-0000000000fc'), 'mercadopago:mp-1:comerciante_basico',
+  'registrar: el pago queda con su origen, su id de Mercado Pago y el plan de la ORDEN' );
+select ok((select vigente_hasta between now() + interval '29 days' and now() + interval '31 days' from suscripciones where usuario_id = '00000000-0000-0000-0000-0000000000fc'),
+  'registrar: el plan queda vigente 30 días' );
+
+select is(registrar_pago_mp((select orden_id from t_orden), 'mp-1', 'approved', 9900), 'duplicado', 'registrar: el MISMO pago otra vez (webhook duplicado) no hace nada' );
+select is((select count(*)::int from pagos where usuario_id = '00000000-0000-0000-0000-0000000000fc'), 1, 'registrar: y no queda un segundo pago' );
+select ok((select vigente_hasta between now() + interval '29 days' and now() + interval '31 days' from suscripciones where usuario_id = '00000000-0000-0000-0000-0000000000fc'),
+  'registrar: ni se extiende un segundo periodo' );
+
+select is(registrar_pago_mp((select orden_id from t_orden), 'mp-3', 'pending', 9900), 'pendiente', 'registrar: un pendiente tardío se reconoce' );
+select is(registrar_pago_mp((select orden_id from t_orden), 'mp-4', 'rejected', 9900), 'rechazado', 'registrar: un rechazo se reconoce' );
+select is((select estado from ordenes_pago where id = (select orden_id from t_orden)), 'pagada', 'registrar: un pendiente o un rechazo NO baja una orden ya pagada' );
+select is(registrar_pago_mp((select orden_id from t_orden), 'mp-6', 'refunded', 9900), 'ignorado', 'registrar: un estado que no se maneja (reembolso) se ignora y se dice' );
+
+select is(registrar_pago_mp((select orden_id from t_orden), 'mp-5', 'approved', 9900), 'activado', 'registrar: un segundo pago aprobado distinto activa otro periodo' );
+select ok((select vigente_hasta between now() + interval '59 days' and now() + interval '61 days' from suscripciones where usuario_id = '00000000-0000-0000-0000-0000000000fc'),
+  'registrar: el segundo periodo se SUMA al primero (60 días)' );
+select ok((select count(*) = 1 from pagos a join pagos b on b.usuario_id = a.usuario_id and b.periodo_inicio = a.periodo_fin where a.usuario_id = '00000000-0000-0000-0000-0000000000fc'),
+  'registrar: los periodos de los dos pagos quedan encadenados' );
 
 select * from finish();
 rollback;

@@ -1397,6 +1397,42 @@ ejecutables y su secuencia, está en
 - [ ] **Antes de enseñar «Contratar plan»** hay que encender `demo_mode` desde el panel de administración: en producción está en
       `false` (comprobado el 23/10/2026) y la app dice «los pagos de demostración no están activos».
 
+**Mercado Pago (rama `mercado-pago`, pagos reales de PRUEBA con sandbox; OXXO habilitado como «pendiente»)**
+
+- [ ] **Paso 1 hecho en local, sin aplicar a producción: la migración 0077** (`ordenes_pago`, `crear_orden_pago`, `registrar_pago_mp`).
+      El servidor decide plan y monto desde `planes`; un pago por otro monto no activa nada; el aviso duplicado no extiende dos veces.
+      Comprobado: `npx supabase test db` (666 aserciones) y `./scripts/prueba-carrera-webhook.sh` (dos sesiones reales; sin el candado
+      `for update` falla con `duplicate key`, comprobado con una mutación). Los reembolsos NO se manejan todavía.
+- [ ] **Paso 2 hecho: la lógica pura del webhook** (`supabase/functions/mp-webhook/politica.ts`, más `_shared/tiempoConstante.ts`):
+      verificación de la firma (HMAC-SHA256 de `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`, falla cerrado sin secreto o sin id), lectura del
+      aviso, decisión sobre el pago (monto en centavos, MXN, referencia uuid; un monto con fracciones de centavo se rechaza) y qué contestar a Mercado
+      Pago. Comprobado con `npx jest test-utils/__tests__/mp-webhook-politica.test.ts` (91 pruebas; el HMAC se valida contra el vector público RFC 4231
+      y la regla de fallo cerrado con una mutación). Añade `allowImportingTsExtensions` a `tsconfig.json` (Deno exige la extensión `.ts` en los imports).
+- [ ] **Paso 4 hecho en local, sin desplegar: `crear-pago` y la pantalla de planes.** `crear-pago` (con sesión) crea la orden con el plan que dice la
+      cuenta, pide la preferencia a Mercado Pago (`X-Idempotency-Key` = la orden; sin datos de la persona; los avisos van a la URL del panel) y devuelve
+      la URL, que se comprueba (https y dominio de Mercado Pago) tanto en el servidor como en la app. La pantalla añade «Pagar con Mercado Pago»
+      (`Linking.openURL`, sin APK nuevo por el módulo, pero SÍ hace falta un APK para llevar el código a un teléfono), deja el pago simulado como respaldo
+      («Probar sin pagar»), avisa de la orden pendiente (OXXO) o en espera, y refresca al volver a primer plano (`use-al-volver.ts`: el cliente de consultas
+      tiene `refetchOnWindowFocus: false` a propósito). Comprobado con `npx jest test-utils/__tests__/crear-pago-politica.test.ts src/lib/__tests__/pagoMp.test.ts
+      src/services/__tests__/planes.service.test.ts src/hooks/queries/__tests__/usePlanes.test.tsx src/app/planes/__tests__/planes.test.tsx` y dos mutaciones
+      (quitar la comprobación de la URL; refrescar por una orden que ya estaba pagada). Sin `back_urls`: tras pagar, Mercado Pago deja a la persona en su
+      propia pantalla y vuelve a la app a mano.
+- [ ] **ANTES de llevar este código a un teléfono: aplicar la 0077 a producción.** La pantalla de planes lee `ordenes_pago`; sin la migración, esa lectura
+      falla y la pantalla dice «No pudimos comprobar si tienes un pago pendiente» a todo el mundo.
+- [ ] **Paso 3 escrito, SIN desplegar:** `supabase/functions/mp-webhook/index.ts` (+ `clasificarConsultaPago`, `respuestaDeFirmaFallida` y
+      `respuestaDeDecisionFallida` en `politica.ts`). Orden: secretos → forma del aviso → firma → consulta del pago a Mercado Pago → decisión → RPC → respuesta.
+      Orden, estado y monto salen de la respuesta de Mercado Pago, no del aviso. Comprobado con `npx jest test-utils/__tests__/mp-webhook` (131 pruebas,
+      las de `index.ts` son guardas estáticas de orden) y la suite completa (2340), tsc, lint y verificar:env/toques en verde. Sintaxis de `index.ts`
+      revisada con TypeScript; **sin `deno check` ni ejecución real** (no hay Deno local): el primer contacto real es el despliegue.
+- [ ] Paso pendiente: 5 prueba completa con las cuentas de prueba. **Necesita lo tuyo de abajo** (aplicación de prueba, secreto del webhook,
+      `MP_ACCESS_TOKEN`) y desplegar con `supabase functions deploy mp-webhook --no-verify-jwt`. `crear-pago` y `mp-webhook` sin sus secretos contestan
+      503 `sin-configurar` y no hacen nada. Antes: aplicar la 0077 a producción (con respaldo).
+- [ ] **Tuyo (Mercado Pago):** crear la aplicación de Checkout Pro DENTRO de la cuenta vendedora de prueba, crear las cuentas de prueba (vendedora y
+      compradora), configurar Webhooks con el evento «Pagos» y copiar el secreto. Luego `supabase secrets set MP_ACCESS_TOKEN=… MP_WEBHOOK_SECRET=…`
+      (los valores nunca en el chat ni en el repo).
+- [ ] **No verificado:** cómo se simula que un pago en OXXO se completa en modo prueba (la documentación no lo dice): el estado «pendiente» sí, la
+      activación por OXXO no. La plantilla de la firma sale de dos fuentes concordantes; la prueba definitiva es «Simular notificación» del panel.
+
 **Riesgo operativo permanente**
 
 - [ ] El túnel de cloudflared es efímero, y el proceso **no se muere** cuando su

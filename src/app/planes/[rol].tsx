@@ -1,15 +1,18 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
-import { useContratarPlan, useMiSuscripcion, usePlanes } from '@/hooks/queries/usePlanes';
+import { useContratarPlan, useCrearPago, useMiSuscripcion, useMiUltimaOrden, usePlanes, useRefrescarTrasPago } from '@/hooks/queries/usePlanes';
+import { useAlVolverAPrimerPlano } from '@/hooks/use-al-volver';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
+import { AVISO_PAGOS, ErrorPago, describirOrden, mensajeDeErrorPago, textoConfirmarPago } from '@/lib/pagoMp';
 import { describirSuscripcion, fechaLarga, incluyeDe, precioDe } from '@/lib/planes';
 import { toast } from '@/lib/toast';
 import { esRolVendedor, type RolVendedor } from '@/lib/verificacion';
@@ -19,9 +22,10 @@ import type { PlanDePago } from '@/types/database.types';
 /**
  * Planes y suscripciones · Cuervo 360 (migración 0053).
  *
- * Dice en qué plan está esta cuenta (prueba gratis, plan vigente o sin plan), qué incluye cada plan y permite contratarlo. Los
- * pagos son de DEMOSTRACIÓN y la pantalla lo dice siempre: no se cobra nada. Tres estados en cada lectura (END-11): cargando,
- * falló y vacío se pintan distinto.
+ * Dice en qué plan está esta cuenta (prueba gratis, plan vigente o sin plan), qué incluye cada plan y permite contratarlo, con Mercado Pago
+ * (abre su página de pago; el plan se activa cuando llega el aviso del pago, fuera de la app) o con el pago de demostración, que queda de respaldo.
+ * Mientras la app esté en pruebas la pantalla lo dice siempre: no se cobra dinero real. Tres estados en cada lectura (END-11): cargando, falló y
+ * vacío se pintan distinto.
  */
 export default function PlanesScreen() {
   const theme = useTheme();
@@ -34,6 +38,21 @@ export default function PlanesScreen() {
   const { suscripcion, cargando: cargandoSus, fallo: falloSus, reintentar: reintentarSus } = useMiSuscripcion(miId, rol);
   const { planes, cargando: cargandoPlanes, fallo: falloPlanes, reintentar: reintentarPlanes } = usePlanes(rol);
   const contratar = useContratarPlan(miId);
+  const crear = useCrearPago();
+  const { orden, fallo: falloOrden, refrescar: refrescarOrden } = useMiUltimaOrden(miId, rol);
+  const refrescarTodo = useRefrescarTrasPago(miId, rol);
+
+  // El pago se confirma FUERA de la app: al volver de Mercado Pago hay que pedir otra vez el plan, los pagos y la orden.
+  useAlVolverAPrimerPlano(refrescarTodo);
+
+  // Y si la orden pasa de «esperando» a «pagada» mientras la pantalla está abierta, el plan cambió. Solo en la transición: una orden que ya estaba
+  // pagada al abrir no es una novedad.
+  const estadoPrevio = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const ahora = orden?.estado;
+    if (ahora === 'pagada' && (estadoPrevio.current === 'creada' || estadoPrevio.current === 'pendiente')) refrescarTodo();
+    estadoPrevio.current = ahora;
+  }, [orden?.estado, refrescarTodo]);
 
   const envoltura = (hijos: React.ReactNode) => (
     <ThemedView style={estilos.pantalla}>
@@ -117,6 +136,32 @@ export default function PlanesScreen() {
     );
   };
 
+  const pagar = (plan: PlanDePago) => {
+    if (crear.isPending) return;
+    Alert.alert(`Pagar el plan ${plan.nombre} con Mercado Pago`, textoConfirmarPago(precioDe(plan.precio_centavos)), [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Continuar',
+        onPress: () =>
+          crear.mutate(
+            { planId: plan.id },
+            {
+              onSuccess: ({ url }) => {
+                // `crearPago` ya comprobó que es una URL de Mercado Pago. Si el sistema no puede abrirla, se dice como fallo.
+                Linking.openURL(url).catch(() => toast.error('No pudimos abrir Mercado Pago. Inténtalo de nuevo.'));
+                toast.info('Termina el pago en Mercado Pago y vuelve aquí: se confirma en unos segundos.');
+                refrescarOrden();
+              },
+              onError: (err) => toast.error(mensajeDeErrorPago(err instanceof ErrorPago ? err.tipo : 'desconocido')),
+            }
+          ),
+      },
+    ]);
+  };
+
+  const textoOrden = orden ? describirOrden(orden.estado, orden.creada_en) : null;
+  const ocupado = crear.isPending || contratar.isPending;
+
   return envoltura(
     <>
       <ThemedText type="subtitle">{titulo}</ThemedText>
@@ -124,9 +169,22 @@ export default function PlanesScreen() {
       <View style={[estilos.aviso, { borderColor: theme.filete, backgroundColor: theme.backgroundSelected }]}>
         <Ionicons name="information-circle-outline" size={20} color={theme.text} />
         <ThemedText type="small" style={estilos.crece}>
-          Pagos de demostración: no se cobra nada. Sirven para probar cómo funcionan los planes.
+          {AVISO_PAGOS}
         </ThemedText>
       </View>
+
+      {falloOrden ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          No pudimos comprobar si tienes un pago pendiente. Revisa tu conexión e intenta de nuevo.
+        </ThemedText>
+      ) : null}
+      {textoOrden ? (
+        <View style={[estilos.aviso, { borderColor: theme.filete, backgroundColor: theme.backgroundSelected }]}>
+          <Ionicons name="time-outline" size={20} color={theme.text} />
+          <ThemedText type="small" style={estilos.crece}>{textoOrden}</ThemedText>
+          <Sello variante="contorno" onPress={refrescarTodo} accessibilityLabel="Actualizar el estado del pago">Actualizar</Sello>
+        </View>
+      ) : null}
 
       <View style={[estilos.tarjeta, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
         <ThemedText type="smallBold" themeColor="textSecondary">Tu plan actual</ThemedText>
@@ -164,12 +222,21 @@ export default function PlanesScreen() {
                 </View>
               ))}
               <Sello
-                variante={esElActual ? 'contorno' : undefined}
+                onPress={() => pagar(p)}
+                cargando={crear.isPending}
+                deshabilitado={ocupado}
+                accessibilityLabel={`${esElActual ? 'Renovar' : 'Pagar'} el plan ${p.nombre} con Mercado Pago`}
+              >
+                {esElActual ? 'Renovar 30 días con Mercado Pago' : 'Pagar con Mercado Pago'}
+              </Sello>
+              <Sello
+                variante="contorno"
                 onPress={() => pedir(p)}
                 cargando={contratar.isPending}
-                accessibilityLabel={esElActual ? `Renovar el plan ${p.nombre}` : `Contratar el plan ${p.nombre}`}
+                deshabilitado={ocupado}
+                accessibilityLabel={`Probar el plan ${p.nombre} sin pagar (demostración)`}
               >
-                {esElActual ? 'Renovar 30 días' : 'Contratar'}
+                Probar sin pagar (demostración)
               </Sello>
             </View>
           );
