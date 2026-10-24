@@ -22,6 +22,11 @@
 //   · VENCIÓ su fecha de revisión → hay que volver a mirarla, no heredarla;
 //   · le falta el motivo o la fecha → no es una excepción, es un silencio.
 //
+// ── Excepciones por COPIA (`copias` y `linea`, opcionales) ───────────────────────
+// Para cuando una copia NO se puede corregir actualizando (la trae una herramienta que fija una línea vieja de versiones) pero otra copia del mismo paquete sí. `copias` lista las rutas
+// exactas (`node_modules/…`) que cubre: si el aviso aparece en otra, falla. `linea` es la versión mayor de la copia cubierta: se comprueba contra lo instalado y solo las correcciones
+// de esa línea cuentan como «ya hay corrección». Sin esto, una excepción por nombre dejaría pasar también a la copia directa de la app. Caso real: zod (23/10/2026).
+//
 // ── Cómo se cuenta ───────────────────────────────────────────────────────────────
 // Un mismo aviso aparece una vez por cada paquete de la cadena que lo arrastra: 68
 // paquetes afectados eran 7 avisos. Se cuenta por AVISO (el id GHSA), no por paquete;
@@ -46,7 +51,7 @@ function leerArgumentos(argv) {
   for (let i = 0; i < argv.length; i += 2) {
     const clave = argv[i];
     if (!clave.startsWith('--') || argv[i + 1] === undefined) {
-      console.error(`Uso: verificar-audit.mjs [--auditoria f.json] [--excepciones f.json] [--versiones f.json] [--hoy AAAA-MM-DD]`);
+      console.error(`Uso: verificar-audit.mjs [--auditoria f.json] [--excepciones f.json] [--versiones f.json] [--hoy AAAA-MM-DD] [--raiz carpeta]`);
       process.exit(2);
     }
     a[clave.slice(2)] = argv[i + 1];
@@ -123,8 +128,10 @@ function avisosGraves(auditoria) {
       if (typeof via !== 'object' || !GRAVES.has(via.severity)) continue;
       const id = via.url?.split('/').pop() ?? `fuente-${via.source}`;
       if (!porId.has(id)) {
-        porId.set(id, { id, paquete: via.name, severidad: via.severity, rango: via.range, titulo: via.title });
+        porId.set(id, { id, paquete: via.name, severidad: via.severity, rango: via.range, titulo: via.title, nodos: new Set() });
       }
+      // Las COPIAS instaladas en las que aparece (`node_modules/…`): una excepción puede limitarse a ellas.
+      for (const nodo of entrada.nodes ?? []) porId.get(id).nodos.add(nodo);
     }
   }
   return porId;
@@ -141,9 +148,42 @@ function defecto(e) {
   return null;
 }
 
+const mayor = (v) => String(Number.parseInt(String(v).split('.')[0], 10));
+
+/** La versión instalada de una copia (`node_modules/…`), o null si no se puede leer. */
+function versionInstalada(raiz, ruta) {
+  try {
+    return JSON.parse(readFileSync(join(raiz, ruta, 'package.json'), 'utf8')).version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Las excepciones POR COPIA (`copias` y `linea`). Devuelve el problema, o null si la excepción cubre el aviso.
+ * Existen para el caso de una copia que NO se puede corregir actualizando (la trae una herramienta que fija una línea vieja) mientras otra copia del mismo paquete sí:
+ * sin esto, la excepción por nombre dejaba pasar a las dos, y «ya hay corrección» se cumplía con una versión que la copia no puede tomar.
+ */
+function problemaDeCopias(excepcion, aviso, raiz) {
+  if (!Array.isArray(excepcion.copias)) return null;
+  if (aviso.nodos.size === 0) return 'la auditoría no dice en qué copias aparece el aviso: no se puede comprobar que la excepción lo cubra';
+  const ajenas = [...aviso.nodos].filter((n) => !excepcion.copias.includes(n));
+  if (ajenas.length > 0) return `el aviso afecta a una copia que la excepción no cubre: ${ajenas.join(', ')}`;
+  if (excepcion.linea === undefined) return null;
+  for (const copia of excepcion.copias.filter((c) => aviso.nodos.has(c))) {
+    const version = versionInstalada(raiz, copia);
+    if (!version) return `no se pudo leer la versión instalada de ${copia}: no se declara cubierta lo que no se vio`;
+    if (mayor(version) !== String(excepcion.linea)) {
+      return `${copia} ya no es de la línea ${excepcion.linea}.x (instalada ${version}): vuelve a mirar la excepción`;
+    }
+  }
+  return null;
+}
+
 // ── principal ─────────────────────────────────────────────────────────────────────
 const args = leerArgumentos(process.argv.slice(2));
 const hoy = args.hoy ?? new Date().toISOString().slice(0, 10);
+const raiz = args.raiz ?? join(AQUI, '..');
 const excepciones = leerJson(args.excepciones ?? join(AQUI, 'audit-excepciones.json'));
 const graves = avisosGraves(obtenerAuditoria(args.auditoria));
 
@@ -187,7 +227,14 @@ for (const aviso of [...graves.values()].sort((a, b) => a.id.localeCompare(b.id)
     falla(`${nombre} — la excepción venció el ${excepcion.revisar}: hay que volver a mirarla, no heredarla`);
     continue;
   }
-  const correccion = primeraCorreccion(publicadas(aviso.paquete), aviso.rango);
+  const problema = problemaDeCopias(excepcion, aviso, raiz);
+  if (problema) {
+    falla(`${nombre} — ${problema}`);
+    continue;
+  }
+  // Con `linea`, solo cuentan como corrección las versiones de ESA línea: la copia cubierta no puede tomar las de otra.
+  const candidatas = excepcion.linea === undefined ? publicadas(aviso.paquete) : publicadas(aviso.paquete).filter((v) => mayor(v) === String(excepcion.linea));
+  const correccion = primeraCorreccion(candidatas, aviso.rango);
   if (correccion) {
     falla(`${nombre} — ya hay corrección publicada (${correccion}): sube la dependencia y quita la excepción`);
     continue;

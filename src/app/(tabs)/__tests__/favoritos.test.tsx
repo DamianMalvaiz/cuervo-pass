@@ -22,9 +22,11 @@ jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: () => ({ urls
 jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) => sel({ session: { user: { id: 'u1' } } }),
 }));
+// Mutable para poder probar una cuenta SIN coordenadas de universidad (la distancia no se inventa).
+let mockPerfil: { id: string; latitud_universidad: number | null; longitud_universidad: number | null } = { id: 'u1', latitud_universidad: 19.28, longitud_universidad: -99.55 };
 jest.mock('@/store/usePerfilStore', () => ({
   usePerfilStore: (sel?: (s: unknown) => unknown) => {
-    const estado = { perfil: { id: 'u1', latitud_universidad: 19.28, longitud_universidad: -99.55 }, cargarPerfil: jest.fn() };
+    const estado = { perfil: mockPerfil, cargarPerfil: jest.fn() };
     return sel ? sel(estado) : estado;
   },
 }));
@@ -50,6 +52,7 @@ const estadoNegocios = (extra: Record<string, unknown> = {}) => ({ negocios: [],
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPerfil = { id: 'u1', latitud_universidad: 19.28, longitud_universidad: -99.55 };
   mockFavoritos.mockReturnValue(estado());
   mockNegocios.mockReturnValue(estadoNegocios());
 });
@@ -109,6 +112,45 @@ test('si todas las guardadas dejaron de estar disponibles, no dice que no guarda
   expect(screen.queryByText(/Aún no guardas ninguna publicación/i)).toBeNull();
 });
 
+// Ramas que la cobertura de `(tabs)` echaba de menos desde que se añadió el segmento Negocios: son comportamientos, no relleno.
+describe('detalles de las publicaciones guardadas', () => {
+  test('con la universidad de la cuenta, cada fila dice a cuántos km queda', async () => {
+    mockFavoritos.mockReturnValue(estado({ publicaciones: [pub('a')] }));
+    await render(<FavoritosScreen />);
+    expect(await screen.findByText(/a \d+\.\d km/)).toBeTruthy();
+  });
+
+  // No se inventa lo que no se sabe: sin coordenadas de la universidad (o de la publicación) la fila no enseña ninguna distancia.
+  test('sin las coordenadas de la universidad NO inventa la distancia', async () => {
+    mockPerfil = { id: 'u1', latitud_universidad: null, longitud_universidad: null };
+    mockFavoritos.mockReturnValue(estado({ publicaciones: [pub('a')] }));
+    await render(<FavoritosScreen />);
+    expect(await screen.findByText('Depa a')).toBeTruthy();
+    expect(screen.queryByText(/ km/)).toBeNull();
+  });
+
+  test('sin las coordenadas de la publicación tampoco inventa la distancia', async () => {
+    mockFavoritos.mockReturnValue(estado({ publicaciones: [pub('a', { latitud: null, longitud: null })] }));
+    await render(<FavoritosScreen />);
+    expect(await screen.findByText('Depa a')).toBeTruthy();
+    expect(screen.queryByText(/ km/)).toBeNull();
+  });
+
+  test('una publicación con foto se muestra igual aunque su enlace firmado aún no haya llegado', async () => {
+    mockFavoritos.mockReturnValue(estado({ publicaciones: [pub('a', { fotos: ['u1/a.jpg'] })] }));
+    await render(<FavoritosScreen />);
+    expect(await screen.findByText('Depa a')).toBeTruthy();
+  });
+
+  test('tocar el segmento que ya está activo no cambia nada', async () => {
+    mockFavoritos.mockReturnValue(estado({ publicaciones: [pub('a')] }));
+    await render(<FavoritosScreen />);
+    await fireEvent.press(screen.getByLabelText('Publicaciones'));
+    expect(screen.getByLabelText('Publicaciones').props.accessibilityState?.selected).toBe(true);
+    expect(screen.getByText('Depa a')).toBeTruthy();
+  });
+});
+
 describe('segmento Negocios (0073)', () => {
   const irANegocios = async () => { await fireEvent.press(screen.getByLabelText('Negocios')); };
 
@@ -151,6 +193,28 @@ describe('segmento Negocios (0073)', () => {
     await irANegocios();
     expect(screen.getByText('2 negocios guardados ya no están disponibles.')).toBeTruthy();
     expect(screen.queryByText(/Aún no guardas/)).toBeNull();
+  });
+
+  test('con UN solo negocio no disponible usa el singular', async () => {
+    mockNegocios.mockReturnValue(estadoNegocios({ noDisponibles: 1 }));
+    await render(<FavoritosScreen />);
+    await irANegocios();
+    expect(screen.getByText('1 negocio guardado ya no está disponible.')).toBeTruthy();
+  });
+
+  test('mientras cargan no afirma ni fallo ni vacío', async () => {
+    mockNegocios.mockReturnValue(estadoNegocios({ cargando: true }));
+    await render(<FavoritosScreen />);
+    await irANegocios();
+    expect(screen.queryByText(/Aún no guardas ningún negocio/)).toBeNull();
+    expect(screen.queryByText(/No pudimos cargar/)).toBeNull();
+  });
+
+  test('un negocio con foto se muestra igual aunque su enlace firmado aún no haya llegado', async () => {
+    mockNegocios.mockReturnValue(estadoNegocios({ negocios: [{ ...negocio('n1'), fotos: ['u1/n1.jpg'] }] }));
+    await render(<FavoritosScreen />);
+    await irANegocios();
+    expect(screen.getByText('Negocio n1')).toBeTruthy();
   });
 
   test('volver a Publicaciones muestra las publicaciones', async () => {
