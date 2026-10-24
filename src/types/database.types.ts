@@ -563,6 +563,11 @@ export interface Database {
         Args: { p_version: string };
         Returns: undefined;
       };
+      // Inicia la prueba gratis de una función y devuelve hasta cuándo dura. CP018 sin esa función, CP019 si ya se usó o ya hubo un pago (migración 0084).
+      iniciar_prueba: {
+        Args: { p_rol: 'comerciante' | 'arrendador' };
+        Returns: string;
+      };
       // 'estudiante' siempre; 'vendedor' solo con alguna función de vendedor (CP017 si no). 22023 si el perfil no existe (migración 0083).
       cambiar_perfil_activo: {
         Args: { p_perfil: 'estudiante' | 'vendedor' };

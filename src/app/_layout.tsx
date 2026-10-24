@@ -141,6 +141,7 @@ export default function RootLayout() {
         />
         <Stack.Screen name="perfil/sobre-mi" options={{ ...encabezado, title: 'Sobre mí' }} />
         <Stack.Screen name="perfil/crear-vendedor" options={{ ...encabezado, title: 'Perfil de vendedor' }} />
+        <Stack.Screen name="perfil/personalizacion" options={{ ...encabezado, title: 'Personalización' }} />
         {/* La ruta es la conversación, no el otro usuario: el hilo existe como
             fila en `conversaciones` desde la migración 0012 (§26). */}
         <Stack.Screen name="chat/[conversacionId]" options={{ ...encabezado, title: 'Chat' }} />
@@ -148,10 +149,13 @@ export default function RootLayout() {
             después. Con cabecera para que haya "atrás" sin gestos. */}
         <Stack.Screen name="verificacion/[rol]" options={{ ...encabezado, title: 'Verificación' }} />
         <Stack.Screen name="planes/[rol]" options={{ ...encabezado, title: 'Planes' }} />
-        <Stack.Screen name="pagos" options={{ ...encabezado, title: 'Pagos y facturación' }} />
+        <Stack.Screen name="pagos" options={{ ...encabezado, title: 'Mi plan y pagos' }} />
         <Stack.Screen name="notificaciones" options={{ ...encabezado, title: 'Avisos' }} />
         <Stack.Screen name="configuracion" options={{ ...encabezado, title: 'Configuración' }} />
         <Stack.Screen name="aviso-privacidad" options={{ ...encabezado, title: 'Aviso de privacidad' }} />
+        <Stack.Screen name="terminos" options={{ ...encabezado, title: 'Términos y condiciones' }} />
+        <Stack.Screen name="cambiar-contrasena" options={{ ...encabezado, title: 'Cambiar contraseña' }} />
+        <Stack.Screen name="eliminar-cuenta" options={{ ...encabezado, title: 'Eliminar mi cuenta' }} />
       </Stack>
       {/* Después del Stack: se pinta encima de cualquier pantalla. Un solo host. */}
       <ToastHost />

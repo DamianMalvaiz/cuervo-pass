@@ -114,6 +114,14 @@ export default function PanelScreen() {
           <ThemedText type="small" themeColor="textSecondary">
             {suscripcion ? describirSuscripcion(suscripcion) : 'Cargando tu plan…'}
           </ThemedText>
+          {suscripcion?.estado === 'gratis' && suscripcion.prueba_disponible ? (
+            <Sello
+              onPress={() => router.push({ pathname: '/planes/[rol]', params: { rol: rolPlan } })}
+              accessibilityLabel="Empezar prueba gratis"
+            >
+              Empezar prueba gratis
+            </Sello>
+          ) : null}
           <Pulsable
             onPress={() => router.push('/pagos')}
             accessibilityRole="button"

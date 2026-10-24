@@ -34,16 +34,18 @@ export function Sello({
   icono?: keyof typeof Ionicons.glyphMap;
   cargando?: boolean;
   deshabilitado?: boolean;
-  /** `contorno` para la acción secundaria: mismo peso, sin gastar la tinta. */
-  variante?: 'sello' | 'contorno';
+  /** `contorno` para la acción secundaria: mismo peso, sin gastar la tinta. `peligro` para lo irreversible (eliminar la cuenta): el rojo de error, no el lima. */
+  variante?: 'sello' | 'contorno' | 'peligro';
   accessibilityLabel?: string;
 }) {
   const theme = useTheme();
   const inactivo = deshabilitado || cargando;
   const esSello = variante === 'sello';
-  // Relleno lima → carbón encima (10.4:1). Contorno → el acento del tema, que ya
-  // está medido contra el fondo de cada modo (7.0:1 claro, 10.4:1 oscuro).
-  const colorTexto = esSello ? theme.limaTexto : theme.acento;
+  const esPeligro = variante === 'peligro';
+  // Relleno lima → carbón encima (10.4:1). Contorno → el acento del tema, que ya está medido contra el fondo de cada modo (7.0:1 claro, 10.4:1 oscuro).
+  // Peligro → el texto de contraste del rojo de error (6.5:1 en claro).
+  const fondoPeligro = { backgroundColor: theme.error };
+  const colorTexto = esPeligro ? theme.errorTexto : esSello ? theme.limaTexto : theme.acento;
 
   return (
     <Pulsable
@@ -56,7 +58,11 @@ export function Sello({
       // «reducir movimiento»), igual que el resto de la app; antes solo bajaba la opacidad y se sentía distinto.
       style={[
         estilos.base,
-        esSello ? [estilos.relleno, { backgroundColor: theme.lima }] : [estilos.contorno, { borderColor: theme.acento }],
+        esPeligro
+          ? [estilos.relleno, fondoPeligro]
+          : esSello
+            ? [estilos.relleno, { backgroundColor: theme.lima }]
+            : [estilos.contorno, { borderColor: theme.acento }],
         inactivo && estilos.inactivo,
       ]}
     >

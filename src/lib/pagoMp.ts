@@ -56,14 +56,10 @@ export function esUrlDePago(url: unknown): boolean {
   return DOMINIOS_MP.some((d) => host === d || host.endsWith(`.${d}`));
 }
 
-/** El texto del diálogo de confirmación. Mientras la app esté en pruebas lo dice; cuando pase a producción es lo único que hay que cambiar. */
+/** El texto del diálogo de confirmación: cuánto, y qué pasa con OXXO. Sin «modo de prueba»: el cliente no lo lee y no es suyo. */
 export function textoConfirmarPago(precio: string): string {
-  return `Se abrirá Mercado Pago para pagar ${precio}. Mientras la app esté en pruebas, usa una cuenta y una tarjeta de prueba: no se cobra dinero real. Si eliges OXXO, el plan se activa cuando pagues en la tienda.`;
+  return `Se abrirá Mercado Pago para pagar ${precio}. Si eliges OXXO, el plan se activa cuando pagues en la tienda.`;
 }
-
-/** El aviso fijo de la pantalla de planes. */
-export const AVISO_PAGOS =
-  'Modo de PRUEBA: no se cobra dinero real. Con Mercado Pago usa una cuenta y una tarjeta de prueba; «Probar sin pagar» activa el plan sin pasar por Mercado Pago.';
 
 const VENTANA_ESPERA_MS = 30 * 60_000;
 

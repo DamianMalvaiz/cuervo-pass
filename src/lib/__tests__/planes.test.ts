@@ -3,7 +3,7 @@ import { describirSuscripcion, diasRestantes, fechaLarga, incluyeDe, precioDe, t
 const ahora = new Date('2026-10-17T12:00:00Z');
 const sus = (extra: Partial<MiSuscripcion> = {}): MiSuscripcion => ({
   plan_id: 'comerciante_basico', plan_nombre: 'Básico', estado: 'prueba', hasta: '2026-11-01T12:00:00Z',
-  limite_principal: 1, max_fotos: 20, max_productos: 80, destaca: false, ...extra,
+  limite_principal: 1, max_fotos: 20, max_productos: 80, destaca: false, prueba_disponible: false, ...extra,
 });
 
 describe('precioDe', () => {

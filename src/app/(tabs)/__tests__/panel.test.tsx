@@ -126,3 +126,27 @@ describe('el plan y lo propio', () => {
     expect(screen.getByText('Mis negocios')).toBeTruthy();
   });
 });
+
+describe('empezar la prueba gratis', () => {
+  const con = (s: Record<string, unknown>) =>
+    mockSuscripcion.mockReturnValue({ suscripcion: { plan_id: null, plan_nombre: null, hasta: null, ...s }, cargando: false, fallo: false, reintentar: jest.fn() });
+
+  it('con prueba disponible: ofrece «Empezar prueba gratis» y lleva a los planes de ESE rol', async () => {
+    con({ estado: 'gratis', prueba_disponible: true });
+    await render(<PanelScreen />);
+    await act(async () => { fireEvent.press(screen.getByLabelText('Empezar prueba gratis')); });
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/planes/[rol]', params: { rol: 'arrendador' } });
+  });
+
+  it('sin prueba disponible, o ya en prueba: no lo ofrece', async () => {
+    con({ estado: 'gratis', prueba_disponible: false });
+    await render(<PanelScreen />);
+    expect(screen.queryByLabelText('Empezar prueba gratis')).toBeNull();
+  });
+
+  it('en prueba: tampoco', async () => {
+    con({ estado: 'prueba', prueba_disponible: false, hasta: '2099-01-01T00:00:00Z' });
+    await render(<PanelScreen />);
+    expect(screen.queryByLabelText('Empezar prueba gratis')).toBeNull();
+  });
+});

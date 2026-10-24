@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(747);
+select plan(761);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1104,6 +1104,7 @@ select is(
     'favoritos_por_publicacion',
     'guardar_horario',
     'guardar_menu',
+    'iniciar_prueba',
     'mi_suscripcion',
     'negocio_abierto_en',
     'negocios_ordenados',
@@ -2031,6 +2032,15 @@ select throws_ok(
 
 select actuar_como_servicio();
 select resolver_verificacion('00000000-0000-0000-0000-0000000000f7', 'arrendador', true, null, '00000000-0000-0000-0000-0000000000a1');
+-- 0084 · aprobar NO inicia la prueba (antes la creaba); la inicia la persona. f7 la inicia aquí, una por función, y desde este punto rigen los límites
+-- del plan de prueba (el plan gratuito no permite ni un negocio), como cuando la aprobación la creaba.
+select is(
+  (select count(*)::int from suscripciones where usuario_id = '00000000-0000-0000-0000-0000000000f7' and prueba_hasta is not null), 0,
+  '0084 prueba: aprobar la verificación YA NO inicia la prueba: la inicia la persona' );
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select lives_ok($$select iniciar_prueba('comerciante')$$, '0084 prueba: f7 inicia la prueba de comerciante');
+select lives_ok($$select iniciar_prueba('arrendador')$$, '0084 prueba: y la de arrendador');
+select actuar_como_servicio();
 select actuar_como('00000000-0000-0000-0000-0000000000f7');
 select lives_ok(
   $$insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp)
@@ -2170,7 +2180,7 @@ select actuar_como_servicio();
 select ok(
   (select prueba_hasta between now() + interval '14 days' and now() + interval '16 days'
      from suscripciones where usuario_id = '00000000-0000-0000-0000-0000000000f7' and rol = 'comerciante'),
-  'prueba: aprobar la verificación inicia 15 días de prueba gratis' );
+  'prueba: iniciarla da 15 días de prueba gratis' );
 
 select actuar_como('00000000-0000-0000-0000-0000000000f7');
 select is(
@@ -3783,6 +3793,32 @@ select is((select perfil_activo from usuarios where id = '00000000-0000-0000-000
   '0083: y queda guardado');
 select is((select count(*)::int from roles_usuario where usuario_id = '00000000-0000-0000-0000-00000000ee01'), 1,
   '0083: cambiar de perfil no borra ni toca la función de vendedor');
+
+-- ════════════════ 0084 · la prueba gratis la inicia la persona ════════════════
+-- Antes empezaba sola al aprobar la verificación. Ahora la persona la inicia con «Empezar prueba gratis», una sola vez por función, y puede hacerlo antes
+-- de verificarse (la verificación gobierna si PUBLICA, no si tiene un plan). Pagar antes de usar la prueba la consume: no se regala gratis lo ya pagado.
+select actuar_como('00000000-0000-0000-0000-00000000ee02');
+select throws_ok($$select iniciar_prueba('comerciante')$$, 'CP018', null, '0084: sin esa función no se puede iniciar su prueba');
+select throws_ok($$select iniciar_prueba('admin')$$, '22023', null, '0084: un rol que no existe se rechaza');
+select is((select prueba_disponible from mi_suscripcion('arrendador')), true,
+  '0084: antes de iniciarla, la app SABE que la prueba está disponible (para ofrecerla y no rechazarla después)');
+-- `x between a and b` evalúa `x` DOS veces, y `iniciar_prueba` no es idempotente a propósito: se llama una vez y el resultado se compara.
+select ok((select h between now() + interval '14 days' and now() + interval '16 days' from (select iniciar_prueba('arrendador') as h) t),
+  '0084: iniciar la prueba devuelve hasta cuándo dura (15 días), aunque la verificación siga sin hacerse');
+select is((select estado from mi_suscripcion('arrendador')), 'prueba', '0084: y desde entonces el plan es el de prueba');
+select is((select prueba_disponible from mi_suscripcion('arrendador')), false, '0084: iniciada, ya no está disponible');
+select throws_ok($$select iniciar_prueba('arrendador')$$, 'CP019', null, '0084: la prueba se usa UNA sola vez');
+-- Pagar antes de usar la prueba la consume: ee01 tiene la función de comerciante y un pago, y nunca inició la prueba.
+select actuar_como_servicio();
+insert into pagos (usuario_id, rol, plan_id, monto_centavos, origen, periodo_inicio, periodo_fin)
+values ('00000000-0000-0000-0000-00000000ee01', 'comerciante', 'comerciante_basico', 9900, 'simulado', now(), now() + interval '30 days');
+select actuar_como('00000000-0000-0000-0000-00000000ee01');
+select is((select prueba_disponible from mi_suscripcion('comerciante')), false, '0084: quien ya pagó tampoco la tiene disponible');
+select throws_ok($$select iniciar_prueba('comerciante')$$, 'CP019', null, '0084: quien ya pagó esa función no recibe además una prueba gratis');
+select actuar_como_servicio();
+select throws_ok($$select iniciar_prueba('arrendador')$$, '28000', null, '0084: sin sesión no hay prueba que iniciar');
+select ok(not has_function_privilege('anon', 'iniciar_prueba(text)', 'execute') and has_function_privilege('authenticated', 'iniciar_prueba(text)', 'execute'),
+  '0084: la llama quien tiene sesión y nadie sin ella');
 
 select * from finish();
 rollback;

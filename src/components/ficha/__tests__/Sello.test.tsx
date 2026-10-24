@@ -11,6 +11,8 @@ jest.mock('../Pulsable', () => {
   return { Pulsable: (props: Record<string, unknown>) => <Pressable testID="pulsable" {...props} /> };
 });
 
+import { Colors } from '@/constants/theme';
+
 import { Sello } from '../Sello';
 
 describe('Sello', () => {
@@ -52,6 +54,14 @@ describe('Sello', () => {
   it('la etiqueta de accesibilidad por omisión es el texto, y se puede cambiar', async () => {
     await render(<Sello onPress={() => {}} accessibilityLabel="Crear cuenta">Entrar</Sello>);
     expect(screen.getByLabelText('Crear cuenta')).toBeTruthy();
+  });
+
+  // Lo irreversible se ve irreversible: «Eliminar mi cuenta para siempre» no es el verde lima de cualquier botón.
+  it('«peligro» lleva el rojo de error, con su texto de contraste', async () => {
+    await render(<Sello variante="peligro" onPress={() => {}}>Eliminar</Sello>);
+    const estilo = StyleSheet.flatten(screen.getByTestId('pulsable').props.style);
+    expect(estilo.backgroundColor).toBe(Colors.light.error);
+    expect(StyleSheet.flatten(screen.getByText('Eliminar').props.style).color).toBe(Colors.light.errorTexto);
   });
 
   it('el contorno lleva borde y el sello lleva relleno', async () => {
