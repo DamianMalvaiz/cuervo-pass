@@ -30,6 +30,22 @@ import { usePerfilStore } from '@/store/usePerfilStore';
 // edita en «Mis datos»), el editor de la biografía (ahora «Sobre mí», su propia pantalla), las cifras de la tarjeta y «Tus funciones» con alertas
 // (ahora «Crea tu perfil de vendedor», una pantalla).
 
+/** Un dato de «Mi búsqueda»: su icono en un recuadro (centrado con las dos líneas de texto), la etiqueta y el valor. */
+function DatoBusqueda({ icono, etiqueta, valor }: { icono: keyof typeof Ionicons.glyphMap; etiqueta: string; valor: string }) {
+  const theme = useTheme();
+  return (
+    <View style={estilos.dato}>
+      <View style={[estilos.iconoDato, { backgroundColor: theme.backgroundElement }]}>
+        <Ionicons name={icono} size={22} color={theme.bosque} />
+      </View>
+      <View style={estilos.textoDato}>
+        <ThemedText type="small" themeColor="textSecondary">{etiqueta}</ThemedText>
+        <ThemedText type="smallBold">{valor}</ThemedText>
+      </View>
+    </View>
+  );
+}
+
 function PerfilEstudiante() {
   const theme = useTheme();
   const margenSuperior = useMargenSuperior();
@@ -66,7 +82,7 @@ function PerfilEstudiante() {
   const sobreMi = perfil?.biografia?.trim();
   const presupuesto =
     perfil?.presupuesto_min != null && perfil?.presupuesto_max != null
-      ? `$${perfil.presupuesto_min.toLocaleString('es-MX')} – $${perfil.presupuesto_max.toLocaleString('es-MX')}`
+      ? `$${perfil.presupuesto_min.toLocaleString('es-MX')} a $${perfil.presupuesto_max.toLocaleString('es-MX')}`
       : 'sin definir';
 
   return (
@@ -94,18 +110,13 @@ function PerfilEstudiante() {
               </Pulsable>
             </View>
             <View style={estilos.datosBusqueda}>
-              <View style={estilos.dato}>
-                <ThemedText type="small" themeColor="textSecondary">Presupuesto</ThemedText>
-                <ThemedText type="smallBold">{presupuesto}</ThemedText>
-              </View>
-              <View style={estilos.dato}>
-                <ThemedText type="small" themeColor="textSecondary">Distancia</ThemedText>
-                <ThemedText type="smallBold">{perfil?.distancia_max_km != null ? `${perfil.distancia_max_km} km` : 'sin definir'}</ThemedText>
-              </View>
-              <View style={estilos.dato}>
-                <ThemedText type="small" themeColor="textSecondary">Universidad</ThemedText>
-                <ThemedText type="smallBold" numberOfLines={2}>{perfil?.universidad ?? 'sin definir'}</ThemedText>
-              </View>
+              <DatoBusqueda icono="cash-outline" etiqueta="Presupuesto al mes" valor={presupuesto} />
+              <DatoBusqueda
+                icono="location-outline"
+                etiqueta="Distancia máxima"
+                valor={perfil?.distancia_max_km != null ? `Hasta ${perfil.distancia_max_km} km` : 'sin definir'}
+              />
+              <DatoBusqueda icono="business-outline" etiqueta="Estudio en" valor={perfil?.universidad ?? 'sin definir'} />
             </View>
           </View>
 
@@ -191,6 +202,8 @@ const estilos = StyleSheet.create({
   busqueda: { borderWidth: Filete.fino, borderRadius: Radios.hoja, padding: Spacing.three, gap: Spacing.two },
   cabeceraBusqueda: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   accionBusqueda: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half, minHeight: 44 },
-  datosBusqueda: { flexDirection: 'row', gap: Spacing.three },
-  dato: { flex: 1, gap: Spacing.half },
+  datosBusqueda: { gap: Spacing.three },
+  dato: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  iconoDato: { width: 44, height: 44, borderRadius: Radios.control, alignItems: 'center', justifyContent: 'center' },
+  textoDato: { flex: 1, gap: Spacing.half },
 });

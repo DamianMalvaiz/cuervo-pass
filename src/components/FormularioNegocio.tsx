@@ -20,7 +20,7 @@ import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
 import { geocodificarDireccion } from '@/lib/geocoding';
-import { parsearHorarioTexto, resumenAcotado, validarTurnos, type Turno } from '@/lib/horario';
+import { parsearHorarioTexto, resumenAcotado, validarHorarioCompleto, type DiaIso, type Turno } from '@/lib/horario';
 import { MAX_FOTOS_NEGOCIO, validarNegocio, type ErroresNegocio } from '@/lib/negocio';
 import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 import { toast } from '@/lib/toast';
@@ -65,10 +65,12 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
   const turnosIniciales = inicial?.turnos ?? [];
   const propuestos = turnosIniciales.length === 0 ? parsearHorarioTexto(n?.horario) ?? [] : [];
   const [turnos, setTurnos] = useState<Turno[]>(turnosIniciales.length > 0 ? turnosIniciales : propuestos);
-  const [turnosTocados, setTurnosTocados] = useState(propuestos.length > 0);
+  // Con un horario ya definido, los días que no abre están cerrados; sin él, ningún día está decidido (el horario es obligatorio).
+  const [cerrados, setCerrados] = useState<DiaIso[]>(() =>
+    turnos.length === 0 ? [] : ([1, 2, 3, 4, 5, 6, 7] as DiaIso[]).filter((d) => !turnos.some((t) => t.dia === d))
+  );
   const [errorHorario, setErrorHorario] = useState<string | undefined>(undefined);
-  // Sin turnos tocados, el texto original no se modifica; con turnos, el texto es su resumen.
-  const horario = turnosTocados ? resumenAcotado(turnos, 120) : (n?.horario ?? '');
+  const horario = resumenAcotado(turnos, 120);
   const [activo, setActivo] = useState(n?.activo ?? true);
   const [fotos, setFotos] = useState<FotoEnForm[]>(
     (n?.fotos ?? []).map((ruta) => ({ clave: ruta, ruta, uri: '' }))
@@ -95,7 +97,7 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
       categoriaId, nombre, descripcion, direccion, rangoPrecio, horario, fotos: fotos.map((f) => f.clave),
     }, maxFotos);
     setErrores(e);
-    const problemaHorario = turnosTocados ? validarTurnos(turnos) : null;
+    const problemaHorario = validarHorarioCompleto(turnos, cerrados);
     setErrorHorario(problemaHorario ?? undefined);
     if (Object.keys(e).length > 0 || problemaHorario || !categoriaId) return;
 
@@ -129,7 +131,7 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
           fotosConservadas: conservadas,
           fotosQuitadas: rutasIniciales.filter((r) => !conservadas.includes(r)),
           fotosNuevas: fotos.filter((f) => !f.ruta).map((f) => f.uri),
-          turnos: turnosTocados ? turnos : undefined,
+          turnos,
         },
         {
           onSuccess: () => {
@@ -229,15 +231,16 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
           <Campo etiqueta="Dirección" value={direccion} onChangeText={setDireccion} error={errores.direccion} maxLength={200} />
           <EditorHorario
             turnos={turnos}
-            onChange={(t) => {
-              setTurnos(t);
-              setTurnosTocados(true);
+            cerrados={cerrados}
+            onChange={(e) => {
+              setTurnos(e.turnos);
+              setCerrados(e.cerrados);
             }}
             error={errorHorario ?? errores.horario}
           />
-          {!turnosTocados && n?.horario ? (
+          {turnos.length === 0 && n?.horario ? (
             <ThemedText type="small" themeColor="textSecondary">
-              Horario actual: {n.horario}. Defínelo arriba para que tu negocio pueda aparecer en «Abierto ahora».
+              Horario actual: {n.horario}. Defínelo arriba, día por día, para que tu negocio pueda aparecer en «Abierto ahora».
             </ThemedText>
           ) : null}
 

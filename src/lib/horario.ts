@@ -13,8 +13,9 @@ export interface Turno {
 export const MAX_TURNOS = 21;
 const HHMM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 
-const ABREVIATURAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] as const;
-const ABREV_MINUSCULAS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'] as const;
+/** Los días se escriben completos, sin abreviar: la primera palabra de un resumen va con mayúscula y las demás en minúsculas. */
+const NOMBRES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'] as const;
+const NOMBRES_MINUSCULAS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'] as const;
 
 /** Postgres devuelve `time` como «09:00:00»; la app trabaja con «09:00». */
 export const recortarHora = (t: string): string => (/^\d{2}:\d{2}:\d{2}/.test(t) ? t.slice(0, 5) : t);
@@ -126,12 +127,12 @@ export function agruparPorHoras(turnos: readonly Turno[]): GrupoDeHoras[] {
 function textoDeDias(dias: DiaIso[]): string {
   if (dias.length === 7) return 'Todos los días';
   const consecutivos = dias.every((d, i) => i === 0 || d === dias[i - 1] + 1);
-  if (dias.length >= 3 && consecutivos) return `${ABREVIATURAS[dias[0] - 1]} a ${ABREV_MINUSCULAS[dias[dias.length - 1] - 1]}`;
-  const nombres = dias.map((d, i) => (i === 0 ? ABREVIATURAS[d - 1] : ABREV_MINUSCULAS[d - 1]));
+  if (dias.length >= 3 && consecutivos) return `${NOMBRES[dias[0] - 1]} a ${NOMBRES_MINUSCULAS[dias[dias.length - 1] - 1]}`;
+  const nombres = dias.map((d, i) => (i === 0 ? NOMBRES[d - 1] : NOMBRES_MINUSCULAS[d - 1]));
   return nombres.length <= 1 ? nombres.join('') : `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}`;
 }
 
-/** El texto corto que se enseña: «Lun a sáb · 8 am a 8 pm», o varios grupos separados por «; ». Vacío si no hay turnos. */
+/** El texto corto que se enseña: «Lunes a sábado · 8 am a 8 pm», o varios grupos separados por «; ». Vacío si no hay turnos. */
 export function resumenDeTurnos(turnos: readonly Turno[]): string {
   return agruparPorHoras(turnos)
     .map((g) => {
@@ -164,4 +165,17 @@ export function validarTurnos(turnos: readonly Turno[]): string | null {
     if (t.abre === t.cierra) return 'Abrir y cerrar a la misma hora no es un horario';
   }
   return null;
+}
+
+/**
+ * El horario de un negocio es OBLIGATORIO y se llena a mano: cada uno de los siete días tiene que estar abierto (con turnos) o cerrado (marcado a propósito);
+ * «sin decidir» no es un horario. Devuelve el primer problema en lenguaje de persona, o `null`. Un día con turnos cuenta como abierto aunque también esté en `cerrados`.
+ */
+export function validarHorarioCompleto(turnos: readonly Turno[], cerrados: readonly DiaIso[]): string | null {
+  const abiertos = new Set(turnos.map((t) => t.dia));
+  for (const dia of [1, 2, 3, 4, 5, 6, 7] as DiaIso[]) {
+    if (!abiertos.has(dia) && !cerrados.includes(dia)) return `Te falta decidir el ${NOMBRES_MINUSCULAS[dia - 1]}.`;
+  }
+  if (abiertos.size === 0) return 'Tu negocio tiene que abrir al menos un día.';
+  return validarTurnos(turnos);
 }

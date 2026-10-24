@@ -45,7 +45,6 @@ function TarjetaPlan({ rol, titulo, s }: { rol: Rol; titulo: string; s: MiSuscri
       {empezable ? (
         <>
           <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>Todavía no empiezas tu prueba gratis</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">Son {DIAS_DE_PRUEBA} días, sin tarjeta y sin compromiso.</ThemedText>
           <Sello onPress={aVer} accessibilityLabel="Empezar prueba gratis">Empezar prueba gratis</Sello>
         </>
       ) : (

@@ -8,6 +8,7 @@ import { BotonFavoritoNegocio } from '@/components/BotonFavoritoNegocio';
 import { Estrellas } from '@/components/ficha/Estrellas';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { Pastilla } from '@/components/ficha/Pastilla';
+import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
 import { SeccionResenas } from '@/components/SeccionResenas';
 import { signosDePrecio } from '@/components/TarjetaNegocio';
@@ -25,6 +26,10 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 });
 
+/** Claves de las pestañas: «Todo» y los productos sin categoría («Otros»). No chocan con el nombre de una categoría escrita a mano. */
+const TODO = '\u0000todo';
+const SIN_CATEGORIA = '\u0000otros';
+
 /**
  * La ficha de un negocio · Cuervo 360 (propuesta visual del 17/10/2026).
  *
@@ -41,6 +46,7 @@ export default function NegocioScreen() {
   // ¿Es MI negocio? La vista pública no trae al dueño, así que se compara con la lista de los míos.
   const { negocios: misNegocios } = useMisNegocios(miId);
   const [foja, setFoja] = useState(0);
+  const [categoria, setCategoria] = useState(TODO);
   // Una sola firma EN LOTE para la galería y las fotos de los productos.
   const { urls } = useFotosFirmadas([...(negocio?.fotos ?? []), ...items.map((i) => i.foto)]);
 
@@ -82,6 +88,11 @@ export default function NegocioScreen() {
   const fotos = negocio.fotos;
   const esDueno = misNegocios.some((n) => n.id === negocio.id);
   const grupos = agruparPorSeccion(items.map((i) => ({ ...i, seccion: i.seccion ?? '' })));
+  // Con dos o más categorías, pestañas que se deslizan; «Todo» agrupa. Si la elegida ya no existe (el menú cambió), se vuelve a «Todo».
+  const claveDe = (g: { seccion: string | null }) => g.seccion ?? SIN_CATEGORIA;
+  const conPestanas = grupos.length >= 2;
+  const activa = conPestanas && grupos.some((g) => claveDe(g) === categoria) ? categoria : TODO;
+  const visibles = activa === TODO ? grupos : grupos.filter((g) => claveDe(g) === activa);
   // Divide por el ancho ACOTADO con el que se pintan las fotos (como en la ficha de un depa).
   const alDesplazar = (e: NativeSyntheticEvent<NativeScrollEvent>) => setFoja(Math.round(e.nativeEvent.contentOffset.x / anchoLista));
   const precio = signosDePrecio(negocio.rango_precio);
@@ -177,9 +188,31 @@ export default function NegocioScreen() {
         {items.length > 0 ? (
           <View style={estilos.menu}>
             <ThemedText type="subtitle">Menú y precios</ThemedText>
-            {grupos.map((g) => (
+            {conPestanas ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.pestanas}>
+                {[{ clave: TODO, nombre: 'Todo' }, ...grupos.map((g) => ({ clave: claveDe(g), nombre: g.seccion ?? 'Otros' }))].map((c) => {
+                  const elegida = c.clave === activa;
+                  return (
+                    <Pulsable
+                      key={c.clave}
+                      onPress={() => setCategoria(c.clave)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Categoría ${c.nombre}`}
+                      accessibilityState={{ selected: elegida }}
+                      style={[
+                        estilos.pestana,
+                        { backgroundColor: elegida ? theme.text : theme.backgroundElement, borderColor: elegida ? theme.text : theme.filete },
+                      ]}
+                    >
+                      <ThemedText type="small" style={[Texto.pesoFuerte, elegida && { color: theme.background }]}>{c.nombre}</ThemedText>
+                    </Pulsable>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
+            {visibles.map((g) => (
               <View key={g.seccion ?? 'sin-seccion'} style={estilos.menu}>
-                <ThemedText type="smallBold" themeColor="textSecondary">{g.seccion ?? 'Otros'}</ThemedText>
+                {activa === TODO ? <ThemedText type="smallBold" themeColor="textSecondary">{g.seccion ?? 'Otros'}</ThemedText> : null}
                 <View style={[estilos.tarjetaMenu, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
                   {g.productos.map((it, i) => {
                     const miniatura = it.foto ? urls.get(it.foto) : null;
@@ -249,6 +282,8 @@ const estilos = StyleSheet.create({
   descripcion: { lineHeight: 24 },
   pastillas: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   menu: { gap: Spacing.two },
+  pestanas: { gap: Spacing.two },
+  pestana: { minHeight: 44, paddingHorizontal: Spacing.three, borderWidth: Filete.fino, borderRadius: Radios.full, justifyContent: 'center' },
   tarjetaMenu: { borderWidth: Filete.fino, borderRadius: Radios.tarjeta, paddingHorizontal: Spacing.three },
   renglon: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, minHeight: 52, paddingVertical: Spacing.two },
   miniatura: { width: 56, height: 56, borderRadius: Radios.control },

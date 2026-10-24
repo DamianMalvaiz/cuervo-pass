@@ -177,17 +177,60 @@ describe('el menú por secciones', () => {
       items: [item('a', 'Taco', { seccion: 'Tacos' }), item('b', 'Agua', { seccion: 'Bebidas' }), item('c', 'Revisión'), item('d', 'Gringa', { seccion: 'tacos' })],
     }));
     await render(<NegocioScreen />);
-    expect(screen.getByText('Tacos')).toBeTruthy();
-    expect(screen.getByText('Bebidas')).toBeTruthy();
-    expect(screen.getByText('Otros')).toBeTruthy();
+    // Cada nombre sale en su pestaña y en el título de su grupo.
+    expect(screen.getAllByText('Tacos')).toHaveLength(2);
+    expect(screen.getAllByText('Bebidas')).toHaveLength(2);
+    expect(screen.getAllByText('Otros')).toHaveLength(2);
     // «Tacos» y «tacos» son una misma sección.
-    expect(screen.getAllByText(/^tacos$/i)).toHaveLength(1);
+    expect(screen.getAllByText(/^tacos$/i)).toHaveLength(2);
   });
 
   it('un menú sin secciones no inventa títulos: solo «Otros»', async () => {
     mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco'), item('b', 'Agua')] }));
     await render(<NegocioScreen />);
     expect(screen.getByText('Otros')).toBeTruthy();
+  });
+
+  describe('pestañas de categoría', () => {
+    const variado = () => estado({
+      items: [item('a', 'Taco', { seccion: 'Tacos' }), item('b', 'Agua', { seccion: 'Bebidas' }), item('c', 'Revisión')],
+    });
+
+    it('con dos o más grupos hay pestañas: «Todo» primero y una por categoría', async () => {
+      mockNegocio.mockReturnValue(variado());
+      await render(<NegocioScreen />);
+      expect(screen.getByLabelText('Categoría Todo').props.accessibilityState).toEqual({ selected: true });
+      expect(screen.getByLabelText('Categoría Tacos')).toBeTruthy();
+      expect(screen.getByLabelText('Categoría Bebidas')).toBeTruthy();
+      expect(screen.getByLabelText('Categoría Otros')).toBeTruthy();
+    });
+
+    it('tocar una pestaña deja SOLO los productos de esa categoría', async () => {
+      mockNegocio.mockReturnValue(variado());
+      await render(<NegocioScreen />);
+      await act(async () => { fireEvent.press(screen.getByLabelText('Categoría Bebidas')); });
+      expect(screen.getByText('Agua')).toBeTruthy();
+      expect(screen.queryByText('Taco')).toBeNull();
+      expect(screen.queryByText('Revisión')).toBeNull();
+      expect(screen.getByLabelText('Categoría Bebidas').props.accessibilityState).toEqual({ selected: true });
+      expect(screen.getByLabelText('Categoría Todo').props.accessibilityState).toEqual({ selected: false });
+    });
+
+    it('«Todo» vuelve a enseñarlos todos', async () => {
+      mockNegocio.mockReturnValue(variado());
+      await render(<NegocioScreen />);
+      await act(async () => { fireEvent.press(screen.getByLabelText('Categoría Bebidas')); });
+      await act(async () => { fireEvent.press(screen.getByLabelText('Categoría Todo')); });
+      expect(screen.getByText('Taco')).toBeTruthy();
+      expect(screen.getByText('Agua')).toBeTruthy();
+      expect(screen.getByText('Revisión')).toBeTruthy();
+    });
+
+    it('con un solo grupo no hay pestañas: no hay nada que elegir', async () => {
+      mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco', { seccion: 'Tacos' }), item('b', 'Gringa', { seccion: 'Tacos' })] }));
+      await render(<NegocioScreen />);
+      expect(screen.queryByLabelText('Categoría Todo')).toBeNull();
+    });
   });
 
   it('cada producto muestra su descripción', async () => {
@@ -238,7 +281,7 @@ describe('horario estructurado (0070)', () => {
   test('con turnos: el horario semanal se enseña legible y el texto libre se deja de usar', async () => {
     mockNegocio.mockReturnValue(estado({ turnos, negocio: { ...NEGOCIO, abierto_ahora: true } }));
     await render(<NegocioScreen />);
-    expect(screen.getByText('Lun a vie · 9 am a 6 pm')).toBeTruthy();
+    expect(screen.getByText('Lunes a viernes · 9 am a 6 pm')).toBeTruthy();
     expect(screen.getByText('Abierto ahora')).toBeTruthy();
     expect(screen.queryByText('Lun a sáb · 8 am a 9 pm')).toBeNull();
   });

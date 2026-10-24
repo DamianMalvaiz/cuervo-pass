@@ -103,7 +103,7 @@ export function TarjetaIdentidad({ insignia, children }: { insignia?: string; ch
             </ThemedText>
             {perfil?.universidad ? (
               <View style={estilos.universidad}>
-                <Ionicons name="school-outline" size={14} color={theme.textSecondary} />
+                <Ionicons name="business-outline" size={16} color={theme.textSecondary} style={estilos.iconoUniversidad} />
                 <ThemedText type="small" themeColor="textSecondary" numberOfLines={2} style={estilos.flexible}>
                   {perfil.universidad}
                 </ThemedText>
@@ -151,7 +151,9 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
   },
   datosIdentidad: { flex: 1, gap: Spacing.half },
-  universidad: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, marginTop: Spacing.half },
+  // El icono se alinea con la PRIMERA línea (no flota entre dos) y es simétrico: el gorro de graduación se veía inclinado.
+  universidad: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.one, marginTop: Spacing.half },
+  iconoUniversidad: { marginTop: 2 },
   insignia: {
     alignSelf: 'flex-start',
     borderWidth: Filete.fino,

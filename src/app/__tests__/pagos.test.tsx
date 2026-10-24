@@ -74,6 +74,7 @@ describe('tu plan', () => {
     mockSus.mockImplementation((_u: string, rol: string) => lectura(rol === 'comerciante' ? sinPlan(true) : null));
     await render(<PagosScreen />);
     expect(screen.getByText(/Todavía no empiezas tu prueba gratis/)).toBeTruthy();
+    expect(screen.queryByText(/sin tarjeta/)).toBeNull();
     await pulsar('Empezar prueba gratis');
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/planes/[rol]', params: { rol: 'comerciante' } });
   });

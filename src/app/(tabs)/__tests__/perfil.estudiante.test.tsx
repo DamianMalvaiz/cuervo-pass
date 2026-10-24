@@ -88,9 +88,17 @@ describe('la cabecera y la tarjeta', () => {
 describe('«Mi búsqueda»', () => {
   it('resume presupuesto, distancia y universidad', async () => {
     await render(<PerfilScreen />);
-    expect(screen.getByText('$2,000 – $4,000')).toBeTruthy();
-    expect(screen.getByText('10 km')).toBeTruthy();
+    expect(screen.getByText('$2,000 a $4,000')).toBeTruthy();
+    expect(screen.getByText('Hasta 10 km')).toBeTruthy();
     expect(screen.getByText('UTVT')).toBeTruthy();
+  });
+
+  it('cada dato lleva su etiqueta: la universidad no se repite como «Universidad Universidad…»', async () => {
+    await render(<PerfilScreen />);
+    expect(screen.getByText('Presupuesto al mes')).toBeTruthy();
+    expect(screen.getByText('Distancia máxima')).toBeTruthy();
+    expect(screen.getByText('Estudio en')).toBeTruthy();
+    expect(screen.queryByText('Universidad')).toBeNull();
   });
 
   it('un perfil sin llenar dice «sin definir» en vez de quedarse en blanco', async () => {
