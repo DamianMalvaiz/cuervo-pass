@@ -1260,6 +1260,19 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
 - **CI del panel de admin:** job `panel-admin` (`npm ci`, `typecheck`, `npm test`, `npm run build`, `verificar:audit`), reproducido desde cero en local (borrando `node_modules`); `ci-panel-admin.test.ts` (con mutaciones).
 - **Pendiente.**  correr las
   pruebas del panel en el CI; decidir qué hacer con el admin `damianmalvaizadm@utvtol.edu.mx`; mover widgets (fase 2).
+- **Cuentas de vendedor sin correo universitario: migración 0082 escrita y probada en local, SIN aplicar a producción (24/10/2026).** Hallazgo: el filtro `.edu.mx` vivía
+  solo en la app (`correoUniversitario.ts`); con la llave anónima, que va en el APK, cualquiera daba de alta un Gmail llamando a Auth. En el repo el hook de Auth
+  estaba comentado; en producción **no se comprobó** si había alguno (probarlo implicaba crear una cuenta real). La 0082: `es_correo_universitario`, el hook
+  `hook_alta_de_usuario` (un correo no universitario solo entra si se declara `arrendador` o `comerciante`), la columna `usuarios.cuenta_restringida` (la fija el trigger de alta, la
+  dueña no la toca) y las políticas: una cuenta restringida no reporta, no reseña (`reportes_insert`, `resenas_insert`, `reportar_resena`) y no abre conversaciones nuevas
+  (`conversaciones_crear`, `abrir_conversacion`); sí responde en las que ya existen. La declaración «soy vendedor» la manda el cliente, así que NO es lo que protege: protege la
+  restricción. Las cuentas existentes quedan sin restricción. Los scripts que crean cuentas con la clave de servicio (`seed-demo`, `preparar-demo`, `verificar`,
+  `prueba-rls`) llevan `app_metadata.sin_restriccion`, que el cliente no puede escribir; Auth la escribe en un UPDATE posterior al INSERT, por eso hay un segundo trigger que la recoge.
+  Comprobado: `supabase test db` pasa (732 aserciones, 31 nuevas); mutación por mutación (quitar cada política, la rama de `abrir_conversacion`, el guardián de la columna y el hook)
+  cada una la caza exactamente su aserción; y contra el Auth LOCAL real con el hook activo: un Gmail sin declarar da 400, uno declarado arrendador da 200 y queda restringido, uno
+  universitario da 200 y no, y `admin/users` con la marca queda sin restricción. **Sin verificar:** producción (el hook se activa a mano en el panel de Supabase, ver `docs/hook-de-alta.md`);
+  riesgo abierto: una cuenta restringida puede escribir en las conversaciones que otra persona abrió. Falta la parte de la app (registro «Soy arrendador o tengo un negocio»,
+  leer CP016) y el aviso de privacidad.
 
 ### Pendientes abiertos
 

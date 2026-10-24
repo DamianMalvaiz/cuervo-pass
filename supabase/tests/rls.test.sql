@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(701);
+select plan(732);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -30,6 +30,18 @@ language sql as $$
   select set_config('request.jwt.claims', '', true),
          set_config('role', 'postgres', true);
 $$;
+
+-- Las cuentas de esta prueba usan correos `@test.mx` (no universitarios). Desde la 0082 el alta marca `cuenta_restringida` según el
+-- correo; para que las 700 aserciones anteriores sigan probando lo que probaban, este trigger SOLO de la prueba (se deshace con el
+-- rollback) las deja sin restricción. Las aserciones nuevas de la 0082 lo desactivan para crear cuentas por el camino real.
+create or replace function t_sin_restriccion() returns trigger language plpgsql set search_path = public as $$
+begin
+  new.cuenta_restringida := false;
+  return new;
+end;
+$$;
+revoke execute on function t_sin_restriccion() from public, anon, authenticated;
+create trigger zz_t_sin_restriccion before insert on usuarios for each row execute function t_sin_restriccion();
 
 -- ════════════════ datos ════════════════
 -- Las filas de `usuarios` las crea el trigger handle_new_user (migración 0009).
@@ -3615,6 +3627,123 @@ select ok((select vigente_hasta between now() + interval '59 days' and now() + i
   'registrar: el segundo periodo se SUMA al primero (60 días)' );
 select ok((select count(*) = 1 from pagos a join pagos b on b.usuario_id = a.usuario_id and b.periodo_inicio = a.periodo_fin where a.usuario_id = '00000000-0000-0000-0000-0000000000fc'),
   'registrar: los periodos de los dos pagos quedan encadenados' );
+
+-- ════════════════ 0082 · cuentas de vendedor sin correo universitario ════════════════
+-- El filtro `.edu.mx` vivía SOLO en la app: con la llave anónima (que va en el APK) cualquiera daba de alta un Gmail llamando a Auth.
+-- Ahora lo exige el hook `before_user_created`, y lo que protege de las cuentas desechables es que una cuenta SIN correo universitario
+-- (`cuenta_restringida`) no puede reportar, reseñar ni abrir conversaciones; sí puede responder en las que ya existen.
+select actuar_como_servicio();
+-- Más arriba esta publicación quedó inactiva. Se vuelve visible para que lo ÚNICO que pueda impedir una reseña o un reporte sea la
+-- restricción: si no, las aserciones «no puede» pasarían porque la publicación no se ve, no porque la cuenta esté restringida.
+update publicaciones set activa = true, oculta_por_reportes = false where id = '00000000-0000-0000-0000-00000000dea1';
+select ok(exists (select 1 from publicaciones_publicas where id = '00000000-0000-0000-0000-00000000dea1'),
+  '0082: preparación: la publicación de prueba se ve en la vista pública');
+
+-- 1 · la regla del dominio, igual que `correoUniversitario.ts`
+select is(es_correo_universitario('ana@utvtol.edu.mx'), true, '0082: un correo de la UTVT es universitario');
+select is(es_correo_universitario('Ana@Otra.EDU.MX'), true, '0082: otra universidad .edu.mx cuenta, sin importar mayúsculas');
+select is(es_correo_universitario('ana@gmail.com'), false, '0082: Gmail no es universitario');
+select is(es_correo_universitario('ana@edu.mx.atacante.com'), false, '0082: «edu.mx» en medio del dominio no engaña');
+select is(es_correo_universitario('ana@edu.mx'), false, '0082: «edu.mx» a secas no es una universidad');
+select is(es_correo_universitario(null), false, '0082: sin correo no es universitario');
+
+-- 2 · el alta marca la cuenta por el camino real (sin el trigger de prueba)
+alter table usuarios disable trigger zz_t_sin_restriccion;
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, created_at, updated_at, raw_user_meta_data)
+values
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000ee01', 'authenticated', 'authenticated',
+   'est@utvtol.edu.mx', '', now(), now(), '{"nombre_usuario":"est_ee01","nombre_completo":"Estudiante"}'),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000ee02', 'authenticated', 'authenticated',
+   'duena@gmail.com', '', now(), now(), '{"nombre_usuario":"vend_ee02","nombre_completo":"Vendedora","tipo_cuenta":"arrendador"}');
+-- Una cuenta de servicio (la marca va en app_metadata, que solo escribe la clave de servicio) y una que intenta marcarse desde user_metadata.
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, created_at, updated_at, raw_user_meta_data, raw_app_meta_data)
+values
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000ee03', 'authenticated', 'authenticated',
+   'demo@cuervopass-demo.test', '', now(), now(), '{"nombre_usuario":"demo_ee03"}', '{"sin_restriccion":true}'),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000ee04', 'authenticated', 'authenticated',
+   'listo@gmail.com', '', now(), now(), '{"nombre_usuario":"listo_ee04","sin_restriccion":true}', '{}');
+alter table usuarios enable trigger zz_t_sin_restriccion;
+select is((select cuenta_restringida from usuarios where id = '00000000-0000-0000-0000-00000000ee01'), false,
+  '0082: el alta con correo universitario NO queda restringida');
+select is((select cuenta_restringida from usuarios where id = '00000000-0000-0000-0000-00000000ee02'), true,
+  '0082: el alta con un correo que no es universitario queda restringida');
+
+select is((select cuenta_restringida from usuarios where id = '00000000-0000-0000-0000-00000000ee03'), false,
+  '0082: la marca de app_metadata (solo la clave de servicio) deja una cuenta de demo sin restricción');
+select is((select cuenta_restringida from usuarios where id = '00000000-0000-0000-0000-00000000ee04'), true,
+  '0082: la misma marca en user_metadata (la manda el cliente) NO sirve');
+
+-- Auth escribe app_metadata en un UPDATE posterior al INSERT: la marca tiene que surtir efecto también por ese camino.
+update auth.users set raw_app_meta_data = raw_app_meta_data || '{"sin_restriccion":true}'::jsonb
+ where id = '00000000-0000-0000-0000-00000000ee04';
+select is((select cuenta_restringida from usuarios where id = '00000000-0000-0000-0000-00000000ee04'), false,
+  '0082: la marca de servicio que llega en un UPDATE (como la escribe Auth) también levanta la restricción');
+
+-- 3 · la restricción no se quita desde la app
+select actuar_como('00000000-0000-0000-0000-00000000ee02');
+select throws_ok($$update usuarios set cuenta_restringida = false where id = '00000000-0000-0000-0000-00000000ee02'$$, null, null,
+  '0082: una cuenta restringida no se quita la restricción con un update directo');
+select actuar_como('00000000-0000-0000-0000-00000000ee01');
+select throws_ok($$update usuarios set cuenta_restringida = true where id = '00000000-0000-0000-0000-00000000ee01'$$, null, null,
+  '0082: ni una cuenta normal se la pone (la fija solo el servidor)');
+
+-- 4 · el hook de Auth
+select actuar_como_servicio();
+select is(hook_alta_de_usuario('{"user":{"email":"est@utvtol.edu.mx","user_metadata":{}}}'::jsonb), '{}'::jsonb,
+  '0082 hook: un correo universitario pasa');
+select is((hook_alta_de_usuario('{"user":{"email":"a@gmail.com","user_metadata":{}}}'::jsonb)->'error'->>'http_code'), '400',
+  '0082 hook: un Gmail sin declarar vendedor se rechaza');
+select is(hook_alta_de_usuario('{"user":{"email":"a@gmail.com","user_metadata":{"tipo_cuenta":"comerciante"}}}'::jsonb), '{}'::jsonb,
+  '0082 hook: un Gmail que se declara comerciante pasa (queda restringido)');
+select is((hook_alta_de_usuario('{"user":{"email":"a@gmail.com","user_metadata":{"tipo_cuenta":"admin"}}}'::jsonb)->'error'->>'http_code'), '400',
+  '0082 hook: declararse «admin» no abre nada');
+select is((hook_alta_de_usuario('{"user":{"user_metadata":{}}}'::jsonb)->'error'->>'http_code'), '400',
+  '0082 hook: sin correo se rechaza (falla cerrado)');
+select ok(not has_function_privilege('authenticated', 'hook_alta_de_usuario(jsonb)', 'execute')
+      and not has_function_privilege('anon', 'hook_alta_de_usuario(jsonb)', 'execute')
+      and has_function_privilege('supabase_auth_admin', 'hook_alta_de_usuario(jsonb)', 'execute'),
+  '0082 hook: lo ejecuta Auth y nadie más');
+
+-- 5 · lo que una cuenta restringida NO puede
+select actuar_como('00000000-0000-0000-0000-00000000ee02');
+select throws_ok($$insert into reportes (reportado_por, publicacion_id, motivo)
+  values ('00000000-0000-0000-0000-00000000ee02', '00000000-0000-0000-0000-00000000dea1', 'spam')$$, '42501', null,
+  '0082: una cuenta restringida no puede reportar');
+select throws_ok($$insert into resenas (usuario_id, publicacion_id, estrellas)
+  values ('00000000-0000-0000-0000-00000000ee02', '00000000-0000-0000-0000-00000000dea1', 1)$$, '42501', null,
+  '0082: una cuenta restringida no puede reseñar');
+select throws_ok($$select reportar_resena(gen_random_uuid(), 'spam')$$, 'CP016', null,
+  '0082: ni reportar una reseña (la restricción se comprueba ANTES que cualquier otra cosa)');
+select throws_ok($$select abrir_conversacion('00000000-0000-0000-0000-0000000000a1')$$, 'CP016', null,
+  '0082: no puede abrir una conversación nueva con un estudiante');
+select throws_ok($$insert into conversaciones (usuario_a, usuario_b)
+  values ('00000000-0000-0000-0000-00000000ee02', '00000000-0000-0000-0000-0000000000a1')$$, '42501', null,
+  '0082: ni saltarse abrir_conversacion insertando directo');
+
+-- 6 · lo que SÍ puede: responder donde la buscaron
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select lives_ok($$select abrir_conversacion('00000000-0000-0000-0000-00000000ee02')$$,
+  '0082: un estudiante sí abre la conversación con el arrendador');
+select actuar_como('00000000-0000-0000-0000-00000000ee02');
+select lives_ok($$select abrir_conversacion('00000000-0000-0000-0000-0000000000a1')$$,
+  '0082: la cuenta restringida recupera una conversación que YA existe');
+select lives_ok($$insert into mensajes (conversacion_id, remitente_id, contenido)
+  select id, '00000000-0000-0000-0000-00000000ee02', 'Hola, sí está disponible' from conversaciones
+   where usuario_a = least('00000000-0000-0000-0000-0000000000a1'::uuid, '00000000-0000-0000-0000-00000000ee02'::uuid)
+     and usuario_b = greatest('00000000-0000-0000-0000-0000000000a1'::uuid, '00000000-0000-0000-0000-00000000ee02'::uuid)$$,
+  '0082: y responde en ella');
+
+-- 7 · el control: una cuenta normal conserva todo
+select actuar_como('00000000-0000-0000-0000-00000000ee01');
+select lives_ok($$insert into reportes (reportado_por, publicacion_id, motivo)
+  values ('00000000-0000-0000-0000-00000000ee01', '00000000-0000-0000-0000-00000000dea1', 'spam')$$,
+  '0082: una cuenta universitaria sigue pudiendo reportar');
+select lives_ok($$insert into resenas (usuario_id, publicacion_id, estrellas)
+  values ('00000000-0000-0000-0000-00000000ee01', '00000000-0000-0000-0000-00000000dea1', 4)$$,
+  '0082: y reseñar');
+select throws_ok($$select reportar_resena(gen_random_uuid(), 'spam')$$, '42501', null,
+  '0082: y reportar_resena sigue con su error de siempre para una reseña que no se ve');
+select actuar_como_servicio();
 
 select * from finish();
 rollback;

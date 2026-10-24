@@ -88,6 +88,11 @@ alcance es mejor ingeniería que fingir que no existe.
   uso masivo, sin verificar contra producción. Prueba:
   `src/store/__tests__/useAuthStore.registro.test.ts`.
 
+- **Cuentas de vendedor con cualquier correo (0082, 24/10/2026).** Un arrendador o un comerciante puede registrarse sin correo `.edu.mx` si se declara
+  como tal, y esa declaración la manda el cliente. Lo que limita el daño es `cuenta_restringida`: no reporta, no reseña y no abre conversaciones; sí responde en
+  las que otra persona abrió. Queda abierto que una cuenta restringida escriba en esas conversaciones y que un correo `.edu.mx` real actúe de mala fe. El hook
+  de Auth que exige el dominio solo existe donde se active a mano (`docs/hook-de-alta.md`); la restricción funciona con o sin hook. Pruebas: `supabase/tests/rls.test.sql`, bloque 0082.
+
 ## Cómo se verifica
 
 Las mitigaciones de acceso no se comprueban con capturas de pantalla, que no se
