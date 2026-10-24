@@ -179,7 +179,7 @@ export default function RegistroScreen() {
             </ThemedText>
             <ThemedText themeColor="textSecondary">
               Te mandamos un correo a {pendiente}. Escribe aquí el código de {LONGITUD_CODIGO} dígitos que trae para
-              activar tu cuenta, o abre el enlace y después entra con tu contraseña. Si no lo ves, mira en spam.
+              activar tu cuenta. Si no lo ves, mira en spam.
             </ThemedText>
             <Campo
               etiqueta={`Código de ${LONGITUD_CODIGO} dígitos`}
@@ -206,9 +206,9 @@ export default function RegistroScreen() {
               onPress={onConfirmarCodigo}
               cargando={verificando}
               deshabilitado={codigo.length !== LONGITUD_CODIGO}
-              accessibilityLabel="Confirmar código"
+              accessibilityLabel="Confirmar"
             >
-              Confirmar código
+              Confirmar
             </Sello>
             {reenvio === 'enviado' && <ThemedText type="small">Listo, te lo mandamos otra vez.</ThemedText>}
             {reenvio === 'fallo' && (
@@ -216,13 +216,6 @@ export default function RegistroScreen() {
                 No pudimos reenviarlo. Espera unos minutos e inténtalo de nuevo.
               </ThemedText>
             )}
-            <Sello
-              variante="contorno"
-              onPress={() => router.replace('/(auth)/login')}
-              accessibilityLabel="Ya confirmé, entrar"
-            >
-              Ya confirmé · Entrar
-            </Sello>
             <Pressable
               onPress={onReenviar}
               accessibilityRole="button"
@@ -231,6 +224,16 @@ export default function RegistroScreen() {
             >
               <ThemedText type="small" themeColor="acento">
                 Reenviar correo
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={() => router.replace('/(auth)/login')}
+              accessibilityRole="button"
+              accessibilityLabel="Ya tengo cuenta, iniciar sesión"
+              style={estilos.enlace}
+            >
+              <ThemedText type="small" themeColor="acento">
+                ¿Ya tienes cuenta? Inicia sesión
               </ThemedText>
             </Pressable>
           </View>

@@ -101,6 +101,8 @@ function limpiarMemoriaDeSesion() {
   }
 }
 
+export const MENSAJE_CORREO_YA_REGISTRADO = 'Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.';
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   cargando: true,
@@ -162,9 +164,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       },
     });
     if (error) throw error;
+    // Con un correo YA registrado Supabase no manda nada y devuelve un usuario falso, sin sesión y con `identities` vacío. Se dice en
+    // claro (decisión del 23/10/2026): callar dejaba a la persona esperando un código que no iba a llegar. A cambio, quien pruebe correos
+    // puede saber cuáles tienen cuenta (enumeración de cuentas); queda anotado en docs/modelo-amenazas.md.
+    if (data.user?.identities?.length === 0) throw new Error(MENSAJE_CORREO_YA_REGISTRADO);
     set({ session: data.session });
-    // Sin sesión = hay que confirmar el correo. También ocurre con un correo YA registrado: Supabase responde
-    // igual (sin error) para no revelar qué correos existen, y la respuesta correcta es la misma.
+    // Sin sesión = hay que confirmar el correo.
     return { requiereConfirmacion: !data.session };
   },
 

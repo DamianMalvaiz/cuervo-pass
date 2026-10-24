@@ -166,14 +166,31 @@ describe('confirmación de correo', () => {
     );
   });
 
-  it('«Ya confirmé» lleva a entrar', async () => {
+  it('quien ya tiene cuenta con ese correo puede ir a iniciar sesión', async () => {
     mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
     await rellenar();
     await waitFor(() => expect(screen.getByText('Revisa tu correo')).toBeTruthy());
 
-    await interactuar(() => fireEvent.press(screen.getByLabelText('Ya confirmé, entrar')));
+    await interactuar(() => fireEvent.press(screen.getByLabelText('Ya tengo cuenta, iniciar sesión')));
 
     expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
+  });
+
+  it('un correo ya registrado muestra el aviso y NO pasa a «Revisa tu correo»', async () => {
+    mockRegistrarse.mockRejectedValue(new Error('Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.'));
+    await rellenar({ email: 'ana@utvtol.edu.mx' });
+
+    await waitFor(() => expect(screen.getByText(/ya tiene una cuenta/i)).toBeTruthy());
+    expect(screen.queryByText('Revisa tu correo')).toBeNull();
+  });
+
+  it('ya no ofrece «Ya confirmé»: con el código no hace falta', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    await rellenar();
+    await waitFor(() => expect(screen.getByText('Revisa tu correo')).toBeTruthy());
+
+    expect(screen.queryByLabelText('Ya confirmé, entrar')).toBeNull();
+    expect(screen.queryByText(/Ya confirmé/i)).toBeNull();
   });
 
   it('si el reenvío falla lo dice, no finge que salió', async () => {
@@ -211,7 +228,7 @@ describe('confirmación con código', () => {
   };
   const escribirCodigo = (c: string) =>
     interactuar(() => fireEvent.changeText(screen.getByLabelText('Código de 6 dígitos'), c));
-  const confirmar = () => interactuar(() => fireEvent.press(screen.getByLabelText('Confirmar código')));
+  const confirmar = () => interactuar(() => fireEvent.press(screen.getByLabelText('Confirmar')));
 
   it('un código correcto confirma la cuenta y sigue al cuestionario SIN escribir el consentimiento desde la app', async () => {
     mockVerificar.mockResolvedValue({ estado: 'ok', session: { user: { id: 'u1' } } });

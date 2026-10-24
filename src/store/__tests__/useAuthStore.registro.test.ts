@@ -1,7 +1,7 @@
 // `registrarse` debe decir si la cuenta quedó a la espera de confirmar el correo. Con «Confirm email» activo
 // Supabase devuelve usuario SIN sesión; con un correo ya registrado devuelve un usuario falso (identities
-// vacío) también sin sesión y sin error, para no revelar qué correos existen. En ambos casos lo correcto es
-// el mismo: «revisa tu correo».
+// vacío) también sin sesión y sin error. Eso último se dice en claro: un correo solo se registra una vez, y
+// callar dejaba a la persona esperando un código que nunca iba a llegar (decisión del 23/10/2026).
 
 const mockSignUp = jest.fn();
 
@@ -60,6 +60,20 @@ describe('registrarse', () => {
     await useAuthStore.getState().registrarse(datos);
     const { VERSION_AVISO } = jest.requireActual('@/lib/verificacion');
     expect(mockSignUp.mock.calls[0][0].options.data.aviso_version).toBe(VERSION_AVISO);
+  });
+
+  it('un correo que ya tiene cuenta se dice en claro y NO queda esperando un código', async () => {
+    mockSignUp.mockResolvedValue({ data: { user: { id: 'falso', identities: [] }, session: null }, error: null });
+    await expect(useAuthStore.getState().registrarse(datos)).rejects.toThrow(/ya tiene una cuenta/i);
+    expect(useAuthStore.getState().session).toBeNull();
+  });
+
+  it('una cuenta nueva trae su identidad y no se confunde con una repetida', async () => {
+    mockSignUp.mockResolvedValue({
+      data: { user: { id: 'u1', identities: [{ id: 'i1' }] }, session: null },
+      error: null,
+    });
+    await expect(useAuthStore.getState().registrarse(datos)).resolves.toEqual({ requiereConfirmacion: true });
   });
 
   it('un error de Supabase se propaga', async () => {
