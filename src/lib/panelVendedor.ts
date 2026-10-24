@@ -2,7 +2,7 @@
 //
 // Solo toma decisiones; no pinta. La pantalla enseña UN paso, el que más urge: lo que la persona tiene que hacer (empezar o reenviar) va antes que
 // lo que solo tiene que esperar, y esto antes que nada. «Heredada» (aprobada por la migración, sin pasar por una revisión) cuenta como aprobada
-// para el panel: no se le inventa a nadie un paso que no le corresponde (la insignia dice «Heredada», como en `SeccionFunciones`).
+// para el panel: no se le inventa a nadie un paso que no le corresponde (aunque se SABE si es heredada: ver `heredada`).
 
 import type { RolUsuario } from '@/types/database.types';
 
@@ -12,7 +12,8 @@ export type PasoVerificacion =
   | { tipo: 'empezar'; rol: Vendedor }
   | { tipo: 'reenviar'; rol: Vendedor }
   | { tipo: 'esperar'; rol: Vendedor }
-  | { tipo: 'listo'; rol: null };
+  /** Todo aprobado. `heredada`: TODAS las aprobadas vienen de la migración (0043), sin pasar por una revisión: no hay paso pendiente, pero tampoco se rotula como verificada. */
+  | { tipo: 'listo'; rol: null; heredada: boolean };
 
 const esVendedor = (r: RolUsuario): r is RolUsuario & { rol: Vendedor } => r.rol === 'arrendador' || r.rol === 'comerciante';
 
@@ -25,7 +26,7 @@ export function pasoDeVerificacion(roles: readonly RolUsuario[]): PasoVerificaci
   if (rechazada) return { tipo: 'reenviar', rol: rechazada.rol };
   const pendiente = propios.find((r) => r.estado === 'pendiente');
   if (pendiente) return { tipo: 'esperar', rol: pendiente.rol };
-  return { tipo: 'listo', rol: null };
+  return { tipo: 'listo', rol: null, heredada: propios.every((r) => r.origen === 'migracion') };
 }
 
 /** Cómo se llama el bloque de lo que la persona ofrece, según las funciones que tiene. */

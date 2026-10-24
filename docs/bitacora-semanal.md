@@ -1296,6 +1296,14 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
   contraste; mutaciones: guardián del perfil, comprobación de la función, alta que ignora lo declarado, barra del vendedor, prioridad de pasos, `cambiar` sin actualizar, y «—» → 0: cada una la caza su prueba.
   **Falta:** las pantallas de perfil por tipo (C1), el cambio de perfil desde la app (hoy no hay forma de pasar de uno a otro; las cuentas existentes siguen como estudiante), y probarlo en el teléfono.
   **Sin verificar:** un destello de la barra de estudiante antes de cargar el perfil de un vendedor (el perfil se pide al abrir Tabs). Aplicar la 0083 a producción ANTES de instalar el APK que la use.
+- **Perfil por tipo de cuenta (C1) y cambio de perfil (24/10/2026, sin probar en teléfono; depende de la 0083, SIN aplicar a producción).** `perfil.tsx` pasó de 548 líneas a un selector por perfil activo más el
+  perfil de estudiante: tarjeta con la etiqueta «Correo verificado» (solo si el correo lo está), resumen de «Mi búsqueda» (ya no los siete campos; el detalle se ve y se edita en «Mis datos») y una lista corta.
+  Nuevos: `TarjetaIdentidad` (la foto, extraída; las pruebas de la foto se movieron aquí), `PerfilVendedor` (estado de la verificación, mi negocio/publicaciones, plan y pagos, activar perfil de estudiante),
+  `EncabezadoPerfil`, la pantalla «Sobre mí» (la biografía, movida) y «Crear perfil de vendedor» (pide la función solo si no se tiene → cambia de perfil → panel; si un paso falla NO avanza).
+  Se retiró `SeccionFunciones` («Tus funciones» con alertas) y las cuatro pruebas viejas del perfil, tras portar lo que cubrían. Se quitaron a propósito las cifras de la tarjeta y los campos
+  mascotas/tabaco/ruido del perfil (siguen en «Mis datos»). **Honestidad conservada:** una función heredada de la migración (0043) se rotula «Función heredada, sin revisión», no «verificada».
+  Comprobado: jest completo, `tsc`, lint (0 errores), toques, contraste; mutaciones: el vendedor ve la vista de estudiante, no cambia de perfil, pide la función aunque ya la tenga, una heredada se rotula
+  verificada, y un vendedor sin datos va directo a Inicio: cada una la caza su prueba. **Sin verificar:** todo en un teléfono; que quien tenía alertas de «Tus funciones» encuentre «Crea tu perfil de vendedor».
 
 ### Pendientes abiertos
 

@@ -139,6 +139,8 @@ export default function RootLayout() {
           name="perfil/preferencias"
           options={{ ...encabezado, title: 'Mis preferencias', presentation: 'modal' }}
         />
+        <Stack.Screen name="perfil/sobre-mi" options={{ ...encabezado, title: 'Sobre mí' }} />
+        <Stack.Screen name="perfil/crear-vendedor" options={{ ...encabezado, title: 'Perfil de vendedor' }} />
         {/* La ruta es la conversación, no el otro usuario: el hilo existe como
             fila en `conversaciones` desde la migración 0012 (§26). */}
         <Stack.Screen name="chat/[conversacionId]" options={{ ...encabezado, title: 'Chat' }} />

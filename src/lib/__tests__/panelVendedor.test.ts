@@ -24,7 +24,7 @@ describe('pasoDeVerificacion', () => {
   });
 
   it('todo aprobado: no hay paso pendiente', () => {
-    expect(pasoDeVerificacion([rol('arrendador', 'aprobado'), rol('comerciante', 'aprobado')])).toEqual({ tipo: 'listo', rol: null });
+    expect(pasoDeVerificacion([rol('arrendador', 'aprobado'), rol('comerciante', 'aprobado')])).toEqual({ tipo: 'listo', rol: null, heredada: false });
   });
 
   it('lo que hay que HACER va antes que lo que hay que esperar', () => {
@@ -32,8 +32,16 @@ describe('pasoDeVerificacion', () => {
     expect(paso).toEqual({ tipo: 'empezar', rol: 'arrendador' });
   });
 
-  it('una función heredada de la migración cuenta como aprobada (no inventa un paso)', () => {
-    expect(pasoDeVerificacion([rol('arrendador', 'aprobado', 'migracion')])).toEqual({ tipo: 'listo', rol: null });
+  // La 0043: «Heredada» NO pasó por una revisión. No se le inventa un paso (puede publicar), pero tampoco se le rotula como verificada: una insignia que no
+  // se ganó, rotulada como ganada, es el defecto que la 0026 evitó con el correo.
+  it('una función heredada de la migración no inventa un paso, pero se SABE que es heredada', () => {
+    expect(pasoDeVerificacion([rol('arrendador', 'aprobado', 'migracion')])).toEqual({ tipo: 'listo', rol: null, heredada: true });
+  });
+
+  it('con una aprobada de verdad y otra heredada, ya no es «solo heredada»', () => {
+    expect(pasoDeVerificacion([rol('arrendador', 'aprobado', 'migracion'), rol('comerciante', 'aprobado', 'solicitud')])).toEqual({
+      tipo: 'listo', rol: null, heredada: false,
+    });
   });
 });
 
