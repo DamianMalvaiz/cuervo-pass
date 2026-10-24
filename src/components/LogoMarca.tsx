@@ -8,11 +8,11 @@ import { StyleSheet } from 'react-native';
  * así que se ve igual sobre el papel claro y sobre el carbón, sin una caja negra alrededor. Es una imagen:
  * se anuncia con su nombre para el lector de pantalla.
  */
-export function LogoMarca({ tamano = 88 }: { tamano?: number }) {
+export function LogoMarca({ tamano = 88, centrado = false }: { tamano?: number; centrado?: boolean }) {
   return (
     <Image
       source={require('../../assets/images/logo-app.png')}
-      style={[estilos.logo, { width: tamano, height: tamano }]}
+      style={[estilos.logo, centrado && estilos.centrado, { width: tamano, height: tamano }]}
       contentFit="contain"
       accessibilityRole="image"
       accessibilityLabel="Cuervo 360"
@@ -22,4 +22,5 @@ export function LogoMarca({ tamano = 88 }: { tamano?: number }) {
 
 const estilos = StyleSheet.create({
   logo: { alignSelf: 'flex-start' },
+  centrado: { alignSelf: 'center' },
 });

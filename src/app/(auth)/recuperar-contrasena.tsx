@@ -9,6 +9,7 @@ import { z } from 'zod';
 import '@/lib/zodEs';
 
 import { Campo } from '@/components/Campo';
+import { EncabezadoAuth } from '@/components/EncabezadoAuth';
 import { Sello } from '@/components/ficha/Sello';
 import { RequisitosPassword } from '@/components/RequisitosPassword';
 import { ThemedText } from '@/components/themed-text';
@@ -121,17 +122,11 @@ export default function RecuperarContrasenaScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
-            <View style={estilos.membrete}>
-              <ThemedText type="etiqueta" themeColor="textSecondary">
-                RECUPERACIÓN DE ACCESO
-              </ThemedText>
-              <ThemedText type="title">Olvidé mi contraseña</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" style={estilos.explicacion}>
-                Te mandamos un código de {LONGITUD_CODIGO} dígitos al correo de tu cuenta. Escríbelo aquí y elige
-                una contraseña nueva.
-              </ThemedText>
-              <View style={[estilos.filete, { backgroundColor: theme.text }]} />
-            </View>
+            <EncabezadoAuth etiqueta="RECUPERACIÓN DE ACCESO" titulo="Olvidé mi contraseña" tamanoLogo={64} />
+            <ThemedText type="small" themeColor="textSecondary" style={estilos.explicacion}>
+              Te mandamos un código de {LONGITUD_CODIGO} dígitos al correo de tu cuenta. Escríbelo aquí y elige una
+              contraseña nueva.
+            </ThemedText>
 
             <Controller
               control={control}
@@ -250,9 +245,7 @@ const estilos = StyleSheet.create({
   desplazable: { flexGrow: 1, justifyContent: 'center', padding: Spacing.four },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
-  membrete: { gap: Spacing.one, marginBottom: Spacing.two },
   explicacion: { lineHeight: 20 },
-  filete: { height: Filete.grueso, marginTop: Spacing.three },
   acuse: {
     flexDirection: 'row',
     alignItems: 'flex-start',

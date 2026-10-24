@@ -9,6 +9,8 @@ import { z } from 'zod';
 import '@/lib/zodEs';
 
 import { Campo } from '@/components/Campo';
+import { EncabezadoAuth } from '@/components/EncabezadoAuth';
+import { Entrada, GolpeDeSello } from '@/components/ficha/EntradaAuth';
 import { Casilla } from '@/components/Casilla';
 import { Sello } from '@/components/ficha/Sello';
 import { Seccion } from '@/components/ficha/Seccion';
@@ -251,20 +253,13 @@ export default function RegistroScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
-            <View style={estilos.membrete}>
-              <ThemedText type="etiqueta" themeColor="textSecondary">
-                ALTA DE USUARIO
-              </ThemedText>
-              <ThemedText type="title" style={escalarTexto(Texto.tituloMedio, escalaTitulo)}>
-                Crear cuenta
-              </ThemedText>
-              <View style={[estilos.filete, { backgroundColor: theme.text }]} />
-            </View>
+            <EncabezadoAuth etiqueta="ALTA DE USUARIO" titulo="Crear cuenta" tamanoLogo={64} />
 
             {/* Seis campos seguidos no se leen: se agrupan. Es lo mismo que hace
                 cualquier formulario oficial y, de paso, lo que hace Airbnb con
                 sus formularios largos. */}
-            <Seccion titulo="Datos personales">
+            <Entrada orden={1}>
+              <Seccion titulo="Datos personales">
               <Controller
                 control={control}
                 name="nombre"
@@ -310,8 +305,10 @@ export default function RegistroScreen() {
                 )}
               />
             </Seccion>
+            </Entrada>
 
-            <Seccion titulo="Datos de acceso">
+            <Entrada orden={2}>
+              <Seccion titulo="Datos de acceso">
               <Controller
                 control={control}
                 name="nombreUsuario"
@@ -381,8 +378,10 @@ export default function RegistroScreen() {
                 )}
               />
             </Seccion>
+            </Entrada>
 
-            <Seccion titulo="Consentimiento">
+            <Entrada orden={3}>
+              <Seccion titulo="Consentimiento">
               <Controller
                 control={control}
                 name="aceptoAviso"
@@ -412,6 +411,7 @@ export default function RegistroScreen() {
                 </ThemedText>
               )}
             </Seccion>
+            </Entrada>
 
             {errorServidor && (
               <View style={[estilos.errorServidor, { borderColor: theme.error }]}>
@@ -426,9 +426,11 @@ export default function RegistroScreen() {
               </View>
             )}
 
-            <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel="Crear cuenta">
-              Crear cuenta
-            </Sello>
+            <GolpeDeSello retraso={500}>
+              <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel="Crear cuenta">
+                Crear cuenta
+              </Sello>
+            </GolpeDeSello>
 
             <Link href="/(auth)/login" accessibilityRole="link" style={estilos.enlace}>
               <ThemedText type="small" themeColor="acento">
@@ -448,8 +450,6 @@ const estilos = StyleSheet.create({
   desplazable: { flexGrow: 1, justifyContent: 'center', padding: Spacing.four, paddingBottom: Spacing.five },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.four },
-  membrete: { gap: Spacing.one },
-  filete: { height: Filete.grueso, marginTop: Spacing.two },
   enlaceAviso: {
     flexDirection: 'row',
     alignItems: 'center',

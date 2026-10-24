@@ -27,7 +27,7 @@ jest.mock('react-native-safe-area-context', () =>
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
   const { View, Text, ScrollView, Image } = require('react-native');
-  const paso = () => ({ duration: () => paso(), delay: () => paso(), springify: () => paso(), damping: () => paso() });
+  const paso = () => ({ duration: () => paso(), delay: () => paso(), springify: () => paso(), damping: () => paso(), easing: () => paso() });
   return {
     __esModule: true,
     default: { View, Text, ScrollView, Image, createAnimatedComponent: (C) => C },
