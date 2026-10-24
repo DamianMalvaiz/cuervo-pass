@@ -160,16 +160,25 @@ describe('la galería', () => {
   it('firma EN LOTE la galería y las fotos de los productos, una sola vez', async () => {
     mockNegocio.mockReturnValue(estado({
       negocio: { ...NEGOCIO, fotos: ['negocios/n1/a.jpg'] },
-      items: [{ id: 'i1', negocio_id: 'n1', nombre: 'Taco', precio: 20, orden: 0, seccion: null, descripcion: null, foto: 'negocios/n1/p/t.jpg' }],
+      items: [{ id: 'i1', negocio_id: 'n1', nombre: 'Taco', precio: 20, orden: 0, seccion: null, descripcion: null, foto: 'negocios/n1/p/t.jpg', fotos: ['negocios/n1/p/t.jpg'] }],
     }));
     await render(<NegocioScreen />);
     expect(mockFotos).toHaveBeenCalledWith(['negocios/n1/a.jpg', 'negocios/n1/p/t.jpg']);
+  });
+
+  it('de cada producto la lista firma solo la PORTADA (la primera), no todas sus fotos', async () => {
+    mockNegocio.mockReturnValue(estado({
+      negocio: { ...NEGOCIO, fotos: [] },
+      items: [{ id: 'i1', negocio_id: 'n1', nombre: 'Taco', precio: 20, orden: 0, seccion: null, descripcion: null, foto: 'negocios/n1/p/t.jpg', fotos: ['negocios/n1/p/t.jpg', 'negocios/n1/p/u.jpg'] }],
+    }));
+    await render(<NegocioScreen />);
+    expect(mockFotos).toHaveBeenCalledWith(['negocios/n1/p/t.jpg']);
   });
 });
 
 describe('el menú por secciones', () => {
   const item = (id: string, nombre: string, extra: Record<string, unknown> = {}) => ({
-    id, negocio_id: 'n1', nombre, precio: 10, orden: 0, seccion: null, descripcion: null, foto: null, ...extra,
+    id, negocio_id: 'n1', nombre, precio: 10, orden: 0, seccion: null, descripcion: null, foto: null, fotos: [], ...extra,
   });
 
   it('agrupa por sección, en el orden del menú, y deja «Otros» al final', async () => {
@@ -240,7 +249,7 @@ describe('el menú por secciones', () => {
   });
 
   it('un producto con foto la muestra; sin foto no deja un hueco', async () => {
-    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco', { foto: 'negocios/n1/p/t.jpg' }), item('b', 'Agua')] }));
+    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco', { foto: 'negocios/n1/p/t.jpg', fotos: ['negocios/n1/p/t.jpg', 'negocios/n1/p/u.jpg'] }), item('b', 'Agua')] }));
     mockFotos.mockReturnValue({ urls: new Map([['negocios/n1/p/t.jpg', 'https://f.test/t']]), fallo: null });
     await render(<NegocioScreen />);
     expect(screen.getByText('Taco')).toBeTruthy();

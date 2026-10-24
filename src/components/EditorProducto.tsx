@@ -11,21 +11,21 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { validarProducto, type ErroresProducto, type ProductoEditable } from '@/lib/menu';
+import { MAX_FOTOS_PRODUCTO, validarProducto, type ErroresProducto, type ProductoEditable } from '@/lib/menu';
 import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 
 /**
  * El editor de UN producto del menú, en una hoja modal · Cuervo 360 (0053).
  *
  * Trabaja sobre una COPIA: nada cambia en el menú hasta que se toca «Guardar producto». Ofrece las secciones que ya existen
- * como atajos (escribir una nueva también sirve) y una foto opcional. `urlFoto` es la foto ya guardada, ya firmada para
- * mostrarla.
+ * como atajos (escribir una nueva también sirve) y hasta 5 fotos opcionales (la primera es la portada). `urlsFotos` trae las ya guardadas, ya firmadas
+ * para mostrarlas.
  */
 export function EditorProducto({
   producto,
   esNuevo,
   secciones,
-  urlFoto,
+  urlsFotos,
   onGuardar,
   onQuitar,
   onCerrar,
@@ -33,7 +33,8 @@ export function EditorProducto({
   producto: ProductoEditable;
   esNuevo: boolean;
   secciones: string[];
-  urlFoto?: string | null;
+  /** Las rutas guardadas ya firmadas, para mostrarlas. */
+  urlsFotos?: ReadonlyMap<string, string>;
   onGuardar: (p: ProductoEditable) => void;
   onQuitar: () => void;
   onCerrar: () => void;
@@ -44,25 +45,37 @@ export function EditorProducto({
 
   const cambiar = (c: Partial<ProductoEditable>) => setP((x) => ({ ...x, ...c }));
 
-  const elegirFoto = async () => {
+  const total = p.fotos.length + p.fotosNuevas.length;
+  const restantes = MAX_FOTOS_PRODUCTO - total;
+
+  const elegirFotos = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
       avisarPermisoDeFotosDenegado(permiso.canAskAgain);
       return;
     }
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
-    const uri = r.canceled ? null : (r.assets[0]?.uri ?? null);
-    if (uri) cambiar({ fotoNueva: uri });
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, allowsMultipleSelection: true, selectionLimit: restantes });
+    const uris = r.canceled ? [] : r.assets.map((a) => a.uri).slice(0, restantes);
+    if (uris.length > 0) setP((x) => ({ ...x, fotosNuevas: [...x.fotosNuevas, ...uris].slice(0, MAX_FOTOS_PRODUCTO - x.fotos.length) }));
   };
+
+  // Guardadas primero, luego las nuevas: el mismo orden con el que se guardan (la primera es la portada).
+  const miniaturas = [
+    ...p.fotos.map((ruta) => ({ clave: ruta, uri: urlsFotos?.get(ruta) ?? null })),
+    ...p.fotosNuevas.map((uri) => ({ clave: uri, uri })),
+  ];
+  const quitarFoto = (indice: number) =>
+    setP((x) =>
+      indice < x.fotos.length
+        ? { ...x, fotos: x.fotos.filter((_, i) => i !== indice) }
+        : { ...x, fotosNuevas: x.fotosNuevas.filter((_, i) => i !== indice - x.fotos.length) }
+    );
 
   const guardar = () => {
     const e = validarProducto(p);
     setErrores(e);
     if (Object.keys(e).length === 0) onGuardar(p);
   };
-
-  const miniatura = p.fotoNueva ?? (p.foto ? urlFoto : null);
-  const hayFoto = Boolean(p.fotoNueva || p.foto);
 
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onCerrar} visible>
@@ -112,33 +125,45 @@ export function EditorProducto({
           />
 
           <View style={estilos.bloque}>
-            <ThemedText type="smallBold" themeColor="textSecondary">Foto (opcional)</ThemedText>
-            {hayFoto ? (
-              <View style={estilos.filaFoto}>
-                {miniatura ? (
-                  <Image source={{ uri: miniatura }} style={estilos.miniatura} contentFit="cover" />
-                ) : (
-                  <View style={[estilos.miniatura, { backgroundColor: theme.backgroundSelected }]} />
-                )}
-                <Pulsable
-                  onPress={() => cambiar({ foto: null, fotoNueva: null })}
-                  accessibilityRole="button"
-                  accessibilityLabel="Quitar la foto del producto"
-                  style={estilos.accion}
-                >
-                  <ThemedText type="small" themeColor="acento">Quitar foto</ThemedText>
-                </Pulsable>
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              Fotos ({total} de {MAX_FOTOS_PRODUCTO}) · la primera es la portada
+            </ThemedText>
+            {miniaturas.length > 0 ? (
+              <View style={estilos.fotos}>
+                {miniaturas.map((m, i) => (
+                  <View key={m.clave} style={estilos.envolturaFoto}>
+                    {m.uri ? (
+                      <Image source={{ uri: m.uri }} style={estilos.miniatura} contentFit="cover" />
+                    ) : (
+                      <View style={[estilos.miniatura, { backgroundColor: theme.backgroundSelected }]} />
+                    )}
+                    <Pulsable
+                      onPress={() => quitarFoto(i)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Quitar la foto ${i + 1} del producto`}
+                      hitSlop={8}
+                      style={[estilos.quitarFoto, { backgroundColor: theme.background, borderColor: theme.filete }]}
+                    >
+                      <Ionicons name="close" size={16} color={theme.text} />
+                    </Pulsable>
+                  </View>
+                ))}
               </View>
             ) : null}
-            <Pulsable
-              onPress={() => void elegirFoto()}
-              accessibilityRole="button"
-              accessibilityLabel={hayFoto ? 'Cambiar la foto del producto' : 'Agregar una foto del producto'}
-              style={[estilos.agregar, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
-            >
-              <Ionicons name="camera-outline" size={20} color={theme.bosque} />
-              <ThemedText style={Texto.pesoFuerte}>{hayFoto ? 'Cambiar foto' : 'Agregar foto'}</ThemedText>
-            </Pulsable>
+            {restantes > 0 ? (
+              <Pulsable
+                onPress={() => void elegirFotos()}
+                accessibilityRole="button"
+                accessibilityLabel="Agregar una foto del producto"
+                style={[estilos.agregar, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
+              >
+                <Ionicons name="camera-outline" size={20} color={theme.bosque} />
+                <ThemedText style={Texto.pesoFuerte}>{total === 0 ? 'Agregar fotos' : 'Agregar más fotos'}</ThemedText>
+              </Pulsable>
+            ) : (
+              <ThemedText type="small" themeColor="textSecondary">Llegaste al tope: hasta {MAX_FOTOS_PRODUCTO} fotos por producto.</ThemedText>
+            )}
+            {errores.fotos ? <ThemedText type="small" style={{ color: theme.error }}>{errores.fotos}</ThemedText> : null}
           </View>
 
           <Sello onPress={guardar} accessibilityLabel="Guardar producto">Guardar producto</Sello>
@@ -170,8 +195,11 @@ const estilos = StyleSheet.create({
   },
   multilinea: { minHeight: 90, textAlignVertical: 'top', paddingTop: Spacing.three },
   bloque: { gap: Spacing.two },
-  filaFoto: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  fotos: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
+  envolturaFoto: { width: 72, height: 72 },
   miniatura: { width: 72, height: 72, borderRadius: Radios.control },
+  // toque-ok: el botón de quitar mide 28 pt visibles y llega a 44 con el hitSlop de 8 a cada lado.
+  quitarFoto: { position: 'absolute', top: -Spacing.one, right: -Spacing.one, width: 28, height: 28, borderRadius: 14, borderWidth: Filete.fino, alignItems: 'center', justifyContent: 'center' },
   accion: { minHeight: 44, justifyContent: 'center', alignItems: 'center' },
   agregar: {
     flexDirection: 'row',

@@ -47,7 +47,9 @@ export default function NegocioScreen() {
   const [foja, setFoja] = useState(0);
   const [categoria, setCategoria] = useState(TODO);
   // Una sola firma EN LOTE para la galería y las fotos de los productos.
-  const { urls } = useFotosFirmadas([...(negocio?.fotos ?? []), ...items.map((i) => i.foto)]);
+  // De cada producto, la lista enseña solo la PORTADA (la primera foto; `foto` cubre las filas de antes de la 0085).
+  const portada = (i: { fotos?: string[]; foto: string | null }) => i.fotos?.[0] ?? i.foto;
+  const { urls } = useFotosFirmadas([...(negocio?.fotos ?? []), ...items.map(portada)]);
 
   if (cargando) {
     return (
@@ -208,7 +210,7 @@ export default function NegocioScreen() {
                 {activa === TODO ? <ThemedText type="smallBold" themeColor="textSecondary">{g.seccion ?? 'Otros'}</ThemedText> : null}
                 <View style={[estilos.tarjetaMenu, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
                   {g.productos.map((it, i) => {
-                    const miniatura = it.foto ? urls.get(it.foto) : null;
+                    const miniatura = portada(it) ? urls.get(portada(it) as string) : null;
                     return (
                       <View
                         key={it.id}

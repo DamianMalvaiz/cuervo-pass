@@ -8,6 +8,8 @@ export const MAX_PRODUCTOS_TECNICO = 250;
 export const MAX_LARGO_NOMBRE = 80;
 export const MAX_LARGO_SECCION = 40;
 export const MAX_LARGO_DESCRIPCION = 200;
+/** El tope de la base (0085): un producto lleva hasta 5 fotos, la primera es la portada. */
+export const MAX_FOTOS_PRODUCTO = 5;
 
 export interface ProductoEditable {
   /** Clave local estable para la lista (el id de la base si ya existe). */
@@ -19,10 +21,10 @@ export interface ProductoEditable {
   precio: string;
   seccion: string;
   descripcion: string;
-  /** Ruta de Storage de la foto que YA está guardada. */
-  foto: string | null;
-  /** URI local de una foto nueva elegida en esta sesión (reemplaza a `foto` al guardar). */
-  fotoNueva: string | null;
+  /** Rutas de Storage de las fotos que YA están guardadas, en orden (la primera es la portada). */
+  fotos: string[];
+  /** URIs locales de fotos nuevas elegidas en esta sesión; se suben al guardar y quedan DESPUÉS de las guardadas. */
+  fotosNuevas: string[];
 }
 
 /** «35» → 35, «35,50» → 35.5, «» → null (consultar precio), «abc» o negativo → NaN (error). */
@@ -33,9 +35,9 @@ export function parsearPrecio(texto: string): number | null {
   return Number(t);
 }
 
-export type ErroresProducto = Partial<Record<'nombre' | 'precio' | 'seccion' | 'descripcion', string>>;
+export type ErroresProducto = Partial<Record<'nombre' | 'precio' | 'seccion' | 'descripcion' | 'fotos', string>>;
 
-export function validarProducto(p: Pick<ProductoEditable, 'nombre' | 'precio' | 'seccion' | 'descripcion'>): ErroresProducto {
+export function validarProducto(p: Pick<ProductoEditable, 'nombre' | 'precio' | 'seccion' | 'descripcion' | 'fotos' | 'fotosNuevas'>): ErroresProducto {
   const e: ErroresProducto = {};
   const nombre = p.nombre.trim();
   if (nombre.length < 1) e.nombre = 'Escribe el nombre del producto';
@@ -45,6 +47,8 @@ export function validarProducto(p: Pick<ProductoEditable, 'nombre' | 'precio' | 
   if (p.descripcion.trim().length > MAX_LARGO_DESCRIPCION) {
     e.descripcion = `La descripción es demasiado larga (máximo ${MAX_LARGO_DESCRIPCION})`;
   }
+  const sobran = p.fotos.length + p.fotosNuevas.length - MAX_FOTOS_PRODUCTO;
+  if (sobran > 0) e.fotos = `Un producto lleva hasta ${MAX_FOTOS_PRODUCTO} fotos. Quita ${sobran}.`;
   return e;
 }
 
@@ -54,7 +58,7 @@ export function validarMenu(productos: ProductoEditable[], maxPlan: number = MAX
   if (productos.length > tope) return `Tu plan permite hasta ${tope} productos. Quita ${productos.length - tope} para guardar.`;
   for (const p of productos) {
     const e = validarProducto(p);
-    const primero = e.nombre ?? e.precio ?? e.seccion ?? e.descripcion;
+    const primero = e.nombre ?? e.precio ?? e.seccion ?? e.descripcion ?? e.fotos;
     if (primero) return p.nombre.trim() ? `«${p.nombre.trim()}»: ${primero}` : primero;
   }
   return null;
@@ -116,5 +120,5 @@ let contador = 0;
 export const claveNueva = () => `nuevo-${Date.now()}-${++contador}`;
 
 export const productoVacio = (): ProductoEditable => ({
-  clave: claveNueva(), nombre: '', precio: '', seccion: '', descripcion: '', foto: null, fotoNueva: null,
+  clave: claveNueva(), nombre: '', precio: '', seccion: '', descripcion: '', fotos: [], fotosNuevas: [],
 });

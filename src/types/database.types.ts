@@ -393,8 +393,10 @@ export interface NegocioItem {
   orden: number;
   seccion: string | null;
   descripcion: string | null;
-  /** Ruta de Storage de la foto del producto (dentro de la carpeta de su negocio). */
+  /** La PORTADA: la primera de `fotos`. La base las mantiene sincronizadas (0085). */
   foto: string | null;
+  /** Rutas de Storage de las fotos del producto (hasta 5, dentro de la carpeta de su negocio); la primera es la portada. */
+  fotos: string[];
 }
 
 /** Verificación de vendedor · 0049. Privado: solo su dueña lee su fila. */

@@ -74,14 +74,16 @@ export interface EntradaGuardado {
 async function guardarProductos(negocioId: string, productos: ProductoEditable[]) {
   const items = [];
   for (const p of productos) {
-    const foto = p.fotoNueva ? await subirFotoProducto(negocioId, p.fotoNueva) : p.foto;
+    // Las guardadas primero (la portada no cambia al agregar), luego las nuevas en el orden en que se eligieron.
+    const subidas: string[] = [];
+    for (const uri of p.fotosNuevas) subidas.push(await subirFotoProducto(negocioId, uri));
     items.push({
       id: p.id,
       nombre: p.nombre.trim(),
       precio: parsearPrecio(p.precio) as number | null,
       seccion: p.seccion.trim() || null,
       descripcion: p.descripcion.trim() || null,
-      foto,
+      fotos: [...p.fotos, ...subidas],
     });
   }
   await guardarMenu(negocioId, items);
@@ -159,7 +161,7 @@ export function useGuardarMenu(negocioId: string | undefined) {
     mutationFn: async ({ productos, fotosAnteriores }: EntradaMenu): Promise<void> => {
       if (!negocioId) throw new Error('sin negocio');
       const items = await guardarProductos(negocioId, productos);
-      const usadas = new Set(items.map((i) => i.foto).filter(Boolean));
+      const usadas = new Set(items.flatMap((i) => i.fotos));
       await borrarFotos(fotosAnteriores.filter((f) => !usadas.has(f)));
     },
     onSuccess: () => {

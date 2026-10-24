@@ -31,10 +31,10 @@ jest.mock('expo-image-picker', () => ({
 import { EditorMenu } from '../EditorMenu';
 
 const item = (id: string, nombre: string, extra: Record<string, unknown> = {}) => ({
-  id, negocio_id: 'n1', nombre, precio: 20, orden: 0, seccion: null, descripcion: null, foto: null, ...extra,
+  id, negocio_id: 'n1', nombre, precio: 20, orden: 0, seccion: null, descripcion: null, foto: null, fotos: [], ...extra,
 });
 const ITEMS = [
-  item('i1', 'Taco al pastor', { seccion: 'Tacos', descripcion: 'Con piña', foto: 'negocios/n1/p/a.jpg' }),
+  item('i1', 'Taco al pastor', { seccion: 'Tacos', descripcion: 'Con piña', foto: 'negocios/n1/p/a.jpg', fotos: ['negocios/n1/p/a.jpg'] }),
   item('i2', 'Agua de horchata', { seccion: 'Bebidas', precio: 15 }),
   item('i3', 'Revisión', { precio: null }),
 ];
@@ -165,13 +165,39 @@ describe('editar productos (todo local hasta guardar)', () => {
     expect(screen.getByDisplayValue('Bebidas')).toBeTruthy();
   });
 
-  it('se puede agregar y quitar la foto de un producto', async () => {
+  it('se puede agregar y quitar una foto de un producto', async () => {
     await montar();
     await pulsar('Editar Agua de horchata');
     await pulsar('Agregar una foto del producto');
-    expect(screen.getByLabelText('Quitar la foto del producto')).toBeTruthy();
-    await pulsar('Quitar la foto del producto');
-    expect(screen.queryByLabelText('Quitar la foto del producto')).toBeNull();
+    expect(screen.getByLabelText('Quitar la foto 1 del producto')).toBeTruthy();
+    await pulsar('Quitar la foto 1 del producto');
+    expect(screen.queryByLabelText('Quitar la foto 1 del producto')).toBeNull();
+  });
+
+  it('un producto puede llevar varias fotos: las guardadas y las nuevas se enumeran juntas', async () => {
+    await montar();
+    await pulsar('Editar Taco al pastor');
+    expect(screen.getByLabelText('Quitar la foto 1 del producto')).toBeTruthy();
+    await pulsar('Agregar una foto del producto');
+    await pulsar('Agregar una foto del producto');
+    expect(screen.getByLabelText('Quitar la foto 3 del producto')).toBeTruthy();
+  });
+
+  it('con 5 fotos ya no se ofrece agregar otra: dice el tope', async () => {
+    await montar();
+    await pulsar('Editar Taco al pastor');
+    for (let i = 0; i < 4; i++) await pulsar('Agregar una foto del producto');
+    expect(screen.queryByLabelText('Agregar una foto del producto')).toBeNull();
+    expect(screen.getByText(/hasta 5 fotos/)).toBeTruthy();
+  });
+
+  it('quitar una foto en medio deja las demás y las vuelve a enumerar', async () => {
+    await montar();
+    await pulsar('Editar Taco al pastor');
+    await pulsar('Agregar una foto del producto');
+    await pulsar('Quitar la foto 1 del producto');
+    expect(screen.getByLabelText('Quitar la foto 1 del producto')).toBeTruthy();
+    expect(screen.queryByLabelText('Quitar la foto 2 del producto')).toBeNull();
   });
 
   it('sin permiso de galería no agrega foto', async () => {
@@ -193,6 +219,17 @@ describe('guardar el menú', () => {
     expect(entrada.productos.map((p: { nombre: string }) => p.nombre)).toEqual(['Taco al pastor', 'Agua de horchata', 'Revisión']);
     expect(entrada.fotosAnteriores).toEqual(['negocios/n1/p/a.jpg']);
     expect(entrada.productos[0].id).toBe('i1');
+  });
+
+  it('las fotos nuevas de un producto viajan en `fotosNuevas` y las guardadas en `fotos`', async () => {
+    await montar();
+    await pulsar('Editar Taco al pastor');
+    await pulsar('Agregar una foto del producto');
+    await pulsar('Guardar producto');
+    await pulsar('Guardar menú');
+    const taco = mockMutate.mock.calls[0][0].productos[0];
+    expect(taco.fotos).toEqual(['negocios/n1/p/a.jpg']);
+    expect(taco.fotosNuevas).toHaveLength(1);
   });
 
   it('los cambios locales viajan en esa llamada', async () => {

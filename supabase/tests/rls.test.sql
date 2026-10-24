@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(761);
+select plan(771);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2299,6 +2299,53 @@ select lives_ok(
         'foto', 'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/p/taco.jpg')))$$,
   'menú: una foto propia sí' );
 
+-- ════════════════ 0085 · varias fotos por producto ════════════════
+-- Un producto lleva hasta 5 fotos (`fotos`); `foto` sigue existiendo como la PORTADA (la primera) para lo que ya la leía. Las dos columnas se mantienen
+-- sincronizadas en la base, no en la app: quien escriba solo `foto` (una app vieja) también deja `fotos` coherente.
+select lives_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('id', (select id from negocio_items where nombre = 'Taco al pastor'), 'nombre', 'Taco al pastor', 'precio', 22,
+        'fotos', jsonb_build_array(
+          'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/p/a.jpg',
+          'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/p/b.jpg'))))$$,
+  '0085: un producto guarda varias fotos' );
+select is(
+  (select cardinality(fotos) from negocio_items where nombre = 'Taco al pastor'), 2, '0085: quedan las dos, en orden' );
+select is(
+  (select foto = fotos[1] from negocio_items where nombre = 'Taco al pastor'), true, '0085: la portada (`foto`) es siempre la primera de `fotos`' );
+select is(
+  (select cardinality(fotos) from negocio_items_publicos where nombre = 'Taco al pastor'), 2, '0085: la vista pública también las expone' );
+select throws_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('nombre', 'Con foto ajena', 'precio', 1,
+        'fotos', jsonb_build_array('negocios/00000000-0000-0000-0000-00000000b001/x.jpg'))))$$,
+  '23514', null, '0085: TODAS las fotos deben vivir en la carpeta del negocio, no solo la primera' );
+select throws_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('nombre', 'Con seis fotos', 'precio', 1,
+        'fotos', (select jsonb_agg('negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/p/' || g || '.jpg') from generate_series(1, 6) g))))$$,
+  '23514', null, '0085: la sexta foto de un producto se rechaza (tope de 5)' );
+select lives_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('id', (select id from negocio_items where nombre = 'Taco al pastor'), 'nombre', 'Taco al pastor', 'precio', 22,
+        'foto', 'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/p/vieja.jpg')))$$,
+  '0085: quien manda solo `foto` (como la app anterior) sigue pudiendo guardar' );
+select is(
+  (select fotos from negocio_items where nombre = 'Taco al pastor'),
+  array['negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/p/vieja.jpg'], '0085: y `fotos` queda coherente con esa portada' );
+select lives_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('id', (select id from negocio_items where nombre = 'Taco al pastor'), 'nombre', 'Taco al pastor', 'precio', 22, 'fotos', '[]'::jsonb)))$$,
+  '0085: quitar todas las fotos se puede' );
+select is(
+  (select foto is null and cardinality(fotos) = 0 from negocio_items where nombre = 'Taco al pastor'), true, '0085: sin fotos, tampoco hay portada' );
+
+
 select lives_ok(
   $$update negocios set fotos = array(
       select 'negocios/' || id || '/' || g || '.jpg' from generate_series(1, 60) g) where nombre = 'Tienda F7'$$,
@@ -3819,6 +3866,7 @@ select actuar_como_servicio();
 select throws_ok($$select iniciar_prueba('arrendador')$$, '28000', null, '0084: sin sesión no hay prueba que iniciar');
 select ok(not has_function_privilege('anon', 'iniciar_prueba(text)', 'execute') and has_function_privilege('authenticated', 'iniciar_prueba(text)', 'execute'),
   '0084: la llama quien tiene sesión y nadie sin ella');
+
 
 select * from finish();
 rollback;

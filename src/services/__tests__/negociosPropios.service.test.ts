@@ -116,8 +116,8 @@ describe('actualizarNegocio', () => {
 
 describe('guardarMenu', () => {
   const items = [
-    { id: 'a', nombre: 'Taco', precio: 20, seccion: 'Tacos', descripcion: null, foto: null },
-    { nombre: 'Agua', precio: null, seccion: null, descripcion: 'Fresca', foto: 'negocios/n1/p/a.jpg' },
+    { id: 'a', nombre: 'Taco', precio: 20, seccion: 'Tacos', descripcion: null, fotos: [] },
+    { nombre: 'Agua', precio: null, seccion: null, descripcion: 'Fresca', fotos: ['negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg'] },
   ];
 
   test('manda el menú ENTERO en una sola llamada a la RPC, en orden', async () => {
@@ -147,12 +147,13 @@ describe('guardarMenu', () => {
 
 describe('borrarNegocio', () => {
   test('borra las fotos de la galería Y las de los productos ANTES de la fila', async () => {
-    const items = cadena({ data: [{ foto: 'negocios/n1/p/a.jpg' }, { foto: null }] });
+    const items = cadena({ data: [{ foto: 'negocios/n1/p/a.jpg', fotos: ['negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg'] }, { foto: null, fotos: [] }] });
     const fila = cadena({ error: null });
     const secuencia = [items, fila];
     mockDesde.mockImplementation(() => secuencia.shift());
     await borrarNegocio('n1', ['negocios/n1/a.jpg']);
-    expect(mockBorrarFotos).toHaveBeenCalledWith(['negocios/n1/a.jpg', 'negocios/n1/p/a.jpg']);
+    // Todas las fotos de cada producto, sin repetir la portada (que es la primera de `fotos`).
+    expect(mockBorrarFotos).toHaveBeenCalledWith(['negocios/n1/a.jpg', 'negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg']);
     expect(mockBorrarFotos.mock.invocationCallOrder[0]).toBeLessThan((fila.delete as jest.Mock).mock.invocationCallOrder[0]);
     expect(fila.eq).toHaveBeenCalledWith('id', 'n1');
   });

@@ -47,7 +47,7 @@ export async function obtenerMiNegocio(
   if (!negocio) return null;
   const { data: items, error: errorItems } = await supabase
     .from('negocio_items')
-    .select('id, negocio_id, nombre, precio, orden, seccion, descripcion, foto')
+    .select('id, negocio_id, nombre, precio, orden, seccion, descripcion, foto, fotos')
     .eq('negocio_id', id)
     .order('orden', { ascending: true });
   if (errorItems) throw errorItems;
@@ -93,7 +93,8 @@ export interface ItemParaGuardar {
   precio: number | null;
   seccion: string | null;
   descripcion: string | null;
-  foto: string | null;
+  /** Hasta 5; la primera es la portada. */
+  fotos: string[];
 }
 
 /**
@@ -110,7 +111,7 @@ export async function guardarMenu(negocioId: string, items: ItemParaGuardar[]): 
       precio: i.precio,
       seccion: i.seccion,
       descripcion: i.descripcion,
-      foto: i.foto,
+      fotos: i.fotos,
     })),
   });
   if (error) throw error;
@@ -122,9 +123,12 @@ export async function guardarMenu(negocioId: string, items: ItemParaGuardar[]): 
  * borrar las fotos falla, `borrarFotos` avisa y sigue; el negocio se borra igual (la persona pidió borrarlo).
  */
 export async function borrarNegocio(id: string, fotos: string[]): Promise<void> {
-  const { data: items, error: errorItems } = await supabase.from('negocio_items').select('foto').eq('negocio_id', id);
+  const { data: items, error: errorItems } = await supabase.from('negocio_items').select('foto, fotos').eq('negocio_id', id);
   if (errorItems) throw errorItems;
-  const deProductos = ((items ?? []) as { foto: string | null }[]).map((i) => i.foto).filter((f): f is string => Boolean(f));
+  // Todas las fotos de cada producto (la portada es la primera de `fotos`; `foto` se suma por si una fila aún no la trae, sin repetirla).
+  const deProductos = ((items ?? []) as { foto: string | null; fotos: string[] | null }[])
+    .flatMap((i) => [...(i.fotos ?? []), ...(i.foto ? [i.foto] : [])])
+    .filter((f, k, todas) => todas.indexOf(f) === k);
   await borrarFotos([...fotos, ...deProductos]);
   const { error } = await supabase.from('negocios').delete().eq('id', id);
   if (error) throw error;

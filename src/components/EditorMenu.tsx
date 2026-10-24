@@ -32,8 +32,9 @@ const desdeItem = (i: NegocioItem): ProductoEditable => ({
   precio: i.precio == null ? '' : String(i.precio),
   seccion: i.seccion ?? '',
   descripcion: i.descripcion ?? '',
-  foto: i.foto,
-  fotoNueva: null,
+  // Una fila de antes de la 0085 puede no traer `fotos`: su portada única se vuelve la primera de la lista.
+  fotos: i.fotos?.length ? i.fotos : i.foto ? [i.foto] : [],
+  fotosNuevas: [],
 });
 
 /**
@@ -55,8 +56,8 @@ export function EditorMenu({ negocioId, nombreNegocio, items }: { negocioId: str
   const [editando, setEditando] = useState<{ producto: ProductoEditable; esNuevo: boolean } | null>(null);
 
   // Las fotos con que se CARGÓ el menú: sirven para saber cuáles ya no se usan al guardar.
-  const fotosAnteriores = useMemo(() => items.map((i) => i.foto).filter((f): f is string => Boolean(f)), [items]);
-  const { urls } = useFotosFirmadas(productos.map((p) => p.foto));
+  const fotosAnteriores = useMemo(() => items.flatMap((i) => desdeItem(i).fotos), [items]);
+  const { urls } = useFotosFirmadas(productos.flatMap((p) => p.fotos));
 
   const visibles = buscarEnMenu(productos, busqueda);
   const secciones = agruparPorSeccion(visibles).map((g) => ({
@@ -152,7 +153,7 @@ export function EditorMenu({ negocioId, nombreNegocio, items }: { negocioId: str
         )}
         renderItem={({ item }) => {
           const precio = parsearPrecio(item.precio);
-          const miniatura = item.fotoNueva ?? (item.foto ? urls.get(item.foto) : null);
+          const miniatura = item.fotos[0] ? urls.get(item.fotos[0]) : (item.fotosNuevas[0] ?? null);
           return (
             <Pulsable
               onPress={() => setEditando({ producto: item, esNuevo: false })}
@@ -198,7 +199,7 @@ export function EditorMenu({ negocioId, nombreNegocio, items }: { negocioId: str
           producto={editando.producto}
           esNuevo={editando.esNuevo}
           secciones={sugeridas}
-          urlFoto={editando.producto.foto ? urls.get(editando.producto.foto) : null}
+          urlsFotos={urls}
           onGuardar={guardarProducto}
           onQuitar={() => quitarProducto(editando.producto.clave)}
           onCerrar={() => setEditando(null)}
