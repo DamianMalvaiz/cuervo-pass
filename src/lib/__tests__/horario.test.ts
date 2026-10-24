@@ -1,5 +1,5 @@
 import {
-  agruparPorHoras, formatearHora, normalizarHora, resumenAcotado, parsearHorarioTexto, resumenDeTurnos, validarHorarioCompleto, validarTurnos, type Turno,
+  agruparPorHoras, formatearHora, normalizarHora, lineasPorDia, resumenAcotado, parsearHorarioTexto, resumenDeTurnos, validarHorarioCompleto, validarTurnos, type Turno,
 } from '../horario';
 
 // El horario estructurado (migración 0070). Lo que se fija: el analizador de los textos que ya existen (para no perder los 24 horarios de ejemplo), el resumen legible
@@ -141,5 +141,24 @@ describe('validarHorarioCompleto', () => {
   });
   it('un día no puede estar a la vez abierto y cerrado: gana lo abierto', () => {
     expect(validarHorarioCompleto([T(1, '08:00', '20:00')], [1, 2, 3, 4, 5, 6, 7])).toBeNull();
+  });
+});
+
+describe('lineasPorDia', () => {
+  it('siempre son siete, de lunes a domingo, con los nombres completos', () => {
+    expect(lineasPorDia([]).map((l) => l.dia)).toEqual(['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']);
+  });
+  it('un día con turno dice sus horas; uno sin turnos dice «Cerrado»', () => {
+    const l = lineasPorDia([T(1, '08:00', '20:00'), T(6, '09:00', '14:00')]);
+    expect(l[0]).toEqual({ dia: 'Lunes', horas: '8 am a 8 pm' });
+    expect(l[1]).toEqual({ dia: 'Martes', horas: 'Cerrado' });
+    expect(l[5]).toEqual({ dia: 'Sábado', horas: '9 am a 2 pm' });
+    expect(l[6]).toEqual({ dia: 'Domingo', horas: 'Cerrado' });
+  });
+  it('dos turnos el mismo día se unen con «y», en orden', () => {
+    expect(lineasPorDia([T(3, '16:00', '20:00'), T(3, '09:00', '14:00')])[2].horas).toBe('9 am a 2 pm y 4 pm a 8 pm');
+  });
+  it('de 00:00 a 23:59 se dice «24 horas»', () => {
+    expect(lineasPorDia([T(2, '00:00', '23:59')])[1].horas).toBe('24 horas');
   });
 });

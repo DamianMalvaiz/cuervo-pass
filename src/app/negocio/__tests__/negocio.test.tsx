@@ -91,7 +91,7 @@ test('el menú dice el precio, o «Consultar precio» si no lo hay (nunca lo inv
 test('sin productos no pinta un menú vacío', async () => {
   mockNegocio.mockReturnValue(estado({ items: [] }));
   await render(<NegocioScreen />);
-  expect(screen.queryByText('Menú y precios')).toBeNull();
+  expect(screen.queryByText('Lo que vende')).toBeNull();
 });
 
 test('«Cómo llegar» abre el mapa con las coordenadas', async () => {
@@ -173,6 +173,14 @@ describe('la galería', () => {
     }));
     await render(<NegocioScreen />);
     expect(mockFotos).toHaveBeenCalledWith(['negocios/n1/p/t.jpg']);
+  });
+});
+
+describe('lo que vende', () => {
+  it('la sección se llama «Lo que vende» (ya no «Menú y precios»)', async () => {
+    await render(<NegocioScreen />);
+    expect(screen.getByText('Lo que vende')).toBeTruthy();
+    expect(screen.queryByText('Menú y precios')).toBeNull();
   });
 });
 
@@ -287,12 +295,37 @@ describe('las reseñas en la ficha', () => {
 describe('horario estructurado (0070)', () => {
   const turnos = [1, 2, 3, 4, 5].map((dia) => ({ dia, abre: '09:00', cierra: '18:00' }));
 
-  test('con turnos: el horario semanal se enseña legible y el texto libre se deja de usar', async () => {
+  test('con turnos: «Ver horario» está plegado y no se despliega solo; el texto libre se deja de usar', async () => {
     mockNegocio.mockReturnValue(estado({ turnos, negocio: { ...NEGOCIO, abierto_ahora: true } }));
     await render(<NegocioScreen />);
-    expect(screen.getByText('Lunes a viernes · 9 am a 6 pm')).toBeTruthy();
+    expect(screen.getByLabelText('Ver horario').props.accessibilityState).toMatchObject({ expanded: false });
+    expect(screen.queryByText('Miércoles')).toBeNull();
     expect(screen.getByText('Abierto ahora')).toBeTruthy();
     expect(screen.queryByText('Lun a sáb · 8 am a 9 pm')).toBeNull();
+  });
+
+  test('al tocarlo se despliega el horario DÍA POR DÍA, con los nombres completos', async () => {
+    mockNegocio.mockReturnValue(estado({ turnos, negocio: { ...NEGOCIO, abierto_ahora: true } }));
+    await render(<NegocioScreen />);
+    await act(async () => { fireEvent.press(screen.getByLabelText('Ver horario')); });
+    expect(screen.getByLabelText('Ver horario').props.accessibilityState).toMatchObject({ expanded: true });
+    for (const dia of ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']) expect(screen.getByText(dia)).toBeTruthy();
+    expect(screen.getAllByText('9 am a 6 pm')).toHaveLength(5);
+    expect(screen.getAllByText('Cerrado')).toHaveLength(2);
+  });
+
+  test('tocarlo otra vez lo pliega', async () => {
+    mockNegocio.mockReturnValue(estado({ turnos }));
+    await render(<NegocioScreen />);
+    await act(async () => { fireEvent.press(screen.getByLabelText('Ver horario')); });
+    await act(async () => { fireEvent.press(screen.getByLabelText('Ver horario')); });
+    expect(screen.queryByText('Miércoles')).toBeNull();
+  });
+
+  test('sin turnos no hay «Ver horario»', async () => {
+    mockNegocio.mockReturnValue(estado({ turnos: [] }));
+    await render(<NegocioScreen />);
+    expect(screen.queryByLabelText('Ver horario')).toBeNull();
   });
 
   test('cerrado ahora se dice con palabras', async () => {

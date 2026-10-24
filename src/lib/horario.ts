@@ -179,3 +179,14 @@ export function validarHorarioCompleto(turnos: readonly Turno[], cerrados: reado
   if (abiertos.size === 0) return 'Tu negocio tiene que abrir al menos un día.';
   return validarTurnos(turnos);
 }
+
+/** El horario DÍA POR DÍA, para enseñarlo desplegado: siete renglones, de lunes a domingo, con el nombre completo; un día sin turnos dice «Cerrado». */
+export function lineasPorDia(turnos: readonly Turno[]): { dia: string; horas: string }[] {
+  return NOMBRES.map((nombre, i) => {
+    const delDia = turnos.filter((t) => t.dia === i + 1).sort((a, b) => (a.abre < b.abre ? -1 : a.abre > b.abre ? 1 : 0));
+    const horas = delDia
+      .map((t) => (t.abre === '00:00' && t.cierra === '23:59' ? '24 horas' : `${formatearHora(t.abre)} a ${formatearHora(t.cierra)}`))
+      .join(' y ');
+    return { dia: nombre, horas: horas || 'Cerrado' };
+  });
+}

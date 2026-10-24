@@ -8,6 +8,7 @@ import { BotonFavoritoNegocio } from '@/components/BotonFavoritoNegocio';
 import { Estrellas } from '@/components/ficha/Estrellas';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { Pastilla } from '@/components/ficha/Pastilla';
+import { PieFijo } from '@/components/ficha/PieFijo';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
 import { SeccionResenas } from '@/components/SeccionResenas';
@@ -17,7 +18,7 @@ import { AltoFotoTarjeta, Filete, Radios, Spacing, Texto } from '@/constants/the
 import { useMisNegocios } from '@/hooks/queries/useMisNegocios';
 import { useNegocio } from '@/hooks/queries/useServicios';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
-import { resumenDeTurnos } from '@/lib/horario';
+import { lineasPorDia } from '@/lib/horario';
 import { agruparPorSeccion } from '@/lib/menu';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
@@ -46,6 +47,7 @@ export default function NegocioScreen() {
   const { negocios: misNegocios } = useMisNegocios(miId);
   const [foja, setFoja] = useState(0);
   const [categoria, setCategoria] = useState(TODO);
+  const [horarioAbierto, setHorarioAbierto] = useState(false);
   // Una sola firma EN LOTE para la galería y las fotos de los productos.
   // De cada producto, la lista enseña solo la PORTADA (la primera foto; `foto` cubre las filas de antes de la 0085).
   const portada = (i: { fotos?: string[]; foto: string | null }) => i.fotos?.[0] ?? i.foto;
@@ -107,150 +109,171 @@ export default function NegocioScreen() {
   };
 
   return (
-    <ScrollView
-      style={estilos.pantalla}
-      contentContainerStyle={[estilos.hoja, { maxWidth: anchoLista }]}
-      showsVerticalScrollIndicator={false}
-    >
-      {fotos.length > 0 ? (
-        <View>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={alDesplazar}
-            accessibilityLabel={`${fotos.length} fotografías del negocio`}
-          >
-            {fotos.map((ruta) => {
-              const url = urls.get(ruta);
-              return url ? (
-                <Image key={ruta} source={{ uri: url }} style={[estilos.foto, { width: anchoLista }]} contentFit="cover" transition={160} />
-              ) : (
-                <View key={ruta} style={[estilos.foto, estilos.sinFoto, { width: anchoLista, backgroundColor: theme.backgroundSelected }]} />
-              );
-            })}
-          </ScrollView>
-          {fotos.length > 1 ? (
-            // «1 de 12» en una pastilla oscura sobre la foto: dice en cuál vas y cuántas faltan.
-            <View style={[estilos.foja, { backgroundColor: theme.text }]}>
-              <ThemedText type="smallBold" style={{ color: theme.background }}>
-                {foja + 1} de {fotos.length}
-              </ThemedText>
+    <View style={estilos.pantalla}>
+      <ScrollView
+        style={estilos.pantalla}
+        contentContainerStyle={[estilos.hoja, { maxWidth: anchoLista }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {fotos.length > 0 ? (
+          <View>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={alDesplazar}
+              accessibilityLabel={`${fotos.length} fotografías del negocio`}
+            >
+              {fotos.map((ruta) => {
+                const url = urls.get(ruta);
+                return url ? (
+                  <Image key={ruta} source={{ uri: url }} style={[estilos.foto, { width: anchoLista }]} contentFit="cover" transition={160} />
+                ) : (
+                  <View key={ruta} style={[estilos.foto, estilos.sinFoto, { width: anchoLista, backgroundColor: theme.backgroundSelected }]} />
+                );
+              })}
+            </ScrollView>
+            {fotos.length > 1 ? (
+              // «1 de 12» en una pastilla oscura sobre la foto: dice en cuál vas y cuántas faltan.
+              <View style={[estilos.foja, { backgroundColor: theme.text }]}>
+                <ThemedText type="smallBold" style={{ color: theme.background }}>
+                  {foja + 1} de {fotos.length}
+                </ThemedText>
+              </View>
+            ) : null}
+          </View>
+        ) : (
+          <View style={[estilos.foto, estilos.sinFoto, { backgroundColor: theme.backgroundSelected }]}>
+            <Ionicons name="storefront-outline" size={32} color={theme.textSecondary} />
+          </View>
+        )}
+
+        <View style={[estilos.cuerpo, { backgroundColor: theme.background }]}>
+          <View style={estilos.encabezado}>
+            <View style={estilos.filaTitulo}>
+              <ThemedText type="title" style={estilos.tituloFlex}>{negocio.nombre}</ThemedText>
+              <BotonFavoritoNegocio negocioId={negocio.id} />
+            </View>
+            <View style={estilos.fila}>
+              <Estrellas calificacion={negocio.calificacion} numResenas={negocio.num_resenas ?? 0} compacta />
+              {negocio.origen === 'sembrado' ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Negocio de ejemplo
+                </ThemedText>
+              ) : null}
+            </View>
+          </View>
+
+          {negocio.descripcion ? <ThemedText style={estilos.descripcion}>{negocio.descripcion}</ThemedText> : null}
+
+          <View style={estilos.pastillas}>
+            {negocio.abierto_ahora != null ? (
+              <Pastilla icono="time-outline" texto={negocio.abierto_ahora ? 'Abierto ahora' : 'Cerrado ahora'} atenuada={!negocio.abierto_ahora} />
+            ) : null}
+            {turnos.length === 0 && negocio.horario ? <Pastilla icono="time-outline" texto={negocio.horario} /> : null}
+            <Pastilla icono="location-outline" texto={negocio.direccion} />
+          </View>
+
+          {turnos.length > 0 ? (
+            <View style={[estilos.horario, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+              <Pulsable
+                onPress={() => setHorarioAbierto((v) => !v)}
+                accessibilityRole="button"
+                accessibilityLabel="Ver horario"
+                accessibilityState={{ expanded: horarioAbierto }}
+                style={estilos.cabeceraHorario}
+              >
+                <Ionicons name="time-outline" size={20} color={theme.bosque} />
+                <ThemedText style={[estilos.tituloHorario, Texto.pesoFuerte]}>Ver horario</ThemedText>
+                <Ionicons name={horarioAbierto ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textSecondary} />
+              </Pulsable>
+              {horarioAbierto ? (
+                <View style={estilos.diasHorario}>
+                  {lineasPorDia(turnos).map((l) => (
+                    <View key={l.dia} style={estilos.diaHorario}>
+                      <ThemedText type="small">{l.dia}</ThemedText>
+                      <ThemedText type="small" themeColor={l.horas === 'Cerrado' ? 'textSecondary' : 'text'} style={l.horas === 'Cerrado' ? undefined : Texto.pesoFuerte}>{l.horas}</ThemedText>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
             </View>
           ) : null}
-        </View>
-      ) : (
-        <View style={[estilos.foto, estilos.sinFoto, { backgroundColor: theme.backgroundSelected }]}>
-          <Ionicons name="storefront-outline" size={32} color={theme.textSecondary} />
-        </View>
-      )}
 
-      <View style={[estilos.cuerpo, { backgroundColor: theme.background }]}>
-        <View style={estilos.encabezado}>
-          <View style={estilos.filaTitulo}>
-            <ThemedText type="title" style={estilos.tituloFlex}>{negocio.nombre}</ThemedText>
-            <BotonFavoritoNegocio negocioId={negocio.id} />
-          </View>
-          <View style={estilos.fila}>
-            <Estrellas calificacion={negocio.calificacion} numResenas={negocio.num_resenas ?? 0} compacta />
-            {negocio.origen === 'sembrado' ? (
-              <ThemedText type="small" themeColor="textSecondary">
-                Negocio de ejemplo
-              </ThemedText>
-            ) : null}
-          </View>
-        </View>
-
-        {negocio.descripcion ? <ThemedText style={estilos.descripcion}>{negocio.descripcion}</ThemedText> : null}
-
-        <View style={estilos.pastillas}>
-          {negocio.abierto_ahora != null ? (
-            <Pastilla icono="time-outline" texto={negocio.abierto_ahora ? 'Abierto ahora' : 'Cerrado ahora'} atenuada={!negocio.abierto_ahora} />
-          ) : null}
-          {turnos.length === 0 && negocio.horario ? <Pastilla icono="time-outline" texto={negocio.horario} /> : null}
-          <Pastilla icono="location-outline" texto={negocio.direccion} />
-        </View>
-
-        {turnos.length > 0 ? (
-          <View style={estilos.menu} accessibilityLabel="Horario">
-            <ThemedText type="smallBold" themeColor="textSecondary">Horario</ThemedText>
-            {resumenDeTurnos(turnos).split('; ').map((linea) => (
-              <ThemedText key={linea} type="small">{linea}</ThemedText>
-            ))}
-          </View>
-        ) : null}
-
-        {items.length > 0 ? (
-          <View style={estilos.menu}>
-            <ThemedText type="subtitle">Menú y precios</ThemedText>
-            {conPestanas ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.pestanas}>
-                {[{ clave: TODO, nombre: 'Todo' }, ...grupos.map((g) => ({ clave: claveDe(g), nombre: g.seccion ?? 'Otros' }))].map((c) => {
-                  const elegida = c.clave === activa;
-                  return (
-                    <Pulsable
-                      key={c.clave}
-                      onPress={() => setCategoria(c.clave)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Categoría ${c.nombre}`}
-                      accessibilityState={{ selected: elegida }}
-                      style={[
-                        estilos.pestana,
-                        { backgroundColor: elegida ? theme.text : theme.backgroundElement, borderColor: elegida ? theme.text : theme.filete },
-                      ]}
-                    >
-                      <ThemedText type="small" style={[Texto.pesoFuerte, elegida && { color: theme.background }]}>{c.nombre}</ThemedText>
-                    </Pulsable>
-                  );
-                })}
-              </ScrollView>
-            ) : null}
-            {visibles.map((g) => (
-              <View key={g.seccion ?? 'sin-seccion'} style={estilos.menu}>
-                {activa === TODO ? <ThemedText type="smallBold" themeColor="textSecondary">{g.seccion ?? 'Otros'}</ThemedText> : null}
-                <View style={[estilos.tarjetaMenu, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
-                  {g.productos.map((it, i) => {
-                    const miniatura = portada(it) ? urls.get(portada(it) as string) : null;
+          {items.length > 0 ? (
+            <View style={estilos.menu}>
+              <ThemedText type="subtitle">Lo que vende</ThemedText>
+              {conPestanas ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.pestanas}>
+                  {[{ clave: TODO, nombre: 'Todo' }, ...grupos.map((g) => ({ clave: claveDe(g), nombre: g.seccion ?? 'Otros' }))].map((c) => {
+                    const elegida = c.clave === activa;
                     return (
-                      <View
-                        key={it.id}
-                        style={[estilos.renglon, i > 0 && { borderTopWidth: Filete.fino, borderTopColor: theme.filete }]}
+                      <Pulsable
+                        key={c.clave}
+                        onPress={() => setCategoria(c.clave)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Categoría ${c.nombre}`}
+                        accessibilityState={{ selected: elegida }}
+                        style={[
+                          estilos.pestana,
+                          { backgroundColor: elegida ? theme.text : theme.backgroundElement, borderColor: elegida ? theme.text : theme.filete },
+                        ]}
                       >
-                        {miniatura ? <Image source={{ uri: miniatura }} style={estilos.miniatura} contentFit="cover" /> : null}
-                        <View style={estilos.nombreItem}>
-                          <ThemedText style={Texto.pesoFuerte}>{it.nombre}</ThemedText>
-                          {it.descripcion ? (
-                            <ThemedText type="small" themeColor="textSecondary" numberOfLines={3}>{it.descripcion}</ThemedText>
-                          ) : null}
-                        </View>
-                        {it.precio != null ? (
-                          <ThemedText style={Texto.pesoFuerte}>{`$${formateadorPrecio.format(it.precio)}`}</ThemedText>
-                        ) : (
-                          <ThemedText type="small" themeColor="textSecondary">Consultar precio</ThemedText>
-                        )}
-                      </View>
+                        <ThemedText type="small" style={[Texto.pesoFuerte, elegida && { color: theme.background }]}>{c.nombre}</ThemedText>
+                      </Pulsable>
                     );
                   })}
+                </ScrollView>
+              ) : null}
+              {visibles.map((g) => (
+                <View key={g.seccion ?? 'sin-seccion'} style={estilos.menu}>
+                  {activa === TODO ? <ThemedText type="smallBold" themeColor="textSecondary">{g.seccion ?? 'Otros'}</ThemedText> : null}
+                  <View style={[estilos.tarjetaMenu, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
+                    {g.productos.map((it, i) => {
+                      const miniatura = portada(it) ? urls.get(portada(it) as string) : null;
+                      return (
+                        <View
+                          key={it.id}
+                          style={[estilos.renglon, i > 0 && { borderTopWidth: Filete.fino, borderTopColor: theme.filete }]}
+                        >
+                          {miniatura ? <Image source={{ uri: miniatura }} style={estilos.miniatura} contentFit="cover" /> : null}
+                          <View style={estilos.nombreItem}>
+                            <ThemedText style={Texto.pesoFuerte}>{it.nombre}</ThemedText>
+                            {it.descripcion ? (
+                              <ThemedText type="small" themeColor="textSecondary" numberOfLines={3}>{it.descripcion}</ThemedText>
+                            ) : null}
+                          </View>
+                          {it.precio != null ? (
+                            <ThemedText style={Texto.pesoFuerte}>{`$${formateadorPrecio.format(it.precio)}`}</ThemedText>
+                          ) : (
+                            <ThemedText type="small" themeColor="textSecondary">Consultar precio</ThemedText>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
                 </View>
-              </View>
-            ))}
-          </View>
-        ) : null}
+              ))}
+            </View>
+          ) : null}
 
-        <SeccionResenas
-          objetivo={{ negocioId: negocio.id }}
-          esDueno={esDueno}
-          calificacion={negocio.calificacion}
-          numResenas={negocio.num_resenas ?? 0}
-        />
-
-        {hayMapa ? (
-          <Sello variante="contorno" icono="map-outline" onPress={comoLlegar} accessibilityLabel="Cómo llegar">
+          <SeccionResenas
+            objetivo={{ negocioId: negocio.id }}
+            esDueno={esDueno}
+            calificacion={negocio.calificacion}
+            numResenas={negocio.num_resenas ?? 0}
+          />
+        </View>
+      </ScrollView>
+      {/* La acción principal, fija al pie y siempre a la mano; solo existe si el negocio tiene coordenadas. */}
+      {hayMapa ? (
+        <PieFijo>
+          <Sello icono="map-outline" onPress={comoLlegar} accessibilityLabel="Cómo llegar">
             Cómo llegar
           </Sello>
-        ) : null}
-      </View>
-    </ScrollView>
+        </PieFijo>
+      ) : null}
+    </View>
   );
 }
 
@@ -277,11 +300,16 @@ const estilos = StyleSheet.create({
   descripcion: { lineHeight: 24 },
   pastillas: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   menu: { gap: Spacing.two },
+  horario: { borderWidth: Filete.fino, borderRadius: Radios.tarjeta, paddingHorizontal: Spacing.three },
+  cabeceraHorario: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  tituloHorario: { flex: 1 },
+  diasHorario: { gap: Spacing.two, paddingBottom: Spacing.three },
+  diaHorario: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.three },
   pestanas: { gap: Spacing.two },
   pestana: { minHeight: 44, paddingHorizontal: Spacing.three, borderWidth: Filete.fino, borderRadius: Radios.full, justifyContent: 'center' },
   tarjetaMenu: { borderWidth: Filete.fino, borderRadius: Radios.tarjeta, paddingHorizontal: Spacing.three },
   renglon: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, minHeight: 52, paddingVertical: Spacing.two },
-  miniatura: { width: 56, height: 56, borderRadius: Radios.control },
+  miniatura: { width: 72, height: 72, borderRadius: Radios.control },
   foja: { position: 'absolute', right: Spacing.three, bottom: Spacing.five, borderRadius: Radios.full, paddingHorizontal: Spacing.three, paddingVertical: Spacing.one },
   nombreItem: { flex: 1 },
 });
