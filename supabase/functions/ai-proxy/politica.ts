@@ -39,3 +39,36 @@ export function clasificarRespuesta(estado: number): Veredicto {
   if (estado === 429) return { tipo: 'degradar', devolver: true, motivo: 'servicio-ocupado' };
   return { tipo: 'degradar', devolver: true, motivo: 'servicio-error' };
 }
+
+export const RUTAS_PERMITIDAS = ['parsear-perfil', 'generar-embedding'] as const;
+/** La misma cota que valida Pydantic del otro lado (AUD-28): ambas capas, siempre. */
+export const MAX_TEXTO = 2000;
+
+export type Solicitud =
+  | { ok: true; ruta: (typeof RUTAS_PERMITIDAS)[number]; texto: string }
+  | { ok: false; error: 'cuerpo inválido' | 'ruta no permitida' | 'texto inválido' };
+
+/**
+ * El cuerpo de la petición, validado ANTES de desestructurarlo. `req.json()` puede devolver `null`, un número o un arreglo, y
+ * `const { ruta, texto } = null` lanza TypeError: la función contestaba 500 (`admin` y `verificar-rostro` ya validan la forma).
+ */
+export function validarSolicitud(crudo: unknown): Solicitud {
+  if (!crudo || typeof crudo !== 'object' || Array.isArray(crudo)) return { ok: false, error: 'cuerpo inválido' };
+  const { ruta, texto } = crudo as Record<string, unknown>;
+  if (typeof ruta !== 'string' || !(RUTAS_PERMITIDAS as readonly string[]).includes(ruta)) {
+    return { ok: false, error: 'ruta no permitida' };
+  }
+  if (typeof texto !== 'string' || texto.length === 0 || texto.length > MAX_TEXTO) {
+    return { ok: false, error: 'texto inválido' };
+  }
+  return { ok: true, ruta: ruta as (typeof RUTAS_PERMITIDAS)[number], texto };
+}
+
+/**
+ * Qué significa un error de `consumir_cuota`. Solo CP001 (migración 0032) es «cuota diaria agotada», un límite de quien llama. Cualquier
+ * otro —la base no respondió, un permiso, un tiempo agotado— es un fallo del SISTEMA: contestarlo como 429 le diría al usuario que gastó su
+ * cupo cuando no es así.
+ */
+export function clasificarErrorDeCuota(error: { code?: string } | null | undefined): 'agotada' | 'no-disponible' {
+  return error?.code === 'CP001' ? 'agotada' : 'no-disponible';
+}

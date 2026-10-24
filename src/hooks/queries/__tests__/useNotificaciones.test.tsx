@@ -49,10 +49,14 @@ describe('useAvisos', () => {
 
 describe('useAvisosNoLeidos', () => {
   it('devuelve el número; null mientras no se sabe', async () => {
-    mockContar.mockResolvedValue(4);
+    // La respuesta se RETIENE hasta que la prueba la suelta. Con una que llega sola, «todavía no se sabe» depende de si las promesas ya se vaciaron al pintar: en una máquina rápida sí, y la
+    // prueba fallaba con «Received: 4» (así falló en una corrida con cobertura).
+    let responder!: (n: number) => void;
+    mockContar.mockReturnValue(new Promise<number>((r) => { responder = r; }));
     const { Envoltura } = envolver();
     const { result } = await renderHook(() => useAvisosNoLeidos('u1'), { wrapper: Envoltura });
     expect(result.current).toBeNull();
+    await act(async () => { responder(4); });
     await waitFor(() => expect(result.current).toBe(4));
   });
   it('si el conteo falla queda en null (no se pinta «0»)', async () => {

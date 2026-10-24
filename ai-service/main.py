@@ -83,8 +83,11 @@ def _token_valido(authorization: str | None) -> bool:
     """
     if not authorization:
         return False
+    # Se comparan BYTES: `compare_digest` sobre `str` lanza TypeError si alguno lleva un carácter fuera de ASCII, y
+    # Starlette decodifica las cabeceras como latin-1, así que un solo byte 0xE9 en `Authorization` daba 500 en vez de 401.
+    recibido = authorization.encode("utf-8")
     for token in (config.AI_SHARED_TOKEN, config.AI_SHARED_TOKEN_SIGUIENTE):
-        if token and hmac.compare_digest(authorization, f"Bearer {token}"):
+        if token and hmac.compare_digest(recibido, f"Bearer {token}".encode("utf-8")):
             return True
     return False
 

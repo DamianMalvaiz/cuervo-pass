@@ -145,7 +145,7 @@ export function EditorProducto({
 
           {!esNuevo ? (
             <Pulsable onPress={onQuitar} accessibilityRole="button" accessibilityLabel="Quitar el producto del menú" style={estilos.accion}>
-              <ThemedText type="small" style={{ color: theme.errorTexto }}>Quitar del menú</ThemedText>
+              <ThemedText type="small" style={{ color: theme.error }}>Quitar del menú</ThemedText>
             </Pulsable>
           ) : null}
         </ScrollView>

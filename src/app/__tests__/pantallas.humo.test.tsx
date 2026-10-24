@@ -130,7 +130,7 @@ test('Recuperar contraseña monta con su campo de correo', async () => {
   const Pantalla = require('../(auth)/recuperar-contrasena').default;
   await pintar(Pantalla);
   expect(await screen.findByPlaceholderText('tucorreo@ejemplo.mx', {}, { timeout: 5000 })).toBeTruthy();
-  expect(await screen.findByLabelText('Enviar enlace', {}, { timeout: 5000 })).toBeTruthy();
+  expect(await screen.findByLabelText('Enviar código', {}, { timeout: 5000 })).toBeTruthy();
 });
 
 // Esta es la unica del grupo que puede comprobar CONTENIDO real sin inventarse

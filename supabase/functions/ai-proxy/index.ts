@@ -12,9 +12,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-import { clasificarRespuesta, secretsFaltantes } from './politica.ts';
-
-const RUTAS_PERMITIDAS = ['parsear-perfil', 'generar-embedding'] as const;
+import { clasificarErrorDeCuota, clasificarRespuesta, secretsFaltantes, validarSolicitud } from './politica.ts';
 
 // Cuota diaria por usuario, por recurso. El parseo cuesta dinero (API de
 // Anthropic); el embedding corre en CPU propia y por eso es más generoso.
@@ -85,24 +83,18 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  let cuerpo: { ruta?: string; texto?: string };
+  let crudo: unknown;
   try {
-    cuerpo = await req.json();
+    crudo = await req.json();
   } catch {
     return json({ error: 'cuerpo inválido' }, 400);
   }
 
-  const { ruta, texto } = cuerpo;
-  if (!ruta || !RUTAS_PERMITIDAS.includes(ruta as typeof RUTAS_PERMITIDAS[number])) {
-    return json({ error: 'ruta no permitida' }, 400);
-  }
-
-  // AUD-28: sin esto, un usuario autenticado puede mandar 2 KB en bucle contra
-  // una API que se cobra por token. El límite de tamaño es la primera barrera,
-  // y es la misma cota que valida Pydantic del otro lado.
-  if (typeof texto !== 'string' || texto.length === 0 || texto.length > 2000) {
-    return json({ error: 'texto inválido' }, 400);
-  }
+  // La forma del cuerpo, la ruta y el tope de 2000 caracteres (AUD-28) los decide la política: `null` ya no llega a desestructurarse.
+  // AUD-28: sin el tope, un usuario autenticado puede mandar 2 KB en bucle contra una API que se cobra por token.
+  const v = validarSolicitud(crudo);
+  if (!v.ok) return json({ error: v.error }, 400);
+  const { ruta, texto } = v;
 
   // AUD-03 y AUD-28: la cuota vive en Postgres porque es el único sitio donde
   // sobrevive a un reinicio del contenedor y a más de una réplica. Un contador
@@ -112,7 +104,12 @@ Deno.serve(async (req) => {
     p_recurso: recurso,
     p_limite: limite,
   });
-  if (errCuota) return json({ error: 'cuota diaria agotada' }, 429);
+  if (errCuota) {
+    if (clasificarErrorDeCuota(errCuota) === 'agotada') return json({ error: 'cuota diaria agotada' }, 429);
+    // No es un límite del usuario sino un fallo del sistema: se dice como degradación (la app cae al Nivel 1) y nada se cobró.
+    console.error('ai-proxy: no se pudo consumir la cuota', { codigo: errCuota.code });   // el código, nunca el mensaje
+    return json({ degradado: true, motivo: 'cuota-no-disponible' }, 503);
+  }
 
   const peticionId = crypto.randomUUID();
   const control = AbortSignal.timeout(12_000);   // nunca cuelgues al cliente

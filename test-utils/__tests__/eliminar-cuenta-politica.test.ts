@@ -1,4 +1,6 @@
-import { carpetasDeLaCuenta, rutasDeEntradas } from '../../supabase/functions/eliminar-cuenta/politica';
+import { readFileSync } from 'node:fs';
+
+import { carpetasDeLaCuenta, ejecutarBorrado, rutasDeEntradas } from '../../supabase/functions/eliminar-cuenta/politica';
 
 // Eliminar la cuenta borra archivos con la llave de servicio. Lo que se fija aquí: se barren SOLO carpetas de la propia cuenta (y de sus propios
 // negocios), con ids que tienen forma de uuid, y de un listado de Storage solo salen ARCHIVOS, con su ruta completa y sin «..».
@@ -59,5 +61,59 @@ describe('rutasDeEntradas', () => {
   it('listado vacío o nulo no rompe', () => {
     expect(rutasDeEntradas('x', [])).toEqual([]);
     expect(rutasDeEntradas('x', null)).toEqual([]);
+  });
+});
+
+
+// Hallazgo 5 de la auditoría del 23/10/2026. `eliminar-cuenta` borraba los ARCHIVOS (fotos, INE) y solo al final llamaba a `deleteUser`. Si
+// `deleteUser` fallaba por un error transitorio, la cuenta seguía viva pero con sus fotos y su evidencia ya borradas: publicaciones con
+// imágenes rotas, y un borrado «fallido» que había destruido datos igualmente. Además devolvía `error.message` crudo al cliente.
+//
+// El orden correcto es: calcular las rutas (después las filas que las nombran ya no existen), BORRAR LA CUENTA y solo entonces los archivos.
+// Si la cuenta no se borra, no se toca nada. Si los archivos fallan después, no se pierde nada: quedan en las colas de huérfanos que barren
+// `barrer-fotos` y `barrer-verificaciones` (la cuenta ya no existe, pero la cola vive aparte).
+describe('ejecutarBorrado', () => {
+  const rutas = { fotos: ['perfiles/a.jpg', 'publicaciones/u/1.jpg'], verificacion: ['u/comerciante/ine-frente-1.jpg'] };
+
+  function pasos(opciones: { falla?: string | null } = {}) {
+    const llamadas: string[] = [];
+    return {
+      llamadas,
+      p: {
+        recogerRutas: async () => { llamadas.push('recoger'); return rutas; },
+        borrarCuenta: async () => { llamadas.push('cuenta'); return opciones.falla ?? null; },
+        borrarFotos: async (r: string[]) => { llamadas.push(`fotos:${r.length}`); },
+        borrarVerificacion: async (r: string[]) => { llamadas.push(`verificacion:${r.length}`); },
+      },
+    };
+  }
+
+  it('recoge las rutas, borra la CUENTA y solo después los archivos', async () => {
+    const { p, llamadas } = pasos();
+    expect(await ejecutarBorrado(p)).toEqual({ ok: true, fotos: 2, evidencia: 1 });
+    expect(llamadas).toEqual(['recoger', 'cuenta', 'fotos:2', 'verificacion:1']);
+  });
+
+  it('si la cuenta NO se borra, no se toca ni un archivo', async () => {
+    const { p, llamadas } = pasos({ falla: 'Database error deleting user' });
+    expect(await ejecutarBorrado(p)).toEqual({ ok: false });
+    expect(llamadas).toEqual(['recoger', 'cuenta']);
+  });
+
+  it('el motivo del fallo no sale en el resultado: puede traer nombres internos', async () => {
+    const { p } = pasos({ falla: 'violates foreign key constraint "pagos_usuario_fkey"' });
+    expect(JSON.stringify(await ejecutarBorrado(p))).not.toContain('pagos_usuario_fkey');
+  });
+});
+
+describe('index.ts de eliminar-cuenta aplica el orden', () => {
+  const fuente = readFileSync('supabase/functions/eliminar-cuenta/index.ts', 'utf8');
+
+  it('usa ejecutarBorrado en vez de borrar los archivos por su cuenta', () => {
+    expect(fuente).toContain('ejecutarBorrado(');
+  });
+
+  it('ya no devuelve el mensaje crudo de deleteUser al cliente', () => {
+    expect(fuente).not.toMatch(/json\(\{ error: error\.message \}/);
   });
 });

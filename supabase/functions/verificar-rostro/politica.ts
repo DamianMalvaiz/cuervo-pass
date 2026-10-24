@@ -12,6 +12,7 @@ export type CuerpoValido =
   | { ok: false; codigo: 'cuerpo_invalido' | 'sin_consentimiento' | 'rol_invalido' | 'aviso_invalido' | 'selfie_invalida' };
 
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+const VERSION_AVISO = /^v[0-9]{1,3}$/;
 
 export function validarCuerpo(c: unknown): CuerpoValido {
   if (!c || typeof c !== 'object' || Array.isArray(c)) return { ok: false, codigo: 'cuerpo_invalido' };
@@ -20,7 +21,8 @@ export function validarCuerpo(c: unknown): CuerpoValido {
   // El consentimiento biométrico es EXPRESO y APARTE: solo `true` exacto. Un «truthy» (1, 'true') no cuenta.
   if (consentimiento !== true) return { ok: false, codigo: 'sin_consentimiento' };
   if (rol !== 'comerciante' && rol !== 'arrendador') return { ok: false, codigo: 'rol_invalido' };
-  if (typeof version_aviso !== 'string' || version_aviso.trim() === '' || version_aviso.length > 20) {
+  // La forma que exige la base (`v<n>`, migración 0075); que la versión EXISTA lo decide la base, que es quien conoce las publicadas.
+  if (typeof version_aviso !== 'string' || !VERSION_AVISO.test(version_aviso.trim())) {
     return { ok: false, codigo: 'aviso_invalido' };
   }
   if (typeof selfie !== 'string' || selfie.length === 0 || selfie.length > MAX_SELFIE_B64 || selfie.length % 4 !== 0 || !BASE64.test(selfie)) {

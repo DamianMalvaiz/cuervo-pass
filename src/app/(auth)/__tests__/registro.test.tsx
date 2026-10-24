@@ -16,6 +16,8 @@ const mockRegistrarse = jest.fn();
 const mockReenviar = jest.fn();
 const mockReplace = jest.fn();
 const mockUpdate = jest.fn();
+const mockVerificar = jest.fn();
+const mockGetUser = jest.fn();
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), replace: (...a: unknown[]) => mockReplace(...a) },
@@ -27,13 +29,17 @@ jest.mock('@/store/useAuthStore', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      getUser: jest.fn().mockResolvedValue({ data: { user: null } }),
+      getUser: (...a: unknown[]) => mockGetUser(...a),
       resend: (...a: unknown[]) => mockReenviar(...a),
     },
     from: () => ({ update: (...a: unknown[]) => { mockUpdate(...a); return { eq: () => Promise.resolve({ error: null }) }; } }),
   },
 }));
 jest.mock('@/lib/registro', () => ({ aviso: jest.fn(), fallo: jest.fn() }));
+jest.mock('@/lib/codigoCorreo', () => ({
+  ...jest.requireActual('@/lib/codigoCorreo'),
+  verificarCodigo: (...a: unknown[]) => mockVerificar(...a),
+}));
 
 import RegistroScreen from '../registro';
 
@@ -78,6 +84,7 @@ async function rellenar({
 beforeEach(() => {
   jest.clearAllMocks();
   mockReenviar.mockResolvedValue({ error: null });
+  mockGetUser.mockResolvedValue({ data: { user: null } });
 });
 
 describe('correo institucional · END-07', () => {
@@ -182,9 +189,105 @@ describe('confirmación de correo', () => {
 
   it('con sesión (confirmación apagada) sigue el flujo de siempre', async () => {
     mockRegistrarse.mockResolvedValue({ requiereConfirmacion: false });
+    // Con usuario: sin él la app nunca habría intentado escribir y el `not.toHaveBeenCalled` de abajo pasaría por la razón equivocada.
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
     await rellenar();
 
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/cuestionario-inicial'));
     expect(screen.queryByText('Revisa tu correo')).toBeNull();
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});
+
+// Confirmar con el código de 6 dígitos del correo, sin abrir el enlace. Lo que importa aquí no es llamar a
+// `verificarCodigo`: es que la pantalla pinte distinto cada estado (un fallo NUNCA se dice «código incorrecto»),
+// que un doble toque no gaste el código (sirve una sola vez) y que, al entrar, haga lo mismo que el registro con
+// sesión: la marca de consentimiento y el cuestionario.
+describe('confirmación con código', () => {
+  const llegarAlCodigo = async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    await rellenar({ email: 'ana@utvtol.edu.mx' });
+    await waitFor(() => expect(screen.getByText('Revisa tu correo')).toBeTruthy());
+  };
+  const escribirCodigo = (c: string) =>
+    interactuar(() => fireEvent.changeText(screen.getByLabelText('Código de 6 dígitos'), c));
+  const confirmar = () => interactuar(() => fireEvent.press(screen.getByLabelText('Confirmar código')));
+
+  it('un código correcto confirma la cuenta y sigue al cuestionario SIN escribir el consentimiento desde la app', async () => {
+    mockVerificar.mockResolvedValue({ estado: 'ok', session: { user: { id: 'u1' } } });
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    await llegarAlCodigo();
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    await escribirCodigo('123456');
+    await confirmar();
+
+    await waitFor(() => expect(mockVerificar).toHaveBeenCalledWith('ana@utvtol.edu.mx', '123456', 'signup'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/cuestionario-inicial'));
+    // El consentimiento lo escribió el servidor al crear la cuenta (0046). Desde 0075 un `update` directo de esas columnas se rechaza con
+    // CP014: la app que lo intentara lo registraría como error en cada alta.
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('un código incompleto no se envía', async () => {
+    await llegarAlCodigo();
+    await escribirCodigo('123');
+    await confirmar();
+
+    expect(mockVerificar).not.toHaveBeenCalled();
+  });
+
+  it('un doble toque verifica UNA vez: el código sirve una sola vez', async () => {
+    mockVerificar.mockImplementation(() => new Promise(() => {}));
+    await llegarAlCodigo();
+    await escribirCodigo('123456');
+
+    await confirmar();
+    await confirmar();
+
+    expect(mockVerificar).toHaveBeenCalledTimes(1);
+  });
+
+  it('código incorrecto o vencido: lo dice y NO sigue', async () => {
+    mockVerificar.mockResolvedValue({ estado: 'invalido' });
+    await llegarAlCodigo();
+    await escribirCodigo('123456');
+    await confirmar();
+
+    await waitFor(() => expect(screen.getByText(/Código incorrecto o vencido/i)).toBeTruthy());
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('demasiados intentos: dice que espere, no que el código está mal', async () => {
+    mockVerificar.mockResolvedValue({ estado: 'limite' });
+    await llegarAlCodigo();
+    await escribirCodigo('123456');
+    await confirmar();
+
+    await waitFor(() => expect(screen.getByText(/Demasiados intentos/i)).toBeTruthy());
+    expect(screen.queryByText(/Código incorrecto/i)).toBeNull();
+  });
+
+  it('un fallo de red o del servidor NO se pinta como «código incorrecto»', async () => {
+    mockVerificar.mockResolvedValue({ estado: 'fallo' });
+    await llegarAlCodigo();
+    await escribirCodigo('123456');
+    await confirmar();
+
+    await waitFor(() => expect(screen.getByText(/No pudimos verificar el código/i)).toBeTruthy());
+    expect(screen.queryByText(/Código incorrecto/i)).toBeNull();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('tras un error se puede volver a intentar', async () => {
+    mockVerificar.mockResolvedValueOnce({ estado: 'fallo' }).mockResolvedValueOnce({ estado: 'ok', session: {} });
+    await llegarAlCodigo();
+    await escribirCodigo('123456');
+    await confirmar();
+    await waitFor(() => expect(screen.getByText(/No pudimos verificar el código/i)).toBeTruthy());
+
+    await confirmar();
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/cuestionario-inicial'));
   });
 });

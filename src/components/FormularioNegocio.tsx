@@ -358,7 +358,7 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
               accessibilityLabel="Borrar mi negocio"
               style={estilos.borrar}
             >
-              <ThemedText type="small" style={{ color: theme.errorTexto }}>Borrar mi negocio</ThemedText>
+              <ThemedText type="small" style={{ color: theme.error }}>Borrar mi negocio</ThemedText>
             </Pulsable>
           ) : null}
         </View>

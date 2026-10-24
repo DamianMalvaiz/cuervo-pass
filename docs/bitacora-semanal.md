@@ -1315,6 +1315,88 @@ ejecutables y su secuencia, está en
       los renders posteriores del archivo— pero no se ha comprobado si quitar
       su `afterEach(cleanup)` permite volver a juntarlas.
 
+**Abiertos, de Cuervo 360 y el código por correo (22/10/2026)**
+
+- [x] **`theme.errorTexto` usado como color de texto sobre el fondo de la app: texto
+      invisible en 5 sitios, 3 de ellos botones destructivos.** `errorTexto` es el color
+      del texto SOBRE un relleno de `error` (blanco en claro, carbón en oscuro), no un
+      color de texto suelto. Sobre el fondo de la app queda en 1.09:1 en claro
+      (`#FFFFFF` sobre `#F4F6F2`) y en 1:1 en oscuro (`#171A18` sobre `#171A18`: el mismo
+      color). Sitios, sin relleno de `error` detrás (`estilos.accion` / `estilos.borrar`
+      solo fijan alto y alineación):
+      `SeccionResenas.tsx:195` («Borrar»), `EditorProducto.tsx:148` («Quitar del menú»),
+      `FormularioNegocio.tsx:361` («Borrar mi negocio»), `login.tsx:179` y
+      `registro.tsx:239` («No pudimos reenviarlo»).
+      Los otros tres usos sí van sobre `backgroundColor: theme.error` y están bien:
+      `configuracion.tsx:142`, `CampanaAvisos.tsx:33`, `FormularioPublicacion.tsx:903`.
+      Arreglo: `theme.error` como color de texto en los cinco, con su prueba roja primero.
+      Se localiza con `grep -rn "color: theme.errorTexto" src --include=*.tsx`.
+      `npm run verificar:contraste` seguía en verde con el defecto presente (corrida del
+      22/10/2026): el par correcto (`texto/error/background`) sí estaba declarado, pero
+      nadie vigilaba el uso incorrecto.
+      **Corregido el 22/10/2026** (rama `texto-error-visible`): los cinco sitios usan
+      `theme.error`, que como texto mide 6.01:1 y 6.54:1 en claro y 10.27:1 y 8.79:1 en
+      oscuro. Guarda nueva: `npx jest test-utils/__tests__/errortexto-sobre-relleno.test.ts`
+      exige `backgroundColor: theme.error` junto a cada `errorTexto` (fallaba con exactamente
+      esos cinco sitios antes del arreglo). **Sin verificar en dispositivo.**
+- [ ] **Compilar un APK nuevo** con el código por correo (commits `ba35620` y `355c45c` de
+      la rama `codigo-por-correo`): `npx eas-cli build --platform android --profile preview`.
+      Conviene juntar más cambios en el mismo build.
+- [ ] **Añadir `{{ .Token }}` a la plantilla «Confirm sign up»** de Supabase **solo después
+      de instalar ese APK**: antes, el correo traería un código que la app instalada no
+      sabe usar. Hoy la plantilla está en español y solo lleva el enlace.
+- [ ] **Bajar la caducidad del código** (Authentication → Sign In / Providers → Email) a
+      unos 600 s. En el `config.toml` local es `otp_expiry = 3600`; **el valor de
+      producción está sin verificar**.
+- [ ] **Comprobar que el límite de verificaciones funciona de verdad.** El panel de
+      producción (captura del 22/10/2026, `~/Descargas/hoo.png`) muestra «token
+      verifications» en 30 por 5 min por IP (360 por hora), 30 correos por hora y 60 s
+      entre correos al mismo usuario. **Que el valor esté puesto no prueba que se aplique**:
+      en un Supabase local, con el mismo valor de 30, 60 códigos malos seguidos no
+      devolvieron ningún 429, y el código bueno seguía siendo válido después. Un intento
+      fallido no invalida el código.
+- [ ] **Recuperar contraseña con código: implementado y probado, sin verificar en
+      dispositivo.** `recuperar-contrasena.tsx` pide el código, y en un segundo paso recibe
+      código y contraseña nueva. Verificar el código abre sesión: si el usuario sale sin
+      cambiarla, se le cierra; al terminar, se cierra y se manda al login. Comprobado con
+      `npx jest "src/app/\(auth\)/__tests__/recuperar"` (incluida la prueba de abandono, que
+      falla si se quita la limpieza). **Hueco conocido:** si el usuario MATA la app después de
+      verificar el código y antes de cambiar la contraseña, la sesión queda guardada y la
+      próxima vez entra directo; cerrarlo exige una marca de «recuperación pendiente» que
+      obligue a cambiar la contraseña al reabrir.
+- [ ] **Site URL de Supabase** (Authentication → URL Configuration): hoy
+      `http://localhost:3000` y sin Redirect URLs (captura del 22/10/2026). El enlace del
+      correo confirma la cuenta y termina en «no se puede conectar». Con el código deja de
+      bloquear, pero conviene una página de confirmación en `cuervo360.com`.
+
+**Auditoría del 23/10/2026: hallazgos 1, 2 y 3 arreglados en código (rama `endurecer-auditoria`), sin aplicar todavía**
+
+- [ ] **Aplicar las migraciones 0075 y 0076 en producción.** Antes, el respaldo que exige AGENTS.md
+      (`npx supabase db dump --data-only -f respaldos/$(date +%F).sql`) y después `npx supabase db push`.
+      · **0075 · integridad del consentimiento.** Antes, un `update` directo guardaba cualquier versión y cualquier hora de
+      aceptación (comprobado en un Postgres local: `'zzz'` y `1999-01-01`). Ahora la versión tiene que existir en
+      `avisos_privacidad` y la dueña de la fila no escribe esas dos columnas (`CP014`); `registro.tsx` ya no las escribe.
+      · **0076 · pago atómico.** `simular_pago` leía, calculaba y escribía: dos pagos cruzados dejaban dos pagos registrados y
+      30 días. Se reproduce con `./scripts/prueba-carrera-pagos.sh` (antes: 30,0 días; ahora: 60,0).
+      Comprobado en local: `npx supabase test db` (630 aserciones), el guion de la carrera y una falsificación real contra
+      GoTrue y PostgREST. **Sin probar contra producción.**
+- [ ] **Desplegar `verificar-rostro`** (`supabase functions deploy verificar-rostro`): ahora exige la forma `v<n>` y contesta 400
+      `aviso_invalido` cuando la base rechaza la versión. `deno check` corre en el CI; aquí no hay `deno`.
+- [ ] **Reconstruir el contenedor de IA** (`./scripts/ia-arrancar.sh`) para llevar el arreglo del 500 por una cabecera
+      `Authorization` con un byte no ASCII (ahora 401). Hasta entonces `verificar.mjs` verá un contenedor un commit atrás.
+- [ ] **Hallazgos 4 y 5 arreglados en código, sin desplegar.** Desplegar `ai-proxy` y `eliminar-cuenta`
+      (`supabase functions deploy ai-proxy` y `supabase functions deploy eliminar-cuenta`).
+      · **`ai-proxy`:** un cuerpo `null` daba 500 (ahora 400 `cuerpo inválido`), y cualquier error al consumir la cuota se contestaba 429 «cuota
+      agotada». Ahora solo `CP001` es 429; lo demás es un 503 `degradado` (`cuota-no-disponible`) y la app lo trata como fallo, no como límite.
+      · **`eliminar-cuenta`:** borraba fotos e INE y solo al final la cuenta; si `deleteUser` fallaba, quedaba la cuenta viva con sus archivos
+      destruidos. Ahora el orden es rutas, CUENTA, archivos (`ejecutarBorrado`); si la cuenta no se borra no se toca un archivo, y el cuerpo del
+      error es genérico. De paso: ya no se sacan las rutas de `fotos_huerfanas` si el borrado de Storage falló (antes el barredor las perdía).
+      Comprobado con `npx jest test-utils/__tests__/ai-proxy-politica.test.ts test-utils/__tests__/eliminar-cuenta-politica.test.ts`.
+      **`deno check` solo corre en el CI** (aquí no hay `deno`): la sintaxis se comprobó con el compilador de TypeScript, los tipos no.
+- [ ] Hallazgos 6 y 7 de la misma auditoría, sin tocar: la copia de `igualEnTiempoConstante` y `respaldos/`.
+- [ ] **Antes de enseñar «Contratar plan»** hay que encender `demo_mode` desde el panel de administración: en producción está en
+      `false` (comprobado el 23/10/2026) y la app dice «los pagos de demostración no están activos».
+
 **Riesgo operativo permanente**
 
 - [ ] El túnel de cloudflared es efímero, y el proceso **no se muere** cuando su

@@ -192,7 +192,7 @@ export function SeccionResenas({
                 <ThemedText type="small" themeColor="acento">Editar</ThemedText>
               </Pulsable>
               <Pulsable onPress={onBorrar} accessibilityRole="button" accessibilityLabel="Borrar mi reseña" style={estilos.accion}>
-                <ThemedText type="small" style={{ color: theme.errorTexto }}>Borrar</ThemedText>
+                <ThemedText type="small" style={{ color: theme.error }}>Borrar</ThemedText>
               </Pulsable>
             </View>
           </View>

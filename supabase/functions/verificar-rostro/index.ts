@@ -88,6 +88,8 @@ Deno.serve(async (req) => {
   if (eReserva) {
     if (eReserva.code === 'CP013') return json({ error: 'sin_intentos', intentos_restantes: 0 }, 429);
     if (eReserva.code === 'CP005') return json({ error: 'no_pendiente' }, 409);
+    // La base rechazó la versión del aviso (no existe): se dice como lo que es, no como un fallo del servidor.
+    if (eReserva.code === '22023') return json({ error: 'aviso_invalido' }, 400);
     console.error('verificar-rostro: no se pudo reservar el intento', eReserva.code);
     return json({ error: 'no se pudo reservar' }, 500);
   }

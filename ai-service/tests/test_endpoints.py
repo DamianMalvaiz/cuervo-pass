@@ -282,3 +282,33 @@ def test_la_documentacion_automatica_no_esta_expuesta(ruta):
 # y `/listo` dependen del modelo y ya se prueban arriba, con el lifespan cargado.)
 def test_la_sonda_de_vida_sigue_abierta():
     assert cliente.get("/vivo").status_code == 200
+
+
+# Hallazgo 3 de la auditoría del 23/10/2026: `hmac.compare_digest` sobre `str` lanza TypeError si alguno de los dos
+# lleva un carácter fuera de ASCII. Starlette decodifica las cabeceras como latin-1, así que UN byte 0xE9 en
+# `Authorization` llegaba hasta ahí y el servicio contestaba 500 en vez de 401. No abría ninguna puerta: llenaba el log de
+# tracebacks y convertía un rechazo limpio en un error del servidor.
+class TestCabeceraNoAscii:
+    # `raise_server_exceptions=False`: con el valor por omisión el TestClient re-lanza la excepción en la prueba y nunca
+    # llegaría a ver el 500 que ve un cliente real.
+    sin_relanzar = TestClient(app, raise_server_exceptions=False)
+
+    def test_token_con_byte_no_ascii_es_401_no_500(self):
+        r = self.sin_relanzar.get("/metricas", headers=[(b"authorization", b"Bearer \xe9")])
+        assert r.status_code == 401
+
+    def test_en_un_endpoint_con_identidad_tambien(self):
+        r = self.sin_relanzar.post(
+            "/generar-embedding",
+            json={"texto": "hola"},
+            headers=[(b"authorization", b"Bearer \xe9"), (b"x-usuario-id", USUARIO_PRUEBA.encode())],
+        )
+        assert r.status_code == 401
+
+    def test_el_token_correcto_sigue_entrando(self):
+        r = self.sin_relanzar.get("/metricas", headers=CABECERAS)
+        assert r.status_code == 200
+
+    def test_un_token_ascii_incorrecto_sigue_siendo_401(self):
+        r = self.sin_relanzar.get("/metricas", headers={"Authorization": "Bearer incorrecto"})
+        assert r.status_code == 401
