@@ -1283,6 +1283,11 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
   Pago ya está integrado; no nombra a Mercado Pago como encargado. Cambiarlo exige versión nueva y que se acepte otra vez.
 - **Prueba intermitente resuelta de raíz (24/10/2026):** `FormularioNegocio` «agrega y quita fotos» pulsaba 60 veces seguidas, repintando el formulario entero cada vez; bajo la carga de la suite
   completa pasaba de 15 s y fallaba sin que nada estuviera roto (dos veces el mismo día). Ahora prueba el máximo del plan con 4 fotos (la suite del archivo: de ~30 s a 1,4 s).
+- **0082 aplicada a producción y hook activo (24/10/2026).** Respaldo previo (`respaldos/2026-10-24-antes-de-0082.sql`), `db push` de la 0082 (la corrió el usuario: el clasificador bloqueó el comando encadenado), y
+  comprobado en solo lectura: 107 usuarios y 0 restringidos, las 4 funciones y los 2 triggers, el hook ejecutable solo por `supabase_auth_admin`, las tres políticas con la restricción;
+  `prueba-rls` contra producción: 22 de 22. El hook se activó a mano en el panel (Authentication → Hooks → Before User Created → `public.hook_alta_de_usuario`; **antes no había ninguno**) y se
+  comprobó con una llamada real a `/auth/v1/signup` de producción con un correo `@example.com` sin declarar vendedor: 400 con el mensaje del hook, sin crear cuenta. **Sin probar en producción:**
+  el alta de un vendedor declarado y la de un universitario (crean cuentas reales; se prueban con el APK nuevo).
 
 ### Pendientes abiertos
 
