@@ -32,6 +32,8 @@ export function TarjetaNegocio({
 }) {
   const theme = useTheme();
   const ejemplo = negocio.origen === 'sembrado';
+  // Cerrado ahora (se SABE que lo está; sin horario conocido no se apaga): se ve en gris y no se toca. «Cerrado» ya va en el texto de la tarjeta.
+  const cerrado = negocio.abierto_ahora === false;
   // «a 1.2 km»: lo que de verdad le sirve a quien busca; el puntaje del ranking NO se enseña.
   const distancia = negocio.distancia_km != null && Number.isFinite(negocio.distancia_km) ? `a ${negocio.distancia_km.toFixed(1)} km` : null;
   // Con horario estructurado (0070) el estado manda y el texto largo se queda para la ficha; sin él, se enseña el texto como antes.
@@ -70,14 +72,17 @@ export function TarjetaNegocio({
 
   return (
     <Pulsable
-      onPress={onPress}
+      onPress={cerrado ? undefined : onPress}
+      disabled={cerrado}
+      accessibilityState={{ disabled: cerrado }}
       accessibilityRole="button"
       accessibilityLabel={`${negocio.nombre}${detalle ? '. ' + detalle : ''}${ejemplo ? '. Negocio de ejemplo' : ''}`}
-      style={
+      style={[
         forma === 'fila'
           ? [estilos.fila, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]
-          : estilos.destacado
-      }
+          : estilos.destacado,
+        cerrado && estilos.cerrado,
+      ]}
     >
       {foto}
       {forma === 'destacado' && negocio.destacado ? (
@@ -88,7 +93,11 @@ export function TarjetaNegocio({
         </View>
       ) : null}
       {textos}
-      {forma === 'fila' ? <BotonFavoritoNegocio negocioId={negocio.id} /> : null}
+      {forma === 'fila' ? (
+        <View pointerEvents={cerrado ? 'none' : 'auto'}>
+          <BotonFavoritoNegocio negocioId={negocio.id} />
+        </View>
+      ) : null}
     </Pulsable>
   );
 }
@@ -102,6 +111,8 @@ const estilos = StyleSheet.create({
     borderWidth: Filete.fino,
     borderRadius: Radios.tarjeta,
   },
+  // Gris: la misma tarjeta, apagada. El texto dice «Cerrado», así que el color no es lo único que lo avisa.
+  cerrado: { opacity: 0.45 },
   fotoFila: { width: 72, height: 72, borderRadius: Radios.control },
   destacado: { width: 220, gap: Spacing.two },
   fotoDestacado: { width: 220, height: AltoFotoTarjeta * 0.6, borderRadius: Radios.tarjeta },

@@ -73,6 +73,41 @@ describe('TarjetaNegocio', () => {
     expect(onPress).toHaveBeenCalled();
   });
 
+  describe('un negocio cerrado se ve en gris y no se toca', () => {
+    it('cerrado: la tarjeta queda deshabilitada y no responde al toque', async () => {
+      const onPress = jest.fn();
+      await render(<TarjetaNegocio negocio={negocio({ abierto_ahora: false }) as never} onPress={onPress} />);
+      const tarjeta = screen.getByLabelText(/Tacos La Esquina/);
+      expect(tarjeta.props.accessibilityState).toMatchObject({ disabled: true });
+      await act(async () => { fireEvent.press(tarjeta); });
+      expect(onPress).not.toHaveBeenCalled();
+    });
+
+    it('cerrado: se dice con palabras (el gris no es lo único que lo avisa)', async () => {
+      await render(<TarjetaNegocio negocio={negocio({ abierto_ahora: false }) as never} onPress={() => {}} />);
+      expect(screen.getByLabelText(/Cerrado/)).toBeTruthy();
+    });
+
+    it('cerrado: tampoco se puede guardar en favoritos desde la tarjeta', async () => {
+      await render(<TarjetaNegocio negocio={negocio({ abierto_ahora: false }) as never} onPress={() => {}} />);
+      expect(screen.getByText('CORAZON n1').parent?.parent?.props.pointerEvents ?? screen.getByText('CORAZON n1').parent?.props.pointerEvents).toBe('none');
+    });
+
+    it.each([[true], [null]])('con abierto_ahora = %s (abierto o sin horario conocido): responde como siempre', async (abierto) => {
+      const onPress = jest.fn();
+      await render(<TarjetaNegocio negocio={negocio({ abierto_ahora: abierto }) as never} onPress={onPress} />);
+      await act(async () => { fireEvent.press(screen.getByLabelText(/Tacos La Esquina/)); });
+      expect(onPress).toHaveBeenCalledTimes(1);
+    });
+
+    it('la forma ancha (carril de destacados) también se apaga cerrada', async () => {
+      const onPress = jest.fn();
+      await render(<TarjetaNegocio negocio={negocio({ abierto_ahora: false, destacado: true }) as never} forma="destacado" onPress={onPress} />);
+      await act(async () => { fireEvent.press(screen.getByLabelText(/Tacos La Esquina/)); });
+      expect(onPress).not.toHaveBeenCalled();
+    });
+  });
+
   it('el destacado lleva su insignia solo en la forma ancha', async () => {
     await render(<TarjetaNegocio negocio={negocio({ destacado: true }) as never} forma="destacado" onPress={() => {}} />);
     expect(screen.getByText('Destacado')).toBeTruthy();

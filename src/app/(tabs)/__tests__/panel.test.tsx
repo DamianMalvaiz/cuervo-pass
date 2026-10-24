@@ -114,6 +114,8 @@ describe('el plan y lo propio', () => {
 
   // Una sola forma de fila en toda la app (`FilaAjuste`): icono, título, descripción y flecha. El panel tenía la suya, sin icono ni descripción.
   it('lo propio usa la misma fila que el resto de la app: con su descripción, y lleva a Publicaciones', async () => {
+    // Con la verificación hecha: sin ella la fila está bloqueada (ver «publicar exige la verificación hecha»).
+    mockRoles.mockReturnValue(roles(rol('arrendador', 'aprobado')));
     await render(<PanelScreen />);
     expect(screen.getByText('Datos, fotos y lo que publicas.')).toBeTruthy();
     await act(async () => { fireEvent.press(screen.getByLabelText(/^Mis publicaciones/)); });
@@ -148,5 +150,30 @@ describe('empezar la prueba gratis', () => {
     con({ estado: 'prueba', prueba_disponible: false, hasta: '2099-01-01T00:00:00Z' });
     await render(<PanelScreen />);
     expect(screen.queryByLabelText('Empezar prueba gratis')).toBeNull();
+  });
+});
+
+describe('publicar exige la verificación hecha', () => {
+  it('sin verificar, la fila de lo que publica está bloqueada y dice cuándo se abre', async () => {
+    mockRoles.mockReturnValue(roles(rol('comerciante', 'sin_verificar')));
+    await render(<PanelScreen />);
+    const fila = screen.getByLabelText(/Disponible cuando te verifiquemos/);
+    expect(fila.props.accessibilityState).toMatchObject({ disabled: true });
+    await act(async () => { fireEvent.press(fila); });
+    expect(mockPush).not.toHaveBeenCalledWith('/(tabs)/publicar');
+  });
+
+  it('en revisión también está bloqueada', async () => {
+    mockRoles.mockReturnValue(roles(rol('arrendador', 'pendiente')));
+    await render(<PanelScreen />);
+    expect(screen.getByLabelText(/Disponible cuando te verifiquemos/)).toBeTruthy();
+  });
+
+  it('aprobada, la fila lleva a publicar', async () => {
+    mockRoles.mockReturnValue(roles(rol('comerciante', 'aprobado')));
+    await render(<PanelScreen />);
+    expect(screen.queryByLabelText(/Disponible cuando te verifiquemos/)).toBeNull();
+    await act(async () => { fireEvent.press(screen.getByLabelText(/Mis negocios/)); });
+    expect(mockPush).toHaveBeenCalledWith('/(tabs)/publicar');
   });
 });

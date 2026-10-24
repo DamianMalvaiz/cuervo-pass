@@ -51,6 +51,33 @@ test('una función sin verificar tampoco abre la puerta', async () => {
   expect(screen.queryByText('CONTENIDO PROTEGIDO')).toBeNull();
 });
 
+describe('la verificación es obligatoria: se dice en qué paso va y se lleva a él', () => {
+  it('sin verificar: pide verificar y el botón abre la verificación de ESA función', async () => {
+    mockRoles.mockReturnValue(estado({ roles: [rol('comerciante', 'sin_verificar')] }));
+    await pintar();
+    expect(screen.queryByText('CONTENIDO PROTEGIDO')).toBeNull();
+    expect(screen.getByText(/Verifica tu identidad para publicar/)).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Verificar mi identidad'));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/verificacion/[rol]', params: { rol: 'comerciante' } });
+  });
+
+  it('rechazada: dice que no pasó y permite volver a enviarla', async () => {
+    mockRoles.mockReturnValue(estado({ roles: [rol('arrendador', 'rechazado')] }));
+    await pintar();
+    expect(screen.getByText(/Tu verificación no pasó/)).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Volver a enviar mi verificación'));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/verificacion/[rol]', params: { rol: 'arrendador' } });
+  });
+
+  it('en revisión: dice que se espera y NO ofrece verificar otra vez', async () => {
+    mockRoles.mockReturnValue(estado({ roles: [rol('comerciante', 'pendiente')] }));
+    await pintar();
+    expect(screen.getByText(/Tu verificación está en revisión/)).toBeTruthy();
+    expect(screen.queryByLabelText('Verificar mi identidad')).toBeNull();
+    expect(screen.queryByText('CONTENIDO PROTEGIDO')).toBeNull();
+  });
+});
+
 test('el botón lleva a Mi perfil, donde se agrega la función', async () => {
   await pintar();
   await fireEvent.press(screen.getByLabelText('Ir a Mis funciones'));

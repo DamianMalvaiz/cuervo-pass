@@ -5,8 +5,11 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 // crear su perfil de vendedor (que reemplaza al viejo «Tus funciones» con alertas). La foto y la biografía viven ahora en la tarjeta y en «Sobre mí».
 
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
 const mockSetModulo = jest.fn();
-jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(...a), replace: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(...a), replace: (...a: unknown[]) => mockReplace(...a) } }));
+const mockRoles = jest.fn();
+jest.mock('@/hooks/queries/useRoles', () => ({ useMisRoles: (...a: unknown[]) => mockRoles(...a) }));
 jest.mock('@/store/useModuloStore', () => ({ useModuloStore: { getState: () => ({ setModulo: mockSetModulo }) } }));
 jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) => sel({ session: { user: { id: 'u1' } } }),
@@ -44,6 +47,7 @@ beforeEach(() => {
   almacen.cargando = false;
   mockRoomie.mockReturnValue({ miRoomie: null });
   mockPublicaciones.mockReturnValue({ datos: [], cargando: false });
+  mockRoles.mockReturnValue({ roles: [], cargando: false, fallo: false, reintentar: jest.fn() });
   usePerfilActivo.mockReturnValue({ perfil: 'estudiante', cargando: false, fallo: false, cambiar: jest.fn(), cambiando: false });
 });
 
@@ -201,6 +205,63 @@ describe('el acceso a ser vendedor', () => {
     await render(<PerfilScreen />);
     await pulsar(/^Crea tu perfil de vendedor/);
     expect(mockPush).toHaveBeenCalledWith('/perfil/crear-vendedor');
+  });
+
+  describe('quien YA tiene un perfil de vendedor entra directo, sin volver a elegir', () => {
+    const rolV = (rol: string, estado: string) => ({ usuario_id: 'u1', rol, estado, origen: 'solicitud', desde: 'x' });
+    const conRoles = (...roles: unknown[]) => mockRoles.mockReturnValue({ roles, cargando: false, fallo: false, reintentar: jest.fn() });
+
+    it('en lugar de «Crea tu perfil de vendedor» hay un botón para ir a él', async () => {
+      conRoles(rolV('comerciante', 'aprobado'));
+      await render(<PerfilScreen />);
+      expect(screen.queryByLabelText(/^Crea tu perfil de vendedor/)).toBeNull();
+      expect(screen.getByLabelText(/^Ir a mi perfil de vendedor/)).toBeTruthy();
+    });
+
+    it('tocarlo cambia el perfil activo y abre el panel: no pasa por la pantalla de elegir', async () => {
+      const cambiar = jest.fn().mockResolvedValue(undefined);
+      usePerfilActivo.mockReturnValue({ perfil: 'estudiante', cargando: false, fallo: false, cambiar, cambiando: false });
+      conRoles(rolV('arrendador', 'aprobado'));
+      await render(<PerfilScreen />);
+      await pulsar(/^Ir a mi perfil de vendedor/);
+      expect(cambiar).toHaveBeenCalledWith('vendedor');
+      expect(mockReplace).toHaveBeenCalledWith('/(tabs)/panel');
+      expect(mockPush).not.toHaveBeenCalledWith('/perfil/crear-vendedor');
+    });
+
+    it('también entra quien aún no se verifica: ahí hace su verificación', async () => {
+      conRoles(rolV('comerciante', 'sin_verificar'));
+      await render(<PerfilScreen />);
+      expect(screen.getByLabelText(/^Ir a mi perfil de vendedor/)).toBeTruthy();
+    });
+
+    it('si el servidor rechaza el cambio, se dice y NO se navega', async () => {
+      const cambiar = jest.fn().mockRejectedValue(new Error('x'));
+      usePerfilActivo.mockReturnValue({ perfil: 'estudiante', cargando: false, fallo: false, cambiar, cambiando: false });
+      conRoles(rolV('comerciante', 'aprobado'));
+      await render(<PerfilScreen />);
+      await pulsar(/^Ir a mi perfil de vendedor/);
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+
+    it('con una sola función se puede agregar la otra (si no, nunca tendría las dos)', async () => {
+      conRoles(rolV('comerciante', 'aprobado'));
+      await render(<PerfilScreen />);
+      await pulsar(/^Agregar otro tipo de perfil/);
+      expect(mockPush).toHaveBeenCalledWith('/perfil/crear-vendedor');
+    });
+
+    it('con las dos funciones ya no se ofrece agregar otra', async () => {
+      conRoles(rolV('comerciante', 'aprobado'), rolV('arrendador', 'sin_verificar'));
+      await render(<PerfilScreen />);
+      expect(screen.queryByLabelText(/^Agregar otro tipo de perfil/)).toBeNull();
+    });
+
+    it('un admin no cuenta como vendedor: sigue viendo «Crea tu perfil de vendedor»', async () => {
+      conRoles(rolV('admin', 'aprobado'));
+      await render(<PerfilScreen />);
+      expect(screen.getByLabelText(/^Crea tu perfil de vendedor/)).toBeTruthy();
+    });
   });
 
   it('ya NO hay «Tus funciones» con alertas', async () => {

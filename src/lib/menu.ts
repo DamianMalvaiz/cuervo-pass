@@ -10,6 +10,21 @@ export const MAX_LARGO_SECCION = 40;
 export const MAX_LARGO_DESCRIPCION = 200;
 /** El tope de la base (0085): un producto lleva hasta 5 fotos, la primera es la portada. */
 export const MAX_FOTOS_PRODUCTO = 5;
+/** Las secciones que se ofrecen de entrada al agregar un producto; la persona puede escribir otra (siempre al final de la lista). */
+export const SECCIONES_PREDEFINIDAS = ['Comida', 'Bebidas', 'Postres', 'Desayunos', 'Botanas', 'Productos', 'Servicios', 'Promociones'] as const;
+
+/** Las opciones del selector: las predefinidas y, después, las que ESTE negocio ya usa (sin repetir, sin importar mayúsculas). */
+export function opcionesDeSeccion(usadas: readonly string[]): string[] {
+  const vistas = new Set<string>();
+  const opciones: string[] = [];
+  for (const s of [...SECCIONES_PREDEFINIDAS, ...usadas]) {
+    const clave = s.trim().toLocaleLowerCase('es');
+    if (!clave || vistas.has(clave)) continue;
+    vistas.add(clave);
+    opciones.push(s.trim());
+  }
+  return opciones;
+}
 
 export interface ProductoEditable {
   /** Clave local estable para la lista (el id de la base si ya existe). */

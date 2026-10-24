@@ -18,6 +18,7 @@ import { useMisRoles } from '@/hooks/queries/useRoles';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { puedePublicar } from '@/lib/funciones';
 import { pasoDeVerificacion, tituloDeLoPropio } from '@/lib/panelVendedor';
 import { describirSuscripcion } from '@/lib/planes';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -57,6 +58,8 @@ export default function PanelScreen() {
   const pubs = useMisPublicaciones(miId);
   const negocios = useMisNegocios(miId);
   const paso = pasoDeVerificacion(roles);
+  // Sin la verificación hecha no se publica nada: la fila se ve bloqueada, con su motivo.
+  const publica = puedePublicar(roles);
   const rolPlan: Vendedor = (roles.find((r) => r.rol === 'arrendador' || r.rol === 'comerciante')?.rol as Vendedor | undefined) ?? 'arrendador';
   const { suscripcion } = useMiSuscripcion(miId, rolPlan);
 
@@ -138,7 +141,8 @@ export default function PanelScreen() {
           <FilaAjuste
             icono="storefront-outline"
             etiqueta={tituloDeLoPropio(roles)}
-            descripcion="Datos, fotos y lo que publicas."
+            descripcion={publica ? 'Datos, fotos y lo que publicas.' : 'Disponible cuando te verifiquemos'}
+            bloqueada={!publica}
             onPress={() => router.push('/(tabs)/publicar')}
           />
         </GrupoAjustes>

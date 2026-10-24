@@ -117,7 +117,9 @@ describe('editar productos (todo local hasta guardar)', () => {
     expect(screen.getByText('Nuevo producto')).toBeTruthy();
     await escribir('Nombre del producto', 'Quesadilla');
     await escribir(/Precio/, '35');
-    await escribir(/Sección/, 'Antojitos');
+    await pulsar(/^Sección:/);
+    await pulsar('Otra sección');
+    await escribir('Escribe la sección', 'Antojitos');
     await pulsar('Guardar producto');
     expect(screen.getByText('Quesadilla')).toBeTruthy();
     expect(screen.getByText('Antojitos')).toBeTruthy();
@@ -158,11 +160,55 @@ describe('editar productos (todo local hasta guardar)', () => {
     expect(screen.queryByText('Cambiado')).toBeNull();
   });
 
-  it('las secciones que ya existen se ofrecen como atajos', async () => {
-    await montar();
-    await pulsar('Agregar un producto');
-    await pulsar('Usar la sección Bebidas');
-    expect(screen.getByDisplayValue('Bebidas')).toBeTruthy();
+  describe('la sección se elige de una lista (con «Otra» al final, donde se escribe)', () => {
+    it('sin elegir dice «Sección: sin elegir» y no hay un campo de texto a la vista', async () => {
+      await montar();
+      await pulsar('Agregar un producto');
+      expect(screen.getByLabelText('Sección: sin elegir')).toBeTruthy();
+      expect(screen.queryByLabelText('Escribe la sección')).toBeNull();
+    });
+
+    it('al abrirla ofrece las predefinidas y «Otra sección» va la ÚLTIMA', async () => {
+      await montar();
+      await pulsar('Agregar un producto');
+      await pulsar(/^Sección:/);
+      for (const s of ['Comida', 'Bebidas', 'Postres', 'Productos', 'Servicios']) expect(screen.getAllByLabelText(`Sección ${s}`).length).toBeGreaterThan(0);
+      const opciones = screen.getAllByLabelText(/^Sección |^Otra sección$/).map((o) => o.props.accessibilityLabel);
+      expect(opciones[opciones.length - 1]).toBe('Otra sección');
+    });
+
+    it('elegir una predefinida la guarda y cierra la lista', async () => {
+      await montar();
+      await pulsar('Agregar un producto');
+      await escribir('Nombre del producto', 'Flan');
+      await pulsar(/^Sección:/);
+      await pulsar('Sección Postres');
+      expect(screen.getByLabelText('Sección: Postres')).toBeTruthy();
+      expect(screen.queryByLabelText('Sección Comida')).toBeNull();
+      await pulsar('Guardar producto');
+      expect(screen.getByText('Postres')).toBeTruthy();
+    });
+
+    it('las secciones que el negocio ya usa también están en la lista', async () => {
+      await montar();
+      await pulsar('Agregar un producto');
+      await pulsar(/^Sección:/);
+      expect(screen.getAllByLabelText('Sección Tacos').length).toBeGreaterThan(0);
+    });
+
+    it('«Otra sección» abre un campo para escribirla, con el tope de 40', async () => {
+      await montar();
+      await pulsar('Agregar un producto');
+      await pulsar(/^Sección:/);
+      await pulsar('Otra sección');
+      expect(screen.getByLabelText('Escribe la sección').props.maxLength).toBe(40);
+    });
+
+    it('editar un producto con una sección propia la muestra elegida (no la pierde)', async () => {
+      await montar();
+      await pulsar('Editar Taco al pastor');
+      expect(screen.getByLabelText('Sección: Tacos')).toBeTruthy();
+    });
   });
 
   it('se puede agregar y quitar una foto de un producto', async () => {

@@ -11,7 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { MAX_FOTOS_PRODUCTO, validarProducto, type ErroresProducto, type ProductoEditable } from '@/lib/menu';
+import { MAX_FOTOS_PRODUCTO, opcionesDeSeccion, validarProducto, type ErroresProducto, type ProductoEditable } from '@/lib/menu';
 import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 
 /**
@@ -42,6 +42,9 @@ export function EditorProducto({
   const theme = useTheme();
   const [p, setP] = useState(producto);
   const [errores, setErrores] = useState<ErroresProducto>({});
+  const [listaAbierta, setListaAbierta] = useState(false);
+  const [otra, setOtra] = useState(false);
+  const opciones = opcionesDeSeccion(secciones);
 
   const cambiar = (c: Partial<ProductoEditable>) => setP((x) => ({ ...x, ...c }));
 
@@ -97,22 +100,63 @@ export function EditorProducto({
             keyboardType="decimal-pad"
           />
 
-          <Campo etiqueta="Sección (Tacos, Bebidas…)" value={p.seccion} onChangeText={(t) => cambiar({ seccion: t })} error={errores.seccion} maxLength={40} />
-          {secciones.length > 0 ? (
-            <View style={estilos.chips}>
-              {secciones.map((s) => (
+          {/* La sección se ELIGE de una lista (las predefinidas y las que el negocio ya usa); «Otra sección», siempre al final, abre un campo para escribirla. */}
+          <View style={estilos.bloque}>
+            <ThemedText type="smallBold" themeColor="textSecondary">Sección</ThemedText>
+            <Pulsable
+              onPress={() => setListaAbierta((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel={`Sección: ${p.seccion.trim() || 'sin elegir'}`}
+              accessibilityState={{ expanded: listaAbierta }}
+              style={[estilos.selector, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
+            >
+              <ThemedText style={estilos.valorSelector} themeColor={p.seccion.trim() ? 'text' : 'textSecondary'}>
+                {p.seccion.trim() || 'Elige una sección'}
+              </ThemedText>
+              <Ionicons name={listaAbierta ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textSecondary} />
+            </Pulsable>
+            {listaAbierta ? (
+              <View style={[estilos.lista, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+                {opciones.map((o) => {
+                  const elegida = o.toLocaleLowerCase('es') === p.seccion.trim().toLocaleLowerCase('es');
+                  return (
+                    <Pulsable
+                      key={o}
+                      onPress={() => {
+                        cambiar({ seccion: o });
+                        setOtra(false);
+                        setListaAbierta(false);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Sección ${o}`}
+                      accessibilityState={{ selected: elegida }}
+                      style={estilos.opcion}
+                    >
+                      <ThemedText style={elegida ? Texto.pesoFuerte : undefined}>{o}</ThemedText>
+                      {elegida ? <Ionicons name="checkmark" size={18} color={theme.bosque} /> : null}
+                    </Pulsable>
+                  );
+                })}
                 <Pulsable
-                  key={s}
-                  onPress={() => cambiar({ seccion: s })}
+                  onPress={() => {
+                    cambiar({ seccion: '' });
+                    setOtra(true);
+                    setListaAbierta(false);
+                  }}
                   accessibilityRole="button"
-                  accessibilityLabel={`Usar la sección ${s}`}
-                  style={[estilos.chip, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
+                  accessibilityLabel="Otra sección"
+                  style={estilos.opcion}
                 >
-                  <ThemedText type="small" style={Texto.pesoFuerte}>{s}</ThemedText>
+                  <ThemedText style={Texto.pesoFuerte}>Otra sección…</ThemedText>
                 </Pulsable>
-              ))}
-            </View>
-          ) : null}
+              </View>
+            ) : null}
+            {otra ? (
+              <Campo etiqueta="Escribe la sección" value={p.seccion} onChangeText={(t) => cambiar({ seccion: t })} error={errores.seccion} maxLength={40} />
+            ) : errores.seccion ? (
+              <ThemedText type="small" style={{ color: theme.error }}>{errores.seccion}</ThemedText>
+            ) : null}
+          </View>
 
           <Campo
             etiqueta="Descripción (opcional)"
@@ -184,15 +228,10 @@ const estilos = StyleSheet.create({
   contenido: { padding: Spacing.three, paddingBottom: Spacing.six, gap: Spacing.three },
   cabecera: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cerrar: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  chip: {
-    minHeight: 44,
-    paddingHorizontal: Spacing.three,
-    borderWidth: Filete.fino,
-    borderRadius: Radios.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  selector: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: Spacing.two, paddingHorizontal: Spacing.three, borderWidth: Filete.fino, borderRadius: Radios.control },
+  valorSelector: { flex: 1 },
+  lista: { borderWidth: Filete.fino, borderRadius: Radios.control, overflow: 'hidden' },
+  opcion: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.three },
   multilinea: { minHeight: 90, textAlignVertical: 'top', paddingTop: Spacing.three },
   bloque: { gap: Spacing.two },
   fotos: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },

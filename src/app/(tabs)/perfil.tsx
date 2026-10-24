@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
@@ -15,10 +15,13 @@ import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
 import { usePerfilActivo } from '@/hooks/queries/usePerfilActivo';
 import { useMiRoomie } from '@/hooks/queries/useRoomies';
+import { useMisRoles } from '@/hooks/queries/useRoles';
 import { useMisPublicaciones } from '@/hooks/queries/usePublicaciones';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { funcionesDeVendedor } from '@/lib/funciones';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useModuloStore } from '@/store/useModuloStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
@@ -55,6 +58,26 @@ function PerfilEstudiante() {
   // La ficha de roomie, para decir la VERDAD sobre si apareces en esa lista: la fila de `roomies`, no el booleano del cuestionario.
   const { miRoomie } = useMiRoomie(miId);
   const { datos: misPublicaciones, cargando: cargandoPublicaciones } = useMisPublicaciones(miId);
+  // Quien YA tiene un perfil de vendedor entra a él con un botón, sin volver a elegir qué es.
+  const { roles } = useMisRoles(miId);
+  const { cambiar } = usePerfilActivo(miId);
+  const [cambiandoPerfil, setCambiandoPerfil] = useState(false);
+  const funciones = funcionesDeVendedor(roles);
+  const tieneVendedor = funciones.length > 0;
+  const falta = funciones.length === 1 ? (funciones[0] === 'arrendador' ? 'un negocio o servicio' : 'un depa para rentar') : null;
+
+  const aVendedor = async () => {
+    if (cambiandoPerfil) return;
+    setCambiandoPerfil(true);
+    try {
+      await cambiar('vendedor');
+      router.replace('/(tabs)/panel');
+    } catch {
+      toast.error('No pudimos cambiar de perfil. Revisa tu conexión e intenta de nuevo.');
+    } finally {
+      setCambiandoPerfil(false);
+    }
+  };
 
   if (cargando) {
     // END-38 · La forma de lo que viene, no un punto girando. El esqueleto lleva las etiquetas reales: se saben antes de preguntar.
@@ -161,12 +184,29 @@ function PerfilEstudiante() {
           </GrupoAjustes>
 
           <GrupoAjustes>
-            <FilaAjuste
-              icono="storefront-outline"
-              etiqueta="Crea tu perfil de vendedor"
-              descripcion="¿Tienes un negocio o un depa para rentar?"
-              onPress={() => router.push('/perfil/crear-vendedor')}
-            />
+            {tieneVendedor ? (
+              <FilaAjuste
+                icono="storefront-outline"
+                etiqueta="Ir a mi perfil de vendedor"
+                descripcion="Tu panel, tu verificación y lo que publicas."
+                onPress={cambiandoPerfil ? undefined : () => void aVendedor()}
+              />
+            ) : (
+              <FilaAjuste
+                icono="storefront-outline"
+                etiqueta="Crea tu perfil de vendedor"
+                descripcion="¿Tienes un negocio o un depa para rentar?"
+                onPress={() => router.push('/perfil/crear-vendedor')}
+              />
+            )}
+            {falta ? (
+              <FilaAjuste
+                icono="add-circle-outline"
+                etiqueta="Agregar otro tipo de perfil"
+                descripcion={`¿También tienes ${falta}?`}
+                onPress={() => router.push('/perfil/crear-vendedor')}
+              />
+            ) : null}
           </GrupoAjustes>
         </View>
       </ScrollView>
