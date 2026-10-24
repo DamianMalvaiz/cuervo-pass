@@ -83,3 +83,9 @@ web-publica/dist/
 
 # Salida generada del panel de admin web (node scripts/construir-web-admin.mjs)
 web-admin/dist/
+
+# Firebase (push en Android). La clave de la cuenta de servicio (FCM V1) es un SECRETO y se sube a EAS, nunca al repositorio. `google-services.json` va por EAS como variable de tipo
+# archivo (GOOGLE_SERVICES_JSON): lleva claves de API que gitleaks marca por su forma. Para compilar en local se puede dejar en la raíz, ignorado.
+google-services.json
+*-firebase-adminsdk-*.json
+*service-account*.json

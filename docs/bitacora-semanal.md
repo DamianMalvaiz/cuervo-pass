@@ -1252,6 +1252,11 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
   motor de sugerencias están construidos; el cifrado en reposo está retirado, §30; los reportes ocultan a los 3).
 - **Hallazgo del panel «Salud de la app»:** las notificaciones push NO funcionan en el APK actual. No hay `googleServicesFile` en `app.json` ni `google-services.json`, y el paquete `mx.cuervopass.app` es un build real: la etiqueta «normal en Expo Go»
   de `registrarTokenPush` está escrita a mano y sale siempre. Hace falta un proyecto de Firebase y subir la clave FCM a EAS (entra en el próximo APK). El servicio de IA responde «API del LLM: sin configurar» (falta `ANTHROPIC_API_KEY`).
+- **Push (Firebase): cableado listo, falta lo que solo hace el usuario (23/10/2026).** `app.config.js` ahora toma `android.googleServicesFile` de la variable de EAS `GOOGLE_SERVICES_JSON` (tipo archivo) o de un `./google-services.json` local;
+  sin ninguno NO detiene la compilación pero avisa a gritos. `.gitignore` protege `google-services.json` y las claves de cuenta de servicio (gitleaks marca la clave de API del primero por su forma, así que no va al repositorio).
+  `scripts/verificar-google-services.mjs` comprueba el archivo antes de gastar un build (el fallo común es el nombre de paquete) y nunca imprime una clave. Guía paso a paso: `docs/firebase-push.md`. Pruebas: 21 (con dos mutaciones en
+  `app.config.js` y un rojo real del verificador sin el script). `expo config` con la CLI real: sin archivo no hay clave y no se rompe; con la variable usa esa ruta. **Falta (usuario):** crear el proyecto de Firebase, subir la clave de la
+  cuenta de servicio a EAS y `google-services.json` como variable, y compilar un APK. **Sin verificar:** el push de punta a punta en un teléfono.
 - **CI del panel de admin:** job `panel-admin` (`npm ci`, `typecheck`, `npm test`, `npm run build`, `verificar:audit`), reproducido desde cero en local (borrando `node_modules`); `ci-panel-admin.test.ts` (con mutaciones).
 - **Pendiente.**  correr las
   pruebas del panel en el CI; decidir qué hacer con el admin `damianmalvaizadm@utvtol.edu.mx`; mover widgets (fase 2).
