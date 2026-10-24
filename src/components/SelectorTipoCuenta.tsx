@@ -1,10 +1,11 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { toque } from '@/lib/tacto';
 import { OPCIONES_TIPO_CUENTA, type TipoCuenta } from '@/lib/tipoCuenta';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 /**
  * «¿Cómo vas a usar Cuervo 360?» — la primera pregunta del registro.
@@ -20,7 +21,7 @@ export function SelectorTipoCuenta({ valor, onCambiar }: { valor: TipoCuenta; on
       {OPCIONES_TIPO_CUENTA.map((o) => {
         const activo = o.valor === valor;
         return (
-          <Pressable
+          <Pulsable
             key={o.valor}
             accessibilityRole="radio"
             accessibilityLabel={o.etiqueta}
@@ -39,7 +40,7 @@ export function SelectorTipoCuenta({ valor, onCambiar }: { valor: TipoCuenta; on
             ]}
           >
             <ThemedText style={[estilos.texto, activo && Texto.pesoFuerte]}>{o.etiqueta}</ThemedText>
-          </Pressable>
+          </Pulsable>
         );
       })}
     </View>

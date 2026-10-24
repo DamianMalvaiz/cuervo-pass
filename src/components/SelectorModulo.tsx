@@ -1,9 +1,10 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { toque } from '@/lib/tacto';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 export type Modulo = 'depas' | 'roomies' | 'servicios';
 
@@ -29,7 +30,7 @@ export function SelectorModulo({ valor, onCambiar }: { valor: Modulo; onCambiar:
       {OPCIONES.map((o) => {
         const activo = o.valor === valor;
         return (
-          <Pressable
+          <Pulsable
             key={o.valor}
             accessibilityRole="tab"
             accessibilityLabel={o.etiqueta}
@@ -51,7 +52,7 @@ export function SelectorModulo({ valor, onCambiar }: { valor: Modulo; onCambiar:
             <ThemedText numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[estilos.texto, activo && Texto.pesoFuerte]}>
               {o.etiqueta}
             </ThemedText>
-          </Pressable>
+          </Pulsable>
         );
       })}
     </View>

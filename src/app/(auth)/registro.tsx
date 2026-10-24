@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import '@/lib/zodEs';
@@ -27,6 +27,7 @@ import { evaluarPassword } from '@/lib/password';
 import { useAuthStore } from '@/store/useAuthStore';
 import { LONGITUD_CODIGO, MENSAJE_CODIGO, verificarCodigo } from '@/lib/codigoCorreo';
 import { reenviarConfirmacion } from '@/lib/confirmacionCorreo';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 // Documento maestro v5 · §25 y §29. El aviso se lee DENTRO de la app
 // (src/app/aviso-privacidad.tsx), no en un enlace externo: pedir que se acepte
@@ -106,6 +107,8 @@ export default function RegistroScreen() {
     formState: { errors },
   } = useForm<FormRegistro>({
     resolver: zodResolver(esquemaRegistro),
+    // Valida al SALIR del campo (y desde entonces al cambiar), no solo al enviar.
+    mode: 'onTouched',
     defaultValues: { aceptoAviso: false as unknown as true, tipoCuenta: 'estudiante' },
   });
 
@@ -225,7 +228,7 @@ export default function RegistroScreen() {
                 No pudimos reenviarlo. Espera unos minutos e inténtalo de nuevo.
               </ThemedText>
             )}
-            <Pressable
+            <Pulsable
               onPress={onReenviar}
               accessibilityRole="button"
               accessibilityLabel="Reenviar correo"
@@ -234,8 +237,8 @@ export default function RegistroScreen() {
               <ThemedText type="small" themeColor="acento">
                 Reenviar correo
               </ThemedText>
-            </Pressable>
-            <Pressable
+            </Pulsable>
+            <Pulsable
               onPress={() => router.replace('/(auth)/login')}
               accessibilityRole="button"
               accessibilityLabel="Ya tengo cuenta, iniciar sesión"
@@ -244,7 +247,7 @@ export default function RegistroScreen() {
               <ThemedText type="small" themeColor="acento">
                 ¿Ya tienes cuenta? Inicia sesión
               </ThemedText>
-            </Pressable>
+            </Pulsable>
           </View>
         </ScrollView>
       </ThemedView>
@@ -416,7 +419,7 @@ export default function RegistroScreen() {
                   />
                 )}
               />
-              <Pressable
+              <Pulsable
                 onPress={() => router.push('/aviso-privacidad')}
                 style={estilos.enlaceAviso}
                 accessibilityRole="link"
@@ -426,7 +429,7 @@ export default function RegistroScreen() {
                 <ThemedText type="small" themeColor="acento" style={estilos.textoEnlaceAviso}>
                   Leer el aviso de privacidad
                 </ThemedText>
-              </Pressable>
+              </Pulsable>
               {errors.aceptoAviso && (
                 <ThemedText type="small" style={{ color: theme.error }} accessibilityLiveRegion="polite">
                   {errors.aceptoAviso.message}

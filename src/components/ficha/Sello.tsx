@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
+import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
 import { Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -45,19 +46,18 @@ export function Sello({
   const colorTexto = esSello ? theme.limaTexto : theme.acento;
 
   return (
-    <Pressable
+    <Pulsable
       onPress={inactivo ? undefined : onPress}
       disabled={inactivo}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? children}
       accessibilityState={{ disabled: inactivo, busy: cargando }}
-      style={({ pressed }) => [
+      // Sin sombras: Android ignora `shadowColor` y este mundo separa con filete. La respuesta al toque la da `Pulsable` (escala y opacidad, y respeta
+      // «reducir movimiento»), igual que el resto de la app; antes solo bajaba la opacidad y se sentía distinto.
+      style={[
         estilos.base,
         esSello ? [estilos.relleno, { backgroundColor: theme.lima }] : [estilos.contorno, { borderColor: theme.acento }],
         inactivo && estilos.inactivo,
-        // Sin sombras: Android ignora `shadowColor` y este mundo separa con
-        // filete. La respuesta al toque es opacidad, que sí se ve en los dos.
-        pressed && !inactivo && estilos.presionado,
       ]}
     >
       {cargando ? (
@@ -68,7 +68,7 @@ export function Sello({
           <ThemedText style={[estilos.texto, { color: colorTexto }]}>{children}</ThemedText>
         </View>
       )}
-    </Pressable>
+    </Pulsable>
   );
 }
 
@@ -83,7 +83,6 @@ const estilos = StyleSheet.create({
   relleno: {},
   contorno: { backgroundColor: 'transparent', borderWidth: 2 },
   inactivo: { opacity: 0.45 },
-  presionado: { opacity: 0.75 },
   contenido: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   texto: Texto.sello,
 });

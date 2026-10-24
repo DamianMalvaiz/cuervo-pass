@@ -112,6 +112,14 @@ describe('el plan y lo propio', () => {
     expect(mockPush).toHaveBeenCalledWith('/pagos');
   });
 
+  // Una sola forma de fila en toda la app (`FilaAjuste`): icono, título, descripción y flecha. El panel tenía la suya, sin icono ni descripción.
+  it('lo propio usa la misma fila que el resto de la app: con su descripción, y lleva a Publicaciones', async () => {
+    await render(<PanelScreen />);
+    expect(screen.getByText('Datos, fotos y lo que publicas.')).toBeTruthy();
+    await act(async () => { fireEvent.press(screen.getByLabelText(/^Mis publicaciones/)); });
+    expect(mockPush).toHaveBeenCalledWith('/(tabs)/publicar');
+  });
+
   it('el bloque de lo propio se llama según lo que ofrece', async () => {
     mockRoles.mockReturnValue(roles(rol('comerciante', 'aprobado')));
     await render(<PanelScreen />);

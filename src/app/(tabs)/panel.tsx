@@ -1,9 +1,9 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { CampanaAvisos } from '@/components/CampanaAvisos';
 import { Encabezado } from '@/components/ficha/Encabezado';
+import { FilaAjuste } from '@/components/ficha/FilaAjuste';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
@@ -124,15 +124,15 @@ export default function PanelScreen() {
           </Pulsable>
         </View>
 
-        <Pulsable
-          onPress={() => router.push('/(tabs)/publicar')}
-          accessibilityRole="button"
-          accessibilityLabel={tituloDeLoPropio(roles)}
-          style={[estilos.fila, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
-        >
-          <ThemedText style={[estilos.filaTexto, Texto.pesoFuerte]}>{tituloDeLoPropio(roles)}</ThemedText>
-          <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
-        </Pulsable>
+        {/* Una sola forma de fila en toda la app (`FilaAjuste`): icono, título, descripción y flecha. */}
+        <View style={[estilos.filas, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+          <FilaAjuste
+            icono="storefront-outline"
+            etiqueta={tituloDeLoPropio(roles)}
+            descripcion="Datos, fotos y lo que publicas."
+            onPress={() => router.push('/(tabs)/publicar')}
+          />
+        </View>
       </ScrollView>
     </ThemedView>
   );
@@ -145,14 +145,5 @@ const estilos = StyleSheet.create({
   cifras: { flexDirection: 'row', gap: Spacing.three },
   cifra: { flex: 1, borderWidth: Filete.fino, borderRadius: Radios.hoja, padding: Spacing.three, gap: Spacing.one },
   enlace: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
-  fila: {
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    borderWidth: Filete.fino,
-    borderRadius: Radios.hoja,
-    paddingHorizontal: Spacing.three,
-  },
-  filaTexto: { flex: 1 },
+  filas: { borderWidth: Filete.fino, borderRadius: Radios.hoja, overflow: 'hidden' },
 });

@@ -185,6 +185,27 @@ describe('tipo de cuenta · 0082', () => {
   });
 });
 
+// Validar AL SALIR del campo y no solo al enviar: quien deja el nombre a medias lo sabe al pasar al siguiente campo.
+describe('validación al salir del campo', () => {
+  it('un nombre demasiado corto se dice al salir del campo, SIN enviar', async () => {
+    await render(<RegistroScreen />);
+    const campo = screen.getByPlaceholderText('Angel Damian');
+    await interactuar(() => fireEvent.changeText(campo, 'A'));
+    expect(screen.queryByText('Escribe tu nombre')).toBeNull();
+    await interactuar(() => fireEvent(campo, 'blur'));
+    expect(screen.getByText('Escribe tu nombre')).toBeTruthy();
+    expect(mockRegistrarse).not.toHaveBeenCalled();
+  });
+
+  it('un correo con forma inválida se dice al salir del campo', async () => {
+    await render(<RegistroScreen />);
+    const campo = screen.getByPlaceholderText('tucorreo@ejemplo.mx');
+    await interactuar(() => fireEvent.changeText(campo, 'no-es-un-correo'));
+    await interactuar(() => fireEvent(campo, 'blur'));
+    expect(screen.getByText(/Correo inválido/i)).toBeTruthy();
+  });
+});
+
 describe('contraseñas', () => {
   it('no se crea la cuenta si la confirmación no coincide', async () => {
     await rellenar({ password: 'Contrasena#2026', confirmar: 'Otra#2026Cosa' });

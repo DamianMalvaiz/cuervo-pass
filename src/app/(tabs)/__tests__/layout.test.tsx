@@ -140,7 +140,8 @@ test('declara las pestañas en orden', async () => {
   await render(<TabsLayout />);
   expect(pantallas.map((p) => p.name)).toEqual(['inicio', 'favoritos', 'panel', 'publicar', 'chats', 'perfil']);
   expect(pantallas.map((p) => p.options.title)).toEqual([
-    'Inicio', 'Favoritos', 'Mi panel', 'Publicar', 'Chats', 'Perfil',
+    // «Explorar» y no «Inicio»: una pestaña se nombra por lo que CONTIENE (Depas, Roomies, Servicios), no con un paraguas vago.
+    'Explorar', 'Favoritos', 'Mi panel', 'Publicar', 'Chats', 'Perfil',
   ]);
 });
 
@@ -179,10 +180,10 @@ const pintarIcono = async (nombre: string, focused: boolean) => {
 // distingue el tono sigue viendo en qué pestaña está.
 test('la pestaña activa lleva el icono relleno y la inactiva el de contorno', async () => {
   const activa = await pintarIcono('inicio', true);
-  expect(activa.getByText('home')).toBeTruthy();
+  expect(activa.getByText('compass')).toBeTruthy();
 
   const inactiva = await pintarIcono('inicio', false);
-  expect(inactiva.getByText('home-outline')).toBeTruthy();
+  expect(inactiva.getByText('compass-outline')).toBeTruthy();
 });
 
 // Cada pestaña su par, y que el activo NO sea el `-outline`: copiar y pegar mal

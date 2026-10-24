@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { Pressable, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -42,9 +42,13 @@ export const Pulsable = forwardRef<
   const escala = useSharedValue(1);
   const opacidad = useSharedValue(1);
 
+  // La opacidad animada se MULTIPLICA por la del propio estilo: parte de 1 y, sin esto, pisaba un `opacity: 0.45` (control deshabilitado) y lo volvía a
+  // pintar activo. Un control que no se puede tocar nunca llega a animarse, así que su estilo era lo único que lo decía.
+  const opacidadDelEstilo = StyleSheet.flatten(style as StyleProp<ViewStyle>)?.opacity;
+  const opacidadBase = typeof opacidadDelEstilo === 'number' ? opacidadDelEstilo : 1;
   const animado = useAnimatedStyle(() => ({
     transform: [{ scale: escala.value }],
-    opacity: opacidad.value,
+    opacity: opacidad.value * opacidadBase,
   }));
 
   const hundir = (v: boolean) => {

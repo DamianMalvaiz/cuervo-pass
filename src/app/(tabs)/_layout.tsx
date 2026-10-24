@@ -114,7 +114,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="inicio"
-        options={{ title: 'Inicio', href: href('inicio'), tabBarIcon: crearIcono('home', 'home-outline') }}
+        options={{ title: 'Explorar', href: href('inicio'), tabBarIcon: crearIcono('compass', 'compass-outline') }}
       />
       <Tabs.Screen
         name="favoritos"

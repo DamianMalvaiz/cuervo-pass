@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import '@/lib/zodEs';
@@ -23,6 +23,7 @@ import { fallo } from '@/lib/registro';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 const esquema = z.object({ email: z.string().email('Correo inválido') });
 type Form = z.infer<typeof esquema>;
@@ -61,7 +62,7 @@ export default function RecuperarContrasenaScreen() {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<Form>({ resolver: zodResolver(esquema) });
+  } = useForm<Form>({ resolver: zodResolver(esquema), mode: 'onTouched' });
 
   const onSubmit = async (datos: Form) => {
     setEnviando(true);
@@ -222,7 +223,7 @@ export default function RecuperarContrasenaScreen() {
               </>
             )}
 
-            <Pressable
+            <Pulsable
               onPress={() => router.back()}
               style={estilos.volver}
               accessibilityRole="button"
@@ -232,7 +233,7 @@ export default function RecuperarContrasenaScreen() {
               <ThemedText type="small" themeColor="acento">
                 Volver
               </ThemedText>
-            </Pressable>
+            </Pulsable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

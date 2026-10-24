@@ -13,7 +13,6 @@ import { useAvisos, useMarcarAvisos } from '@/hooks/queries/useNotificaciones';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { rutaDeDestino } from '@/lib/destinoNotificacion';
-import { toque } from '@/lib/tacto';
 import type { AvisoDelCentro } from '@/services/notificaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -52,8 +51,8 @@ export default function NotificacionesScreen() {
   const { marcarUno, marcarTodos, marcandoTodos } = useMarcarAvisos(uid);
   const sinLeer = avisos.filter((a) => !a.leida).length;
 
+  // Sin `toque()`: abrir un aviso navega a su destino, no cambia nada que haya que confirmar al tacto.
   const abrir = (a: AvisoDelCentro) => {
-    toque();
     if (!a.leida) marcarUno(a.id);
     const ruta = rutaDeDestino(a.destino);
     if (ruta) router.push(ruta);

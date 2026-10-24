@@ -6,7 +6,6 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   StyleSheet,
   TextInput,
   View,
@@ -35,6 +34,7 @@ import type { Conversacion } from '@/types/database.types';
 import { toque } from '@/lib/tacto';
 import { aviso } from '@/lib/registro';
 import { type MensajeLocal } from '@/store/useChatStore';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 // Documento maestro v5 · §15 (realtime y paginación), §26 (la ruta ahora es la
 // conversación, no el otro usuario).
@@ -230,7 +230,7 @@ export default function ConversacionScreen() {
             onContentSizeChange={() => listaRef.current?.scrollToEnd({ animated: true })}
             ListHeaderComponent={
               hayMasAntiguos && mensajes.length > 0 ? (
-                <Pressable
+                <Pulsable
                   onPress={cargarAnteriores}
                   style={styles.botonAnteriores}
                   accessibilityRole="button"
@@ -246,7 +246,7 @@ export default function ConversacionScreen() {
                       </ThemedText>
                     </>
                   )}
-                </Pressable>
+                </Pulsable>
               ) : null
             }
             ListEmptyComponent={
@@ -286,7 +286,7 @@ export default function ConversacionScreen() {
             maxLength={2000}
             multiline
           />
-          <Pressable
+          <Pulsable
             onPress={onEnviar}
             disabled={!texto.trim()}
             style={[styles.botonEnviar, { backgroundColor: theme.sello, opacity: !texto.trim() ? 0.5 : 1 }]}
@@ -297,7 +297,7 @@ export default function ConversacionScreen() {
                 no se puede editar ni borrar (trigger de la 0012). Por eso lleva
                 sello (`theme.sello`), y es el único de esta pantalla. */}
             <Ionicons name="send" size={18} color={theme.selloTexto} />
-          </Pressable>
+          </Pulsable>
         </View>
       </KeyboardAvoidingView>
     </ThemedView>

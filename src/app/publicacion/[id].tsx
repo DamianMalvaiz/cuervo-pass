@@ -4,7 +4,6 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -45,6 +44,7 @@ import { usePublicacion , useAfinidad } from '@/hooks/queries/usePublicaciones';
 import { SQL, esCodigo } from '@/lib/erroresPostgres';
 import { etiquetaDeAjuste, razonesDeAjuste } from '@/lib/razonesDeAjuste';
 import { toast } from '@/lib/toast';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 const ETIQUETA_TIPO: Record<string, string> = {
@@ -399,7 +399,7 @@ export default function DetallePublicacionScreen() {
 
         {/* 0082: una cuenta restringida no reporta; no se ofrece lo que la base va a rechazar. */}
         {restringida ? null : (
-          <Pressable
+          <Pulsable
             onPress={onReportar}
             style={estilos.reportar}
             accessibilityRole="button"
@@ -409,7 +409,7 @@ export default function DetallePublicacionScreen() {
             <ThemedText type="small" themeColor="error" style={estilos.textoReportar}>
               Reportar publicación
             </ThemedText>
-          </Pressable>
+          </Pulsable>
         )}
       </View>
     </ScrollView>

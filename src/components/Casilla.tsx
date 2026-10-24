@@ -1,9 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Radios, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 interface Props {
   valor: boolean;
@@ -23,7 +24,7 @@ export function Casilla({ valor, onCambiar, etiqueta, ayuda, accessibilityLabel 
   const theme = useTheme();
 
   return (
-    <Pressable
+    <Pulsable
       onPress={() => onCambiar(!valor)}
       style={styles.fila}
       accessibilityRole="checkbox"
@@ -49,7 +50,7 @@ export function Casilla({ valor, onCambiar, etiqueta, ayuda, accessibilityLabel 
           </ThemedText>
         )}
       </View>
-    </Pressable>
+    </Pulsable>
   );
 }
 

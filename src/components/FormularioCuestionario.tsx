@@ -21,6 +21,7 @@ import { FilaAjuste } from './ficha/FilaAjuste';
 import { Seccion } from './ficha/Seccion';
 import { Sello } from './ficha/Sello';
 import { ThemedText } from './themed-text';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 // Documento maestro v5 · §25 (pantallas) y §29 (consentimiento para la IA).
 
@@ -140,6 +141,8 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
     formState: { errors },
   } = useForm<FormCuestionario>({
     resolver: zodResolver(esquema),
+    // Valida al SALIR del campo (y desde entonces al cambiar), no solo al enviar.
+    mode: 'onTouched',
     defaultValues: {
       universidadId: universidadInicial,
       presupuestoMin: valoresIniciales?.presupuestoMin?.toString(),
@@ -324,7 +327,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
                 {ATAJOS_KM.map((km) => {
                   const activo = value === km;
                   return (
-                    <Pressable
+                    <Pulsable
                       key={km}
                       onPress={() => onChange(km)}
                       style={[
@@ -341,7 +344,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
                       <ThemedText type="small" themeColor={activo ? 'acento' : 'textSecondary'}>
                         {km} km
                       </ThemedText>
-                    </Pressable>
+                    </Pulsable>
                   );
                 })}
               </View>

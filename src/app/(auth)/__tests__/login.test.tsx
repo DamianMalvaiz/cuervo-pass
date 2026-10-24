@@ -96,6 +96,28 @@ describe('a dónde lleva entrar', () => {
   });
 });
 
+// Validar AL SALIR del campo y no solo al enviar (Apple: «validate inline, not on submit»): quien se equivoca en el correo lo sabe al pasar al siguiente
+// campo, no después de pulsar «Entrar» y esperar.
+describe('validación al salir del campo', () => {
+  it('un correo mal escrito se dice al salir del campo, SIN enviar', async () => {
+    await render(<LoginScreen />);
+    const campo = screen.getByPlaceholderText('tucorreo@ejemplo.mx');
+    await interactuar(() => fireEvent.changeText(campo, 'no-es-un-correo'));
+    expect(screen.queryByText('Ese correo no parece válido')).toBeNull();
+    await interactuar(() => fireEvent(campo, 'blur'));
+    expect(screen.getByText('Ese correo no parece válido')).toBeTruthy();
+    expect(mockIniciarSesion).not.toHaveBeenCalled();
+  });
+
+  it('un correo bien escrito no muestra error al salir', async () => {
+    await render(<LoginScreen />);
+    const campo = screen.getByPlaceholderText('tucorreo@ejemplo.mx');
+    await interactuar(() => fireEvent.changeText(campo, 'ana@utvtol.edu.mx'));
+    await interactuar(() => fireEvent(campo, 'blur'));
+    expect(screen.queryByText('Ese correo no parece válido')).toBeNull();
+  });
+});
+
 describe('cuando falla', () => {
   it('traduce el error de Supabase en vez de enseñarlo en inglés', async () => {
     mockIniciarSesion.mockRejectedValue(new Error('Invalid login credentials'));

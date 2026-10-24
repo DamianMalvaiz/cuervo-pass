@@ -1304,6 +1304,14 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
   mascotas/tabaco/ruido del perfil (siguen en «Mis datos»). **Honestidad conservada:** una función heredada de la migración (0043) se rotula «Función heredada, sin revisión», no «verificada».
   Comprobado: jest completo, `tsc`, lint (0 errores), toques, contraste; mutaciones: el vendedor ve la vista de estudiante, no cambia de perfil, pide la función aunque ya la tenga, una heredada se rotula
   verificada, y un vendedor sin datos va directo a Inicio: cada una la caza su prueba. **Sin verificar:** todo en un teléfono; que quien tenía alertas de «Tus funciones» encuentre «Crea tu perfil de vendedor».
+- **Pasada de «Apple design» sobre la app (24/10/2026, sin probar en teléfono).** El skill descargado era idéntico al `apple-design` ya instalado (comparado byte a byte). Se midió el código contra
+  sus principios y se hicieron los seis hallazgos: (1) **respuesta al toque:** 26 `<Pressable>` crudos sin señal visual pasan a `Pulsable` (3 con exención escrita y motivo); `Sello` también, y `Pulsable` ahora
+  respeta la opacidad del estilo (un botón deshabilitado se sigue viendo así); una prueba (`controles-responden`) falla si aparece uno nuevo sin respuesta; (2) **agencia:** activar y desactivar una
+  publicación (reversibles) actúan al instante y avisan con «Deshacer», sin alerta de confirmación; (3) **feedback:** los cinco `useForm` validan al salir del campo (`mode: 'onTouched'`), con prueba
+  guardiana; (4) **hápticos:** se quitaron solo los de la campana y de abrir un aviso (navegar); el resto se queda porque `lib/tacto` ya los razona (END-37) y el hallazgo original estaba exagerado: 2 de 11, no 11;
+  (5) la fila del panel usa `FilaAjuste`; (6) la pestaña «Inicio» se llama «Explorar», con icono de brújula. No aplicaban (a propósito): resortes, inercia y rubber-banding (la app no tiene gestos propios) y
+  materiales translúcidos (el sistema visual es plano). Comprobado: jest completo, `tsc`, lint, toques, contraste; siete mutaciones, cada una la caza su prueba. **Sin verificar:** cómo se SIENTE en un teléfono
+  (la escala al tocar, el «Deshacer», el cambio de nombre de la pestaña).
 
 ### Pendientes abiertos
 

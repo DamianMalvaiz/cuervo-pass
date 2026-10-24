@@ -10,7 +10,8 @@ jest.mock('@/hooks/queries/useNotificaciones', () => ({
   useMarcarAvisos: () => ({ marcarUno: mockMarcarUno, marcarTodos: mockMarcarTodos, marcandoTodos: false }),
 }));
 jest.mock('@/store/useAuthStore', () => ({ useAuthStore: (sel: (s: unknown) => unknown) => sel({ session: { user: { id: 'u1' } } }) }));
-jest.mock('@/lib/tacto', () => ({ toque: jest.fn(), sello: jest.fn() }));
+const mockToque = jest.fn();
+jest.mock('@/lib/tacto', () => ({ toque: (...a: unknown[]) => mockToque(...a), sello: jest.fn() }));
 
 import NotificacionesScreen, { cuandoFue } from '../notificaciones';
 
@@ -45,6 +46,12 @@ it('tocar un aviso lo marca leído y lleva a su destino', async () => {
   await fireEvent.press(screen.getByLabelText(/Sin leer\. Nueva reseña de 5/));
   expect(mockMarcarUno).toHaveBeenCalledWith('a1');
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/negocio/[id]', params: { id: 'n1' } });
+});
+// Abrir un aviso navega a su destino: no cambia nada que haya que confirmar al tacto (el aviso que se marca leído se ve en la lista).
+it('tocar un aviso NO vibra: es navegar', async () => {
+  await render(<NotificacionesScreen />);
+  await fireEvent.press(screen.getByLabelText(/Sin leer\. Nueva reseña de 5/));
+  expect(mockToque).not.toHaveBeenCalled();
 });
 it('un aviso ya leído no se vuelve a marcar', async () => {
   mockAvisos.mockReturnValue(estado({ avisos: [aviso({ leida: true })] }));

@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import '@/lib/zodEs';
@@ -21,6 +21,7 @@ import { reenviarConfirmacion } from '@/lib/confirmacionCorreo';
 import { destinoInicial } from '@/lib/perfilActivo';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 // Al ENTRAR no se valida la fuerza de la contraseña, solo que exista.
 //
@@ -49,7 +50,7 @@ export default function LoginScreen() {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormLogin>({ resolver: zodResolver(esquemaLogin) });
+  } = useForm<FormLogin>({ resolver: zodResolver(esquemaLogin), mode: 'onTouched' });
 
   const onSubmit = async (datos: FormLogin) => {
     setErrorServidor(null);
@@ -160,7 +161,7 @@ export default function LoginScreen() {
             )}
 
             {sinConfirmar && (
-              <Pressable
+              <Pulsable
                 onPress={async () => setReenvioFallo(!(await reenviarConfirmacion(sinConfirmar)))}
                 accessibilityRole="button"
                 accessibilityLabel="Reenviar correo de confirmación"
@@ -169,7 +170,7 @@ export default function LoginScreen() {
                 <ThemedText type="small" themeColor="acento">
                   Reenviar correo de confirmación
                 </ThemedText>
-              </Pressable>
+              </Pulsable>
             )}
             {reenvioFallo && (
               <ThemedText type="small" style={{ color: theme.error }}>

@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, type FieldErrors } from 'react-hook-form';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
 import '@/lib/zodEs';
@@ -24,6 +24,7 @@ import { FileteHoja } from './ficha/CampoFicha';
 import { Sello } from './ficha/Sello';
 import { armarDireccion, partirDireccion } from '@/lib/direccion';
 import { ThemedText } from './themed-text';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 // AUD-27: el mismo tope que el CHECK de la tabla (migración 0010). Ambas capas,
 // siempre: el cliente para avisar, la base para garantizar.
@@ -212,7 +213,7 @@ function CampoDesplegable({
           onChangeText={onSeleccionar}
           value={valor}
         />
-        <Pressable
+        <Pulsable
           onPress={volverALista}
           style={styles.botonVolverLista}
           accessibilityRole="button"
@@ -220,7 +221,7 @@ function CampoDesplegable({
           hitSlop={8}
         >
           <Ionicons name="list" size={20} color={theme.textSecondary} />
-        </Pressable>
+        </Pulsable>
       </View>
     );
   }
@@ -236,7 +237,7 @@ function CampoDesplegable({
 
   return (
     <View style={[styles.envolturaDesplegable, abierto && styles.envolturaDesplegableAbierta]}>
-      <Pressable
+      <Pulsable
         onPress={alternar}
         style={[...estilo, styles.campoDesplegable]}
         accessibilityRole="button"
@@ -247,7 +248,7 @@ function CampoDesplegable({
           {valor || placeholder}
         </ThemedText>
         <Ionicons name={abierto ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textSecondary} />
-      </Pressable>
+      </Pulsable>
 
       {abierto && (
         <View style={[styles.desplegable, { borderColor: theme.border, backgroundColor: theme.background }]}>
@@ -293,7 +294,7 @@ function CampoDesplegable({
                     {indice > 0 && (
                       <View style={[styles.separadorDesplegable, { backgroundColor: theme.border }]} />
                     )}
-                    <Pressable
+                    <Pulsable
                       onPress={() => (esOtra ? setEscribiendoLibre(true) : onElegir(texto))}
                       style={styles.filaMenu}
                       accessibilityRole="button"
@@ -302,7 +303,7 @@ function CampoDesplegable({
                       <ThemedText type="small" style={esOtra ? styles.textoOtra : undefined}>
                         {esOtra ? 'Otra (escribir)' : esUsarTexto ? `Usar "${texto}"` : texto}
                       </ThemedText>
-                    </Pressable>
+                    </Pulsable>
                   </View>
                 );
               })
@@ -370,6 +371,8 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
     formState: { errors },
   } = useForm<FormPublicacion>({
     resolver: zodResolver(esquema),
+    // Valida al SALIR del campo (y desde entonces al cambiar), no solo al enviar.
+    mode: 'onTouched',
     defaultValues: {
       // Al EDITAR, la dirección llega como una sola cadena y el formulario la
       // pide en ocho campos. Sin esto nacían vacíos, y como siete son
@@ -561,7 +564,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
             {TIPOS.map((tipo) => {
               const seleccionado = value === tipo.valor;
               return (
-                <Pressable
+                <Pulsable
                   key={tipo.valor}
                   onPress={() => onChange(tipo.valor)}
                   style={[
@@ -583,7 +586,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
                   >
                     {tipo.etiqueta}
                   </ThemedText>
-                </Pressable>
+                </Pulsable>
               );
             })}
           </View>
@@ -893,7 +896,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
         {fotos.map((foto, indice) => (
           <View key={uriDeFoto(foto)} style={styles.fotoMiniContenedor}>
             <Image source={{ uri: uriDeFoto(foto) }} style={styles.fotoMini} contentFit="cover" />
-            <Pressable
+            <Pulsable
               onPress={() => onQuitarFoto(foto)}
               style={[styles.fotoMiniQuitar, { backgroundColor: theme.error }]}
               hitSlop={12}
@@ -901,18 +904,18 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
               accessibilityLabel={`Quitar foto ${indice + 1}`}
             >
               <Ionicons name="close" size={14} color={theme.errorTexto} />
-            </Pressable>
+            </Pulsable>
           </View>
         ))}
         {fotos.length < MAX_FOTOS && (
-          <Pressable
+          <Pulsable
             onPress={onAgregarFotos}
             style={[styles.fotoMini, styles.fotoAgregar, { backgroundColor: theme.backgroundSelected }]}
             accessibilityRole="button"
             accessibilityLabel="Agregar foto"
           >
             <Ionicons name="add" size={28} color={theme.textSecondary} />
-          </Pressable>
+          </Pulsable>
         )}
       </View>
 
