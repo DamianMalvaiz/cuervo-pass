@@ -18,6 +18,7 @@ import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { reenviarConfirmacion } from '@/lib/confirmacionCorreo';
+import { destinoInicial } from '@/lib/perfilActivo';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -63,10 +64,11 @@ export default function LoginScreen() {
       // Sugerencias sin universidad ni presupuesto configurados.
       const { data: perfil } = await supabase
         .from('usuarios')
-        .select('cuestionario_completo')
+        .select('cuestionario_completo, perfil_activo')
         .eq('id', sesion.user?.id ?? '')
         .single();
-      router.replace(perfil?.cuestionario_completo ? '/(tabs)/inicio' : '/(auth)/cuestionario-inicial');
+      // 0083: un vendedor entra por su panel y no pasa por el cuestionario de estudiante.
+      router.replace(destinoInicial(perfil?.perfil_activo === 'vendedor' ? 'vendedor' : 'estudiante', Boolean(perfil?.cuestionario_completo)));
     } catch (e) {
       // El mensaje de Supabase viene en inglés y dice "Invalid login
       // credentials", que no le sirve a nadie. Se traduce lo único que de

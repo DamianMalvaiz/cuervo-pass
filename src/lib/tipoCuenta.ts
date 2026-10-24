@@ -19,5 +19,5 @@ export const tipoParaElAlta = (tipo: TipoCuenta): 'arrendador' | 'comerciante' |
   tipo === 'estudiante' ? undefined : tipo;
 
 /** A dónde sigue la cuenta recién confirmada: el cuestionario es de quien BUSCA, y un vendedor no lo necesita. */
-export const destinoTrasConfirmar = (tipo: TipoCuenta): '/(tabs)/inicio' | '/(auth)/cuestionario-inicial' =>
-  esVendedor(tipo) ? '/(tabs)/inicio' : '/(auth)/cuestionario-inicial';
+export const destinoTrasConfirmar = (tipo: TipoCuenta): '/(tabs)/panel' | '/(auth)/cuestionario-inicial' =>
+  esVendedor(tipo) ? '/(tabs)/panel' : '/(auth)/cuestionario-inicial';

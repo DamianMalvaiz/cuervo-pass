@@ -180,7 +180,7 @@ describe('tipo de cuenta · 0082', () => {
     await interactuar(() => fireEvent.changeText(screen.getByLabelText('Código de 6 dígitos'), '123456'));
     await interactuar(() => fireEvent.press(screen.getByLabelText('Confirmar')));
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/inicio'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/panel'));
     expect(mockReplace).not.toHaveBeenCalledWith('/(auth)/cuestionario-inicial');
   });
 });

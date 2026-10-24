@@ -2,6 +2,7 @@
 
 import { supabase } from '@/lib/supabase';
 import type { PerfilPublico } from '@/types/database.types';
+import type { PerfilActivo } from '@/lib/perfilActivo';
 
 /**
  * Perfil de OTRO usuario.
@@ -31,6 +32,19 @@ export async function obtenerCuentaRestringida(usuarioId: string): Promise<boole
   const { data, error } = await supabase.from('usuarios').select('cuenta_restringida').eq('id', usuarioId).maybeSingle();
   if (error) throw error;
   return data?.cuenta_restringida === true;
+}
+
+/** El perfil que usa la cuenta (0083). Un fallo de lectura LANZA: «no pude saberlo» no es «es estudiante». */
+export async function obtenerPerfilActivo(usuarioId: string): Promise<PerfilActivo> {
+  const { data, error } = await supabase.from('usuarios').select('perfil_activo').eq('id', usuarioId).maybeSingle();
+  if (error) throw error;
+  return data?.perfil_activo === 'vendedor' ? 'vendedor' : 'estudiante';
+}
+
+/** La única forma de cambiarlo: 'vendedor' exige alguna función de vendedor (CP017 si no). */
+export async function cambiarPerfilActivo(perfil: PerfilActivo): Promise<void> {
+  const { error } = await supabase.rpc('cambiar_perfil_activo', { p_perfil: perfil });
+  if (error) throw error;
 }
 
 export async function obtenerPerfilesPublicos(usuarioIds: string[]): Promise<PerfilPublico[]> {

@@ -62,6 +62,8 @@ export const CP = {
   INTENTOS_BIOMETRIA_AGOTADOS: 'CP013',
   /** Una cuenta sin correo universitario intentó abrir una conversación nueva o reportar una reseña (migración 0082). */
   CUENTA_RESTRINGIDA: 'CP016',
+  /** Pasar a «vendedor» sin ninguna función de vendedor, o cambiar el perfil activo con un update directo (migración 0083). */
+  SIN_FUNCION_DE_VENDEDOR: 'CP017',
 } as const;
 
 /** El `code` de un error de PostgREST/supabase-js, si lo trae. */

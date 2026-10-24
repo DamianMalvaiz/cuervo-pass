@@ -75,6 +75,12 @@ jest.mock('react-native-reanimated', () => {
 // con `jest.unmock`.
 jest.mock('@/hooks/queries/useCuentaRestringida', () => ({ useCuentaRestringida: jest.fn(() => false) }));
 
+// `usePerfilActivo` (0083) lee `usuarios` con react-query y decide la barra de pestañas. Por omisión, un estudiante ya cargado. Las pruebas del
+// perfil de vendedor lo cambian con `mockReturnValue`; la del propio hook lo desactiva con `jest.unmock`.
+jest.mock('@/hooks/queries/usePerfilActivo', () => ({
+  usePerfilActivo: jest.fn(() => ({ perfil: 'estudiante', cargando: false, fallo: false, cambiar: jest.fn(), cambiando: false })),
+}));
+
 // `react-native-maps` es un módulo NATIVO: fuera de un dispositivo,
 // `TurboModuleRegistry.getEnforcing('RNMapsAirModule')` lanza al importarlo, y
 // tumba la suite entera de cualquier pantalla que lo use — aunque la prueba no

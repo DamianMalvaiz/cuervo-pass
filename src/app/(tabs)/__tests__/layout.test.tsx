@@ -67,6 +67,9 @@ const mockRoles: { valor: { roles: unknown[]; cargando: boolean; fallo: boolean 
 jest.mock('@/hooks/queries/useRoles', () => ({
   useMisRoles: () => ({ ...mockRoles.valor, reintentar: jest.fn() }),
 }));
+const { usePerfilActivo } = jest.requireMock('@/hooks/queries/usePerfilActivo');
+const comoPerfil = (perfil: 'estudiante' | 'vendedor' | null) =>
+  usePerfilActivo.mockReturnValue({ perfil, cargando: perfil === null, fallo: false, cambiar: jest.fn(), cambiando: false });
 const aprobado = (rol: string, estado = 'aprobado') => ({ usuario_id: 'u1', rol, estado, origen: 'solicitud', desde: 'x' });
 
 const sesion: { id: string | undefined } = { id: 'u1' };
@@ -131,11 +134,13 @@ test('engancha el enlace profundo de notificaciones', async () => {
 // El orden es el del producto: primero lo que se consulta, al final lo propio.
 // Una pestaña de menos o en otro sitio es un cambio de navegación, y esto lo
 // deja por escrito en vez de en la memoria de quien lo escribió.
-test('declara las cinco pestañas en orden', async () => {
+// Se DECLARAN seis y se enseñan cuatro o cinco según el perfil (0083). El orden de declaración es el que da el de la barra en los dos perfiles:
+// estudiante → Inicio, Favoritos, [Publicar], Chats, Perfil; vendedor → Mi panel, Publicaciones, Chats, Perfil.
+test('declara las pestañas en orden', async () => {
   await render(<TabsLayout />);
-  expect(pantallas.map((p) => p.name)).toEqual(['inicio', 'favoritos', 'publicar', 'chats', 'perfil']);
+  expect(pantallas.map((p) => p.name)).toEqual(['inicio', 'favoritos', 'panel', 'publicar', 'chats', 'perfil']);
   expect(pantallas.map((p) => p.options.title)).toEqual([
-    'Inicio', 'Favoritos', 'Publicar', 'Chats', 'Perfil',
+    'Inicio', 'Favoritos', 'Mi panel', 'Publicar', 'Chats', 'Perfil',
   ]);
 });
 
@@ -185,6 +190,7 @@ test('la pestaña activa lleva el icono relleno y la inactiva el de contorno', a
 test('cada pestaña tiene su par relleno/contorno', async () => {
   for (const [nombre, base] of [
     ['favoritos', 'heart'],
+    ['panel', 'grid'],
     ['publicar', 'add-circle'],
     ['chats', 'chatbubble'],
     ['perfil', 'person-circle'],
@@ -306,4 +312,43 @@ test('si falló la lectura de roles la oculta', async () => {
   mockRoles.valor = { roles: [], cargando: false, fallo: true };
   await render(<TabsLayout />);
   expect(hrefDePublicar()).toBeNull();
+});
+
+// ── Barra por perfil · 0083 ─────────────────────────────────────────────────
+// Un negocio no ve Depas ni Roomies, y un estudiante no ve el panel de un vendedor. `href: null` esconde la pestaña.
+const href = (nombre: string) => pantallas.find((p) => p.name === nombre)?.options.href;
+afterEach(() => comoPerfil('estudiante'));
+
+describe('barra por perfil', () => {
+  it('un vendedor ve Mi panel, Publicaciones, Chats y Perfil, y NO Inicio ni Favoritos', async () => {
+    comoPerfil('vendedor');
+    await render(<TabsLayout />);
+    expect(href('panel')).toBeUndefined();
+    expect(href('publicar')).toBeUndefined();
+    expect(href('inicio')).toBeNull();
+    expect(href('favoritos')).toBeNull();
+  });
+
+  it('para un vendedor, «publicar» se llama «Publicaciones», aunque aún no esté aprobado', async () => {
+    comoPerfil('vendedor');
+    mockRoles.valor = { roles: [aprobado('arrendador', 'sin_verificar')], cargando: false, fallo: false };
+    await render(<TabsLayout />);
+    expect(pantallas.find((p) => p.name === 'publicar')?.options.title).toBe('Publicaciones');
+    expect(href('publicar')).toBeUndefined();
+  });
+
+  it('un estudiante NO ve Mi panel', async () => {
+    comoPerfil('estudiante');
+    await render(<TabsLayout />);
+    expect(href('panel')).toBeNull();
+    expect(href('inicio')).toBeUndefined();
+    expect(href('favoritos')).toBeUndefined();
+  });
+
+  it('mientras no se sabe el perfil, la barra es la de estudiante', async () => {
+    comoPerfil(null);
+    await render(<TabsLayout />);
+    expect(href('panel')).toBeNull();
+    expect(href('inicio')).toBeUndefined();
+  });
 });

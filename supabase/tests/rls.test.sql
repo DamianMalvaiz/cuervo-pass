@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(736);
+select plan(747);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1095,6 +1095,7 @@ select is(
     'afinidad_roomie_de',
     'agregar_funcion',
     'buscar_codigo_postal',
+    'cambiar_perfil_activo',
     'consumir_cuota',
     'contactos_de_mis_publicaciones',
     'distancia_km',
@@ -3753,6 +3754,35 @@ select lives_ok($$insert into resenas (usuario_id, publicacion_id, estrellas)
 select throws_ok($$select reportar_resena(gen_random_uuid(), 'spam')$$, '42501', null,
   '0082: y reportar_resena sigue con su error de siempre para una reseña que no se ve');
 select actuar_como_servicio();
+
+-- ════════════════ 0083 · perfil activo: estudiante o vendedor ════════════════
+-- La barra de pestañas y la primera vista dependen de qué perfil está usando la persona. El alta lo fija según lo declarado; cambiarlo pasa por
+-- `cambiar_perfil_activo`, que no deja pasar a «vendedor» a quien no tiene ninguna función de vendedor (aunque sea sin verificar).
+select actuar_como_servicio();
+select is((select perfil_activo from usuarios where id = '00000000-0000-0000-0000-00000000ee01'), 'estudiante',
+  '0083: el alta de un estudiante deja el perfil activo en «estudiante»');
+select is((select perfil_activo from usuarios where id = '00000000-0000-0000-0000-00000000ee02'), 'vendedor',
+  '0083: el alta declarada como vendedor deja el perfil activo en «vendedor»');
+
+select actuar_como('00000000-0000-0000-0000-00000000ee01');
+select throws_ok($$update usuarios set perfil_activo = 'vendedor' where id = '00000000-0000-0000-0000-00000000ee01'$$, 'CP017', null,
+  '0083: el perfil activo no se cambia con un update directo');
+select throws_ok($$select cambiar_perfil_activo('vendedor')$$, 'CP017', null,
+  '0083: sin ninguna función de vendedor no se puede pasar a «vendedor»');
+select throws_ok($$select cambiar_perfil_activo('admin')$$, '22023', null,
+  '0083: un perfil que no existe se rechaza');
+select lives_ok($$select agregar_funcion('comerciante')$$, '0083: preparación: el estudiante pide la función de comerciante');
+select lives_ok($$select cambiar_perfil_activo('vendedor')$$, '0083: con una función de vendedor (aunque sin verificar) sí pasa a «vendedor»');
+select actuar_como_servicio();
+select is((select perfil_activo from usuarios where id = '00000000-0000-0000-0000-00000000ee01'), 'vendedor',
+  '0083: y queda guardado');
+select actuar_como('00000000-0000-0000-0000-00000000ee01');
+select lives_ok($$select cambiar_perfil_activo('estudiante')$$, '0083: volver a «estudiante» siempre se puede');
+select actuar_como_servicio();
+select is((select perfil_activo from usuarios where id = '00000000-0000-0000-0000-00000000ee01'), 'estudiante',
+  '0083: y queda guardado');
+select is((select count(*)::int from roles_usuario where usuario_id = '00000000-0000-0000-0000-00000000ee01'), 1,
+  '0083: cambiar de perfil no borra ni toca la función de vendedor');
 
 select * from finish();
 rollback;

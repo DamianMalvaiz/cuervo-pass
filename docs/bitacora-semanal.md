@@ -1288,6 +1288,14 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
   `prueba-rls` contra producción: 22 de 22. El hook se activó a mano en el panel (Authentication → Hooks → Before User Created → `public.hook_alta_de_usuario`; **antes no había ninguno**) y se
   comprobó con una llamada real a `/auth/v1/signup` de producción con un correo `@example.com` sin declarar vendedor: 400 con el mensaje del hook, sin crear cuenta. **Sin probar en producción:**
   el alta de un vendedor declarado y la de un universitario (crean cuentas reales; se prueban con el APK nuevo).
+- **Perfiles y barra por tipo de cuenta (24/10/2026, migración 0083 SIN aplicar a producción; la app todavía no la usa en un APK).** `usuarios.perfil_activo` ('estudiante' por omisión; el alta lo deja
+  en 'vendedor' si la persona se declaró arrendador o comerciante) y `cambiar_perfil_activo` (a 'vendedor' solo con alguna función de vendedor, CP017 si no; un guardián impide el update directo).
+  En la app: `lib/perfilActivo.ts` (qué pestañas ve cada perfil y adónde se entra), `usePerfilActivo`, la barra del vendedor (Mi panel · Publicaciones · Chats · Perfil, sin Inicio ni Favoritos)
+  y el panel (`(tabs)/panel.tsx`: un paso de verificación, mensajes sin leer, activos, plan; un dato que no llegó es «—», nunca 0). Entrar (índice, login) y confirmar el registro llevan a un
+  vendedor a su panel y no al cuestionario. Un estudiante con función de vendedor APROBADA conserva «Publicar» donde estaba. Comprobado: `supabase test db` (747), jest completo, `tsc`, lint, toques,
+  contraste; mutaciones: guardián del perfil, comprobación de la función, alta que ignora lo declarado, barra del vendedor, prioridad de pasos, `cambiar` sin actualizar, y «—» → 0: cada una la caza su prueba.
+  **Falta:** las pantallas de perfil por tipo (C1), el cambio de perfil desde la app (hoy no hay forma de pasar de uno a otro; las cuentas existentes siguen como estudiante), y probarlo en el teléfono.
+  **Sin verificar:** un destello de la barra de estudiante antes de cargar el perfil de un vendedor (el perfil se pide al abrir Tabs). Aplicar la 0083 a producción ANTES de instalar el APK que la use.
 
 ### Pendientes abiertos
 

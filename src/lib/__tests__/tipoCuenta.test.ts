@@ -15,7 +15,7 @@ describe('tipo de cuenta', () => {
 
   it('el vendedor se salta el cuestionario de estudiante', () => {
     expect(destinoTrasConfirmar('estudiante')).toBe('/(auth)/cuestionario-inicial');
-    expect(destinoTrasConfirmar('arrendador')).toBe('/(tabs)/inicio');
-    expect(destinoTrasConfirmar('comerciante')).toBe('/(tabs)/inicio');
+    expect(destinoTrasConfirmar('arrendador')).toBe('/(tabs)/panel');
+    expect(destinoTrasConfirmar('comerciante')).toBe('/(tabs)/panel');
   });
 });

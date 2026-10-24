@@ -102,6 +102,40 @@ test('con cuestionario completo manda a las pestañas', async () => {
   await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/inicio'));
 });
 
+// 0083 · un vendedor entra por SU panel. El cuestionario es de quien busca (universidad, presupuesto, hábitos): mandarlo ahí en cada entrada sería pedirle
+// a un negocio que diga cuánto quiere pagar de renta.
+describe('perfil de vendedor · 0083', () => {
+  it('con perfil de vendedor entra al panel', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO, perfil_activo: 'vendedor' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/panel'));
+  });
+
+  it('un vendedor SIN cuestionario tampoco va al cuestionario: va al panel', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: false, version_aviso_aceptada: VERSION_AVISO, perfil_activo: 'vendedor' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/panel'));
+    expect(mockRedirigir).not.toHaveBeenCalledWith('/(auth)/cuestionario-inicial');
+  });
+
+  it('el aviso de privacidad va ANTES que el panel', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: 'v0', perfil_activo: 'vendedor' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/aviso-actualizado'));
+    expect(mockRedirigir).not.toHaveBeenCalledWith('/(tabs)/panel');
+  });
+
+  it('un estudiante sigue entrando a Inicio', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO, perfil_activo: 'estudiante' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/inicio'));
+  });
+});
+
 // El destino que v3 no tenía. Un usuario con sesión y sin cuestionario llegaba a
 // una pantalla de sugerencias vacía y la app parecía rota.
 test('con sesión y sin cuestionario manda al cuestionario', async () => {
@@ -184,7 +218,7 @@ test('pregunta por cuestionario_completo del usuario de la sesión', async () =>
   await waitFor(() => expect(mockRedirigir).toHaveBeenCalled());
 
   expect(mockDesde).toHaveBeenCalledWith('usuarios');
-  expect(cadena.select).toHaveBeenCalledWith('cuestionario_completo, version_aviso_aceptada');
+  expect(cadena.select).toHaveBeenCalledWith('cuestionario_completo, version_aviso_aceptada, perfil_activo');
   expect(cadena.eq).toHaveBeenCalledWith('id', 'u1');
 });
 

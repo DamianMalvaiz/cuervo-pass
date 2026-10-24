@@ -74,6 +74,8 @@ export interface PerfilPublico {
    * servidor al dar de alta; la dueña no la cambia. La app la usa solo para NO ofrecer lo que la base va a rechazar.
    */
   cuenta_restringida: boolean;
+  /** Qué perfil usa la persona ahora (0083): decide la barra de pestañas y la primera vista. Solo cambia con `cambiar_perfil_activo`. */
+  perfil_activo: 'estudiante' | 'vendedor';
 }
 
 export type TipoPublicacion = 'depa' | 'cuarto' | 'casa_compartida';
@@ -559,6 +561,11 @@ export interface Database {
       // Registra que la cuenta aceptó esta versión del aviso de privacidad (migración 0059). 22023 si la versión no tiene forma `vN`.
       aceptar_aviso: {
         Args: { p_version: string };
+        Returns: undefined;
+      };
+      // 'estudiante' siempre; 'vendedor' solo con alguna función de vendedor (CP017 si no). 22023 si el perfil no existe (migración 0083).
+      cambiar_perfil_activo: {
+        Args: { p_perfil: 'estudiante' | 'vendedor' };
         Returns: undefined;
       };
       // Solo comerciante o arrendador, siempre en sin_verificar. admin y estudiante → CP003.

@@ -70,6 +70,20 @@ describe('a dónde lleva entrar', () => {
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/inicio'));
   });
 
+  // 0083 · un vendedor entra por su panel, haya o no hecho el cuestionario de estudiante (que no le corresponde).
+  it('con perfil de vendedor, al panel', async () => {
+    mockSingle.mockResolvedValue({ data: { cuestionario_completo: true, perfil_activo: 'vendedor' } });
+    await entrar();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/panel'));
+  });
+
+  it('un vendedor sin cuestionario tampoco va al cuestionario', async () => {
+    mockSingle.mockResolvedValue({ data: { cuestionario_completo: false, perfil_activo: 'vendedor' } });
+    await entrar();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/panel'));
+    expect(mockReplace).not.toHaveBeenCalledWith('/(auth)/cuestionario-inicial');
+  });
+
   it('con el cuestionario a medias, DE VUELTA al cuestionario', async () => {
     // `cuestionario_completo` y no `universidad` (la proxy frágil de la que habla `app/index.tsx`): un arrendador o un negocio no tiene
     // universidad y su alta ya deja el cuestionario como hecho (0082); con `universidad` volverían a él en cada entrada.
