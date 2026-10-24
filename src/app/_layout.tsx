@@ -21,6 +21,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Spacing, Tipografia } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLimpiarCacheAlCerrarSesion } from '@/hooks/queries/useLimpiarCacheAlCerrarSesion';
+import { useRestaurarSesion } from '@/hooks/use-restaurar-sesion';
 import { crearClienteConsultas } from '@/lib/consultas';
 import { fallo, limpiar, textoDeError } from '@/lib/registro';
 import { iniciarRegistroRemoto } from '@/lib/registroRemoto';
@@ -70,6 +71,8 @@ export default function RootLayout() {
   const [clienteConsultas] = useState(crearClienteConsultas);
   // La caché no es de nadie en particular: al terminar la sesión se vacía entera.
   useLimpiarCacheAlCerrarSesion(clienteConsultas);
+  // La sesión guardada se lee al arrancar por CUALQUIER ruta, no solo por la pantalla de entrada (ver el hook).
+  useRestaurarSesion();
 
   const scheme = useColorScheme();
   const esOscuro = scheme === 'dark';
