@@ -172,7 +172,7 @@ function ChipsTipo({
   );
 }
 
-function VistaDepas({ selector }: { selector?: ReactNode }) {
+function VistaDepas({ selector, campana }: { selector?: ReactNode; campana?: ReactNode }) {
   const session = useAuthStore((s) => s.session);
   const cargarPerfil = usePerfilStore((s) => s.cargarPerfil);
   // Dos números y no una bandera: en una misma lista conviven publicaciones
@@ -270,7 +270,7 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
           <View style={estilos.cabecera}>
             {selector ? <View style={estilos.margen}>{selector}</View> : null}
             <View style={estilos.margen}>
-              <Encabezado titulo="Sugerencias" />
+              <Encabezado titulo="Sugerencias" accion={campana} />
               <ResumenFiltros />
             </View>
 
@@ -392,8 +392,6 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
 }
 
 const estilos = StyleSheet.create({
-  filaSelector: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  selectorFlex: { flex: 1 },
   columna: { width: '100%', alignSelf: 'center' },
   pantalla: { flex: 1 },
   lista: { paddingBottom: Spacing.six },
@@ -453,15 +451,15 @@ const estilos = StyleSheet.create({
 export default function InicioScreen() {
   const modulo = useModuloStore((s) => s.modulo);
   const setModulo = useModuloStore((s) => s.setModulo);
+  // El selector tiene su PROPIA fila a todo el ancho: con la campana al lado, «Roomies» y «Servicios» se partían en dos renglones (probado en un
+  // teléfono real el 24/10/2026). La campana va con el título de cada vista.
   const selector = (
-    <View style={estilos.filaSelector}>
-      <View style={estilos.selectorFlex}>
-        <SelectorModulo valor={modulo} onCambiar={setModulo} />
-      </View>
-      <CampanaAvisos />
+    <View testID="fila-selector">
+      <SelectorModulo valor={modulo} onCambiar={setModulo} />
     </View>
   );
-  if (modulo === 'roomies') return <VistaRoomies selector={selector} />;
-  if (modulo === 'servicios') return <VistaServicios selector={selector} />;
-  return <VistaDepas selector={selector} />;
+  const campana = <CampanaAvisos />;
+  if (modulo === 'roomies') return <VistaRoomies selector={selector} campana={campana} />;
+  if (modulo === 'servicios') return <VistaServicios selector={selector} campana={campana} />;
+  return <VistaDepas selector={selector} campana={campana} />;
 }

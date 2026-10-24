@@ -29,7 +29,7 @@ import type { Negocio } from '@/types/database.types';
  * hook): filtrar en el teléfono una página ya recortada haría que la app dijera «no hay nada» cuando sí lo hay. La
  * búsqueda se envía al terminar de escribir, no en cada letra. «Falló» y «no hay» se pintan distinto.
  */
-export function VistaServicios({ selector }: { selector?: ReactNode }) {
+export function VistaServicios({ selector, campana }: { selector?: ReactNode; campana?: ReactNode }) {
   const theme = useTheme();
   const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
@@ -54,7 +54,7 @@ export function VistaServicios({ selector }: { selector?: ReactNode }) {
   const cabecera = (
     <View style={estilos.cabecera}>
       {selector}
-      <Encabezado titulo="¿Qué necesitas hoy?" />
+      <Encabezado titulo="¿Qué necesitas hoy?" accion={campana} />
 
       <View style={[estilos.buscador, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
         <Ionicons name="search-outline" size={20} color={theme.textSecondary} />

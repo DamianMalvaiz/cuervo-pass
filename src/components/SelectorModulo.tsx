@@ -47,7 +47,10 @@ export function SelectorModulo({ valor, onCambiar }: { valor: Modulo; onCambiar:
               },
             ]}
           >
-            <ThemedText style={[estilos.texto, activo && Texto.pesoFuerte]}>{o.etiqueta}</ThemedText>
+            {/* Una sola línea que se encoge antes de partirse: en un teléfono real «Roomies» salía como «Roomi / es». */}
+            <ThemedText numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={[estilos.texto, activo && Texto.pesoFuerte]}>
+              {o.etiqueta}
+            </ThemedText>
           </Pressable>
         );
       })}
@@ -64,7 +67,7 @@ const estilos = StyleSheet.create({
     borderRadius: Radios.control,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.two,
   },
   texto: { textAlign: 'center' },
 });
