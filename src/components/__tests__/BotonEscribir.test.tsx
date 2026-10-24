@@ -61,3 +61,13 @@ test('sin sesión no se ofrece', async () => {
   await render(<BotonEscribir otroUsuarioId="dueno1" />);
   expect(screen.queryByLabelText('Escribir en la app')).toBeNull();
 });
+
+// 0082 · una cuenta restringida no ve lo que la base va a rechazar. `useCuentaRestringida` está simulado por omisión en jest.setup.js (false).
+const { useCuentaRestringida } = jest.requireMock('@/hooks/queries/useCuentaRestringida');
+afterEach(() => useCuentaRestringida.mockReturnValue(false));
+
+test('una cuenta restringida no ve el botón: la base rechazaría abrir el chat', async () => {
+  useCuentaRestringida.mockReturnValue(true);
+  await render(<BotonEscribir otroUsuarioId="dueno1" />);
+  expect(screen.queryByLabelText('Escribir en la app')).toBeNull();
+});

@@ -393,3 +393,15 @@ test('en el perfil de OTRA persona sí están el chat y el reporte', async () =>
   expect(await screen.findByLabelText('Iniciar chat con Ana Pérez')).toBeTruthy();
   expect(screen.getByLabelText('Reportar usuario')).toBeTruthy();
 });
+
+// 0082 · una cuenta restringida no ve lo que la base va a rechazar. `useCuentaRestringida` está simulado por omisión en jest.setup.js (false).
+const { useCuentaRestringida } = jest.requireMock('@/hooks/queries/useCuentaRestringida');
+afterEach(() => useCuentaRestringida.mockReturnValue(false));
+
+test('una cuenta restringida no ve «Iniciar chat» ni «Reportar usuario»', async () => {
+  useCuentaRestringida.mockReturnValue(true);
+  await pintar();
+  await screen.findByText(/Estudio mecatrónica/);
+  expect(screen.queryByLabelText('Iniciar chat con Ana Pérez')).toBeNull();
+  expect(screen.queryByLabelText('Reportar usuario')).toBeNull();
+});

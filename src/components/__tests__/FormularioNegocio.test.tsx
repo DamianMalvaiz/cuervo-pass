@@ -179,7 +179,15 @@ describe('fotos y menú', () => {
     expect(screen.getByLabelText('Quitar la foto 1')).toBeTruthy();
     await pulsar('Quitar la foto 1');
     expect(screen.queryByLabelText('Quitar la foto 1')).toBeNull();
-    for (let i = 0; i < 60; i++) await pulsar('Agregar una foto del negocio');
+  });
+
+  // El máximo es el del PLAN. Antes esta prueba pulsaba 60 veces (el tope técnico), y cada pulsación repinta el formulario entero con la lista
+  // creciendo: bajo la carga de la suite completa pasaba de los 15 s y fallaba sin que nada estuviera roto. Con 4 se comprueba lo mismo.
+  it('al llegar al máximo del plan ya no ofrece más fotos', async () => {
+    mockSus.mockReturnValue({ suscripcion: { max_fotos: 4, max_productos: 10 }, cargando: false, fallo: false });
+    await render(<FormularioNegocio />);
+    for (let i = 0; i < 4; i++) await pulsar('Agregar una foto del negocio');
+    expect(screen.getByLabelText('Quitar la foto 4')).toBeTruthy();
     expect(screen.queryByLabelText('Agregar una foto del negocio')).toBeNull();
   });
 

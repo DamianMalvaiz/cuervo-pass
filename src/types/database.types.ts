@@ -69,6 +69,11 @@ export interface PerfilPublico {
    * identidades (§28). Etiquétalo en pantalla como «correo verificado».
    */
   correo_verificado: boolean;
+  /**
+   * Cuenta sin correo universitario (0082): no reporta, no reseña ni abre conversaciones; sí responde en las que ya existen. La fija el
+   * servidor al dar de alta; la dueña no la cambia. La app la usa solo para NO ofrecer lo que la base va a rechazar.
+   */
+  cuenta_restringida: boolean;
 }
 
 export type TipoPublicacion = 'depa' | 'cuarto' | 'casa_compartida';

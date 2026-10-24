@@ -26,6 +26,13 @@ export async function obtenerPerfilPublico(usuarioId: string): Promise<PerfilPub
   return data as PerfilPublico | null;
 }
 
+/** ¿Esta cuenta está restringida (0082)? Un fallo de lectura LANZA: «no pude saberlo» no es «no está restringida». */
+export async function obtenerCuentaRestringida(usuarioId: string): Promise<boolean> {
+  const { data, error } = await supabase.from('usuarios').select('cuenta_restringida').eq('id', usuarioId).maybeSingle();
+  if (error) throw error;
+  return data?.cuenta_restringida === true;
+}
+
 export async function obtenerPerfilesPublicos(usuarioIds: string[]): Promise<PerfilPublico[]> {
   if (usuarioIds.length === 0) return [];
   const { data, error } = await supabase.from('perfiles_publicos').select('*').in('id', usuarioIds);

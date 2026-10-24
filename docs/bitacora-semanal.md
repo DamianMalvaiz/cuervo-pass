@@ -1273,6 +1273,16 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
   universitario da 200 y no, y `admin/users` con la marca queda sin restricción. **Sin verificar:** producción (el hook se activa a mano en el panel de Supabase, ver `docs/hook-de-alta.md`);
   riesgo abierto: una cuenta restringida puede escribir en las conversaciones que otra persona abrió. Falta la parte de la app (registro «Soy arrendador o tengo un negocio»,
   leer CP016) y el aviso de privacidad.
+- **Registro de arrendadores y negocios, y cuentas restringidas en la app (24/10/2026, SIN aplicar a producción).** El registro pregunta «¿Cómo vas a usar Cuervo 360?» (estudiante,
+  arrendador, negocio o servicio): el estudiante sigue con correo `.edu.mx`, los vendedores entran con el que tengan y van a Inicio. El alta (0082) les crea su rol sin verificar y deja
+  el cuestionario de estudiante como hecho; el login decide por `cuestionario_completo`, no por `universidad`. Una cuenta restringida no ve «Iniciar chat», «Reportar» ni «Reseñar»
+  (`useCuentaRestringida`; un fallo de lectura NO esconde nada, porque quien protege es la base) y, si abre un chat nuevo por otra vía, `CP016` se dice con su razón. Comprobado:
+  jest completo, `tsc`, lint, toques, `supabase test db` (736); mutaciones: todos con correo universitario → fallan 3 pruebas, el vendedor al cuestionario → fallan 2, el hook siempre
+  `false` → falla 1, la sección de fotos siempre ofreciendo agregar → fallan 2. **Sin verificar en un teléfono.** Los tests del hook los escribí junto con el hook (no vi el rojo primero;
+  lo cubre la mutación). **Hallazgo aparte, SIN resolver:** el aviso de privacidad dice «los cobros son simulados: no se procesa ninguna tarjeta» (`src/lib/avisoPrivacidad.ts`) y Mercado
+  Pago ya está integrado; no nombra a Mercado Pago como encargado. Cambiarlo exige versión nueva y que se acepte otra vez.
+- **Prueba intermitente resuelta de raíz (24/10/2026):** `FormularioNegocio` «agrega y quita fotos» pulsaba 60 veces seguidas, repintando el formulario entero cada vez; bajo la carga de la suite
+  completa pasaba de 15 s y fallaba sin que nada estuviera roto (dos veces el mismo día). Ahora prueba el máximo del plan con 4 fotos (la suite del archivo: de ~30 s a 1,4 s).
 
 ### Pendientes abiertos
 

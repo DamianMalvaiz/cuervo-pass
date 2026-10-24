@@ -538,3 +538,18 @@ describe('personalización con favoritos (0071)', () => {
     expect(screen.queryByText(/Se parece a/)).toBeNull();
   });
 });
+
+// 0082 · una cuenta restringida no ve lo que la base va a rechazar. `useCuentaRestringida` está simulado por omisión en jest.setup.js (false).
+const { useCuentaRestringida } = jest.requireMock('@/hooks/queries/useCuentaRestringida');
+afterEach(() => useCuentaRestringida.mockReturnValue(false));
+
+test('una cuenta restringida no ve «Reportar publicación»', async () => {
+  useCuentaRestringida.mockReturnValue(true);
+  await pintar();
+  expect(screen.queryByLabelText('Reportar publicación')).toBeNull();
+});
+
+test('una cuenta normal sí lo ve (control de la anterior)', async () => {
+  await pintar();
+  expect(screen.getByLabelText('Reportar publicación')).toBeTruthy();
+});
