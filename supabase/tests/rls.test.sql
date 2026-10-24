@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(777);
+select plan(784);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1098,6 +1098,7 @@ select is(
     'cambiar_perfil_activo',
     'consumir_cuota',
     'contactos_de_mis_publicaciones',
+    'destacadas_publicaciones',
     'distancia_km',
     'enviar_verificacion',
     'exportar_mis_datos',
@@ -2944,9 +2945,10 @@ select is(has_table_privilege('authenticated', 'public.publicaciones_publicas', 
 select is(has_table_privilege('authenticated', 'public.roomies_publicos', 'select'), true, 'vistas: authenticated SIGUE leyendo roomies_publicos' );
 select is(has_table_privilege('authenticated', 'public.perfiles_publicos', 'select'), true, 'vistas: authenticated SIGUE leyendo perfiles_publicos' );
 select actuar_como('00000000-0000-0000-0000-0000000000b2');
-select throws_ok($$update publicaciones_publicas set titulo = 'HACKEADA'$$, '42501', null, 'vistas: no se puede ACTUALIZAR una publicación ajena a través de la vista' );
-select throws_ok($$delete from publicaciones_publicas$$, '42501', null, 'vistas: no se puede BORRAR una publicación ajena a través de la vista' );
-select throws_ok($$insert into publicaciones_publicas (id) values (gen_random_uuid())$$, '42501', null, 'vistas: no se puede insertar a través de la vista' );
+-- Desde la 0087 la vista une con los planes y deja de ser actualizable: ya no llega ni a mirar los permisos (55000, «no se puede escribir en una vista»). Sigue siendo imposible.
+select throws_ok($$update publicaciones_publicas set titulo = 'HACKEADA'$$, '55000', null, 'vistas: no se puede ACTUALIZAR una publicación ajena a través de la vista' );
+select throws_ok($$delete from publicaciones_publicas$$, '55000', null, 'vistas: no se puede BORRAR una publicación ajena a través de la vista' );
+select throws_ok($$insert into publicaciones_publicas (id) values (gen_random_uuid())$$, '55000', null, 'vistas: no se puede insertar a través de la vista' );
 select throws_ok($$update roomies_publicos set descripcion_busqueda = 'HACKEADO'$$, '42501', null, 'vistas: no se puede ACTUALIZAR un anuncio de roomie ajeno a través de la vista' );
 select throws_ok($$delete from roomies_publicos$$, '42501', null, 'vistas: no se puede BORRAR un anuncio de roomie ajeno a través de la vista' );
 select is(has_table_privilege('authenticated', 'public.perfiles_publicos', 'update'), false, 'vistas: perfiles_publicos tampoco se escribe (no tiene UPDATE)' );
@@ -3894,6 +3896,31 @@ select throws_ok($$select iniciar_prueba('arrendador')$$, '28000', null, '0084: 
 select ok(not has_function_privilege('anon', 'iniciar_prueba(text)', 'execute') and has_function_privilege('authenticated', 'iniciar_prueba(text)', 'execute'),
   '0084: la llama quien tiene sesión y nadie sin ella');
 
+
+
+-- ════════════════ 0087 · depas destacados ════════════════
+-- Un arrendador con el plan que destaca (Plus, o su prueba) sale en el carrusel «Destacados» de Departamentos. El destacado SALE DEL PLAN, no de una columna que
+-- el vendedor escriba: la vista lo calcula con los planes efectivos. La función respeta los mismos filtros duros que las sugerencias (presupuesto, radio, mascotas).
+select actuar_como_servicio();
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta, whatsapp, latitud, longitud, permite_mascotas)
+values ('00000000-0000-0000-0000-00000000dea7', '00000000-0000-0000-0000-0000000000f7', 'Depa F7 destacado', 'depa',
+        'Calle Plus 7', 3000, '5512345679', 19.29, -99.56, false);
+select is((select destacado from publicaciones_publicas where titulo = 'Depa F7 destacado'), true,
+  '0087: la publicación de quien tiene el plan que destaca sale marcada como destacada');
+select is((select destacado from publicaciones_publicas where titulo = 'Depa B'), false,
+  '0087: la de quien no tiene ese plan no');
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select ok((select count(*) = 1 from destacadas_publicaciones(10) where titulo = 'Depa F7 destacado'),
+  '0087: otra persona ve la destacada en la lista de destacados');
+select ok((select count(*) = 0 from destacadas_publicaciones(10) where titulo = 'Depa B'),
+  '0087: y NO ve las que no son destacadas');
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select ok((select count(*) = 0 from destacadas_publicaciones(10) where titulo = 'Depa F7 destacado'),
+  '0087: nadie se ve a sí mismo entre los destacados');
+select ok(pg_get_function_result('destacadas_publicaciones(int,text)'::regprocedure) not like '%vector_embedding%',
+  '0087: la función no devuelve el vector al cliente');
+select ok(not has_function_privilege('anon', 'destacadas_publicaciones(int,text)', 'execute') and has_function_privilege('authenticated', 'destacadas_publicaciones(int,text)', 'execute'),
+  '0087: la llama quien tiene sesión y nadie sin ella');
 
 select * from finish();
 rollback;

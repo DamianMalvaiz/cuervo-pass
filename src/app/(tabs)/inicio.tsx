@@ -34,7 +34,7 @@ import type {
   PublicacionSugerida,
   TipoPublicacion,
 } from '@/types/database.types';
-import { useNuevas, useSugerencias } from '@/hooks/queries/usePublicaciones';
+import { useDestacadas, useNuevas, useSugerencias } from '@/hooks/queries/usePublicaciones';
 
 // Documento maestro v5 · §17, §18, §25.
 //
@@ -201,6 +201,8 @@ function VistaDepas({ selector, campana }: { selector?: ReactNode; campana?: Rea
   // END-32 · El único carrusel. No depende del orden de la lista: ordena por
   // fecha, que es lo suyo.
   const { datos: nuevas } = useNuevas(tipo);
+  // Los destacados salen del PLAN del arrendador (0087): uno solo ya se pinta, porque no es relleno sino algo que se paga.
+  const { datos: destacadas } = useDestacadas(tipo);
 
   // AUD-08: una sola petición para todas las miniaturas visibles, y las del
   // carrusel VAN INCLUIDAS. Firmarlas en dos llamadas separadas era el defecto
@@ -208,10 +210,11 @@ function VistaDepas({ selector, campana }: { selector?: ReactNode; campana?: Rea
   const { urls: urlsFirmadas } = useFotosFirmadas([
     ...sugerencias.map((s) => s.fotos?.[0]),
     ...nuevas.map((n) => n.fotos?.[0]),
+    ...destacadas.map((d) => d.fotos?.[0]),
   ]);
   // Miniaturas (lib/miniaturas.ts): sin red, solo URLs con la sesión en cabeceras. La foto completa de arriba queda de respaldo.
   const miniaturasLista = useMiniaturas(sugerencias.map((s) => s.fotos?.[0]), ANCHOS.ancha);
-  const miniaturasCarrusel = useMiniaturas(nuevas.map((n) => n.fotos?.[0]), ANCHOS.compacta);
+  const miniaturasCarrusel = useMiniaturas([...nuevas, ...destacadas].map((n) => n.fotos?.[0]), ANCHOS.compacta);
 
   // B.3 · El filtro ya corre en Postgres, dentro de la función que trunca a
   // treinta, así que lo que llega aquí es el top-30 DE ESE TIPO y no lo que
@@ -228,8 +231,9 @@ function VistaDepas({ selector, campana }: { selector?: ReactNode; campana?: Rea
   }, []);
 
   const compacta = useCallback(
-    (item: PublicacionNueva) => (
+    (item: PublicacionNueva, destacada = false) => (
       <FichaCompacta
+        destacada={destacada}
         titulo={item.titulo}
         tipo={item.tipo}
         precio={item.precio_renta}
@@ -296,6 +300,16 @@ function VistaDepas({ selector, campana }: { selector?: ReactNode; campana?: Rea
                   No pudimos actualizar. Estás viendo los últimos resultados cargados.
                 </ThemedText>
               </View>
+            )}
+
+            {destacadas.length > 0 && (
+              <Carrusel
+                titulo="Destacados cerca de ti"
+                datos={destacadas}
+                claveDe={(p) => `ds-${p.id}`}
+                renderizar={(p) => compacta(p, true)}
+                anchoItem={ANCHO_FICHA_COMPACTA}
+              />
             )}
 
             {/* Lo ÚNICO que la lista de abajo no dice. Se pinta solo si hay

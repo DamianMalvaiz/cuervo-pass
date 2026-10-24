@@ -52,7 +52,7 @@ export function TarjetaNegocio({
   );
 
   const textos = (
-    <View style={estilos.textos}>
+    <View style={[estilos.textos, forma === 'destacado' && estilos.textosDestacado]}>
       <ThemedText numberOfLines={1} style={[Texto.cuerpo, Texto.pesoFuerte]}>
         {negocio.nombre}
       </ThemedText>
@@ -80,7 +80,7 @@ export function TarjetaNegocio({
       style={[
         forma === 'fila'
           ? [estilos.fila, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]
-          : estilos.destacado,
+          : [estilos.destacado, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }],
         cerrado && estilos.cerrado,
       ]}
     >
@@ -114,8 +114,10 @@ const estilos = StyleSheet.create({
   // Gris: la misma tarjeta, apagada. El texto dice «Cerrado», así que el color no es lo único que lo avisa.
   cerrado: { opacity: 0.45 },
   fotoFila: { width: 72, height: 72, borderRadius: Radios.control },
-  destacado: { width: 220, gap: Spacing.two },
-  fotoDestacado: { width: 220, height: AltoFotoTarjeta * 0.6, borderRadius: Radios.tarjeta },
+  // La tarjeta del carril: con borde, la foto arriba hasta el borde y el texto con su margen (como la de Departamentos destacados).
+  destacado: { width: 220, borderWidth: Filete.fino, borderRadius: Radios.tarjeta, overflow: 'hidden' },
+  fotoDestacado: { width: 220 - 2 * Filete.fino, height: AltoFotoTarjeta * 0.6 },
+  textosDestacado: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three },
   sinFoto: { alignItems: 'center', justifyContent: 'center' },
   textos: { flex: 1, gap: Spacing.half },
   insignia: {

@@ -530,6 +530,11 @@ export interface Database {
       };
       // END-32 · El único carrusel. Trae lo que la lista no tiene —lo reciente—
       // en vez de reordenar el mismo conjunto por tercera vez.
+      // Los destacados de Departamentos (0087): arrendadores con el plan que destaca.
+      destacadas_publicaciones: {
+        Args: { p_limite?: number; p_tipo?: TipoPublicacion | null };
+        Returns: PublicacionNueva[];
+      };
       nuevas_esta_semana: {
         Args: { p_limite?: number; p_tipo?: TipoPublicacion | null };
         Returns: PublicacionNueva[];

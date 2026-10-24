@@ -16,6 +16,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 const mockSugerencias = jest.fn();
 const mockNuevas = jest.fn();
+const mockDestacadas = jest.fn();
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn() },
@@ -24,6 +25,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/hooks/queries/usePublicaciones', () => ({
   useSugerencias: (...a: unknown[]) => mockSugerencias(...a),
   useNuevas: (...a: unknown[]) => mockNuevas(...a),
+  useDestacadas: (...a: unknown[]) => mockDestacadas(...a),
 }));
 jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: () => ({ urls: new Map(), fallo: null }) }));
 // Mutable para poder pintar el resumen de filtros SIN preferencias, que es la
@@ -87,6 +89,7 @@ beforeEach(() => {
   mockPerfil.valor = { id: 'u1', presupuesto_max: 4000, distancia_max_km: 10, universidad: 'UTVT' };
   mockSugerencias.mockReturnValue(respuesta());
   mockNuevas.mockReturnValue({ datos: [], cargando: false });
+  mockDestacadas.mockReturnValue({ datos: [], cargando: false });
 });
 
 // Cuervo 360 · el orden y el nivel son AUTOMÁTICOS. Hasta el 17/10/2026 Inicio decía «NIVEL 1 · FILTROS PONDERADOS» o
@@ -199,6 +202,27 @@ describe('un fallo mientras hay resultados en pantalla', () => {
     mockSugerencias.mockReturnValue(respuesta({ datos: [publicacion('p1')], total: 1 }));
     await render(<InicioScreen />);
     expect(screen.queryByText(/últimos resultados cargados/)).toBeNull();
+  });
+});
+
+// Los destacados salen del PLAN del arrendador (0087). A diferencia de «Nuevas», uno solo ya vale: es algo que se paga, no un relleno.
+describe('el carrusel de destacados', () => {
+  const destacada = (id: string) => ({ ...publicacion(id), creado_en: '2026-09-20T10:00:00Z' });
+
+  it('sin destacados no se pinta', async () => {
+    await render(<InicioScreen />);
+    expect(screen.queryByText('Destacados cerca de ti')).toBeNull();
+  });
+
+  it('con uno solo ya se pinta', async () => {
+    mockDestacadas.mockReturnValue({ datos: [destacada('d1')], cargando: false });
+    await render(<InicioScreen />);
+    expect(screen.getByText('Destacados cerca de ti')).toBeTruthy();
+  });
+
+  it('pide los del mismo tipo que el chip elegido', async () => {
+    await render(<InicioScreen />);
+    expect(mockDestacadas).toHaveBeenCalledWith(null);
   });
 });
 

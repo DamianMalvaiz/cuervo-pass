@@ -17,6 +17,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/hooks/queries/usePublicaciones', () => ({
   useSugerencias: (...a: unknown[]) => mockSugerencias(...a),
   useNuevas: (...a: unknown[]) => mockNuevas(...a),
+  useDestacadas: () => ({ datos: [], cargando: false }),
 }));
 jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: () => ({ urls: new Map(), fallo: null }) }));
 jest.mock('@/store/usePerfilStore', () => ({
