@@ -47,6 +47,21 @@ test('pinta el título, las categorías y los negocios', async () => {
   expect(screen.getByText('Tacos La Esquina')).toBeTruthy();
 });
 
+// Probado en un teléfono real el 24/10/2026: el buscador cortaba su ayuda en «Busca comida, lavandería,» y la categoría «Lavandería» salía como
+// «Lavande…». Jest no mide el ancho; se fija lo que lo causaba: una ayuda larga y una etiqueta que no se puede encoger.
+test('la ayuda del buscador es corta: cabe sin cortarse', async () => {
+  await render(<VistaServicios />);
+  const placeholder = screen.getByLabelText('Buscar un negocio o servicio').props.placeholder as string;
+  expect(placeholder.length).toBeLessThanOrEqual(30);
+});
+
+test('la etiqueta de cada categoría se encoge antes de cortarse con puntos', async () => {
+  await render(<VistaServicios />);
+  const etiqueta = screen.getByText('Comida');
+  expect(etiqueta.props.numberOfLines).toBe(1);
+  expect(etiqueta.props.adjustsFontSizeToFit).toBe(true);
+});
+
 test('pinta el selector que le pasa Inicio', async () => {
   const { Text } = require('react-native');
   await render(<VistaServicios selector={<Text>SELECTOR</Text>} />);

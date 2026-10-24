@@ -63,7 +63,7 @@ export function VistaServicios({ selector, campana }: { selector?: ReactNode; ca
           onChangeText={setBorrador}
           onSubmitEditing={() => setTexto(borrador)}
           returnKeyType="search"
-          placeholder="Busca comida, lavandería, reparaciones…"
+          placeholder="Busca un negocio o servicio"
           placeholderTextColor={theme.textSecondary}
           accessibilityLabel="Buscar un negocio o servicio"
           style={[estilos.campo, { color: theme.text }]}
@@ -113,7 +113,13 @@ export function VistaServicios({ selector, campana }: { selector?: ReactNode; ca
               >
                 <Ionicons name={icono} size={26} color={activa ? theme.limaTexto : theme.bosque} />
               </View>
-              <ThemedText type="small" style={activa ? Texto.pesoFuerte : undefined} numberOfLines={1}>
+              <ThemedText
+                type="small"
+                style={activa ? Texto.pesoFuerte : undefined}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+              >
                 {c.nombre}
               </ThemedText>
             </Pulsable>
@@ -215,7 +221,8 @@ const estilos = StyleSheet.create({
     borderRadius: Radios.full,
   },
   categorias: { gap: Spacing.three, paddingVertical: Spacing.one },
-  categoria: { width: 68, alignItems: 'center', gap: Spacing.one },
+  // 76 y no 68: «Lavandería» salía como «Lavande…» en un teléfono real; la etiqueta además se encoge antes de cortarse.
+  categoria: { width: 76, alignItems: 'center', gap: Spacing.one },
   iconoCategoria: {
     width: 56,
     height: 56,

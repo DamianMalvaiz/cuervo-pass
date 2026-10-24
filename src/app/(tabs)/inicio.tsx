@@ -118,7 +118,7 @@ function ResumenFiltros() {
         <ThemedText type="etiqueta" themeColor="textSecondary">
           TU BÚSQUEDA
         </ThemedText>
-        <ThemedText type="small" numberOfLines={1}>
+        <ThemedText type="small" numberOfLines={2}>
           {partes.join(' · ')}
         </ThemedText>
       </View>

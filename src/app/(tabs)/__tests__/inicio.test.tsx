@@ -247,6 +247,14 @@ describe('el resumen de filtros sin preferencias', () => {
     expect(screen.getByText(/Sin universidad/)).toBeTruthy();
   });
 
+  // Probado en un teléfono real el 24/10/2026: «Sin presupuesto · 5 km · Sin unive…». Con el perfil a medio llenar el resumen es largo, y el
+  // dato que se corta es justo el que dice qué falta. Cabe en dos renglones.
+  it('cabe en dos renglones: no corta con puntos lo que dice qué falta', async () => {
+    mockPerfil.valor = { id: 'u1', presupuesto_max: null, distancia_max_km: null, universidad: null };
+    await render(<InicioScreen />);
+    expect(screen.getByText(/Sin presupuesto/).props.numberOfLines).toBe(2);
+  });
+
   it('y con ellas puestas las muestra', async () => {
     await render(<InicioScreen />);
     expect(screen.getByText(/Hasta \$4,000/)).toBeTruthy();
