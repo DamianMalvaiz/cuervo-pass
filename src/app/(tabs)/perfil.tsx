@@ -3,9 +3,9 @@ import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { FilaAjuste } from '@/components/ficha/FilaAjuste';
+import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { EncabezadoPerfil } from '@/components/perfil/EncabezadoPerfil';
 import { PerfilVendedor } from '@/components/perfil/PerfilVendedor';
@@ -120,28 +120,25 @@ function PerfilEstudiante() {
             </View>
           </View>
 
-          <View style={[estilos.lista, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+          <GrupoAjustes>
             <FilaAjuste
               icono="person-outline"
               etiqueta="Mis datos"
               descripcion="Tus preferencias de búsqueda y tus hábitos."
               onPress={() => router.push('/perfil/preferencias')}
             />
-            <FileteHoja />
             <FilaAjuste
               icono="create-outline"
               etiqueta="Sobre mí"
               descripcion={sobreMi ? (sobreMi.length > 70 ? `${sobreMi.slice(0, 70)}…` : sobreMi) : 'Todavía no has escrito nada.'}
               onPress={() => router.push('/perfil/sobre-mi')}
             />
-            <FileteHoja />
             <FilaAjuste
               icono="eye-outline"
               etiqueta="Cómo me ven"
               descripcion="Lo que ve otra persona cuando entra a tu ficha."
               onPress={miId ? () => router.push({ pathname: '/perfil/[usuarioId]', params: { usuarioId: miId } }) : undefined}
             />
-            <FileteHoja />
             <FilaAjuste
               icono="people-outline"
               etiqueta="Mi ficha de roomie"
@@ -154,26 +151,23 @@ function PerfilEstudiante() {
             />
             {/* Un estudiante que NO publica no necesita este renglón; uno que ya publicaba (o que lo hizo antes) sí. */}
             {!cargandoPublicaciones && misPublicaciones.length > 0 ? (
-              <>
-                <FileteHoja />
-                <FilaAjuste
-                  icono="documents-outline"
-                  etiqueta="Mis publicaciones"
-                  descripcion={descripcionPublicaciones}
-                  onPress={() => router.push('/(tabs)/publicar')}
-                />
-              </>
+              <FilaAjuste
+                icono="documents-outline"
+                etiqueta="Mis publicaciones"
+                descripcion={descripcionPublicaciones}
+                onPress={() => router.push('/(tabs)/publicar')}
+              />
             ) : null}
-          </View>
+          </GrupoAjustes>
 
-          <View style={[estilos.lista, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+          <GrupoAjustes>
             <FilaAjuste
               icono="storefront-outline"
               etiqueta="Crea tu perfil de vendedor"
               descripcion="¿Tienes un negocio o un depa para rentar?"
               onPress={() => router.push('/perfil/crear-vendedor')}
             />
-          </View>
+          </GrupoAjustes>
         </View>
       </ScrollView>
     </ThemedView>
@@ -198,7 +192,6 @@ const estilos = StyleSheet.create({
   desplazable: { padding: Spacing.three, paddingBottom: Spacing.six },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
-  lista: { borderWidth: Filete.fino, borderRadius: Radios.hoja, overflow: 'hidden' },
   busqueda: { borderWidth: Filete.fino, borderRadius: Radios.hoja, padding: Spacing.three, gap: Spacing.two },
   cabeceraBusqueda: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   accionBusqueda: { flexDirection: 'row', alignItems: 'center', gap: Spacing.half, minHeight: 44 },

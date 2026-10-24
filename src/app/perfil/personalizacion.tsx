@@ -4,10 +4,11 @@ import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { FilaAjuste } from '@/components/ficha/FilaAjuste';
+import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Filete, Radios, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { construirTextoPerfil } from '@/lib/perfilTexto';
@@ -75,7 +76,7 @@ export default function PersonalizacionScreen() {
             Cómo ordenamos lo que ves, y qué parte de tu perfil usamos para hacerlo.
           </ThemedText>
 
-          <View style={[estilos.tarjeta, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+          <GrupoAjustes>
             <FilaAjuste
               icono="sparkles-outline"
               etiqueta="Usar mi descripción"
@@ -83,7 +84,7 @@ export default function PersonalizacionScreen() {
               valor={activa}
               onCambiar={cambiar}
             />
-          </View>
+          </GrupoAjustes>
 
           <ThemedText type="etiqueta" themeColor="textSecondary">QUÉ USAMOS</ThemedText>
           <View style={estilos.lista}>
@@ -134,7 +135,6 @@ const estilos = StyleSheet.create({
   desplazable: { padding: Spacing.three, paddingBottom: Spacing.six },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
-  tarjeta: { borderWidth: Filete.fino, borderRadius: Radios.hoja, overflow: 'hidden' },
   lista: { gap: Spacing.two },
   fila: { flexDirection: 'row', gap: Spacing.two, alignItems: 'flex-start' },
   crece: { flex: 1 },

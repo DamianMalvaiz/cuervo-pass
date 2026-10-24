@@ -7,7 +7,7 @@ import { Campo } from '@/components/Campo';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';

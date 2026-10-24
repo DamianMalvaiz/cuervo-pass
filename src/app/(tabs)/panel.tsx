@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { CampanaAvisos } from '@/components/CampanaAvisos';
 import { Encabezado } from '@/components/ficha/Encabezado';
 import { FilaAjuste } from '@/components/ficha/FilaAjuste';
+import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
@@ -133,14 +134,14 @@ export default function PanelScreen() {
         </View>
 
         {/* Una sola forma de fila en toda la app (`FilaAjuste`): icono, título, descripción y flecha. */}
-        <View style={[estilos.filas, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+        <GrupoAjustes>
           <FilaAjuste
             icono="storefront-outline"
             etiqueta={tituloDeLoPropio(roles)}
             descripcion="Datos, fotos y lo que publicas."
             onPress={() => router.push('/(tabs)/publicar')}
           />
-        </View>
+        </GrupoAjustes>
       </ScrollView>
     </ThemedView>
   );
@@ -153,5 +154,4 @@ const estilos = StyleSheet.create({
   cifras: { flexDirection: 'row', gap: Spacing.three },
   cifra: { flex: 1, borderWidth: Filete.fino, borderRadius: Radios.hoja, padding: Spacing.three, gap: Spacing.one },
   enlace: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
-  filas: { borderWidth: Filete.fino, borderRadius: Radios.hoja, overflow: 'hidden' },
 });

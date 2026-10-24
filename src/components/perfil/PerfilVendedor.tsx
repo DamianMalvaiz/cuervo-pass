@@ -2,17 +2,16 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { FilaAjuste } from '@/components/ficha/FilaAjuste';
+import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Filete, Radios, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useMiSuscripcion } from '@/hooks/queries/usePlanes';
 import { usePerfilActivo } from '@/hooks/queries/usePerfilActivo';
 import { useMisRoles } from '@/hooks/queries/useRoles';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
-import { useTheme } from '@/hooks/use-theme';
 import { pasoDeVerificacion, tituloDeLoPropio, type PasoVerificacion } from '@/lib/panelVendedor';
 import { describirSuscripcion } from '@/lib/planes';
 import { toast } from '@/lib/toast';
@@ -47,7 +46,6 @@ const descripcionDe = (paso: PasoVerificacion | null): string => {
 };
 
 export function PerfilVendedor() {
-  const theme = useTheme();
   const margenSuperior = useMargenSuperior();
   const { anchoContenido, clase } = useTamanoPantalla();
   const miId = useAuthStore((s) => s.session?.user.id);
@@ -85,44 +83,41 @@ export function PerfilVendedor() {
           <EncabezadoPerfil />
           <TarjetaIdentidad insignia={insigniaDe(paso)} />
 
-          <View style={[estilos.lista, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+          <GrupoAjustes>
             <FilaAjuste
               icono="storefront-outline"
               etiqueta={tituloDeLoPropio(roles)}
               descripcion="Datos, fotos y lo que publicas."
               onPress={() => router.push('/(tabs)/publicar')}
             />
-            <FileteHoja />
             <FilaAjuste
               icono="shield-checkmark-outline"
               etiqueta="Verificación de identidad"
               descripcion={descripcionDe(paso)}
               onPress={() => router.push({ pathname: '/verificacion/[rol]', params: { rol: rolDeVerificacion } })}
             />
-            <FileteHoja />
             <FilaAjuste
               icono="card-outline"
               etiqueta="Mi plan y pagos"
               descripcion={suscripcion ? describirSuscripcion(suscripcion) : 'Consultando…'}
               onPress={() => router.push('/pagos')}
             />
-            <FileteHoja />
             <FilaAjuste
               icono="eye-outline"
               etiqueta="Cómo me ven"
               descripcion="Lo que ve otra persona cuando entra a tu ficha."
               onPress={miId ? () => router.push({ pathname: '/perfil/[usuarioId]', params: { usuarioId: miId } }) : undefined}
             />
-          </View>
+          </GrupoAjustes>
 
-          <View style={[estilos.lista, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+          <GrupoAjustes>
             <FilaAjuste
               icono="search-outline"
               etiqueta="Activar mi perfil de estudiante"
               descripcion="¿También buscas depa o roomie? Tu cuenta es la misma."
               onPress={cambiando ? undefined : aEstudiante}
             />
-          </View>
+          </GrupoAjustes>
           <ThemedText type="small" themeColor="textSecondary" style={estilos.nota}>
             Cambiar de perfil no borra nada de lo que tienes.
           </ThemedText>
@@ -137,6 +132,5 @@ const estilos = StyleSheet.create({
   desplazable: { padding: Spacing.three, paddingBottom: Spacing.six },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
-  lista: { borderWidth: Filete.fino, borderRadius: Radios.hoja, overflow: 'hidden' },
   nota: { paddingHorizontal: Spacing.one },
 });
