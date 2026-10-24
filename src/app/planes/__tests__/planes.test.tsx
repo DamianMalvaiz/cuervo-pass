@@ -1,13 +1,13 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, Linking } from 'react-native';
 
-// Planes y suscripciones. Lo que se fija: dice la verdad sobre en qué plan estás, avisa SIEMPRE que el pago es de
-// demostración, confirma antes de contratar, y cada fallo se dice por su código sin inventar éxitos.
+// Planes y suscripciones. Lo que se fija: dice la verdad sobre en qué plan estás, ofrece «Empezar prueba gratis» SOLO cuando la prueba está disponible
+// (y sin diálogos ni palabras de «demostración»), confirma antes de pagar con Mercado Pago, y cada fallo se dice por su código sin inventar éxitos.
 
 const mockParams = { rol: 'comerciante' };
 const mockSus = jest.fn();
 const mockPlanes = jest.fn();
-const mockMutate = jest.fn();
+const mockIniciar = jest.fn();
 const mockCrear = jest.fn();
 const mockOrden = jest.fn();
 const mockRefrescarTodo = jest.fn();
@@ -16,11 +16,12 @@ const mockExito = jest.fn();
 const mockError = jest.fn();
 const mockInfo = jest.fn();
 
-jest.mock('expo-router', () => ({ useLocalSearchParams: () => mockParams }));
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ useLocalSearchParams: () => mockParams, router: { push: (...a: unknown[]) => mockPush(...a) } }));
 jest.mock('@/hooks/queries/usePlanes', () => ({
   useMiSuscripcion: (...a: unknown[]) => mockSus(...a),
   usePlanes: (...a: unknown[]) => mockPlanes(...a),
-  useContratarPlan: () => ({ mutate: (...a: unknown[]) => mockMutate(...a), isPending: false }),
+  useIniciarPrueba: () => ({ mutate: (...a: unknown[]) => mockIniciar(...a), isPending: false }),
   useCrearPago: () => ({ mutate: (...a: unknown[]) => mockCrear(...a), isPending: false }),
   useMiUltimaOrden: (...a: unknown[]) => mockOrden(...a),
   useRefrescarTrasPago: () => mockRefrescarTodo,
@@ -39,7 +40,7 @@ import PlanesScreen from '../[rol]';
 
 const SUS = {
   plan_id: 'comerciante_basico', plan_nombre: 'Básico', estado: 'prueba', hasta: new Date(Date.now() + 15 * 86_400_000).toISOString(),
-  limite_principal: 1, max_fotos: 20, max_productos: 80, destaca: false,
+  limite_principal: 1, max_fotos: 20, max_productos: 80, destaca: false, prueba_disponible: false,
 };
 const PLANES = [
   { id: 'comerciante_basico', rol: 'comerciante', nombre: 'Básico', precio_centavos: 9900, limite_principal: 1, max_fotos: 20, max_productos: 80, destaca: false, es_prueba: true, orden: 1 },
@@ -49,10 +50,6 @@ const lectura = (extra: Record<string, unknown> = {}) => ({ suscripcion: SUS, ca
 const catalogo = (extra: Record<string, unknown> = {}) => ({ planes: PLANES, cargando: false, fallo: false, reintentar: jest.fn(), ...extra });
 
 const pulsar = async (e: string | RegExp) => { await act(async () => { fireEvent.press(screen.getByLabelText(e)); }); };
-const confirmar = () => {
-  const botones = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[2] as { text: string; onPress?: () => void }[];
-  botones.find((b) => b.text === 'Contratar')?.onPress?.();
-};
 const confirmarMp = () => {
   const botones = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[2] as { text: string; onPress?: () => void }[];
   botones.find((b) => b.text === 'Continuar')?.onPress?.();
@@ -82,9 +79,11 @@ describe('qué dice', () => {
     expect(screen.getByText(/Prueba gratis · te quedan 15 días/)).toBeTruthy();
   });
 
-  it('avisa SIEMPRE que está en modo de prueba y no se cobra dinero real', async () => {
+  // Pedido explícito: ni «demostración» ni un aviso fijo de «modo de prueba» en una pantalla que el cliente lee.
+  it('no lleva el aviso de modo de prueba ni habla de demostración', async () => {
     await render(<PlanesScreen />);
-    expect(screen.getByText(/Modo de PRUEBA: no se cobra dinero real/)).toBeTruthy();
+    expect(screen.queryByText(/modo de prueba|demostraci|no se cobra dinero real/i)).toBeNull();
+    expect(screen.queryByLabelText(/sin pagar|demostraci/i)).toBeNull();
   });
 
   it('lista los planes de pago con su precio y lo que incluyen', async () => {
@@ -127,19 +126,21 @@ describe('los demás estados', () => {
     expect(screen.getByText('Esta pantalla no existe.')).toBeTruthy();
   });
 
-  it('sin tener la función, manda a agregarla y verificarse primero (no es un fallo)', async () => {
+  it('sin tener la función, manda a crear su perfil de vendedor (no es un fallo, y no habla de «Tus funciones», que ya no existe)', async () => {
     mockSus.mockReturnValue(lectura({ suscripcion: null }));
     await render(<PlanesScreen />);
-    expect(screen.getByText(/Primero agrega esta función y verifica tu identidad/)).toBeTruthy();
+    expect(screen.getByText(/Primero crea tu perfil de vendedor/)).toBeTruthy();
+    expect(screen.queryByText(/Tus funciones/)).toBeNull();
     expect(screen.queryByLabelText(/con Mercado Pago/)).toBeNull();
-    expect(screen.queryByLabelText(/sin pagar/)).toBeNull();
+    await pulsar('Crear mi perfil de vendedor');
+    expect(mockPush).toHaveBeenCalledWith('/perfil/crear-vendedor');
   });
 
   it('mientras carga no decide nada', async () => {
     mockSus.mockReturnValue(lectura({ suscripcion: null, cargando: true }));
     await render(<PlanesScreen />);
     expect(screen.getByLabelText('Cargando')).toBeTruthy();
-    expect(screen.queryByText(/Primero agrega/)).toBeNull();
+    expect(screen.queryByText(/Primero crea/)).toBeNull();
   });
 
   it('un fallo de lectura se dice y reintenta las DOS lecturas, sin decir que no tienes la función', async () => {
@@ -148,7 +149,7 @@ describe('los demás estados', () => {
     mockSus.mockReturnValue(lectura({ suscripcion: null, fallo: true, reintentar: r1 }));
     mockPlanes.mockReturnValue(catalogo({ planes: [], reintentar: r2 }));
     await render(<PlanesScreen />);
-    expect(screen.queryByText(/Primero agrega/)).toBeNull();
+    expect(screen.queryByText(/Primero crea/)).toBeNull();
     await pulsar('Reintentar');
     expect(r1).toHaveBeenCalled();
     expect(r2).toHaveBeenCalled();
@@ -161,68 +162,99 @@ describe('los demás estados', () => {
   });
 });
 
-describe('contratar', () => {
-  it('pide confirmación y dice que es una demostración; NO paga de inmediato', async () => {
+describe('empezar la prueba gratis', () => {
+  const sinPrueba = (extra: Record<string, unknown> = {}) =>
+    mockSus.mockReturnValue(
+      lectura({ suscripcion: { ...SUS, estado: 'gratis', plan_id: 'comerciante_gratis', plan_nombre: 'Sin plan', hasta: null, prueba_disponible: true, ...extra } })
+    );
+
+  it('con la prueba disponible ofrece «Empezar prueba gratis», con lo que incluye y lo que cuesta después', async () => {
+    sinPrueba();
     await render(<PlanesScreen />);
-    await pulsar('Probar el plan Destacado sin pagar (demostración)');
-    expect(Alert.alert).toHaveBeenCalledTimes(1);
-    const [titulo, cuerpo] = (Alert.alert as jest.Mock).mock.calls[0];
-    expect(titulo).toBe('Contratar el plan Destacado');
-    expect(cuerpo).toMatch(/DEMOSTRACIÓN: no se cobra nada/);
-    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText('Empieza gratis')).toBeTruthy();
+    expect(screen.getByText(/15 días con todo lo del plan Básico/)).toBeTruthy();
+    expect(screen.getByText('Después, $99 al mes')).toBeTruthy();
+    expect(screen.getByText('Hasta 80 productos en el menú')).toBeTruthy();
+    expect(screen.getByLabelText('Empezar prueba gratis')).toBeTruthy();
   });
 
-  it('al confirmar paga con el plan y la función correctos', async () => {
+  it('mientras tanto NO ofrece la lista de planes de pago ni Mercado Pago', async () => {
+    sinPrueba();
     await render(<PlanesScreen />);
-    await pulsar('Probar el plan Destacado sin pagar (demostración)');
-    confirmar();
-    expect(mockMutate.mock.calls[0][0]).toEqual({ planId: 'comerciante_destacado', rol: 'comerciante' });
+    expect(screen.queryByLabelText(/con Mercado Pago/)).toBeNull();
+    expect(screen.queryByText('Elige un plan')).toBeNull();
   });
 
-  it('al pagar bien dice hasta cuándo queda vigente', async () => {
-    mockMutate.mockImplementation((_e, { onSuccess }) => onSuccess('2026-11-17T18:00:00Z'));
+  it('tocar inicia la prueba de ESA función, sin diálogo de confirmación', async () => {
+    sinPrueba();
     await render(<PlanesScreen />);
-    await pulsar('Probar el plan Destacado sin pagar (demostración)');
-    confirmar();
-    expect(String(mockExito.mock.calls[0][0])).toMatch(/Plan Destacado activo hasta el 17 de noviembre de 2026/);
+    await pulsar('Empezar prueba gratis');
+    expect(mockIniciar.mock.calls[0][0]).toBe('comerciante');
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
-  it('CP010 se explica por código: los pagos de demostración no están activos', async () => {
-    mockMutate.mockImplementation((_e, { onError }) => onError({ code: 'CP010' }));
+  it('al iniciar bien dice hasta cuándo dura', async () => {
+    sinPrueba();
+    mockIniciar.mockImplementation((_rol, { onSuccess }) => onSuccess('2026-11-17T18:00:00Z'));
     await render(<PlanesScreen />);
-    await pulsar('Probar el plan Destacado sin pagar (demostración)');
-    confirmar();
-    expect(String(mockError.mock.calls[0][0])).toMatch(/no están activos/);
+    await pulsar('Empezar prueba gratis');
+    expect(String(mockExito.mock.calls[0][0])).toMatch(/Prueba gratis activa hasta el 17 de noviembre de 2026/);
+  });
+
+  // END-27 · el fallo se explica por CÓDIGO, y ninguno se cuenta como éxito.
+  it.each([
+    ['CP019', /Ya usaste tu prueba gratis/],
+    ['CP018', /Primero crea tu perfil de vendedor/],
+  ])('%s se explica por código', async (code, texto) => {
+    sinPrueba();
+    mockIniciar.mockImplementation((_rol, { onError }) => onError({ code }));
+    await render(<PlanesScreen />);
+    await pulsar('Empezar prueba gratis');
+    expect(String(mockError.mock.calls[0][0])).toMatch(texto);
     expect(mockExito).not.toHaveBeenCalled();
-  });
-
-  it('CP011 se explica por código: verifica tu identidad primero', async () => {
-    mockMutate.mockImplementation((_e, { onError }) => onError({ code: 'CP011' }));
-    await render(<PlanesScreen />);
-    await pulsar('Probar el plan Destacado sin pagar (demostración)');
-    confirmar();
-    expect(String(mockError.mock.calls[0][0])).toMatch(/Verifica tu identidad/);
   });
 
   it('un fallo de red se dice como fallo, sin éxito', async () => {
-    mockMutate.mockImplementation((_e, { onError }) => onError(new Error('Network request failed')));
+    sinPrueba();
+    mockIniciar.mockImplementation((_rol, { onError }) => onError(new Error('Network request failed')));
     await render(<PlanesScreen />);
-    await pulsar('Probar el plan Destacado sin pagar (demostración)');
-    confirmar();
+    await pulsar('Empezar prueba gratis');
     expect(String(mockError.mock.calls[0][0])).toMatch(/conexión/);
     expect(mockExito).not.toHaveBeenCalled();
+  });
+
+  it('con la prueba YA usada no la ofrece: muestra los planes', async () => {
+    sinPrueba({ prueba_disponible: false });
+    await render(<PlanesScreen />);
+    expect(screen.queryByLabelText('Empezar prueba gratis')).toBeNull();
+    expect(screen.getByText('Elige un plan')).toBeTruthy();
+  });
+
+  it('con la prueba en curso tampoco la ofrece', async () => {
+    await render(<PlanesScreen />);
+    expect(screen.queryByLabelText('Empezar prueba gratis')).toBeNull();
+  });
+
+  it('para un arrendador, la prueba es la del plan de prueba de ARRENDADOR', async () => {
+    mockParams.rol = 'arrendador';
+    mockSus.mockReturnValue(lectura({ suscripcion: { ...SUS, estado: 'gratis', plan_id: 'arrendador_gratis', plan_nombre: 'Gratis', hasta: null, prueba_disponible: true } }));
+    mockPlanes.mockReturnValue(catalogo({ planes: [{ ...PLANES[1], id: 'arrendador_plus', rol: 'arrendador', nombre: 'Plus', es_prueba: true, limite_principal: 15 }] }));
+    await render(<PlanesScreen />);
+    expect(screen.getByText(/15 días con todo lo del plan Plus/)).toBeTruthy();
+    await pulsar('Empezar prueba gratis');
+    expect(mockIniciar.mock.calls[0][0]).toBe('arrendador');
   });
 });
 
 describe('pagar con Mercado Pago', () => {
-  it('pide confirmación, dice que en pruebas no se cobra dinero real y lo de OXXO; NO crea el pago de inmediato', async () => {
+  it('pide confirmación y dice lo de OXXO, SIN hablar de «modo de prueba»; NO crea el pago de inmediato', async () => {
     await render(<PlanesScreen />);
     await pulsar('Pagar el plan Destacado con Mercado Pago');
     expect(Alert.alert).toHaveBeenCalledTimes(1);
     const [titulo, cuerpo] = (Alert.alert as jest.Mock).mock.calls[0];
     expect(titulo).toBe('Pagar el plan Destacado con Mercado Pago');
     expect(cuerpo).toMatch(/\$199/);
-    expect(cuerpo).toMatch(/no se cobra dinero real/i);
+    expect(cuerpo).not.toMatch(/prueba|no se cobra dinero real/i);
     expect(cuerpo).toMatch(/OXXO/);
     expect(mockCrear).not.toHaveBeenCalled();
   });
@@ -278,16 +310,6 @@ describe('pagar con Mercado Pago', () => {
     await pulsar('Pagar el plan Destacado con Mercado Pago');
     confirmarMp();
     expect(String(mockError.mock.calls[0][0])).toMatch(/No pudimos iniciar el pago/);
-  });
-
-  it('el pago simulado sigue ahí como respaldo y NO abre Mercado Pago', async () => {
-    mockMutate.mockImplementation((_e, { onSuccess }) => onSuccess('2026-11-17T18:00:00Z'));
-    await render(<PlanesScreen />);
-    await pulsar('Probar el plan Destacado sin pagar (demostración)');
-    confirmar();
-    expect(mockMutate).toHaveBeenCalled();
-    expect(mockCrear).not.toHaveBeenCalled();
-    expect(Linking.openURL).not.toHaveBeenCalled();
   });
 });
 

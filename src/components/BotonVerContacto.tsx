@@ -1,12 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Linking, StyleSheet } from 'react-native';
 
 import { Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
 import { sello } from '@/lib/tacto';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 interface Props {
   publicacionId: string;
@@ -63,7 +64,7 @@ export function BotonVerContacto({ publicacionId, titulo, score, onRevelar, onEr
   };
 
   return (
-    <Pressable
+    <Pulsable
       style={[styles.boton, { backgroundColor: theme.sello }]}
       onPress={abrir}
       disabled={cargando}
@@ -86,7 +87,7 @@ export function BotonVerContacto({ publicacionId, titulo, score, onRevelar, onEr
           <ThemedText style={[styles.texto, { color: theme.selloTexto }]}>Ver contacto</ThemedText>
         </>
       )}
-    </Pressable>
+    </Pulsable>
   );
 }
 

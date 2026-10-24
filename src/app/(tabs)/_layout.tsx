@@ -15,8 +15,10 @@ import {
   Tipografia,
 } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { usePerfilActivo } from '@/hooks/queries/usePerfilActivo';
 import { useMisRoles } from '@/hooks/queries/useRoles';
 import { puedePublicar } from '@/lib/funciones';
+import { pestanasVisibles, type NombrePestana } from '@/lib/perfilActivo';
 import { registrarTokenPush, useAbrirChatDesdeNotificacion } from '@/lib/pushNotifications';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -59,6 +61,11 @@ export default function TabsLayout() {
   // interfaz; la de la base llega con la verificación de vendedor.
   const { roles } = useMisRoles(miId);
   const verPublicar = puedePublicar(roles);
+  // El perfil que usa la cuenta (0083) decide la barra: un negocio no ve Depas ni Roomies, un estudiante no ve el panel de un vendedor.
+  // Mientras no se sabe, la de siempre. `href: null` esconde la pestaña sin quitar la ruta.
+  const { perfil } = usePerfilActivo(miId);
+  const visibles = pestanasVisibles(perfil, verPublicar);
+  const href = (nombre: NombrePestana) => (visibles.includes(nombre) ? undefined : null);
   useAbrirChatDesdeNotificacion();
 
   useEffect(() => {
@@ -107,19 +114,23 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="inicio"
-        options={{ title: 'Inicio', tabBarIcon: crearIcono('home', 'home-outline') }}
+        options={{ title: 'Explorar', href: href('inicio'), tabBarIcon: crearIcono('compass', 'compass-outline') }}
       />
       <Tabs.Screen
         name="favoritos"
-        options={{ title: 'Favoritos', tabBarIcon: crearIcono('heart', 'heart-outline') }}
+        options={{ title: 'Favoritos', href: href('favoritos'), tabBarIcon: crearIcono('heart', 'heart-outline') }}
+      />
+      <Tabs.Screen
+        name="panel"
+        options={{ title: 'Mi panel', href: href('panel'), tabBarIcon: crearIcono('grid', 'grid-outline') }}
       />
       <Tabs.Screen
         name="publicar"
         options={{
-          title: 'Publicar',
+          title: perfil === 'vendedor' ? 'Publicaciones' : 'Publicar',
           // `href: null` la esconde de la barra sin quitar la ruta; la propia pantalla se guarda
-          // por si se llega por un enlace directo.
-          href: verPublicar ? undefined : null,
+          // por si se llega por un enlace directo. Para un vendedor es SU pestaña, aprobado o no.
+          href: href('publicar'),
           tabBarIcon: crearIcono('add-circle', 'add-circle-outline'),
         }}
       />

@@ -27,12 +27,12 @@ Used mainly during move-in season, when a student is choosing housing from anoth
 - Auth via Supabase Auth (email/password); Row Level Security enforced on every table, no exceptions.
 - Editable profile with photo and bio — this specifically builds trust for users who can't visit in person before committing.
 - CRUD for listings ("publicaciones"): up to 5 photos, WhatsApp deep-link contact, activate/deactivate, edit after publishing.
-- Roomie postings + in-app chat via Supabase Realtime — planned, not yet built.
-- Two-level suggestion engine: weighted SQL filters (budget, distance, pet/noise match, freshness), then pgvector cosine-similarity re-ranking on top — planned for later in the build; do not pull this earlier than scheduled.
-- Free-text profile text is encrypted at rest (pgcrypto); no sensitive key is ever exposed to the client.
+- Roomie postings + in-app chat via Supabase Realtime — built (Roomies tab; chat screen with a live subscription).
+- Two-level suggestion engine: weighted SQL filters (budget, distance, pet/noise match, freshness), then pgvector cosine-similarity re-ranking on top — built (SQL filters plus pgvector re-ranking through the AI service); if the AI service is unreachable the app degrades to level 1.
+- Free-text profile text is NOT encrypted at rest: that design was retired (AGENTS.md, §30) and no public function uses `pgp_sym_*` any more. It is protected by RLS and column-whitelisted views; no service key is ever exposed to the client.
 - Cost constraint: must run at effectively $0 during development (free tiers only; minimal paid LLM usage).
 - Timeline constraint: fixed 12-week academic schedule with features intentionally sequenced (no AI work before its scheduled week) specifically to avoid running out of time before the graded demo.
-- Moderation: users can report a listing; repeated reports should eventually auto-hide it (automation not yet built).
+- Moderation: users can report a listing; a listing is auto-hidden at 3 reports and an account is suspended at 3 (migration 0023, trigger `trg_al_reportar`).
 
 ## Brand Commitments
 

@@ -28,7 +28,7 @@ import { useGuardarMiRoomie, useMiRoomie, useRoomiesSugeridos } from '@/hooks/qu
 // `sugerencias_roomies` devuelve la lista ordenada, con los datos públicos del
 // dueño unidos. Aquí no hay "Nivel 1" de filtros duros —ambos lados ya buscan
 // cerca de la misma universidad— así que el orden es directamente la similitud.
-export function VistaRoomies({ selector }: { selector?: ReactNode }) {
+export function VistaRoomies({ selector, campana }: { selector?: ReactNode; campana?: ReactNode }) {
   const theme = useTheme();
   const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
@@ -130,6 +130,7 @@ export function VistaRoomies({ selector }: { selector?: ReactNode }) {
             <Encabezado
               titulo="Roomies"
               descripcion="Personas que buscan con quién compartir, cerca de tu universidad."
+              accion={campana}
             />
 
             <View style={[estilos.miFicha, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>

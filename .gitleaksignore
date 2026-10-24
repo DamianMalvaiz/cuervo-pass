@@ -1,0 +1,5 @@
+# Hallazgos de gitleaks que NO son secretos. Cada línea es la huella que imprime gitleaks, con su motivo arriba. Un hallazgo real NO se ignora: se rota la credencial.
+
+# Dato de prueba INVENTADO («AIzaSyFAKEKEY…») en la prueba del verificador de google-services.json, commit del 23/10/2026. No coincide con ninguna clave real
+# (comprobado contra el archivo local, que está ignorado por git). La prueba ya no lo escribe entero; este commit del historial no se reescribe.
+1222472af8cf0d9489c105adf6f14838fd2473a4:test-utils/__tests__/verificar-google-services.test.ts:gcp-api-key:11

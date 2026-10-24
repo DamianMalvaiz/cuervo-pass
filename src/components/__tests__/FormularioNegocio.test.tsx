@@ -57,18 +57,38 @@ import { FormularioNegocio } from '../FormularioNegocio';
 
 const NEGOCIO = {
   id: 'n1', categoria_id: 'comida', nombre: 'Tacos', descripcion: 'Ricos', direccion: 'Calle 1, Lerma', latitud: 19.3, longitud: -99.4,
-  rango_precio: 1, horario: 'Lun a sáb', fotos: ['negocios/n1/a.jpg', 'negocios/n1/b.jpg'], destacado: false, origen: 'solicitud',
+  rango_precio: 1, horario: 'Lun a sáb · 8 am a 8 pm', fotos: ['negocios/n1/a.jpg', 'negocios/n1/b.jpg'], destacado: false, origen: 'solicitud',
   activo: true, oculto_por_reportes: false, usuario_id: 'u1', creado_en: 'x',
 };
 const ITEMS = [{ id: 'i1', negocio_id: 'n1', nombre: 'Taco', precio: 18, orden: 0 }, { id: 'i2', negocio_id: 'n1', nombre: 'Revisión', precio: null, orden: 1 }];
 
 const pulsar = async (e: string | RegExp) => { await act(async () => { fireEvent.press(screen.getByLabelText(e)); }); };
-const escribir = async (e: string, t: string) => { await act(async () => { fireEvent.changeText(screen.getByLabelText(e), t); }); };
+const escribir = async (e: string | RegExp, t: string) => { await act(async () => { fireEvent.changeText(screen.getByLabelText(e), t); }); };
+
+const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+/** El horario es obligatorio: el lunes abre de 8 a 20 y el resto de la semana está cerrado, todo marcado a mano. */
+const llenarHorario = async () => {
+  await pulsar('Lunes: abierto');
+  await escribir('Lunes, turno 1, abre', '08:00');
+  await escribir('Lunes, turno 1, cierra', '20:00');
+  for (const d of DIAS.slice(1)) await pulsar(`${d}: cerrado`);
+};
+
+/** El primer producto es obligatorio: se agrega con el mismo editor del menú. */
+const agregarProducto = async (nombre = 'Café americano', precio = '35') => {
+  await pulsar('Agregar un producto');
+  await escribir('Nombre del producto', nombre);
+  await escribir(/Precio/, precio);
+  await pulsar('Guardar producto');
+};
 
 const llenarNuevo = async () => {
   await escribir('Nombre del negocio', 'Café Nuevo');
   await pulsar('Categoría Cafés');
   await escribir('Dirección', 'Calle 5, Lerma');
+  await llenarHorario();
+  await agregarProducto();
 };
 
 beforeEach(() => {
@@ -95,14 +115,13 @@ describe('negocio nuevo', () => {
   it('completo, geocodifica y manda al hook SOLO columnas escribibles', async () => {
     await render(<FormularioNegocio />);
     await llenarNuevo();
-    await pulsar('Rango de precio $$');
     await pulsar('Publicar negocio');
     expect(mockGeocodificar).toHaveBeenCalledWith('Calle 5, Lerma');
     const entrada = mockMutate.mock.calls[0][0];
     expect(entrada.id).toBeUndefined();
     expect(entrada.datos).toEqual({
       categoria_id: 'cafes', nombre: 'Café Nuevo', descripcion: null, direccion: 'Calle 5, Lerma',
-      latitud: 19.32, longitud: -99.45, rango_precio: 2, horario: null, activo: true,
+      latitud: 19.32, longitud: -99.45, horario: 'Lunes · 8 am a 8 pm', activo: true,
     });
     for (const prohibida of ['destacado', 'origen', 'oculto_por_reportes']) expect(entrada.datos).not.toHaveProperty(prohibida);
   });
@@ -160,9 +179,9 @@ describe('negocio nuevo', () => {
     expect(mockReplace).toHaveBeenCalledWith({ pathname: '/negocio/editar/[id]', params: { id: 'n-creado' } });
   });
 
-  it('un negocio nuevo no abre el menú todavía: dice que se agrega después de publicar', async () => {
+  it('un negocio nuevo no abre la pantalla del menú todavía: agrega sus productos aquí mismo', async () => {
     await render(<FormularioNegocio />);
-    expect(screen.getByText(/podrás agregar su menú/)).toBeTruthy();
+    expect(screen.getByLabelText('Agregar un producto')).toBeTruthy();
     expect(screen.queryByLabelText(/Editar el menú/)).toBeNull();
   });
 
@@ -179,7 +198,15 @@ describe('fotos y menú', () => {
     expect(screen.getByLabelText('Quitar la foto 1')).toBeTruthy();
     await pulsar('Quitar la foto 1');
     expect(screen.queryByLabelText('Quitar la foto 1')).toBeNull();
-    for (let i = 0; i < 60; i++) await pulsar('Agregar una foto del negocio');
+  });
+
+  // El máximo es el del PLAN. Antes esta prueba pulsaba 60 veces (el tope técnico), y cada pulsación repinta el formulario entero con la lista
+  // creciendo: bajo la carga de la suite completa pasaba de los 15 s y fallaba sin que nada estuviera roto. Con 4 se comprueba lo mismo.
+  it('al llegar al máximo del plan ya no ofrece más fotos', async () => {
+    mockSus.mockReturnValue({ suscripcion: { max_fotos: 4, max_productos: 10 }, cargando: false, fallo: false });
+    await render(<FormularioNegocio />);
+    for (let i = 0; i < 4; i++) await pulsar('Agregar una foto del negocio');
+    expect(screen.getByLabelText('Quitar la foto 4')).toBeTruthy();
     expect(screen.queryByLabelText('Agregar una foto del negocio')).toBeNull();
   });
 
@@ -334,56 +361,196 @@ describe('el límite de fotos del plan', () => {
   });
 });
 
-describe('horario (0070)', () => {
+describe('lo que vende (mínimo un producto)', () => {
+  const inicial = (extra: Record<string, unknown> = {}, items: unknown[] = ITEMS) =>
+    ({ negocio: { ...NEGOCIO, ...extra } as never, items: items as never });
+
+  it('ya no hay «Rango de precio»: se publica lo que se vende, con su precio', async () => {
+    await render(<FormularioNegocio />);
+    expect(screen.queryByText('Rango de precio')).toBeNull();
+    expect(screen.queryByLabelText(/Rango de precio/)).toBeNull();
+  });
+
+  it('un negocio nuevo sin productos NO se publica y dice qué hacer', async () => {
+    await render(<FormularioNegocio />);
+    await escribir('Nombre del negocio', 'Café Nuevo');
+    await pulsar('Categoría Cafés');
+    await escribir('Dirección', 'Calle 5, Lerma');
+    await llenarHorario();
+    await pulsar('Publicar negocio');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText('Agrega al menos un producto para publicar tu negocio.')).toBeTruthy();
+  });
+
+  it('el producto agregado aparece en la lista, con su precio', async () => {
+    await render(<FormularioNegocio />);
+    await agregarProducto('Café americano', '35');
+    expect(screen.getByText('Café americano')).toBeTruthy();
+    expect(screen.getByText('$35')).toBeTruthy();
+  });
+
+  it('con un producto se publica y manda los productos junto con el negocio', async () => {
+    await render(<FormularioNegocio />);
+    await llenarNuevo();
+    await pulsar('Publicar negocio');
+    const e = mockMutate.mock.calls[0][0];
+    expect(e.productos).toHaveLength(1);
+    expect(e.productos[0]).toMatchObject({ nombre: 'Café americano', precio: '35' });
+    expect(e.datos).not.toHaveProperty('rango_precio');
+  });
+
+  it('se puede quitar el producto agregado (y entonces ya no se publica)', async () => {
+    await render(<FormularioNegocio />);
+    await llenarNuevo();
+    await pulsar('Quitar Café americano');
+    await pulsar('Publicar negocio');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText('Agrega al menos un producto para publicar tu negocio.')).toBeTruthy();
+  });
+
+  it('un negocio que ya existe sin productos tampoco se guarda visible', async () => {
+    await render(<FormularioNegocio inicial={inicial({}, [])} />);
+    await pulsar('Guardar cambios');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText('Agrega al menos un producto para publicar tu negocio.')).toBeTruthy();
+  });
+
+  it('un negocio que ya existe con productos se guarda sin tocar su menú (tiene su propia pantalla)', async () => {
+    await render(<FormularioNegocio inicial={inicial()} />);
+    await pulsar('Guardar cambios');
+    expect(mockMutate.mock.calls[0][0].productos).toBeUndefined();
+  });
+});
+
+describe('horario obligatorio (0070)', () => {
   const inicial = (extra: Record<string, unknown> = {}, turnos?: unknown[]) =>
     ({ negocio: { ...NEGOCIO, ...extra } as never, items: ITEMS as never, turnos: turnos as never });
 
-  it('sin tocar el horario NO manda turnos (no se pisa lo guardado) y el texto no cambia', async () => {
-    await render(<FormularioNegocio inicial={inicial()} />);
-    await pulsar('Guardar cambios');
-    const e = mockMutate.mock.calls[0][0];
-    expect(e.turnos).toBeUndefined();
-    expect(e.datos.horario).toBe('Lun a sáb');
+  it('no hay atajos de «mismo horario» ni se dice que es opcional: se llena a mano', async () => {
+    await render(<FormularioNegocio />);
+    expect(screen.queryByText(/Mismo horario/)).toBeNull();
+    expect(screen.queryByText(/Horario \(opcional\)/)).toBeNull();
+    for (const d of DIAS) expect(screen.getByText(d)).toBeTruthy();
   });
 
-  it('un texto regular se propone como turnos y se guarda al confirmar', async () => {
-    await render(<FormularioNegocio inicial={inicial({ horario: 'Lun a vie · 9 am a 6 pm' })} />);
-    await pulsar('Guardar cambios');
-    const e = mockMutate.mock.calls[0][0];
-    expect(e.turnos).toHaveLength(5);
-    expect(e.datos.horario).toBe('Lun a vie · 9 am a 6 pm');
+  it('sin decidir ningún día NO guarda y dice cuál falta, con el nombre completo', async () => {
+    await render(<FormularioNegocio />);
+    await escribir('Nombre del negocio', 'Café Nuevo');
+    await pulsar('Categoría Cafés');
+    await escribir('Dirección', 'Calle 5, Lerma');
+    await pulsar('Publicar negocio');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText('Te falta decidir el lunes.')).toBeTruthy();
   });
 
-  it('añadir un turno manda los turnos y el resumen como texto', async () => {
-    await render(<FormularioNegocio inicial={inicial({ horario: null })} />);
-    await pulsar('Añadir horario al Sábado');
-    await pulsar('Guardar cambios');
-    const e = mockMutate.mock.calls[0][0];
-    expect(e.turnos).toEqual([{ dia: 6, abre: '09:00', cierra: '18:00' }]);
-    expect(e.datos.horario).toBe('Sáb · 9 am a 6 pm');
+  it('con un día sin decidir NO guarda y nombra ese día', async () => {
+    await render(<FormularioNegocio />);
+    await escribir('Nombre del negocio', 'Café Nuevo');
+    await pulsar('Categoría Cafés');
+    await escribir('Dirección', 'Calle 5, Lerma');
+    await pulsar('Lunes: abierto');
+    await escribir('Lunes, turno 1, abre', '08:00');
+    await escribir('Lunes, turno 1, cierra', '20:00');
+    for (const d of DIAS.slice(1)) if (d !== 'Jueves') await pulsar(`${d}: cerrado`);
+    await pulsar('Publicar negocio');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText('Te falta decidir el jueves.')).toBeTruthy();
   });
 
-  it('quitar todos los turnos manda lista vacía y horario null', async () => {
-    await render(<FormularioNegocio inicial={inicial({ horario: 'Sáb · 9 am a 6 pm' }, [{ dia: 6, abre: '09:00', cierra: '18:00' }])} />);
-    await pulsar('Quitar el turno 1 del Sábado');
-    await pulsar('Guardar cambios');
-    const e = mockMutate.mock.calls[0][0];
-    expect(e.turnos).toEqual([]);
-    expect(e.datos.horario).toBeNull();
+  it('todos los días cerrados NO guarda: tiene que abrir al menos uno', async () => {
+    await render(<FormularioNegocio />);
+    await escribir('Nombre del negocio', 'Café Nuevo');
+    await pulsar('Categoría Cafés');
+    await escribir('Dirección', 'Calle 5, Lerma');
+    for (const d of DIAS) await pulsar(`${d}: cerrado`);
+    await pulsar('Publicar negocio');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText(/al menos un día/)).toBeTruthy();
   });
 
-  it('una hora inválida bloquea el guardado y lo dice', async () => {
-    await render(<FormularioNegocio inicial={inicial({ horario: null })} />);
-    await pulsar('Añadir horario al Lunes');
-    await escribir('Lunes, turno 1, abre', '25:99');
-    await pulsar('Guardar cambios');
+  it('abrir un día no inventa horas: los campos nacen vacíos y hay que escribirlas', async () => {
+    await render(<FormularioNegocio />);
+    await pulsar('Lunes: abierto');
+    expect(screen.getByLabelText('Lunes, turno 1, abre').props.value).toBe('');
+    expect(screen.getByLabelText('Lunes, turno 1, cierra').props.value).toBe('');
+  });
+
+  it('abierto sin horas escritas NO guarda y pide revisarlas', async () => {
+    await render(<FormularioNegocio />);
+    await escribir('Nombre del negocio', 'Café Nuevo');
+    await pulsar('Categoría Cafés');
+    await escribir('Dirección', 'Calle 5, Lerma');
+    await pulsar('Lunes: abierto');
+    for (const d of DIAS.slice(1)) await pulsar(`${d}: cerrado`);
+    await pulsar('Publicar negocio');
     expect(mockMutate).not.toHaveBeenCalled();
     expect(screen.getByText(/Revisa las horas/)).toBeTruthy();
   });
 
-  it('«9» al salir del campo queda como 09:00', async () => {
-    await render(<FormularioNegocio inicial={inicial({ horario: null })} />);
-    await pulsar('Añadir horario al Lunes');
+  it('completo manda los turnos y el resumen con los días completos', async () => {
+    await render(<FormularioNegocio />);
+    await llenarNuevo();
+    await pulsar('Publicar negocio');
+    const e = mockMutate.mock.calls[0][0];
+    expect(e.turnos).toEqual([{ dia: 1, abre: '08:00', cierra: '20:00' }]);
+    expect(e.datos.horario).toBe('Lunes · 8 am a 8 pm');
+  });
+
+  it('un texto regular se propone ya decidido (los días que no nombra quedan cerrados) y guarda sin tocar nada', async () => {
+    await render(<FormularioNegocio inicial={inicial({ horario: 'Lun a vie · 9 am a 6 pm' })} />);
+    await pulsar('Guardar cambios');
+    const e = mockMutate.mock.calls[0][0];
+    expect(e.turnos).toHaveLength(5);
+    expect(e.datos.horario).toBe('Lunes a viernes · 9 am a 6 pm');
+  });
+
+  it('un negocio con turnos guardados los conserva y guarda sin tocar nada', async () => {
+    await render(<FormularioNegocio inicial={inicial({ horario: 'x' }, [{ dia: 6, abre: '09:00', cierra: '18:00' }])} />);
+    await pulsar('Guardar cambios');
+    const e = mockMutate.mock.calls[0][0];
+    expect(e.turnos).toEqual([{ dia: 6, abre: '09:00', cierra: '18:00' }]);
+    expect(e.datos.horario).toBe('Sábado · 9 am a 6 pm');
+  });
+
+  it('un negocio de antes, con un horario sin horas, tiene que definirlo para poder guardar', async () => {
+    await render(<FormularioNegocio inicial={inicial({ horario: 'Lunes a Sábado' })} />);
+    await pulsar('Guardar cambios');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText('Te falta decidir el lunes.')).toBeTruthy();
+  });
+
+  it('quitar el único turno de un día lo devuelve a «sin decidir»', async () => {
+    await render(<FormularioNegocio inicial={inicial({ horario: 'x' }, [{ dia: 6, abre: '09:00', cierra: '18:00' }])} />);
+    await pulsar('Quitar el turno 1 del Sábado');
+    await pulsar('Guardar cambios');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText(/Te falta decidir/)).toBeTruthy();
+  });
+
+  it('se puede añadir un segundo turno el mismo día', async () => {
+    await render(<FormularioNegocio />);
+    await pulsar('Lunes: abierto');
+    await pulsar('Añadir otro turno al Lunes');
+    expect(screen.getByLabelText('Lunes, turno 2, abre')).toBeTruthy();
+  });
+
+  it('una hora inválida bloquea el guardado y lo dice', async () => {
+    await render(<FormularioNegocio />);
+    await escribir('Nombre del negocio', 'Café Nuevo');
+    await pulsar('Categoría Cafés');
+    await escribir('Dirección', 'Calle 5, Lerma');
+    await pulsar('Lunes: abierto');
+    await escribir('Lunes, turno 1, abre', '25:99');
+    await escribir('Lunes, turno 1, cierra', '20:00');
+    for (const d of DIAS.slice(1)) await pulsar(`${d}: cerrado`);
+    await pulsar('Publicar negocio');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.getByText(/Revisa las horas/)).toBeTruthy();
+  });
+
+  it('«8» al salir del campo queda como 08:00', async () => {
+    await render(<FormularioNegocio />);
+    await pulsar('Lunes: abierto');
     await escribir('Lunes, turno 1, abre', '8');
     await act(async () => { fireEvent(screen.getByLabelText('Lunes, turno 1, abre'), 'endEditing'); });
     expect(screen.getByDisplayValue('08:00')).toBeTruthy();

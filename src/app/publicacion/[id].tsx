@@ -4,7 +4,6 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -21,6 +20,7 @@ import { Seccion } from '@/components/ficha/Seccion';
 import { SeccionParecidas } from '@/components/SeccionParecidas';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { BotonEscribir } from '@/components/BotonEscribir';
+import { useCuentaRestringida } from '@/hooks/queries/useCuentaRestringida';
 import { BotonFavorito } from '@/components/BotonFavorito';
 import { ConteoFavoritos } from '@/components/ConteoFavoritos';
 import { MapaUbicacion } from '@/components/MapaUbicacion';
@@ -44,6 +44,7 @@ import { usePublicacion , useAfinidad } from '@/hooks/queries/usePublicaciones';
 import { SQL, esCodigo } from '@/lib/erroresPostgres';
 import { etiquetaDeAjuste, razonesDeAjuste } from '@/lib/razonesDeAjuste';
 import { toast } from '@/lib/toast';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 const ETIQUETA_TIPO: Record<string, string> = {
@@ -64,6 +65,7 @@ export default function DetallePublicacionScreen() {
   // la suministraba el cliente. Ahora se consulta al servidor.
   const { id } = useLocalSearchParams<{ id: string }>();
   const session = useAuthStore((s) => s.session);
+  const restringida = useCuentaRestringida(session?.user.id);
   const { perfil, cargarPerfil } = usePerfilStore();
   const [foja, setFoja] = useState(0);
 
@@ -395,17 +397,20 @@ export default function DetallePublicacionScreen() {
           </ThemedText>
         </View>
 
-        <Pressable
-          onPress={onReportar}
-          style={estilos.reportar}
-          accessibilityRole="button"
-          accessibilityLabel="Reportar publicación"
-        >
-          <Ionicons name="flag-outline" size={16} color={theme.error} />
-          <ThemedText type="small" themeColor="error" style={estilos.textoReportar}>
-            Reportar publicación
-          </ThemedText>
-        </Pressable>
+        {/* 0082: una cuenta restringida no reporta; no se ofrece lo que la base va a rechazar. */}
+        {restringida ? null : (
+          <Pulsable
+            onPress={onReportar}
+            style={estilos.reportar}
+            accessibilityRole="button"
+            accessibilityLabel="Reportar publicación"
+          >
+            <Ionicons name="flag-outline" size={16} color={theme.error} />
+            <ThemedText type="small" themeColor="error" style={estilos.textoReportar}>
+              Reportar publicación
+            </ThemedText>
+          </Pulsable>
+        )}
       </View>
     </ScrollView>
 

@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -7,25 +7,26 @@ import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
-import { useContratarPlan, useCrearPago, useMiSuscripcion, useMiUltimaOrden, usePlanes, useRefrescarTrasPago } from '@/hooks/queries/usePlanes';
+import { useCrearPago, useIniciarPrueba, useMiSuscripcion, useMiUltimaOrden, usePlanes, useRefrescarTrasPago } from '@/hooks/queries/usePlanes';
 import { useAlVolverAPrimerPlano } from '@/hooks/use-al-volver';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
-import { AVISO_PAGOS, ErrorPago, describirOrden, mensajeDeErrorPago, textoConfirmarPago } from '@/lib/pagoMp';
-import { describirSuscripcion, fechaLarga, incluyeDe, precioDe } from '@/lib/planes';
+import { ErrorPago, describirOrden, mensajeDeErrorPago, textoConfirmarPago } from '@/lib/pagoMp';
+import { describirSuscripcion, fechaLarga, incluyeDe, precioDe, textoDePrueba } from '@/lib/planes';
 import { toast } from '@/lib/toast';
 import { esRolVendedor, type RolVendedor } from '@/lib/verificacion';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { PlanDePago } from '@/types/database.types';
 
 /**
- * Planes y suscripciones · Cuervo 360 (migración 0053).
+ * Planes y suscripciones · Cuervo 360 (migraciones 0053 y 0084).
  *
- * Dice en qué plan está esta cuenta (prueba gratis, plan vigente o sin plan), qué incluye cada plan y permite contratarlo, con Mercado Pago
- * (abre su página de pago; el plan se activa cuando llega el aviso del pago, fuera de la app) o con el pago de demostración, que queda de respaldo.
- * Mientras la app esté en pruebas la pantalla lo dice siempre: no se cobra dinero real. Tres estados en cada lectura (END-11): cargando, falló y
- * vacío se pintan distinto.
+ * Tres vistas, según lo que la base dice de esta cuenta (END-11: cargando, falló y vacío se pintan distinto):
+ *  · sin la función → «Primero crea tu perfil de vendedor».
+ *  · prueba disponible (no la ha usado ni ha pagado) → «Empieza gratis»: UNA tarjeta y UN botón, «Empezar prueba gratis». Sin alertas y sin la palabra
+ *    «demostración»; es gratis y no compromete nada.
+ *  · lo demás → los planes de pago, que se pagan con Mercado Pago (abre su página; el plan se activa cuando llega el aviso del pago, fuera de la app).
  */
 export default function PlanesScreen() {
   const theme = useTheme();
@@ -37,7 +38,7 @@ export default function PlanesScreen() {
   const rol = (rolValido ? rolParam : 'comerciante') as RolVendedor;
   const { suscripcion, cargando: cargandoSus, fallo: falloSus, reintentar: reintentarSus } = useMiSuscripcion(miId, rol);
   const { planes, cargando: cargandoPlanes, fallo: falloPlanes, reintentar: reintentarPlanes } = usePlanes(rol);
-  const contratar = useContratarPlan(miId);
+  const iniciar = useIniciarPrueba(miId);
   const crear = useCrearPago();
   const { orden, fallo: falloOrden, refrescar: refrescarOrden } = useMiUltimaOrden(miId, rol);
   const refrescarTodo = useRefrescarTrasPago(miId, rol);
@@ -95,45 +96,35 @@ export default function PlanesScreen() {
 
   const titulo = rol === 'comerciante' ? 'Planes de comerciante' : 'Planes de arrendador';
 
-  // Sin la función aprobada no hay plan que mostrar ni que contratar.
+  // Sin la función no hay plan que mostrar ni que contratar.
   if (!suscripcion) {
     return envoltura(
       <>
         <ThemedText type="subtitle">{titulo}</ThemedText>
         <ThemedText themeColor="textSecondary">
-          Primero agrega esta función y verifica tu identidad desde tu perfil, en «Tus funciones».
+          Primero crea tu perfil de vendedor. Verificar tu identidad viene después, y puedes empezar tu prueba gratis antes.
         </ThemedText>
+        <Sello onPress={() => router.push('/perfil/crear-vendedor')} accessibilityLabel="Crear mi perfil de vendedor">
+          Crear mi perfil de vendedor
+        </Sello>
       </>
     );
   }
 
-  const pedir = (plan: PlanDePago) => {
-    if (contratar.isPending) return;
-    Alert.alert(
-      `Contratar el plan ${plan.nombre}`,
-      `Es un pago de DEMOSTRACIÓN: no se cobra nada. El plan queda vigente 30 días y cuesta ${precioDe(plan.precio_centavos)} al mes en la versión real.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Contratar',
-          onPress: () =>
-            contratar.mutate(
-              { planId: plan.id, rol },
-              {
-                onSuccess: (hasta) => toast.exito(`Plan ${plan.nombre} activo hasta el ${fechaLarga(hasta)}`),
-                onError: (err) =>
-                  toast.error(
-                    esCodigo(err, CP.DEMO_APAGADO)
-                      ? 'Los pagos de demostración no están activos por ahora.'
-                      : esCodigo(err, CP.PLAN_NO_DISPONIBLE)
-                        ? 'Ese plan no está disponible para tu cuenta. Verifica tu identidad primero.'
-                        : 'No pudimos contratar el plan. Revisa tu conexión e intenta de nuevo.'
-                  ),
-              }
-            ),
-        },
-      ]
-    );
+  // Es GRATIS y no compromete nada: sin alerta de confirmación. El fallo se dice por su código (END-27) y ninguno se cuenta como éxito.
+  const empezarPrueba = () => {
+    if (iniciar.isPending) return;
+    iniciar.mutate(rol, {
+      onSuccess: (hasta) => toast.exito(`Prueba gratis activa hasta el ${fechaLarga(hasta)}`),
+      onError: (err) =>
+        toast.error(
+          esCodigo(err, CP.PRUEBA_YA_USADA)
+            ? 'Ya usaste tu prueba gratis.'
+            : esCodigo(err, CP.SIN_ESA_FUNCION)
+              ? 'Primero crea tu perfil de vendedor.'
+              : 'No pudimos empezar tu prueba. Revisa tu conexión e intenta de nuevo.'
+        ),
+    });
   };
 
   const pagar = (plan: PlanDePago) => {
@@ -160,18 +151,39 @@ export default function PlanesScreen() {
   };
 
   const textoOrden = orden ? describirOrden(orden.estado, orden.creada_en) : null;
-  const ocupado = crear.isPending || contratar.isPending;
+  const ocupado = crear.isPending || iniciar.isPending;
+
+  // La prueba gratis, si está disponible: UNA tarjeta y UN botón. Es la del plan de prueba de ESTA función (no siempre el «Básico»: la del arrendador es «Plus»).
+  if (suscripcion.estado === 'gratis' && suscripcion.prueba_disponible) {
+    const plan = planes.find((p) => p.es_prueba) ?? planes[0];
+    return envoltura(
+      <>
+        <ThemedText style={Texto.tituloHoja}>Empieza gratis</ThemedText>
+        {plan ? <ThemedText themeColor="textSecondary">{textoDePrueba(plan.nombre)}</ThemedText> : null}
+        {plan ? (
+          <View style={[estilos.tarjeta, { borderColor: theme.text, borderWidth: Filete.grueso, backgroundColor: theme.backgroundElement }]}>
+            <View style={estilos.cabeceraPlan}>
+              <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>{`Plan ${plan.nombre}`}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">{`Después, ${precioDe(plan.precio_centavos)} al mes`}</ThemedText>
+            </View>
+            {incluyeDe(plan, rol).map((f) => (
+              <View key={f} style={estilos.fila}>
+                <Ionicons name="checkmark-circle-outline" size={18} color={theme.bosque} />
+                <ThemedText>{f}</ThemedText>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        <Sello onPress={empezarPrueba} cargando={iniciar.isPending} accessibilityLabel="Empezar prueba gratis">
+          Empezar prueba gratis
+        </Sello>
+      </>
+    );
+  }
 
   return envoltura(
     <>
       <ThemedText type="subtitle">{titulo}</ThemedText>
-
-      <View style={[estilos.aviso, { borderColor: theme.filete, backgroundColor: theme.backgroundSelected }]}>
-        <Ionicons name="information-circle-outline" size={20} color={theme.text} />
-        <ThemedText type="small" style={estilos.crece}>
-          {AVISO_PAGOS}
-        </ThemedText>
-      </View>
 
       {falloOrden ? (
         <ThemedText type="small" themeColor="textSecondary">
@@ -228,15 +240,6 @@ export default function PlanesScreen() {
                 accessibilityLabel={`${esElActual ? 'Renovar' : 'Pagar'} el plan ${p.nombre} con Mercado Pago`}
               >
                 {esElActual ? 'Renovar 30 días con Mercado Pago' : 'Pagar con Mercado Pago'}
-              </Sello>
-              <Sello
-                variante="contorno"
-                onPress={() => pedir(p)}
-                cargando={contratar.isPending}
-                deshabilitado={ocupado}
-                accessibilityLabel={`Probar el plan ${p.nombre} sin pagar (demostración)`}
-              >
-                Probar sin pagar (demostración)
               </Sello>
             </View>
           );

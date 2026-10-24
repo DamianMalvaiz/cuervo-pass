@@ -120,6 +120,22 @@ export async function obtenerNuevasEstaSemana(
   return (data ?? []) as PublicacionNueva[];
 }
 
+/**
+ * Las publicaciones DESTACADAS (0087): las de arrendadores con el plan que destaca. El destacado sale del plan, no de algo que el arrendador escriba, y la función
+ * respeta los mismos filtros duros que las sugerencias (presupuesto, radio, mascotas). Mismas columnas que las novedades.
+ */
+export async function obtenerDestacadas(
+  limite = 10,
+  tipo: TipoPublicacion | null = null
+): Promise<PublicacionNueva[]> {
+  const { data, error } = await supabase.rpc('destacadas_publicaciones', {
+    p_limite: limite,
+    p_tipo: tipo,
+  });
+  if (error) throw error;
+  return (data ?? []) as PublicacionNueva[];
+}
+
 // ═══════════════════ Lectura ═══════════════════
 
 /**

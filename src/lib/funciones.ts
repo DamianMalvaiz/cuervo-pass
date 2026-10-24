@@ -14,6 +14,11 @@ export function puedePublicar(roles: readonly RolUsuario[]): boolean {
   return roles.some((r) => DE_VENDEDOR.includes(r.rol) && r.estado === 'aprobado');
 }
 
+/** Las funciones de vendedor que tiene la cuenta, en el estado que sea (sin verificar, en revisión, aprobada…). `admin` no vende. */
+export function funcionesDeVendedor(roles: readonly RolUsuario[]): ('arrendador' | 'comerciante')[] {
+  return roles.filter((r) => DE_VENDEDOR.includes(r.rol)).map((r) => r.rol as 'arrendador' | 'comerciante');
+}
+
 /** ¿Tiene esta cuenta ESA función de vendedor aprobada? (`puedePublicar` solo dice si tiene alguna.) */
 export function tieneFuncionAprobada(roles: readonly RolUsuario[], rol: 'comerciante' | 'arrendador'): boolean {
   return roles.some((r) => r.rol === rol && r.estado === 'aprobado');

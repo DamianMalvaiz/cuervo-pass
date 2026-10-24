@@ -1,24 +1,27 @@
-import { LogoMarca } from '@/components/LogoMarca';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import '@/lib/zodEs';
 
 import { Campo } from '@/components/Campo';
+import { EncabezadoAuth } from '@/components/EncabezadoAuth';
+import { Entrada, GolpeDeSello } from '@/components/ficha/EntradaAuth';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Filete, Radios, Spacing, Texto, escalarTexto } from '@/constants/theme';
+import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { reenviarConfirmacion } from '@/lib/confirmacionCorreo';
+import { destinoInicial } from '@/lib/perfilActivo';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 // Al ENTRAR no se valida la fuerza de la contraseña, solo que exista.
 //
@@ -35,7 +38,7 @@ type FormLogin = z.infer<typeof esquemaLogin>;
 
 export default function LoginScreen() {
   const theme = useTheme();
-  const { anchoContenido, clase, altoApretado, escalaTitulo } = useTamanoPantalla();
+  const { anchoContenido, clase } = useTamanoPantalla();
   const iniciarSesion = useAuthStore((s) => s.iniciarSesion);
   const [errorServidor, setErrorServidor] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -47,7 +50,7 @@ export default function LoginScreen() {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormLogin>({ resolver: zodResolver(esquemaLogin) });
+  } = useForm<FormLogin>({ resolver: zodResolver(esquemaLogin), mode: 'onTouched' });
 
   const onSubmit = async (datos: FormLogin) => {
     setErrorServidor(null);
@@ -62,10 +65,11 @@ export default function LoginScreen() {
       // Sugerencias sin universidad ni presupuesto configurados.
       const { data: perfil } = await supabase
         .from('usuarios')
-        .select('universidad')
+        .select('cuestionario_completo, perfil_activo')
         .eq('id', sesion.user?.id ?? '')
         .single();
-      router.replace(perfil?.universidad ? '/(tabs)/inicio' : '/(auth)/cuestionario-inicial');
+      // 0083: un vendedor entra por su panel y no pasa por el cuestionario de estudiante.
+      router.replace(destinoInicial(perfil?.perfil_activo === 'vendedor' ? 'vendedor' : 'estudiante', Boolean(perfil?.cuestionario_completo)));
     } catch (e) {
       // El mensaje de Supabase viene en inglés y dice "Invalid login
       // credentials", que no le sirve a nadie. Se traduce lo único que de
@@ -95,24 +99,17 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
-            {/* Membrete. En pantallas de poco alto el subtítulo sobra: lo que
-                no cabe se recorta por lo prescindible, no por lo esencial. */}
-            <View style={estilos.membrete}>
+            <EncabezadoAuth
+              etiqueta="UNIVERSIDAD TECNOLÓGICA DEL VALLE DE TOLUCA"
+              titulo="Cuervo 360"
+              subtitulo="Todo en un solo lugar."
+            />
+
+            {/* La hoja del acceso: los campos van sobre una superficie propia, como una ficha, y no sueltos sobre el papel. */}
+            <Entrada orden={1} style={[estilos.hoja, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
               <ThemedText type="etiqueta" themeColor="textSecondary">
-                UNIVERSIDAD TECNOLÓGICA DEL VALLE DE TOLUCA
+                ACCESO
               </ThemedText>
-              {/* En pantallas de poco alto el logo sobra, igual que el lema: lo prescindible se recorta primero. */}
-              {!altoApretado && <LogoMarca />}
-              <ThemedText type="title" style={escalarTexto(Texto.tituloHoja, escalaTitulo)}>
-                Cuervo 360
-              </ThemedText>
-              {!altoApretado && (
-                <ThemedText type="small" themeColor="textSecondary">
-                  Todo en un solo lugar.
-                </ThemedText>
-              )}
-              <View style={[estilos.filete, { backgroundColor: theme.text }]} />
-            </View>
 
             <Controller
               control={control}
@@ -164,7 +161,7 @@ export default function LoginScreen() {
             )}
 
             {sinConfirmar && (
-              <Pressable
+              <Pulsable
                 onPress={async () => setReenvioFallo(!(await reenviarConfirmacion(sinConfirmar)))}
                 accessibilityRole="button"
                 accessibilityLabel="Reenviar correo de confirmación"
@@ -173,7 +170,7 @@ export default function LoginScreen() {
                 <ThemedText type="small" themeColor="acento">
                   Reenviar correo de confirmación
                 </ThemedText>
-              </Pressable>
+              </Pulsable>
             )}
             {reenvioFallo && (
               <ThemedText type="small" style={{ color: theme.error }}>
@@ -181,13 +178,14 @@ export default function LoginScreen() {
               </ThemedText>
             )}
 
-            <View style={estilos.accion}>
-              <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel="Entrar">
-                Entrar
-              </Sello>
-            </View>
+              <GolpeDeSello style={estilos.accion}>
+                <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel="Entrar">
+                  Entrar
+                </Sello>
+              </GolpeDeSello>
+            </Entrada>
 
-            <View style={estilos.enlaces}>
+            <Entrada orden={4} style={estilos.enlaces}>
               <Link href="/(auth)/registro" accessibilityRole="link" style={estilos.enlace}>
                 <ThemedText type="small" themeColor="acento">
                   Crear una cuenta
@@ -201,7 +199,7 @@ export default function LoginScreen() {
                   Olvidé mi contraseña
                 </ThemedText>
               </Link>
-            </View>
+            </Entrada>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -216,8 +214,8 @@ const estilos = StyleSheet.create({
   // una línea de ciento veinte caracteres no se lee, se recorre.
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
-  membrete: { gap: Spacing.one, marginBottom: Spacing.two },
-  filete: { height: Filete.grueso, marginTop: Spacing.three },
+  // Superficie de la ficha: filete fino y el radio de las hojas. Sin sombra (Android la ignora y este mundo separa con filete).
+  hoja: { gap: Spacing.three, borderWidth: Filete.fino, borderRadius: Radios.hoja, padding: Spacing.four },
   // Borde completo y un icono, no un filete de color a la izquierda: ese
   // recurso es decoración disfrazada de semántica, y quien no distingue el
   // color no recibe ninguna señal.

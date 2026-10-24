@@ -69,6 +69,13 @@ export interface PerfilPublico {
    * identidades (§28). Etiquétalo en pantalla como «correo verificado».
    */
   correo_verificado: boolean;
+  /**
+   * Cuenta sin correo universitario (0082): no reporta, no reseña ni abre conversaciones; sí responde en las que ya existen. La fija el
+   * servidor al dar de alta; la dueña no la cambia. La app la usa solo para NO ofrecer lo que la base va a rechazar.
+   */
+  cuenta_restringida: boolean;
+  /** Qué perfil usa la persona ahora (0083): decide la barra de pestañas y la primera vista. Solo cambia con `cambiar_perfil_activo`. */
+  perfil_activo: 'estudiante' | 'vendedor';
 }
 
 export type TipoPublicacion = 'depa' | 'cuarto' | 'casa_compartida';
@@ -386,8 +393,12 @@ export interface NegocioItem {
   orden: number;
   seccion: string | null;
   descripcion: string | null;
-  /** Ruta de Storage de la foto del producto (dentro de la carpeta de su negocio). */
+  /** La PORTADA: la primera de `fotos`. La base las mantiene sincronizadas (0085). */
   foto: string | null;
+  /** Rutas de Storage de las fotos del producto (hasta 5, dentro de la carpeta de su negocio); la primera es la portada. */
+  fotos: string[];
+  /** Producto estrella (0086): el vendedor lo elige y sale primero, en el carrusel «Destacados» de su tienda. */
+  estrella: boolean;
 }
 
 /** Verificación de vendedor · 0049. Privado: solo su dueña lee su fila. */
@@ -519,6 +530,11 @@ export interface Database {
       };
       // END-32 · El único carrusel. Trae lo que la lista no tiene —lo reciente—
       // en vez de reordenar el mismo conjunto por tercera vez.
+      // Los destacados de Departamentos (0087): arrendadores con el plan que destaca.
+      destacadas_publicaciones: {
+        Args: { p_limite?: number; p_tipo?: TipoPublicacion | null };
+        Returns: PublicacionNueva[];
+      };
       nuevas_esta_semana: {
         Args: { p_limite?: number; p_tipo?: TipoPublicacion | null };
         Returns: PublicacionNueva[];
@@ -554,6 +570,16 @@ export interface Database {
       // Registra que la cuenta aceptó esta versión del aviso de privacidad (migración 0059). 22023 si la versión no tiene forma `vN`.
       aceptar_aviso: {
         Args: { p_version: string };
+        Returns: undefined;
+      };
+      // Inicia la prueba gratis de una función y devuelve hasta cuándo dura. CP018 sin esa función, CP019 si ya se usó o ya hubo un pago (migración 0084).
+      iniciar_prueba: {
+        Args: { p_rol: 'comerciante' | 'arrendador' };
+        Returns: string;
+      };
+      // 'estudiante' siempre; 'vendedor' solo con alguna función de vendedor (CP017 si no). 22023 si el perfil no existe (migración 0083).
+      cambiar_perfil_activo: {
+        Args: { p_perfil: 'estudiante' | 'vendedor' };
         Returns: undefined;
       };
       // Solo comerciante o arrendador, siempre en sin_verificar. admin y estudiante → CP003.

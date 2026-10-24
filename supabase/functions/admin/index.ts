@@ -17,7 +17,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-import { rutasDeDocumentos, validarSolicitud } from './politica.ts';
+import { interpretarSaludIa, rutasDeDocumentos, validarSolicitud, type MedidaSaludIa } from './politica.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -91,6 +91,11 @@ Deno.serve(async (req) => {
       if (error) return respuestaDeError(error);
       return json({ resumen: data?.[0] ?? null }, 200);
     }
+    case 'resumen_detalle': {
+      const { data, error } = await servicio.rpc('admin_resumen_detalle', { p_admin: admin });
+      if (error) return respuestaDeError(error);
+      return json({ detalle: data ?? null }, 200);
+    }
     case 'verificaciones': {
       const { data, error } = await servicio.rpc('admin_listar_verificaciones', { p_admin: admin });
       if (error) return respuestaDeError(error);
@@ -105,6 +110,44 @@ Deno.serve(async (req) => {
       const { data, error } = await servicio.rpc('admin_listar_errores', { p_admin: admin });
       if (error) return respuestaDeError(error);
       return json({ errores: data ?? [] }, 200);
+    }
+    case 'auditoria': {
+      const { data, error } = await servicio.rpc('admin_listar_auditoria', { p_admin: admin, p_limite: 100 });
+      if (error) return respuestaDeError(error);
+      return json({ auditoria: data ?? [] }, 200);
+    }
+    case 'ingresos': {
+      const { data, error } = await servicio.rpc('admin_ingresos', { p_admin: admin });
+      if (error) return respuestaDeError(error);
+      return json({ ingresos: data ?? null }, 200);
+    }
+    case 'salud': {
+      // El servicio de IA expone `/salud` SIN token a propósito (lo usa la sonda de vida): aquí no se manda ningún secreto, y la respuesta al navegador no lleva su URL.
+      const urlIa = Deno.env.get('AI_SERVICE_URL')?.trim();
+      let medida: MedidaSaludIa;
+      if (!urlIa) {
+        medida = { configurado: false };
+      } else {
+        const t0 = Date.now();
+        try {
+          const r = await fetch(`${urlIa}/salud`, { signal: AbortSignal.timeout(5_000) });
+          medida = { configurado: true, status: r.status, cuerpo: await r.json().catch(() => null), latenciaMs: Date.now() - t0 };
+        } catch (e) {
+          medida = { configurado: true, fallo: e instanceof Error && e.name === 'TimeoutError' ? 'timeout' : 'red' };
+        }
+      }
+      return json({
+        salud: {
+          ia: interpretarSaludIa(medida),
+          // Solo si están puestas, nunca su valor.
+          mercadopago: { configurado: Boolean(Deno.env.get('MP_ACCESS_TOKEN')?.trim() && Deno.env.get('MP_WEBHOOK_SECRET')?.trim()) },
+        },
+      }, 200);
+    }
+    case 'eventos_pago': {
+      const { data, error } = await servicio.rpc('admin_eventos_pago', { p_admin: admin });
+      if (error) return respuestaDeError(error);
+      return json({ eventos_pago: data ?? null }, 200);
     }
     case 'borrar_error': {
       const { error } = await servicio.rpc('admin_borrar_error', { p_admin: admin, p_id: s.id });

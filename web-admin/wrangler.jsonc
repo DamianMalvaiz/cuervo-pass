@@ -1,0 +1,13 @@
+{
+  // Panel de admin web de Cuervo 360. Se construye con `node scripts/construir-web-admin.mjs` y se publica con `npx wrangler deploy -c web-admin/wrangler.jsonc`.
+  "name": "cuervo360-admin",
+  "routes": [{ "pattern": "admin.cuervo360.com", "custom_domain": true }],
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  }
+}

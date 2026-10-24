@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 
 // Cuervo 360 · Inicio reúne los módulos.
 //
@@ -17,6 +17,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/hooks/queries/usePublicaciones', () => ({
   useSugerencias: (...a: unknown[]) => mockSugerencias(...a),
   useNuevas: (...a: unknown[]) => mockNuevas(...a),
+  useDestacadas: () => ({ datos: [], cargando: false }),
 }));
 jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: () => ({ urls: new Map(), fallo: null }) }));
 jest.mock('@/store/usePerfilStore', () => ({
@@ -32,21 +33,24 @@ jest.mock('@/lib/tacto', () => ({ toque: jest.fn(), sello: jest.fn() }));
 // El corazón de Favoritos tiene sus propias pruebas (necesita un cliente de consultas); aquí solo importa la lista.
 jest.mock('@/components/BotonFavorito', () => ({ BotonFavorito: () => null }));
 // La campana de avisos tiene sus propias pruebas; Inicio no monta consultas por ella.
-jest.mock('@/components/CampanaAvisos', () => ({ CampanaAvisos: () => null }));
+// Un marcador y no `null`: la campana salió de la fila del selector (24/10/2026) y hay que poder comprobar dónde está.
+jest.mock('@/components/CampanaAvisos', () => ({
+  CampanaAvisos: () => { const { Text } = require('react-native'); return <Text>CAMPANA</Text>; },
+}));
 jest.mock('@/lib/registro', () => ({ aviso: jest.fn(), fallo: jest.fn() }));
 // La vista de Roomies tiene sus propias pruebas; aquí solo importa que Inicio la monte y le pase el selector.
 jest.mock('@/components/vistas/VistaRoomies', () => ({
-  VistaRoomies: ({ selector }: { selector?: React.ReactNode }) => {
+  VistaRoomies: ({ selector, campana }: { selector?: React.ReactNode; campana?: React.ReactNode }) => {
     const { Text, View } = require('react-native');
-    return <View>{selector}<Text>VISTA ROOMIES</Text></View>;
+    return <View>{selector}<View testID="fila-titulo">{campana}</View><Text>VISTA ROOMIES</Text></View>;
   },
 }));
 
 // La vista de Servicios tiene sus propias pruebas; aquí solo importa que Inicio la monte y le pase el selector.
 jest.mock('@/components/vistas/VistaServicios', () => ({
-  VistaServicios: ({ selector }: { selector?: React.ReactNode }) => {
+  VistaServicios: ({ selector, campana }: { selector?: React.ReactNode; campana?: React.ReactNode }) => {
     const { Text, View } = require('react-native');
-    return <View>{selector}<Text>VISTA SERVICIOS</Text></View>;
+    return <View>{selector}<View testID="fila-titulo">{campana}</View><Text>VISTA SERVICIOS</Text></View>;
   },
 }));
 
@@ -98,4 +102,15 @@ test('el selector lleva a Servicios y desde ahí se puede volver a Depas', async
   expect(screen.queryByText('Sugerencias')).toBeNull();
   await fireEvent.press(screen.getByRole('tab', { name: 'Depas' }));
   expect(await screen.findByText('Sugerencias')).toBeTruthy();
+});
+
+// Probado en un teléfono real: con la campana en la fila del selector, «Roomies» y «Servicios» se partían en dos renglones. El selector tiene su
+// propia fila y la campana va con el título de cada vista. Jest no mide el diseño; esto fija DÓNDE está cada cosa.
+describe('la campana ya no comparte fila con el selector', () => {
+  it.each(['depas', 'roomies', 'servicios'] as const)('en %s: fuera de la fila del selector y una sola vez', async (modulo) => {
+    useModuloStore.setState({ modulo });
+    await render(<InicioScreen />);
+    expect(within(screen.getByTestId('fila-selector')).queryByText('CAMPANA')).toBeNull();
+    expect(screen.getAllByText('CAMPANA')).toHaveLength(1);
+  });
 });

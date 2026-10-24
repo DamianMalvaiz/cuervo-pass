@@ -21,6 +21,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Spacing, Tipografia } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLimpiarCacheAlCerrarSesion } from '@/hooks/queries/useLimpiarCacheAlCerrarSesion';
+import { useRestaurarSesion } from '@/hooks/use-restaurar-sesion';
 import { crearClienteConsultas } from '@/lib/consultas';
 import { fallo, limpiar, textoDeError } from '@/lib/registro';
 import { iniciarRegistroRemoto } from '@/lib/registroRemoto';
@@ -70,6 +71,8 @@ export default function RootLayout() {
   const [clienteConsultas] = useState(crearClienteConsultas);
   // La caché no es de nadie en particular: al terminar la sesión se vacía entera.
   useLimpiarCacheAlCerrarSesion(clienteConsultas);
+  // La sesión guardada se lee al arrancar por CUALQUIER ruta, no solo por la pantalla de entrada (ver el hook).
+  useRestaurarSesion();
 
   const scheme = useColorScheme();
   const esOscuro = scheme === 'dark';
@@ -124,14 +127,11 @@ export default function RootLayout() {
         <Stack.Screen name="publicacion/[id]" options={{ ...encabezado, title: 'Ficha' }} />
         <Stack.Screen name="publicacion/nueva" options={{ ...encabezado, title: 'Nueva publicación' }} />
         <Stack.Screen name="publicacion/editar/[id]" options={{ ...encabezado, title: 'Editar publicación' }} />
-        <Stack.Screen name="admin/index" options={{ ...encabezado, title: 'Administración' }} />
-        <Stack.Screen name="admin/verificaciones" options={{ ...encabezado, title: 'Verificaciones' }} />
-        <Stack.Screen name="admin/moderacion" options={{ ...encabezado, title: 'Moderación' }} />
-        <Stack.Screen name="admin/errores" options={{ ...encabezado, title: 'Errores de la app' }} />
         <Stack.Screen name="negocio/nuevo" options={{ ...encabezado, title: 'Publicar negocio' }} />
         <Stack.Screen name="negocio/editar/[id]" options={{ ...encabezado, title: 'Editar negocio' }} />
         <Stack.Screen name="negocio/menu/[id]" options={{ ...encabezado, title: 'Menú' }} />
         <Stack.Screen name="negocio/[id]" options={{ ...encabezado, title: 'Negocio' }} />
+        <Stack.Screen name="negocio/producto/[id]" options={{ ...encabezado, title: 'Producto' }} />
         <Stack.Screen name="perfil/[usuarioId]" options={{ ...encabezado, title: 'Perfil' }} />
         {/* Hoja modal, no empujada: editar tus preferencias es una tarea
             autocontenida de la que se sale cancelando, y el gesto de arrastrar
@@ -140,6 +140,9 @@ export default function RootLayout() {
           name="perfil/preferencias"
           options={{ ...encabezado, title: 'Mis preferencias', presentation: 'modal' }}
         />
+        <Stack.Screen name="perfil/sobre-mi" options={{ ...encabezado, title: 'Sobre mí' }} />
+        <Stack.Screen name="perfil/crear-vendedor" options={{ ...encabezado, title: 'Perfil de vendedor' }} />
+        <Stack.Screen name="perfil/personalizacion" options={{ ...encabezado, title: 'Personalización' }} />
         {/* La ruta es la conversación, no el otro usuario: el hilo existe como
             fila en `conversaciones` desde la migración 0012 (§26). */}
         <Stack.Screen name="chat/[conversacionId]" options={{ ...encabezado, title: 'Chat' }} />
@@ -147,10 +150,13 @@ export default function RootLayout() {
             después. Con cabecera para que haya "atrás" sin gestos. */}
         <Stack.Screen name="verificacion/[rol]" options={{ ...encabezado, title: 'Verificación' }} />
         <Stack.Screen name="planes/[rol]" options={{ ...encabezado, title: 'Planes' }} />
-        <Stack.Screen name="pagos" options={{ ...encabezado, title: 'Pagos y facturación' }} />
+        <Stack.Screen name="pagos" options={{ ...encabezado, title: 'Mi plan y pagos' }} />
         <Stack.Screen name="notificaciones" options={{ ...encabezado, title: 'Avisos' }} />
         <Stack.Screen name="configuracion" options={{ ...encabezado, title: 'Configuración' }} />
         <Stack.Screen name="aviso-privacidad" options={{ ...encabezado, title: 'Aviso de privacidad' }} />
+        <Stack.Screen name="terminos" options={{ ...encabezado, title: 'Términos y condiciones' }} />
+        <Stack.Screen name="cambiar-contrasena" options={{ ...encabezado, title: 'Cambiar contraseña' }} />
+        <Stack.Screen name="eliminar-cuenta" options={{ ...encabezado, title: 'Eliminar mi cuenta' }} />
       </Stack>
       {/* Después del Stack: se pinta encima de cualquier pantalla. Un solo host. */}
       <ToastHost />

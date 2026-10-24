@@ -45,7 +45,7 @@ const entrar = async (email = 'ana@utvtol.edu.mx', password = 'Contrasena#2026')
 beforeEach(() => {
   jest.clearAllMocks();
   mockIniciarSesion.mockResolvedValue(undefined);
-  mockSingle.mockResolvedValue({ data: { universidad: 'UTVT' } });
+  mockSingle.mockResolvedValue({ data: { cuestionario_completo: true } });
   mockReenviar.mockResolvedValue({ error: null });
 });
 
@@ -70,13 +70,51 @@ describe('a dónde lleva entrar', () => {
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/inicio'));
   });
 
+  // 0083 · un vendedor entra por su panel, haya o no hecho el cuestionario de estudiante (que no le corresponde).
+  it('con perfil de vendedor, al panel', async () => {
+    mockSingle.mockResolvedValue({ data: { cuestionario_completo: true, perfil_activo: 'vendedor' } });
+    await entrar();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/panel'));
+  });
+
+  it('un vendedor sin cuestionario tampoco va al cuestionario', async () => {
+    mockSingle.mockResolvedValue({ data: { cuestionario_completo: false, perfil_activo: 'vendedor' } });
+    await entrar();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/panel'));
+    expect(mockReplace).not.toHaveBeenCalledWith('/(auth)/cuestionario-inicial');
+  });
+
   it('con el cuestionario a medias, DE VUELTA al cuestionario', async () => {
+    // `cuestionario_completo` y no `universidad` (la proxy frágil de la que habla `app/index.tsx`): un arrendador o un negocio no tiene
+    // universidad y su alta ya deja el cuestionario como hecho (0082); con `universidad` volverían a él en cada entrada.
     // Sin universidad, el filtro duro no tiene con qué filtrar: la lista sale
     // vacía y nada explica por qué. Mandar a Sugerencias a esta persona es
     // enseñarle un motor roto que no lo está.
-    mockSingle.mockResolvedValue({ data: { universidad: null } });
+    mockSingle.mockResolvedValue({ data: { cuestionario_completo: false } });
     await entrar();
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/cuestionario-inicial'));
+  });
+});
+
+// Validar AL SALIR del campo y no solo al enviar (Apple: «validate inline, not on submit»): quien se equivoca en el correo lo sabe al pasar al siguiente
+// campo, no después de pulsar «Entrar» y esperar.
+describe('validación al salir del campo', () => {
+  it('un correo mal escrito se dice al salir del campo, SIN enviar', async () => {
+    await render(<LoginScreen />);
+    const campo = screen.getByPlaceholderText('tucorreo@ejemplo.mx');
+    await interactuar(() => fireEvent.changeText(campo, 'no-es-un-correo'));
+    expect(screen.queryByText('Ese correo no parece válido')).toBeNull();
+    await interactuar(() => fireEvent(campo, 'blur'));
+    expect(screen.getByText('Ese correo no parece válido')).toBeTruthy();
+    expect(mockIniciarSesion).not.toHaveBeenCalled();
+  });
+
+  it('un correo bien escrito no muestra error al salir', async () => {
+    await render(<LoginScreen />);
+    const campo = screen.getByPlaceholderText('tucorreo@ejemplo.mx');
+    await interactuar(() => fireEvent.changeText(campo, 'ana@utvtol.edu.mx'));
+    await interactuar(() => fireEvent(campo, 'blur'));
+    expect(screen.queryByText('Ese correo no parece válido')).toBeNull();
   });
 });
 

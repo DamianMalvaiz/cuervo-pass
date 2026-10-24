@@ -109,6 +109,40 @@ describe('useGuardarNegocio · nuevo', () => {
     expect(mockMenu).not.toHaveBeenCalled();
   });
 
+  describe('con productos (el primer producto se publica junto con el negocio)', () => {
+    const producto = (extra: Record<string, unknown> = {}) => ({
+      clave: 'k1', nombre: ' Lavado por kilo ', precio: '28', seccion: ' Lavado ', descripcion: '', fotos: [], fotosNuevas: [], estrella: false, ...extra,
+    });
+
+    it('crea el negocio y DESPUÉS guarda el menú con la foto del producto ya subida', async () => {
+      const { Envoltura } = envolver();
+      const { result } = await renderHook(() => useGuardarNegocio('u1'), { wrapper: Envoltura });
+      await act(async () => { await result.current.mutateAsync({ ...base, productos: [producto({ fotosNuevas: ['file:///p.jpg'] })] }); });
+      expect(mockSubirProducto).toHaveBeenCalledWith('n-nuevo', 'file:///p.jpg');
+      expect(mockMenu).toHaveBeenCalledWith('n-nuevo', [
+        { id: undefined, nombre: 'Lavado por kilo', precio: 28, seccion: 'Lavado', descripcion: null, fotos: ['negocios/n-nuevo/p/nueva.jpg'], estrella: false },
+      ]);
+      expect(mockCrear.mock.invocationCallOrder[0]).toBeLessThan(mockMenu.mock.invocationCallOrder[0]);
+    });
+
+    it('si falla guardar el menú, el negocio ya existe: ErrorParcial con su id', async () => {
+      mockMenu.mockRejectedValueOnce(new Error('sin red'));
+      const { Envoltura } = envolver();
+      const { result } = await renderHook(() => useGuardarNegocio('u1'), { wrapper: Envoltura });
+      let error: unknown;
+      await act(async () => { try { await result.current.mutateAsync({ ...base, productos: [producto()] }); } catch (e) { error = e; } });
+      expect(error).toBeInstanceOf(ErrorParcial);
+      expect((error as ErrorParcial).idCreado).toBe('n-nuevo');
+    });
+
+    it('sin productos no toca el menú (editar un negocio no lo pisa)', async () => {
+      const { Envoltura } = envolver();
+      const { result } = await renderHook(() => useGuardarNegocio('u1'), { wrapper: Envoltura });
+      await act(async () => { await result.current.mutateAsync({ ...base, id: 'n1' }); });
+      expect(mockMenu).not.toHaveBeenCalled();
+    });
+  });
+
   it('si falla un paso DESPUÉS de crear, avisa con el id para poder terminarlo', async () => {
     mockSubir.mockRejectedValueOnce(new Error('sin red'));
     const { Envoltura } = envolver();
@@ -204,7 +238,7 @@ describe('useBorrarNegocio', () => {
 
 describe('useGuardarMenu', () => {
   const producto = (extra: Record<string, unknown> = {}) => ({
-    clave: 'k', nombre: ' Taco ', precio: '18', seccion: ' Tacos ', descripcion: '', foto: null, fotoNueva: null, ...extra,
+    clave: 'k', nombre: ' Taco ', precio: '18', seccion: ' Tacos ', descripcion: '', fotos: [], fotosNuevas: [], estrella: false, ...extra,
   });
 
   it('manda el menú entero parseado, en una sola llamada y con el orden de la lista', async () => {
@@ -218,17 +252,17 @@ describe('useGuardarMenu', () => {
     });
     expect(mockMenu).toHaveBeenCalledTimes(1);
     expect(mockMenu).toHaveBeenCalledWith('n1', [
-      { id: 'i1', nombre: 'Taco', precio: 18, seccion: 'Tacos', descripcion: null, foto: null },
-      { id: undefined, nombre: 'Revisión', precio: null, seccion: null, descripcion: null, foto: null },
+      { id: 'i1', nombre: 'Taco', precio: 18, seccion: 'Tacos', descripcion: null, fotos: [], estrella: false },
+      { id: undefined, nombre: 'Revisión', precio: null, seccion: null, descripcion: null, fotos: [], estrella: false },
     ]);
   });
 
   it('sube las fotos nuevas de productos y manda sus rutas', async () => {
     const { Envoltura } = envolver();
     const { result } = await renderHook(() => useGuardarMenu('n1'), { wrapper: Envoltura });
-    await act(async () => { await result.current.mutateAsync({ productos: [producto({ fotoNueva: 'file:///1.jpg' })], fotosAnteriores: [] }); });
+    await act(async () => { await result.current.mutateAsync({ productos: [producto({ fotosNuevas: ['file:///1.jpg'] })], fotosAnteriores: [] }); });
     expect(mockSubirProducto).toHaveBeenCalledWith('n1', 'file:///1.jpg');
-    expect(mockMenu.mock.calls[0][1][0].foto).toBe('negocios/n1/p/nueva.jpg');
+    expect(mockMenu.mock.calls[0][1][0].fotos).toEqual(['negocios/n1/p/nueva.jpg']);
   });
 
   it('borra al FINAL las fotos que ya nadie usa: las de productos quitados y las reemplazadas', async () => {
@@ -236,12 +270,46 @@ describe('useGuardarMenu', () => {
     const { result } = await renderHook(() => useGuardarMenu('n1'), { wrapper: Envoltura });
     await act(async () => {
       await result.current.mutateAsync({
-        productos: [producto({ id: 'i1', foto: 'negocios/n1/p/sigue.jpg' }), producto({ clave: 'k2', id: 'i2', foto: 'negocios/n1/p/vieja.jpg', fotoNueva: 'file:///n.jpg' })],
+        productos: [producto({ id: 'i1', fotos: ['negocios/n1/p/sigue.jpg'] }), producto({ clave: 'k2', id: 'i2', fotos: [], fotosNuevas: ['file:///n.jpg'] })],
         fotosAnteriores: ['negocios/n1/p/sigue.jpg', 'negocios/n1/p/vieja.jpg', 'negocios/n1/p/quitado.jpg'],
       });
     });
     expect(mockBorrarFotos).toHaveBeenCalledWith(['negocios/n1/p/vieja.jpg', 'negocios/n1/p/quitado.jpg']);
     expect(mockMenu.mock.invocationCallOrder[0]).toBeLessThan(mockBorrarFotos.mock.invocationCallOrder[0]);
+  });
+
+  it('varias fotos: las que se conservan van PRIMERO (la portada no cambia) y luego las nuevas, en orden', async () => {
+    mockSubirProducto.mockImplementation(async (_id: string, uri: string) => `negocios/n1/p/${uri.split('/').pop()}`);
+    const { Envoltura } = envolver();
+    const { result } = await renderHook(() => useGuardarMenu('n1'), { wrapper: Envoltura });
+    await act(async () => {
+      await result.current.mutateAsync({
+        productos: [producto({ id: 'i1', fotos: ['negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg'], fotosNuevas: ['file:///c.jpg', 'file:///d.jpg'] })],
+        fotosAnteriores: ['negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg'],
+      });
+    });
+    expect(mockSubirProducto).toHaveBeenCalledTimes(2);
+    expect(mockMenu.mock.calls[0][1][0].fotos).toEqual(['negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg', 'negocios/n1/p/c.jpg', 'negocios/n1/p/d.jpg']);
+    expect(mockBorrarFotos).toHaveBeenCalledWith([]);
+  });
+
+  it('manda si un producto es estrella', async () => {
+    const { Envoltura } = envolver();
+    const { result } = await renderHook(() => useGuardarMenu('n1'), { wrapper: Envoltura });
+    await act(async () => { await result.current.mutateAsync({ productos: [producto({ estrella: true }), producto({ clave: 'k2' })], fotosAnteriores: [] }); });
+    expect(mockMenu.mock.calls[0][1].map((i: { estrella: boolean }) => i.estrella)).toEqual([true, false]);
+  });
+
+  it('quitar UNA de varias fotos borra solo esa de Storage', async () => {
+    const { Envoltura } = envolver();
+    const { result } = await renderHook(() => useGuardarMenu('n1'), { wrapper: Envoltura });
+    await act(async () => {
+      await result.current.mutateAsync({
+        productos: [producto({ id: 'i1', fotos: ['negocios/n1/p/a.jpg'] })],
+        fotosAnteriores: ['negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg'],
+      });
+    });
+    expect(mockBorrarFotos).toHaveBeenCalledWith(['negocios/n1/p/b.jpg']);
   });
 
   it('si la llamada falla NO se borra ninguna foto (con su código: CP009 = tope del plan)', async () => {
@@ -260,7 +328,7 @@ describe('useGuardarMenu', () => {
     mockSubirProducto.mockRejectedValueOnce(new Error('sin red'));
     const { Envoltura } = envolver();
     const { result } = await renderHook(() => useGuardarMenu('n1'), { wrapper: Envoltura });
-    await act(async () => { await expect(result.current.mutateAsync({ productos: [producto({ fotoNueva: 'file:///1.jpg' })], fotosAnteriores: [] })).rejects.toThrow('sin red'); });
+    await act(async () => { await expect(result.current.mutateAsync({ productos: [producto({ fotosNuevas: ['file:///1.jpg'] })], fotosAnteriores: [] })).rejects.toThrow('sin red'); });
     expect(mockMenu).not.toHaveBeenCalled();
   });
 

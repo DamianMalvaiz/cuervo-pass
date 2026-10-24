@@ -8,8 +8,32 @@
 // Expo lee ESTE archivo cuando existe y recibe el contenido de `app.json` en
 // `config`. Nada de lo que ya estaba se reescribe a mano.
 
-module.exports = ({ config }) => {
-  const claveMapas = process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY;
+const fs = require('node:fs');
+
+/**
+ * Qué archivo de Firebase usa Android. Sin `google-services.json` dentro del APK, `getExpoPushTokenAsync` falla con «Default FirebaseApp is not initialized» y NINGÚN aviso llega como
+ * notificación. El archivo va por EAS como variable de tipo ARCHIVO (`GOOGLE_SERVICES_JSON`, cuyo valor es la ruta del archivo durante la compilación) y NO en el repositorio: lleva claves de API
+ * de Firebase que `gitleaks` marca por su forma. Para compilar en local sirve un `./google-services.json`, que `.gitignore` ignora.
+ */
+function rutaGoogleServices({ env, existe }) {
+  const deEas = env.GOOGLE_SERVICES_JSON?.trim();
+  if (deEas) return { ruta: deEas, origen: 'EAS' };
+  if (existe('./google-services.json')) return { ruta: './google-services.json', origen: 'local' };
+  return { ruta: undefined, origen: null };
+}
+
+function construir(config, { env, existe }) {
+  const claveMapas = env.EXPO_PUBLIC_GOOGLE_MAPS_KEY;
+  const { ruta: googleServicesFile } = rutaGoogleServices({ env, existe });
+
+  // Igual que con la clave de Maps: no se detiene la compilación (una app sin push es mejor que una que no compila), pero se hace RUIDO para descubrirlo al compilar y no delante del evaluador.
+  if (!googleServicesFile) {
+    console.warn(
+      '\n  ⚠  No hay google-services.json (ni la variable GOOGLE_SERVICES_JSON de EAS).' +
+        '\n     Las notificaciones push NO funcionarán en Android: ni siquiera se obtiene el token.' +
+        '\n     Ver docs/firebase-push.md.\n'
+    );
+  }
 
   // Sin clave, el `MapView` de la ficha pinta un rectángulo GRIS en Android: sin
   // error, sin mensaje, sin nada que indique por qué. Ese silencio es el fallo
@@ -40,6 +64,8 @@ module.exports = ({ config }) => {
 
     android: {
       ...config.android,
+      // Ausente es ausente: ni una cadena vacía (Expo intentaría leer un archivo llamado «») ni una ruta inventada.
+      ...(googleServicesFile ? { googleServicesFile } : {}),
       config: {
         ...config.android?.config,
         // `apiKey: undefined` es deliberado y no un descuido: si se pusiera una
@@ -62,4 +88,9 @@ module.exports = ({ config }) => {
       fallbackToCacheTimeout: 10_000,
     },
   };
-};
+}
+
+module.exports = ({ config }) => construir(config, { env: process.env, existe: fs.existsSync });
+// Para las pruebas (`test-utils/__tests__/app-config-google-services.test.ts`): la decisión es pura y se prueba sin tocar el disco ni el entorno.
+module.exports.rutaGoogleServices = rutaGoogleServices;
+module.exports.construir = construir;

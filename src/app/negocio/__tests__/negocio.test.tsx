@@ -16,7 +16,8 @@ jest.mock('@/components/BotonFavoritoNegocio', () => ({
     return <Text>{`CORAZON ${negocioId}`}</Text>;
   },
 }));
-jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: 'n1' }) }));
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: 'n1' }), router: { push: (...a: unknown[]) => mockPush(...a) } }));
 jest.mock('@/hooks/queries/useServicios', () => ({ useNegocio: (...a: unknown[]) => mockNegocio(...a) }));
 jest.mock('@/hooks/queries/useMisNegocios', () => ({ useMisNegocios: (...a: unknown[]) => mockMisNegocios(...a) }));
 jest.mock('@/store/useAuthStore', () => ({
@@ -66,7 +67,7 @@ test('pinta nombre, descripción, dirección, horario y precio', async () => {
   expect(screen.getByText('Café de olla y de especialidad.')).toBeTruthy();
   expect(screen.getByText('Av. Las Torres 408, Lerma')).toBeTruthy();
   expect(screen.getByText('Lun a sáb · 8 am a 9 pm')).toBeTruthy();
-  expect(screen.getByText('$$')).toBeTruthy();
+  expect(screen.queryByText('$$')).toBeNull();
 });
 
 test('un negocio de ejemplo se rotula', async () => {
@@ -91,7 +92,7 @@ test('el menú dice el precio, o «Consultar precio» si no lo hay (nunca lo inv
 test('sin productos no pinta un menú vacío', async () => {
   mockNegocio.mockReturnValue(estado({ items: [] }));
   await render(<NegocioScreen />);
-  expect(screen.queryByText('Menú y precios')).toBeNull();
+  expect(screen.queryByText('Lo que vende')).toBeNull();
 });
 
 test('«Cómo llegar» abre el mapa con las coordenadas', async () => {
@@ -160,16 +161,88 @@ describe('la galería', () => {
   it('firma EN LOTE la galería y las fotos de los productos, una sola vez', async () => {
     mockNegocio.mockReturnValue(estado({
       negocio: { ...NEGOCIO, fotos: ['negocios/n1/a.jpg'] },
-      items: [{ id: 'i1', negocio_id: 'n1', nombre: 'Taco', precio: 20, orden: 0, seccion: null, descripcion: null, foto: 'negocios/n1/p/t.jpg' }],
+      items: [{ id: 'i1', negocio_id: 'n1', nombre: 'Taco', precio: 20, orden: 0, seccion: null, descripcion: null, foto: 'negocios/n1/p/t.jpg', fotos: ['negocios/n1/p/t.jpg'] }],
     }));
     await render(<NegocioScreen />);
     expect(mockFotos).toHaveBeenCalledWith(['negocios/n1/a.jpg', 'negocios/n1/p/t.jpg']);
+  });
+
+  it('de cada producto la lista firma solo la PORTADA (la primera), no todas sus fotos', async () => {
+    mockNegocio.mockReturnValue(estado({
+      negocio: { ...NEGOCIO, fotos: [] },
+      items: [{ id: 'i1', negocio_id: 'n1', nombre: 'Taco', precio: 20, orden: 0, seccion: null, descripcion: null, foto: 'negocios/n1/p/t.jpg', fotos: ['negocios/n1/p/t.jpg', 'negocios/n1/p/u.jpg'] }],
+    }));
+    await render(<NegocioScreen />);
+    expect(mockFotos).toHaveBeenCalledWith(['negocios/n1/p/t.jpg']);
+  });
+});
+
+describe('los destacados de la tienda (producto estrella)', () => {
+  const item = (id: string, nombre: string, extra: Record<string, unknown> = {}) => ({
+    id, negocio_id: 'n1', nombre, precio: 10, orden: 0, seccion: null, descripcion: null, foto: null, fotos: [], estrella: false, ...extra,
+  });
+
+  it('con productos estrella hay un carrusel «Destacados» con solo esos', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco', { estrella: true, precio: 28 }), item('b', 'Agua')] }));
+    await render(<NegocioScreen />);
+    expect(screen.getByLabelText('Destacados')).toBeTruthy();
+    // El estrella sale en el carrusel Y en su lista; el que no lo es, solo en la lista.
+    expect(screen.getAllByText('$28')).toHaveLength(2);
+    expect(screen.getAllByText('Agua')).toHaveLength(1);
+  });
+
+  it('sin ninguno no hay carrusel: no se inventa uno con productos al azar', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco'), item('b', 'Agua')] }));
+    await render(<NegocioScreen />);
+    expect(screen.queryByLabelText('Destacados')).toBeNull();
+  });
+
+  it('un producto estrella sigue estando también en su lista de «Lo que vende»', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco', { estrella: true })] }));
+    await render(<NegocioScreen />);
+    expect(screen.getAllByText('Taco')).toHaveLength(2);
+  });
+
+  it('sin precio dice «Consultar precio», no un cero', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Revisión', { estrella: true, precio: null })] }));
+    await render(<NegocioScreen />);
+    expect(screen.getAllByText('Consultar precio').length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('abrir un producto', () => {
+  const item = (id: string, nombre: string, extra: Record<string, unknown> = {}) => ({
+    id, negocio_id: 'n1', nombre, precio: 10, orden: 0, seccion: null, descripcion: null, foto: null, fotos: [], estrella: false, ...extra,
+  });
+
+  it('tocar un producto de la lista abre su pantalla, con el id del producto y el del negocio', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('p1', 'Taco')] }));
+    await render(<NegocioScreen />);
+    await act(async () => { fireEvent.press(screen.getByLabelText(/^Ver Taco/)); });
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/negocio/producto/[id]', params: { id: 'p1', negocio: 'n1' } });
+  });
+
+  it('también desde el carrusel de Destacados', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('p1', 'Taco', { estrella: true })] }));
+    await render(<NegocioScreen />);
+    const tarjetas = screen.getAllByLabelText(/^Ver Taco/);
+    expect(tarjetas).toHaveLength(2);
+    await act(async () => { fireEvent.press(tarjetas[0]); });
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/negocio/producto/[id]', params: { id: 'p1', negocio: 'n1' } });
+  });
+});
+
+describe('lo que vende', () => {
+  it('la sección se llama «Lo que vende» (ya no «Menú y precios»)', async () => {
+    await render(<NegocioScreen />);
+    expect(screen.getByText('Lo que vende')).toBeTruthy();
+    expect(screen.queryByText('Menú y precios')).toBeNull();
   });
 });
 
 describe('el menú por secciones', () => {
   const item = (id: string, nombre: string, extra: Record<string, unknown> = {}) => ({
-    id, negocio_id: 'n1', nombre, precio: 10, orden: 0, seccion: null, descripcion: null, foto: null, ...extra,
+    id, negocio_id: 'n1', nombre, precio: 10, orden: 0, seccion: null, descripcion: null, foto: null, fotos: [], estrella: false, ...extra,
   });
 
   it('agrupa por sección, en el orden del menú, y deja «Otros» al final', async () => {
@@ -177,17 +250,60 @@ describe('el menú por secciones', () => {
       items: [item('a', 'Taco', { seccion: 'Tacos' }), item('b', 'Agua', { seccion: 'Bebidas' }), item('c', 'Revisión'), item('d', 'Gringa', { seccion: 'tacos' })],
     }));
     await render(<NegocioScreen />);
-    expect(screen.getByText('Tacos')).toBeTruthy();
-    expect(screen.getByText('Bebidas')).toBeTruthy();
-    expect(screen.getByText('Otros')).toBeTruthy();
+    // Cada nombre sale en su pestaña y en el título de su grupo.
+    expect(screen.getAllByText('Tacos')).toHaveLength(2);
+    expect(screen.getAllByText('Bebidas')).toHaveLength(2);
+    expect(screen.getAllByText('Otros')).toHaveLength(2);
     // «Tacos» y «tacos» son una misma sección.
-    expect(screen.getAllByText(/^tacos$/i)).toHaveLength(1);
+    expect(screen.getAllByText(/^tacos$/i)).toHaveLength(2);
   });
 
   it('un menú sin secciones no inventa títulos: solo «Otros»', async () => {
     mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco'), item('b', 'Agua')] }));
     await render(<NegocioScreen />);
     expect(screen.getByText('Otros')).toBeTruthy();
+  });
+
+  describe('pestañas de categoría', () => {
+    const variado = () => estado({
+      items: [item('a', 'Taco', { seccion: 'Tacos' }), item('b', 'Agua', { seccion: 'Bebidas' }), item('c', 'Revisión')],
+    });
+
+    it('con dos o más grupos hay pestañas: «Todo» primero y una por categoría', async () => {
+      mockNegocio.mockReturnValue(variado());
+      await render(<NegocioScreen />);
+      expect(screen.getByLabelText('Categoría Todo').props.accessibilityState).toEqual({ selected: true });
+      expect(screen.getByLabelText('Categoría Tacos')).toBeTruthy();
+      expect(screen.getByLabelText('Categoría Bebidas')).toBeTruthy();
+      expect(screen.getByLabelText('Categoría Otros')).toBeTruthy();
+    });
+
+    it('tocar una pestaña deja SOLO los productos de esa categoría', async () => {
+      mockNegocio.mockReturnValue(variado());
+      await render(<NegocioScreen />);
+      await act(async () => { fireEvent.press(screen.getByLabelText('Categoría Bebidas')); });
+      expect(screen.getByText('Agua')).toBeTruthy();
+      expect(screen.queryByText('Taco')).toBeNull();
+      expect(screen.queryByText('Revisión')).toBeNull();
+      expect(screen.getByLabelText('Categoría Bebidas').props.accessibilityState).toEqual({ selected: true });
+      expect(screen.getByLabelText('Categoría Todo').props.accessibilityState).toEqual({ selected: false });
+    });
+
+    it('«Todo» vuelve a enseñarlos todos', async () => {
+      mockNegocio.mockReturnValue(variado());
+      await render(<NegocioScreen />);
+      await act(async () => { fireEvent.press(screen.getByLabelText('Categoría Bebidas')); });
+      await act(async () => { fireEvent.press(screen.getByLabelText('Categoría Todo')); });
+      expect(screen.getByText('Taco')).toBeTruthy();
+      expect(screen.getByText('Agua')).toBeTruthy();
+      expect(screen.getByText('Revisión')).toBeTruthy();
+    });
+
+    it('con un solo grupo no hay pestañas: no hay nada que elegir', async () => {
+      mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco', { seccion: 'Tacos' }), item('b', 'Gringa', { seccion: 'Tacos' })] }));
+      await render(<NegocioScreen />);
+      expect(screen.queryByLabelText('Categoría Todo')).toBeNull();
+    });
   });
 
   it('cada producto muestra su descripción', async () => {
@@ -197,7 +313,7 @@ describe('el menú por secciones', () => {
   });
 
   it('un producto con foto la muestra; sin foto no deja un hueco', async () => {
-    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco', { foto: 'negocios/n1/p/t.jpg' }), item('b', 'Agua')] }));
+    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco', { foto: 'negocios/n1/p/t.jpg', fotos: ['negocios/n1/p/t.jpg', 'negocios/n1/p/u.jpg'] }), item('b', 'Agua')] }));
     mockFotos.mockReturnValue({ urls: new Map([['negocios/n1/p/t.jpg', 'https://f.test/t']]), fallo: null });
     await render(<NegocioScreen />);
     expect(screen.getByText('Taco')).toBeTruthy();
@@ -235,12 +351,37 @@ describe('las reseñas en la ficha', () => {
 describe('horario estructurado (0070)', () => {
   const turnos = [1, 2, 3, 4, 5].map((dia) => ({ dia, abre: '09:00', cierra: '18:00' }));
 
-  test('con turnos: el horario semanal se enseña legible y el texto libre se deja de usar', async () => {
+  test('con turnos: «Ver horario» está plegado y no se despliega solo; el texto libre se deja de usar', async () => {
     mockNegocio.mockReturnValue(estado({ turnos, negocio: { ...NEGOCIO, abierto_ahora: true } }));
     await render(<NegocioScreen />);
-    expect(screen.getByText('Lun a vie · 9 am a 6 pm')).toBeTruthy();
+    expect(screen.getByLabelText('Ver horario').props.accessibilityState).toMatchObject({ expanded: false });
+    expect(screen.queryByText('Miércoles')).toBeNull();
     expect(screen.getByText('Abierto ahora')).toBeTruthy();
     expect(screen.queryByText('Lun a sáb · 8 am a 9 pm')).toBeNull();
+  });
+
+  test('al tocarlo se despliega el horario DÍA POR DÍA, con los nombres completos', async () => {
+    mockNegocio.mockReturnValue(estado({ turnos, negocio: { ...NEGOCIO, abierto_ahora: true } }));
+    await render(<NegocioScreen />);
+    await act(async () => { fireEvent.press(screen.getByLabelText('Ver horario')); });
+    expect(screen.getByLabelText('Ver horario').props.accessibilityState).toMatchObject({ expanded: true });
+    for (const dia of ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']) expect(screen.getByText(dia)).toBeTruthy();
+    expect(screen.getAllByText('9 am a 6 pm')).toHaveLength(5);
+    expect(screen.getAllByText('Cerrado')).toHaveLength(2);
+  });
+
+  test('tocarlo otra vez lo pliega', async () => {
+    mockNegocio.mockReturnValue(estado({ turnos }));
+    await render(<NegocioScreen />);
+    await act(async () => { fireEvent.press(screen.getByLabelText('Ver horario')); });
+    await act(async () => { fireEvent.press(screen.getByLabelText('Ver horario')); });
+    expect(screen.queryByText('Miércoles')).toBeNull();
+  });
+
+  test('sin turnos no hay «Ver horario»', async () => {
+    mockNegocio.mockReturnValue(estado({ turnos: [] }));
+    await render(<NegocioScreen />);
+    expect(screen.queryByLabelText('Ver horario')).toBeNull();
   });
 
   test('cerrado ahora se dice con palabras', async () => {

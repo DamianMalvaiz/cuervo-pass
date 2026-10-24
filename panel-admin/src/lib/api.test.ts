@@ -1,0 +1,354 @@
+import { describe, expect, test, vi } from 'vitest';
+
+import { crearApi, type ClienteAdmin } from './api';
+import { ErrorAdmin } from './errores';
+
+const respuestaConError = (status: number, cuerpo: unknown) => ({
+  data: null,
+  error: { context: { status, json: async () => cuerpo } },
+});
+
+const clienteCon = (invoke: ClienteAdmin['functions']['invoke']): ClienteAdmin => ({ functions: { invoke } });
+
+describe('api.resumen', () => {
+  test('llama a la función `admin` con la acción y devuelve el resumen', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { resumen: { cuentas: 3 } }, error: null });
+    const r = await crearApi(clienteCon(invoke)).resumen();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'resumen' } });
+    expect(r).toEqual({ cuentas: 3 });
+  });
+
+  test('un 403 lanza «prohibido»: no es admin', async () => {
+    const invoke = vi.fn().mockResolvedValue(respuestaConError(403, { error: 'prohibido' }));
+    await expect(crearApi(clienteCon(invoke)).resumen()).rejects.toMatchObject({ tipo: 'prohibido' });
+  });
+
+  test('sin respuesta (la red) lanza «red», no un resumen vacío', async () => {
+    const invoke = vi.fn().mockRejectedValue(new TypeError('fetch failed'));
+    await expect(crearApi(clienteCon(invoke)).resumen()).rejects.toMatchObject({ tipo: 'red' });
+  });
+
+  test('un error sin contexto HTTP es «red»', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: null, error: new Error('x') });
+    await expect(crearApi(clienteCon(invoke)).resumen()).rejects.toMatchObject({ tipo: 'red' });
+  });
+
+  test.each([null, undefined, 'texto', { resumen: null }, {}])('una respuesta 2xx sin la forma esperada (%p) lanza «desconocido»', async (data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    const intento = crearApi(clienteCon(invoke)).resumen();
+    await expect(intento).rejects.toBeInstanceOf(ErrorAdmin);
+    await expect(intento).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+});
+
+const DETALLE = {
+  altas_por_semana: Array.from({ length: 8 }, (_, i) => ({ semana: `2026-09-${String(i + 1).padStart(2, '0')}`, cuentas: i })),
+  roles_por_estado: [{ rol: 'comerciante', estado: 'aprobado', total: 4 }],
+  publicaciones: { total: 10, activas: 7 },
+  negocios: { total: 12, activos: 9 },
+  conversaciones: 5,
+  mensajes_7d: 30,
+};
+
+describe('api.resumenDetalle', () => {
+  test('pide la acción «resumen_detalle» y devuelve el detalle', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { detalle: DETALLE }, error: null });
+    const r = await crearApi(clienteCon(invoke)).resumenDetalle();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'resumen_detalle' } });
+    expect(r.publicaciones.activas).toBe(7);
+    expect(r.altas_por_semana).toHaveLength(8);
+  });
+
+  test.each([
+    ['sin detalle', { detalle: null }],
+    ['altas que no es lista', { detalle: { ...DETALLE, altas_por_semana: 'x' } }],
+    ['una semana sin número de cuentas', { detalle: { ...DETALLE, altas_por_semana: [{ semana: '2026-09-01', cuentas: 'muchas' }] } }],
+    ['publicaciones sin activas', { detalle: { ...DETALLE, publicaciones: { total: 1 } } }],
+    ['mensajes que no es número', { detalle: { ...DETALLE, mensajes_7d: null } }],
+    ['roles con un total que no es número', { detalle: { ...DETALLE, roles_por_estado: [{ rol: 'comerciante', estado: 'aprobado', total: '4' }] } }],
+  ])('una respuesta con la forma rota (%s) lanza «desconocido», no cifras inventadas', async (_nombre, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).resumenDetalle()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+
+  test('un 403 lanza «prohibido»', async () => {
+    const invoke = vi.fn().mockResolvedValue(respuestaConError(403, { error: 'prohibido' }));
+    await expect(crearApi(clienteCon(invoke)).resumenDetalle()).rejects.toMatchObject({ tipo: 'prohibido' });
+  });
+});
+
+const VERIF = {
+  usuario_id: 'a3b1c2d4-0000-4000-8000-123456789abc', rol: 'comerciante', nombre_usuario: 'ana', nombre_legal: 'Ana Pérez', direccion: 'Calle 1, Toluca',
+  enviada_en: '2026-10-20T10:00:00Z', version_aviso: 'v3', fotos_del_lugar: 2, rostro_estado: 'coincide',
+};
+
+describe('api.verificaciones', () => {
+  test('pide la acción «verificaciones» y devuelve la lista', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { verificaciones: [VERIF] }, error: null });
+    const r = await crearApi(clienteCon(invoke)).verificaciones();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'verificaciones' } });
+    expect(r).toEqual([VERIF]);
+  });
+
+  test('una lista vacía es una lista vacía', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { verificaciones: [] }, error: null });
+    expect(await crearApi(clienteCon(invoke)).verificaciones()).toEqual([]);
+  });
+
+  test.each([
+    ['sin la clave', {}],
+    ['no es lista', { verificaciones: 'x' }],
+    ['un elemento sin nombre legal', { verificaciones: [{ ...VERIF, nombre_legal: undefined }] }],
+    ['rol inventado', { verificaciones: [{ ...VERIF, rol: 'dueño' }] }],
+    ['fotos que no es número', { verificaciones: [{ ...VERIF, fotos_del_lugar: 'dos' }] }],
+  ])('forma rota (%s) → «desconocido»: nunca «no hay pendientes»', async (_n, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).verificaciones()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+});
+
+describe('api.documentos', () => {
+  test('pide los documentos de ESA persona y ese rol', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { documentos: [{ etiqueta: 'INE (frente)', url: 'https://x.supabase.co/a' }, { etiqueta: 'Foto 1', url: null }] }, error: null });
+    const r = await crearApi(clienteCon(invoke), { origenArchivos: 'https://x.supabase.co' }).documentos(VERIF.usuario_id, 'comerciante');
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'documentos', usuario_id: VERIF.usuario_id, rol: 'comerciante' } });
+    expect(r).toHaveLength(2);
+    expect(r[0].url).toBe('https://x.supabase.co/a');
+    expect(r[1].url).toBeNull();
+  });
+
+  test.each([
+    'javascript:alert(1)',
+    'http://x.supabase.co/a',
+    'https://otro.com/a',
+    'https://x.supabase.co.atacante.com/a',
+    'https://atacante.com/?https://x.supabase.co/a',
+    '//x.supabase.co/a',
+  ])('una URL que no es de NUESTRO Supabase (%s) se descarta: no se pinta lo que no se puede confiar', async (url) => {
+    const invoke = vi.fn().mockResolvedValue({ data: { documentos: [{ etiqueta: 'a', url }] }, error: null });
+    const r = await crearApi(clienteCon(invoke), { origenArchivos: 'https://x.supabase.co' }).documentos(VERIF.usuario_id, 'comerciante');
+    expect(r.map((d) => d.url)).toEqual([null]);
+  });
+
+  test('sin origen configurado no se acepta ninguna URL (falla cerrado)', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { documentos: [{ etiqueta: 'a', url: 'https://x.supabase.co/a' }] }, error: null });
+    const r = await crearApi(clienteCon(invoke)).documentos(VERIF.usuario_id, 'comerciante');
+    expect(r[0].url).toBeNull();
+  });
+
+  test('forma rota → «desconocido»', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { documentos: [{ url: 'https://x' }] }, error: null });
+    await expect(crearApi(clienteCon(invoke)).documentos(VERIF.usuario_id, 'comerciante')).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+});
+
+describe('api.resolver', () => {
+  test('aprobar manda la decisión, sin motivo', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { ok: true }, error: null });
+    await crearApi(clienteCon(invoke)).resolver(VERIF.usuario_id, 'comerciante', true, null);
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'resolver', usuario_id: VERIF.usuario_id, rol: 'comerciante', aprobar: true, motivo: null } });
+  });
+
+  test('rechazar manda el motivo', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { ok: true }, error: null });
+    await crearApi(clienteCon(invoke)).resolver(VERIF.usuario_id, 'arrendador', false, 'INE ilegible');
+    expect(invoke).toHaveBeenCalledWith('admin', { body: expect.objectContaining({ aprobar: false, motivo: 'INE ilegible', rol: 'arrendador' }) });
+  });
+
+  test.each([
+    [409, 'no_pendiente', 'no_pendiente'],
+    [400, 'motivo_requerido', 'motivo_requerido'],
+    [403, 'prohibido', 'prohibido'],
+  ])('un %i (%s) lanza «%s»', async (status, codigo, tipo) => {
+    const invoke = vi.fn().mockResolvedValue(respuestaConError(status, { error: codigo }));
+    await expect(crearApi(clienteCon(invoke)).resolver(VERIF.usuario_id, 'comerciante', true, null)).rejects.toMatchObject({ tipo });
+  });
+});
+
+const ITEM = { tipo: 'resena', id: 'c1', titulo: 'Tacos El Güero · 1 estrellas', texto: 'Mala atención', autor: 'eva', reportes: 2, oculto: false, creado_en: '2026-10-21T10:00:00Z' };
+const ENTRADA = { accion: 'aprobar_verificacion', admin: 'ana_admin', objetivo_id: 'u1', objetivo: 'vend_t', detalle: 'comerciante', creado_en: '2026-10-22T10:00:00Z' };
+
+describe('api.moderacion y api.moderar', () => {
+  test('moderacion pide la lista y la devuelve', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { moderacion: [ITEM, { ...ITEM, tipo: 'negocio', texto: null }] }, error: null });
+    const r = await crearApi(clienteCon(invoke)).moderacion();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'moderacion' } });
+    expect(r).toHaveLength(2);
+  });
+
+  test.each([
+    ['sin la clave', {}],
+    ['tipo inventado', { moderacion: [{ ...ITEM, tipo: 'usuario' }] }],
+    ['reportes que no es número', { moderacion: [{ ...ITEM, reportes: '2' }] }],
+    ['oculto que no es booleano', { moderacion: [{ ...ITEM, oculto: 'no' }] }],
+    ['autor sin texto', { moderacion: [{ ...ITEM, autor: null }] }],
+  ])('forma rota (%s) → «desconocido»', async (_n, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).moderacion()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+
+  test('moderar manda tipo, id, si se oculta y el motivo', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { ok: true }, error: null });
+    await crearApi(clienteCon(invoke)).moderar('negocio', 'n1', true, 'Publicidad engañosa');
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'moderar', tipo: 'negocio', id: 'n1', ocultar: true, motivo: 'Publicidad engañosa' } });
+  });
+
+  test('moderar sin motivo suficiente lanza «motivo_requerido» (400 del servidor)', async () => {
+    const invoke = vi.fn().mockResolvedValue(respuestaConError(400, { error: 'motivo_requerido' }));
+    await expect(crearApi(clienteCon(invoke)).moderar('resena', 'c1', true, null)).rejects.toMatchObject({ tipo: 'motivo_requerido' });
+  });
+});
+
+describe('api.auditoria', () => {
+  test('pide la acción «auditoria» y devuelve las entradas', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { auditoria: [ENTRADA, { ...ENTRADA, objetivo_id: null, objetivo: null, detalle: null }] }, error: null });
+    const r = await crearApi(clienteCon(invoke)).auditoria();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'auditoria' } });
+    expect(r).toHaveLength(2);
+  });
+
+  test.each([
+    ['sin la clave', {}],
+    ['entrada sin acción', { auditoria: [{ ...ENTRADA, accion: undefined }] }],
+    ['fecha que no es texto', { auditoria: [{ ...ENTRADA, creado_en: 5 }] }],
+    ['admin que no es texto', { auditoria: [{ ...ENTRADA, admin: null }] }],
+  ])('forma rota (%s) → «desconocido»', async (_n, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).auditoria()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+});
+
+const INGRESOS = {
+  por_semana: Array.from({ length: 8 }, (_, i) => ({ semana: `2026-09-${String(i * 7 + 1).padStart(2, '0')}`, mercadopago_centavos: i * 100, simulado_centavos: 0 })),
+  ingresos_30d: { mercadopago_centavos: 19800, simulado_centavos: 19900, pagos_mercadopago: 2, pagos_simulados: 1 },
+  suscripciones: { activas: 3, en_prueba: 4, vencidas: 1, por_vencer_7d: 2 },
+  por_plan: [{ plan_id: 'comerciante_basico', nombre: 'Básico', rol: 'comerciante', activas: 2, mercadopago_30d_centavos: 19800, simulado_30d_centavos: 0 }],
+  ordenes_30d: { creada: 1, pendiente: 1, pagada: 2, rechazada: 0 },
+  ultimos_pagos: [{ creado_en: '2026-10-22T10:00:00Z', origen: 'mercadopago', plan: 'Básico', monto_centavos: 9900, usuario: 'vend_t' }],
+};
+
+describe('api.ingresos', () => {
+  test('pide la acción «ingresos» y devuelve los datos', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { ingresos: INGRESOS }, error: null });
+    const r = await crearApi(clienteCon(invoke)).ingresos();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'ingresos' } });
+    expect(r.ingresos_30d.mercadopago_centavos).toBe(19800);
+  });
+
+  test.each([
+    ['sin datos', { ingresos: null }],
+    ['semanas que no es lista', { ingresos: { ...INGRESOS, por_semana: 'x' } }],
+    ['una semana sin monto simulado', { ingresos: { ...INGRESOS, por_semana: [{ semana: '2026-09-01', mercadopago_centavos: 1 }] } }],
+    ['ingresos sin número de pagos', { ingresos: { ...INGRESOS, ingresos_30d: { mercadopago_centavos: 1, simulado_centavos: 1 } } }],
+    ['suscripciones con un texto', { ingresos: { ...INGRESOS, suscripciones: { ...INGRESOS.suscripciones, activas: 'tres' } } }],
+    ['un plan sin nombre', { ingresos: { ...INGRESOS, por_plan: [{ plan_id: 'x', rol: 'comerciante', activas: 1, mercadopago_30d_centavos: 0, simulado_30d_centavos: 0 }] } }],
+    ['órdenes incompletas', { ingresos: { ...INGRESOS, ordenes_30d: { creada: 1 } } }],
+    ['un pago con origen inventado', { ingresos: { ...INGRESOS, ultimos_pagos: [{ ...INGRESOS.ultimos_pagos[0], origen: 'efectivo' }] } }],
+  ])('forma rota (%s) → «desconocido»: ni dinero ni ceros inventados', async (_n, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).ingresos()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+
+  test('un 403 lanza «prohibido»', async () => {
+    const invoke = vi.fn().mockResolvedValue(respuestaConError(403, { error: 'prohibido' }));
+    await expect(crearApi(clienteCon(invoke)).ingresos()).rejects.toMatchObject({ tipo: 'prohibido' });
+  });
+});
+
+const SALUD = { ia: { estado: 'ok', latencia_ms: 120, api_llm_configurada: true, commit: 'a3b1c2d' }, mercadopago: { configurado: true } };
+const EVENTOS = { total_24h: 3, alertas_24h: 1, eventos: [{ recibido_en: '2026-10-23T10:00:00Z', etiqueta: 'activado', nivel: 'info', status: 200, pago_id: '123' }, { recibido_en: '2026-10-23T09:00:00Z', etiqueta: 'credencial-rechazada', nivel: 'alerta', status: 500, pago_id: null }] };
+const ERROR_APP = { id: 'e1', nivel: 'error', mensaje: 'TypeError: x', detalle: null, version_app: 'v1.2', plataforma: 'android', conteo: 4, primera_vez: '2026-10-20T10:00:00Z', ultima_vez: '2026-10-23T10:00:00Z' };
+
+describe('api.salud', () => {
+  test('pide la acción «salud» y devuelve el estado', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { salud: SALUD }, error: null });
+    const r = await crearApi(clienteCon(invoke)).salud();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'salud' } });
+    expect(r.ia.estado).toBe('ok');
+  });
+
+  test.each([
+    ['sin datos', { salud: null }],
+    ['estado de IA inventado', { salud: { ...SALUD, ia: { ...SALUD.ia, estado: 'genial' } } }],
+    ['latencia que no es número ni nulo', { salud: { ...SALUD, ia: { ...SALUD.ia, latencia_ms: 'rápido' } } }],
+    ['mercadopago sin configurado', { salud: { ...SALUD, mercadopago: {} } }],
+    ['commit que no es texto ni nulo', { salud: { ...SALUD, ia: { ...SALUD.ia, commit: 5 } } }],
+  ])('forma rota (%s) → «desconocido»: nunca «todo bien»', async (_n, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).salud()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+});
+
+describe('api.eventosPago', () => {
+  test('pide los avisos de pago', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { eventos_pago: EVENTOS }, error: null });
+    const r = await crearApi(clienteCon(invoke)).eventosPago();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'eventos_pago' } });
+    expect(r.alertas_24h).toBe(1);
+    expect(r.eventos).toHaveLength(2);
+  });
+
+  test.each([
+    ['sin datos', { eventos_pago: null }],
+    ['totales que no son números', { eventos_pago: { ...EVENTOS, total_24h: 'tres' } }],
+    ['nivel inventado', { eventos_pago: { ...EVENTOS, eventos: [{ ...EVENTOS.eventos[0], nivel: 'grave' }] } }],
+    ['estado que no es número', { eventos_pago: { ...EVENTOS, eventos: [{ ...EVENTOS.eventos[0], status: '200' }] } }],
+    ['eventos que no es lista', { eventos_pago: { ...EVENTOS, eventos: 'x' } }],
+  ])('forma rota (%s) → «desconocido»', async (_n, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).eventosPago()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+});
+
+describe('api.errores y api.borrarError', () => {
+  test('errores pide la lista', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { errores: [ERROR_APP] }, error: null });
+    const r = await crearApi(clienteCon(invoke)).errores();
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'errores' } });
+    expect(r).toHaveLength(1);
+  });
+
+  test.each([
+    ['sin la clave', {}],
+    ['nivel inventado', { errores: [{ ...ERROR_APP, nivel: 'fatal' }] }],
+    ['conteo que no es número', { errores: [{ ...ERROR_APP, conteo: '4' }] }],
+    ['mensaje nulo', { errores: [{ ...ERROR_APP, mensaje: null }] }],
+  ])('forma rota (%s) → «desconocido»: nunca «sin errores»', async (_n, data) => {
+    const invoke = vi.fn().mockResolvedValue({ data, error: null });
+    await expect(crearApi(clienteCon(invoke)).errores()).rejects.toMatchObject({ tipo: 'desconocido' });
+  });
+
+  test('borrarError manda el id', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { ok: true }, error: null });
+    await crearApi(clienteCon(invoke)).borrarError('e1');
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'borrar_error', id: 'e1' } });
+  });
+});
+
+describe('api.modoDemo', () => {
+  test('manda la acción con el valor pedido y devuelve el estado que dejó el servidor', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { modo_demo: true }, error: null });
+    const r = await crearApi(clienteCon(invoke)).modoDemo(true);
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'modo_demo', activo: true } });
+    expect(r).toBe(true);
+  });
+
+  test('apagar manda activo=false y devuelve false', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { modo_demo: false }, error: null });
+    expect(await crearApi(clienteCon(invoke)).modoDemo(false)).toBe(false);
+    expect(invoke).toHaveBeenCalledWith('admin', { body: { accion: 'modo_demo', activo: false } });
+  });
+
+  test.each([['sin el campo', {}], ['un texto', { modo_demo: 'true' }], ['un número', { modo_demo: 1 }], ['nulo', { modo_demo: null }]])(
+    'una respuesta con %s lanza «desconocido»: no se afirma un estado que no se leyó',
+    async (_n, data) => {
+      const invoke = vi.fn().mockResolvedValue({ data, error: null });
+      await expect(crearApi(clienteCon(invoke)).modoDemo(true)).rejects.toMatchObject({ tipo: 'desconocido' });
+    },
+  );
+
+  test('un 403 lanza «prohibido»', async () => {
+    const invoke = vi.fn().mockResolvedValue(respuestaConError(403, { error: 'prohibido' }));
+    await expect(crearApi(clienteCon(invoke)).modoDemo(true)).rejects.toMatchObject({ tipo: 'prohibido' });
+  });
+});

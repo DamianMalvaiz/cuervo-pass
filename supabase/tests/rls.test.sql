@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(666);
+select plan(784);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -30,6 +30,18 @@ language sql as $$
   select set_config('request.jwt.claims', '', true),
          set_config('role', 'postgres', true);
 $$;
+
+-- Las cuentas de esta prueba usan correos `@test.mx` (no universitarios). Desde la 0082 el alta marca `cuenta_restringida` según el
+-- correo; para que las 700 aserciones anteriores sigan probando lo que probaban, este trigger SOLO de la prueba (se deshace con el
+-- rollback) las deja sin restricción. Las aserciones nuevas de la 0082 lo desactivan para crear cuentas por el camino real.
+create or replace function t_sin_restriccion() returns trigger language plpgsql set search_path = public as $$
+begin
+  new.cuenta_restringida := false;
+  return new;
+end;
+$$;
+revoke execute on function t_sin_restriccion() from public, anon, authenticated;
+create trigger zz_t_sin_restriccion before insert on usuarios for each row execute function t_sin_restriccion();
 
 -- ════════════════ datos ════════════════
 -- Las filas de `usuarios` las crea el trigger handle_new_user (migración 0009).
@@ -1083,14 +1095,17 @@ select is(
     'afinidad_roomie_de',
     'agregar_funcion',
     'buscar_codigo_postal',
+    'cambiar_perfil_activo',
     'consumir_cuota',
     'contactos_de_mis_publicaciones',
+    'destacadas_publicaciones',
     'distancia_km',
     'enviar_verificacion',
     'exportar_mis_datos',
     'favoritos_por_publicacion',
     'guardar_horario',
     'guardar_menu',
+    'iniciar_prueba',
     'mi_suscripcion',
     'negocio_abierto_en',
     'negocios_ordenados',
@@ -2018,6 +2033,15 @@ select throws_ok(
 
 select actuar_como_servicio();
 select resolver_verificacion('00000000-0000-0000-0000-0000000000f7', 'arrendador', true, null, '00000000-0000-0000-0000-0000000000a1');
+-- 0084 · aprobar NO inicia la prueba (antes la creaba); la inicia la persona. f7 la inicia aquí, una por función, y desde este punto rigen los límites
+-- del plan de prueba (el plan gratuito no permite ni un negocio), como cuando la aprobación la creaba.
+select is(
+  (select count(*)::int from suscripciones where usuario_id = '00000000-0000-0000-0000-0000000000f7' and prueba_hasta is not null), 0,
+  '0084 prueba: aprobar la verificación YA NO inicia la prueba: la inicia la persona' );
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select lives_ok($$select iniciar_prueba('comerciante')$$, '0084 prueba: f7 inicia la prueba de comerciante');
+select lives_ok($$select iniciar_prueba('arrendador')$$, '0084 prueba: y la de arrendador');
+select actuar_como_servicio();
 select actuar_como('00000000-0000-0000-0000-0000000000f7');
 select lives_ok(
   $$insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp)
@@ -2157,7 +2181,7 @@ select actuar_como_servicio();
 select ok(
   (select prueba_hasta between now() + interval '14 days' and now() + interval '16 days'
      from suscripciones where usuario_id = '00000000-0000-0000-0000-0000000000f7' and rol = 'comerciante'),
-  'prueba: aprobar la verificación inicia 15 días de prueba gratis' );
+  'prueba: iniciarla da 15 días de prueba gratis' );
 
 select actuar_como('00000000-0000-0000-0000-0000000000f7');
 select is(
@@ -2275,6 +2299,80 @@ select lives_ok(
       jsonb_build_array(jsonb_build_object('id', (select id from negocio_items where nombre = 'Taco al pastor'), 'nombre', 'Taco al pastor', 'precio', 22,
         'foto', 'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/p/taco.jpg')))$$,
   'menú: una foto propia sí' );
+
+-- ════════════════ 0085 · varias fotos por producto ════════════════
+-- Un producto lleva hasta 5 fotos (`fotos`); `foto` sigue existiendo como la PORTADA (la primera) para lo que ya la leía. Las dos columnas se mantienen
+-- sincronizadas en la base, no en la app: quien escriba solo `foto` (una app vieja) también deja `fotos` coherente.
+select lives_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('id', (select id from negocio_items where nombre = 'Taco al pastor'), 'nombre', 'Taco al pastor', 'precio', 22,
+        'fotos', jsonb_build_array(
+          'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/p/a.jpg',
+          'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/p/b.jpg'))))$$,
+  '0085: un producto guarda varias fotos' );
+select is(
+  (select cardinality(fotos) from negocio_items where nombre = 'Taco al pastor'), 2, '0085: quedan las dos, en orden' );
+select is(
+  (select foto = fotos[1] from negocio_items where nombre = 'Taco al pastor'), true, '0085: la portada (`foto`) es siempre la primera de `fotos`' );
+select is(
+  (select cardinality(fotos) from negocio_items_publicos where nombre = 'Taco al pastor'), 2, '0085: la vista pública también las expone' );
+select throws_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('nombre', 'Con foto ajena', 'precio', 1,
+        'fotos', jsonb_build_array('negocios/00000000-0000-0000-0000-00000000b001/x.jpg'))))$$,
+  '23514', null, '0085: TODAS las fotos deben vivir en la carpeta del negocio, no solo la primera' );
+select throws_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('nombre', 'Con seis fotos', 'precio', 1,
+        'fotos', (select jsonb_agg('negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/p/' || g || '.jpg') from generate_series(1, 6) g))))$$,
+  '23514', null, '0085: la sexta foto de un producto se rechaza (tope de 5)' );
+select lives_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('id', (select id from negocio_items where nombre = 'Taco al pastor'), 'nombre', 'Taco al pastor', 'precio', 22,
+        'foto', 'negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/p/vieja.jpg')))$$,
+  '0085: quien manda solo `foto` (como la app anterior) sigue pudiendo guardar' );
+select is(
+  (select fotos from negocio_items where nombre = 'Taco al pastor'),
+  array['negocios/' || (select id from negocios where nombre = 'Tienda F7') || '/p/vieja.jpg'], '0085: y `fotos` queda coherente con esa portada' );
+select lives_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(jsonb_build_object('id', (select id from negocio_items where nombre = 'Taco al pastor'), 'nombre', 'Taco al pastor', 'precio', 22, 'fotos', '[]'::jsonb)))$$,
+  '0085: quitar todas las fotos se puede' );
+select is(
+  (select foto is null and cardinality(fotos) = 0 from negocio_items where nombre = 'Taco al pastor'), true, '0085: sin fotos, tampoco hay portada' );
+
+-- ════════════════ 0086 · producto estrella ════════════════
+-- El vendedor marca hasta 6 productos como «estrella»: salen primero, en el carrusel de su tienda. Es una elección suya; NO viene del plan (el «Destacado» del
+-- plan es otra cosa: pone el NEGOCIO primero en las listas) ni de ventas (la app no las mide).
+select lives_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(
+        jsonb_build_object('id', (select id from negocio_items where nombre = 'Taco al pastor'), 'nombre', 'Taco al pastor', 'precio', 22, 'estrella', true),
+        jsonb_build_object('nombre', 'Agua fresca', 'precio', 15),
+        jsonb_build_object('nombre', 'Gringa', 'precio', 40, 'estrella', true)))$$,
+  '0086: el menú guarda qué productos son estrella' );
+select is(
+  (select array_agg(nombre order by orden) from negocio_items where estrella and negocio_id = (select id from negocios where nombre = 'Tienda F7')),
+  array['Taco al pastor', 'Gringa'], '0086: quedan marcados los que se pidieron' );
+select is(
+  (select estrella from negocio_items where nombre = 'Agua fresca'), false, '0086: lo que no se marca NO es estrella (por omisión, no)' );
+select is(
+  (select count(*)::int from negocio_items_publicos where estrella), 2, '0086: la vista pública también dice cuáles son' );
+select throws_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      (select jsonb_agg(jsonb_build_object('nombre', 'P' || g, 'precio', 1, 'estrella', true)) from generate_series(1, 7) g))$$,
+  '23514', null, '0086: más de 6 productos estrella se rechaza' );
+select is(
+  (select count(*)::int from negocio_items where estrella and negocio_id = (select id from negocios where nombre = 'Tienda F7')), 2,
+  '0086: y si se rechaza, el menú queda como estaba' );
+
 
 select lives_ok(
   $$update negocios set fotos = array(
@@ -2770,6 +2868,13 @@ select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000e
   'moderar: quien no es admin no oculta nada' );
 select throws_ok($$select fijar_demo_mode('00000000-0000-0000-0000-0000000000e9', true)$$, 'CP007', null, 'modo demo: quien no es admin no lo enciende' );
 select ok((select verificaciones_pendientes >= 0 and cuentas > 0 from admin_resumen('00000000-0000-0000-0000-0000000000a1')), 'admin_resumen: devuelve cifras a un admin' );
+-- ── Resumen con detalle (0078) ──────────────────────────────────────────────
+select throws_ok($$select admin_resumen_detalle('00000000-0000-0000-0000-0000000000e9')$$, 'CP007', null, 'admin_resumen_detalle: una cuenta que no es admin recibe CP007' );
+select ok(admin_resumen_detalle('00000000-0000-0000-0000-0000000000a1') ?& array['altas_por_semana', 'roles_por_estado', 'publicaciones', 'negocios', 'conversaciones', 'mensajes_7d'],
+  'admin_resumen_detalle: trae las seis secciones' );
+select is(jsonb_array_length(admin_resumen_detalle('00000000-0000-0000-0000-0000000000a1')->'altas_por_semana'), 8, 'admin_resumen_detalle: ocho semanas, también las que tuvieron cero altas' );
+select ok(((admin_resumen_detalle('00000000-0000-0000-0000-0000000000a1')->'altas_por_semana'->7->>'cuentas')::int) >= 1, 'admin_resumen_detalle: la semana en curso cuenta las cuentas de hoy' );
+select is((admin_resumen_detalle('00000000-0000-0000-0000-0000000000a1')->'publicaciones'->>'total')::int, (select count(*)::int from publicaciones), 'admin_resumen_detalle: el total de publicaciones es el real' );
 select ok((select count(*) from admin_listar_moderacion('00000000-0000-0000-0000-0000000000a1') where id = '00000000-0000-0000-0000-00000000c001' and reportes = 1 and not oculto) = 1,
   'moderación: la reseña reportada aparece con su número de reportes' );
 select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a1', 'resena', '00000000-0000-0000-0000-00000000c001', true, '  ')$$, 'CP006', null,
@@ -2793,7 +2898,8 @@ select is(fijar_demo_mode('00000000-0000-0000-0000-0000000000a1', false), false,
 select is((select string_agg(accion, ',' order by creado_en, accion) from acciones_admin where admin_id = '00000000-0000-0000-0000-0000000000a1'
            and accion in ('ocultar_resena','restaurar_resena','ocultar_negocio','restaurar_negocio','modo_demo')) is not null, true,
   'bitácora: cada acción dejó su fila' );
-select is((select count(*)::int from acciones_admin where admin_id = '00000000-0000-0000-0000-0000000000a1'), 6,
+-- Desde la 0079 aprobar y rechazar verificaciones TAMBIÉN dejan fila (y las pruebas anteriores las hacen): se excluyen aquí, que lo que se cuenta es que ningún intento fallido deje rastro de más.
+select is((select count(*)::int from acciones_admin where admin_id = '00000000-0000-0000-0000-0000000000a1' and accion not in ('aprobar_verificacion', 'rechazar_verificacion')), 6,
   'bitácora: exactamente 6 acciones hasta aquí (ocultar y restaurar una reseña, ocultar y restaurar un negocio, encender y apagar el modo demo), ninguna de más' );
 select is((select detalle from acciones_admin where accion = 'ocultar_resena'), 'Insulta al negocio', 'bitácora: queda el motivo' );
 -- Ver documentos: solo con verificación pendiente, solo un admin, y deja rastro.
@@ -2810,6 +2916,11 @@ select throws_ok($$select * from acciones_admin$$, '42501', null, 'bitácora: el
 select throws_ok($$select moderar_contenido('00000000-0000-0000-0000-0000000000a1', 'resena', '00000000-0000-0000-0000-00000000c001', true, 'intento desde el cliente')$$, '42501', null,
   'moderar: el cliente autenticado no puede ejecutarla, ni diciendo que es admin' );
 select throws_ok($$select * from admin_resumen('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_resumen: el cliente autenticado no puede ejecutarla' );
+select throws_ok($$select admin_resumen_detalle('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_resumen_detalle: el cliente autenticado no puede ejecutarla' );
+select throws_ok($$select * from admin_listar_auditoria('00000000-0000-0000-0000-0000000000a1', 50)$$, '42501', null, 'admin_listar_auditoria: el cliente autenticado no puede ejecutarla' );
+select throws_ok($$select admin_ingresos('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_ingresos: el cliente autenticado no puede ejecutarla' );
+select throws_ok($$select admin_eventos_pago('00000000-0000-0000-0000-0000000000a1')$$, '42501', null, 'admin_eventos_pago: el cliente autenticado no puede ejecutarla' );
+select throws_ok($$select registrar_evento_pago('x', 'info', 200, null, null)$$, '42501', null, 'registrar_evento_pago: el cliente autenticado no puede registrar eventos' );
 select throws_ok($$select fijar_demo_mode('00000000-0000-0000-0000-0000000000a1', true)$$, '42501', null, 'modo demo: el cliente autenticado no puede ejecutarla' );
 select throws_ok($$select registrar_acceso_documentos('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000e9', 'comerciante')$$,
   '42501', null, 'documentos: el cliente autenticado no puede registrar (ni ver) nada' );
@@ -2834,9 +2945,10 @@ select is(has_table_privilege('authenticated', 'public.publicaciones_publicas', 
 select is(has_table_privilege('authenticated', 'public.roomies_publicos', 'select'), true, 'vistas: authenticated SIGUE leyendo roomies_publicos' );
 select is(has_table_privilege('authenticated', 'public.perfiles_publicos', 'select'), true, 'vistas: authenticated SIGUE leyendo perfiles_publicos' );
 select actuar_como('00000000-0000-0000-0000-0000000000b2');
-select throws_ok($$update publicaciones_publicas set titulo = 'HACKEADA'$$, '42501', null, 'vistas: no se puede ACTUALIZAR una publicación ajena a través de la vista' );
-select throws_ok($$delete from publicaciones_publicas$$, '42501', null, 'vistas: no se puede BORRAR una publicación ajena a través de la vista' );
-select throws_ok($$insert into publicaciones_publicas (id) values (gen_random_uuid())$$, '42501', null, 'vistas: no se puede insertar a través de la vista' );
+-- Desde la 0087 la vista une con los planes y deja de ser actualizable: ya no llega ni a mirar los permisos (55000, «no se puede escribir en una vista»). Sigue siendo imposible.
+select throws_ok($$update publicaciones_publicas set titulo = 'HACKEADA'$$, '55000', null, 'vistas: no se puede ACTUALIZAR una publicación ajena a través de la vista' );
+select throws_ok($$delete from publicaciones_publicas$$, '55000', null, 'vistas: no se puede BORRAR una publicación ajena a través de la vista' );
+select throws_ok($$insert into publicaciones_publicas (id) values (gen_random_uuid())$$, '55000', null, 'vistas: no se puede insertar a través de la vista' );
 select throws_ok($$update roomies_publicos set descripcion_busqueda = 'HACKEADO'$$, '42501', null, 'vistas: no se puede ACTUALIZAR un anuncio de roomie ajeno a través de la vista' );
 select throws_ok($$delete from roomies_publicos$$, '42501', null, 'vistas: no se puede BORRAR un anuncio de roomie ajeno a través de la vista' );
 select is(has_table_privilege('authenticated', 'public.perfiles_publicos', 'update'), false, 'vistas: perfiles_publicos tampoco se escribe (no tiene UPDATE)' );
@@ -2937,6 +3049,61 @@ select is(
 select is(
   (select count(*)::int from net.http_request_queue where convert_from(body, 'utf8') like '%ExponentPushToken[e9]%' and (convert_from(body, 'utf8') like '%domicilio%' or convert_from(body, 'utf8') like '%Eva Soto%')),
   0, 'aviso: el MOTIVO no sale en la notificación (se lee en la pantalla de bloqueo)' );
+-- ── Auditoría: las decisiones sobre verificaciones también quedan en la bitácora (0079) ──
+select is((select count(*)::int from acciones_admin where accion = 'aprobar_verificacion' and objetivo_id = '00000000-0000-0000-0000-0000000000d9' and admin_id = '00000000-0000-0000-0000-0000000000a1'), 1,
+  'auditoría: aprobar una verificación queda en la bitácora, con quién fue' );
+select ok(exists (select 1 from acciones_admin where accion = 'rechazar_verificacion' and objetivo_id = '00000000-0000-0000-0000-0000000000e9' and detalle like '%comerciante%' and detalle like '%El domicilio no coincide%'),
+  'auditoría: rechazar queda en la bitácora con la función y el motivo' );
+select throws_ok($$select * from admin_listar_auditoria('00000000-0000-0000-0000-0000000000e9', 50)$$, 'CP007', null, 'admin_listar_auditoria: una cuenta que no es admin recibe CP007' );
+select ok((select count(*) from admin_listar_auditoria('00000000-0000-0000-0000-0000000000a1', 200) where accion in ('aprobar_verificacion', 'rechazar_verificacion')) >= 2,
+  'admin_listar_auditoria: trae las decisiones sobre verificaciones' );
+select is((select count(*)::int from admin_listar_auditoria('00000000-0000-0000-0000-0000000000a1', 1)), 1, 'admin_listar_auditoria: el límite acota la lista' );
+-- ── Ingresos y planes (0080) ────────────────────────────────────────────────
+-- Los datos de prueba van dentro de un savepoint y se deshacen al final: no alteran los conteos de lo que sigue.
+savepoint s_ingresos;
+insert into pagos (usuario_id, rol, plan_id, monto_centavos, origen, mp_payment_id, periodo_inicio, periodo_fin, creado_en) values
+  ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 9900, 'mercadopago', 'mp-t-1', now(), now() + interval '30 days', now() - interval '1 day'),
+  ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 9900, 'mercadopago', 'mp-t-2', now(), now() + interval '30 days', now() - interval '2 days'),
+  ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_destacado', 19900, 'simulado', null, now(), now() + interval '30 days', now() - interval '10 days'),
+  ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 12345, 'mercadopago', 'mp-t-3', now(), now() + interval '30 days', now() - interval '60 days');
+insert into ordenes_pago (usuario_id, rol, plan_id, monto_centavos, estado) values
+  ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 9900, 'creada'), ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 9900, 'pendiente'),
+  ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 9900, 'pagada'), ('00000000-0000-0000-0000-0000000000d9', 'comerciante', 'comerciante_basico', 9900, 'rechazada');
+
+select throws_ok($$select admin_ingresos('00000000-0000-0000-0000-0000000000e9')$$, 'CP007', null, 'admin_ingresos: una cuenta que no es admin recibe CP007' );
+select ok(admin_ingresos('00000000-0000-0000-0000-0000000000a1') ?& array['por_semana', 'ingresos_30d', 'suscripciones', 'por_plan', 'ordenes_30d', 'ultimos_pagos'], 'admin_ingresos: trae las seis secciones' );
+select is(jsonb_array_length(admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'por_semana'), 8, 'admin_ingresos: ocho semanas, también las de cero' );
+select is((admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ingresos_30d'->>'mercadopago_centavos')::bigint,
+  (select coalesce(sum(monto_centavos), 0) from pagos where origen = 'mercadopago' and creado_en >= now() - interval '30 days'),
+  'admin_ingresos: lo cobrado por Mercado Pago en 30 días es la suma real' );
+select ok((admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ingresos_30d'->>'mercadopago_centavos')::bigint < (select sum(monto_centavos) from pagos where origen = 'mercadopago'),
+  'admin_ingresos: un pago de hace 60 días NO entra en los 30 días' );
+select is((admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ingresos_30d'->>'simulado_centavos')::bigint, (select coalesce(sum(monto_centavos), 0) from pagos where origen = 'simulado' and creado_en >= now() - interval '30 days'),
+  'admin_ingresos: lo simulado se cuenta APARTE de lo real' );
+select is((admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'suscripciones'->>'activas')::int, (select count(*)::int from suscripciones where vigente_hasta > now()), 'admin_ingresos: suscripciones activas = con periodo pagado vigente' );
+select is(
+  (select sum((e->>'mercadopago_centavos')::bigint)::bigint from jsonb_array_elements(admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'por_semana') e),
+  (select coalesce(sum(monto_centavos), 0) from pagos where origen = 'mercadopago' and (creado_en at time zone 'America/Mexico_City')::date >= (date_trunc('week', now() at time zone 'America/Mexico_City'))::date - 49),
+  'admin_ingresos: la suma de las semanas es lo cobrado en esas semanas' );
+select is((admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ordenes_30d'->>'pagada')::int, (select count(*)::int from ordenes_pago where estado = 'pagada' and creada_en >= now() - interval '30 days'), 'admin_ingresos: el embudo de órdenes cuenta las pagadas' );
+select ok(jsonb_array_length(admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ultimos_pagos') between 1 and 10 and (admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ultimos_pagos'->0->>'creado_en')::timestamptz >= (admin_ingresos('00000000-0000-0000-0000-0000000000a1')->'ultimos_pagos'->1->>'creado_en')::timestamptz,
+  'admin_ingresos: los últimos pagos son a lo más 10 y van del más reciente al más antiguo' );
+rollback to savepoint s_ingresos;
+-- ── Eventos del webhook de pagos (0081) ─────────────────────────────────────
+savepoint s_eventos;
+select throws_ok($$select admin_eventos_pago('00000000-0000-0000-0000-0000000000e9')$$, 'CP007', null, 'admin_eventos_pago: una cuenta que no es admin recibe CP007' );
+select lives_ok($$select registrar_evento_pago('activado', 'info', 200, '1234567890', null)$$, 'registrar_evento_pago: guarda un aviso' );
+select lives_ok($$select registrar_evento_pago('no-coincide', 'alerta', 401, null, null)$$, 'registrar_evento_pago: guarda una alerta sin pago' );
+select is(admin_eventos_pago('00000000-0000-0000-0000-0000000000a1')->'eventos'->0->>'etiqueta', 'no-coincide', 'admin_eventos_pago: el más reciente va primero' );
+select is((admin_eventos_pago('00000000-0000-0000-0000-0000000000a1')->>'total_24h')::int, 2, 'admin_eventos_pago: cuenta los avisos de las últimas 24 horas' );
+select is((admin_eventos_pago('00000000-0000-0000-0000-0000000000a1')->>'alertas_24h')::int, 1, 'admin_eventos_pago: y cuántos de ellos son alertas' );
+select throws_ok($$select registrar_evento_pago('x', 'grave', 200, null, null)$$, '22023', null, 'registrar_evento_pago: un nivel que no es info ni alerta se rechaza' );
+select lives_ok($$select registrar_evento_pago(repeat('a', 300), 'info', 500, 'no-es-un-numero', null)$$, 'registrar_evento_pago: una etiqueta enorme no rompe nada' );
+select ok((select char_length(etiqueta) <= 60 and pago_id is null from eventos_pago where status = 500), 'registrar_evento_pago: acota la etiqueta y solo guarda un id de pago NUMÉRICO' );
+insert into eventos_pago (recibido_en, etiqueta, nivel, status) values (now() - interval '70 days', 'viejo', 'info', 200);
+select registrar_evento_pago('activado', 'info', 200, null, null);
+select is((select count(*)::int from eventos_pago where recibido_en < now() - interval '60 days'), 0, 'registrar_evento_pago: poda lo de más de 60 días (la tabla no crece sin fin)' );
+rollback to savepoint s_eventos;
 -- Sin token no se avisa, pero la resolución no se rompe: rechazar la verificación de un tercero sin token es el mismo camino.
 select actuar_como_servicio();
 delete from push_tokens where usuario_id = '00000000-0000-0000-0000-0000000000d9';
@@ -3547,6 +3714,213 @@ select ok((select vigente_hasta between now() + interval '59 days' and now() + i
   'registrar: el segundo periodo se SUMA al primero (60 días)' );
 select ok((select count(*) = 1 from pagos a join pagos b on b.usuario_id = a.usuario_id and b.periodo_inicio = a.periodo_fin where a.usuario_id = '00000000-0000-0000-0000-0000000000fc'),
   'registrar: los periodos de los dos pagos quedan encadenados' );
+
+-- ════════════════ 0082 · cuentas de vendedor sin correo universitario ════════════════
+-- El filtro `.edu.mx` vivía SOLO en la app: con la llave anónima (que va en el APK) cualquiera daba de alta un Gmail llamando a Auth.
+-- Ahora lo exige el hook `before_user_created`, y lo que protege de las cuentas desechables es que una cuenta SIN correo universitario
+-- (`cuenta_restringida`) no puede reportar, reseñar ni abrir conversaciones; sí puede responder en las que ya existen.
+select actuar_como_servicio();
+-- Más arriba esta publicación quedó inactiva. Se vuelve visible para que lo ÚNICO que pueda impedir una reseña o un reporte sea la
+-- restricción: si no, las aserciones «no puede» pasarían porque la publicación no se ve, no porque la cuenta esté restringida.
+update publicaciones set activa = true, oculta_por_reportes = false where id = '00000000-0000-0000-0000-00000000dea1';
+select ok(exists (select 1 from publicaciones_publicas where id = '00000000-0000-0000-0000-00000000dea1'),
+  '0082: preparación: la publicación de prueba se ve en la vista pública');
+
+-- 1 · la regla del dominio, igual que `correoUniversitario.ts`
+select is(es_correo_universitario('ana@utvtol.edu.mx'), true, '0082: un correo de la UTVT es universitario');
+select is(es_correo_universitario('Ana@Otra.EDU.MX'), true, '0082: otra universidad .edu.mx cuenta, sin importar mayúsculas');
+select is(es_correo_universitario('ana@gmail.com'), false, '0082: Gmail no es universitario');
+select is(es_correo_universitario('ana@edu.mx.atacante.com'), false, '0082: «edu.mx» en medio del dominio no engaña');
+select is(es_correo_universitario('ana@edu.mx'), false, '0082: «edu.mx» a secas no es una universidad');
+select is(es_correo_universitario(null), false, '0082: sin correo no es universitario');
+
+-- 2 · el alta marca la cuenta por el camino real (sin el trigger de prueba)
+alter table usuarios disable trigger zz_t_sin_restriccion;
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, created_at, updated_at, raw_user_meta_data)
+values
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000ee01', 'authenticated', 'authenticated',
+   'est@utvtol.edu.mx', '', now(), now(), '{"nombre_usuario":"est_ee01","nombre_completo":"Estudiante"}'),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000ee02', 'authenticated', 'authenticated',
+   'duena@gmail.com', '', now(), now(), '{"nombre_usuario":"vend_ee02","nombre_completo":"Vendedora","tipo_cuenta":"arrendador"}');
+-- El alta de un vendedor crea su rol (siempre sin verificar) y no le pide el cuestionario de estudiante.
+select is((select rol || ':' || estado || ':' || origen from roles_usuario where usuario_id = '00000000-0000-0000-0000-00000000ee02'), 'arrendador:sin_verificar:solicitud',
+  '0082: el alta declarada arrendador crea el rol, sin verificar');
+select is((select cuestionario_completo from usuarios where id = '00000000-0000-0000-0000-00000000ee02'), true,
+  '0082: y no le pide el cuestionario de estudiante');
+select is((select count(*)::int from roles_usuario where usuario_id = '00000000-0000-0000-0000-00000000ee01'), 0,
+  '0082: un estudiante no recibe ningún rol de vendedor');
+select is((select cuestionario_completo from usuarios where id = '00000000-0000-0000-0000-00000000ee01'), false,
+  '0082: y el estudiante sí lo hace');
+-- Una cuenta de servicio (la marca va en app_metadata, que solo escribe la clave de servicio) y una que intenta marcarse desde user_metadata.
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, created_at, updated_at, raw_user_meta_data, raw_app_meta_data)
+values
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000ee03', 'authenticated', 'authenticated',
+   'demo@cuervopass-demo.test', '', now(), now(), '{"nombre_usuario":"demo_ee03"}', '{"sin_restriccion":true}'),
+  ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-00000000ee04', 'authenticated', 'authenticated',
+   'listo@gmail.com', '', now(), now(), '{"nombre_usuario":"listo_ee04","sin_restriccion":true}', '{}');
+alter table usuarios enable trigger zz_t_sin_restriccion;
+select is((select cuenta_restringida from usuarios where id = '00000000-0000-0000-0000-00000000ee01'), false,
+  '0082: el alta con correo universitario NO queda restringida');
+select is((select cuenta_restringida from usuarios where id = '00000000-0000-0000-0000-00000000ee02'), true,
+  '0082: el alta con un correo que no es universitario queda restringida');
+
+select is((select cuenta_restringida from usuarios where id = '00000000-0000-0000-0000-00000000ee03'), false,
+  '0082: la marca de app_metadata (solo la clave de servicio) deja una cuenta de demo sin restricción');
+select is((select cuenta_restringida from usuarios where id = '00000000-0000-0000-0000-00000000ee04'), true,
+  '0082: la misma marca en user_metadata (la manda el cliente) NO sirve');
+
+-- Auth escribe app_metadata en un UPDATE posterior al INSERT: la marca tiene que surtir efecto también por ese camino.
+update auth.users set raw_app_meta_data = raw_app_meta_data || '{"sin_restriccion":true}'::jsonb
+ where id = '00000000-0000-0000-0000-00000000ee04';
+select is((select cuenta_restringida from usuarios where id = '00000000-0000-0000-0000-00000000ee04'), false,
+  '0082: la marca de servicio que llega en un UPDATE (como la escribe Auth) también levanta la restricción');
+
+-- 3 · la restricción no se quita desde la app
+select actuar_como('00000000-0000-0000-0000-00000000ee02');
+select throws_ok($$update usuarios set cuenta_restringida = false where id = '00000000-0000-0000-0000-00000000ee02'$$, null, null,
+  '0082: una cuenta restringida no se quita la restricción con un update directo');
+select actuar_como('00000000-0000-0000-0000-00000000ee01');
+select throws_ok($$update usuarios set cuenta_restringida = true where id = '00000000-0000-0000-0000-00000000ee01'$$, null, null,
+  '0082: ni una cuenta normal se la pone (la fija solo el servidor)');
+
+-- 4 · el hook de Auth
+select actuar_como_servicio();
+select is(hook_alta_de_usuario('{"user":{"email":"est@utvtol.edu.mx","user_metadata":{}}}'::jsonb), '{}'::jsonb,
+  '0082 hook: un correo universitario pasa');
+select is((hook_alta_de_usuario('{"user":{"email":"a@gmail.com","user_metadata":{}}}'::jsonb)->'error'->>'http_code'), '400',
+  '0082 hook: un Gmail sin declarar vendedor se rechaza');
+select is(hook_alta_de_usuario('{"user":{"email":"a@gmail.com","user_metadata":{"tipo_cuenta":"comerciante"}}}'::jsonb), '{}'::jsonb,
+  '0082 hook: un Gmail que se declara comerciante pasa (queda restringido)');
+select is((hook_alta_de_usuario('{"user":{"email":"a@gmail.com","user_metadata":{"tipo_cuenta":"admin"}}}'::jsonb)->'error'->>'http_code'), '400',
+  '0082 hook: declararse «admin» no abre nada');
+select is((hook_alta_de_usuario('{"user":{"user_metadata":{}}}'::jsonb)->'error'->>'http_code'), '400',
+  '0082 hook: sin correo se rechaza (falla cerrado)');
+select ok(not has_function_privilege('authenticated', 'hook_alta_de_usuario(jsonb)', 'execute')
+      and not has_function_privilege('anon', 'hook_alta_de_usuario(jsonb)', 'execute')
+      and has_function_privilege('supabase_auth_admin', 'hook_alta_de_usuario(jsonb)', 'execute'),
+  '0082 hook: lo ejecuta Auth y nadie más');
+
+-- 5 · lo que una cuenta restringida NO puede
+select actuar_como('00000000-0000-0000-0000-00000000ee02');
+select throws_ok($$insert into reportes (reportado_por, publicacion_id, motivo)
+  values ('00000000-0000-0000-0000-00000000ee02', '00000000-0000-0000-0000-00000000dea1', 'spam')$$, '42501', null,
+  '0082: una cuenta restringida no puede reportar');
+select throws_ok($$insert into resenas (usuario_id, publicacion_id, estrellas)
+  values ('00000000-0000-0000-0000-00000000ee02', '00000000-0000-0000-0000-00000000dea1', 1)$$, '42501', null,
+  '0082: una cuenta restringida no puede reseñar');
+select throws_ok($$select reportar_resena(gen_random_uuid(), 'spam')$$, 'CP016', null,
+  '0082: ni reportar una reseña (la restricción se comprueba ANTES que cualquier otra cosa)');
+select throws_ok($$select abrir_conversacion('00000000-0000-0000-0000-0000000000a1')$$, 'CP016', null,
+  '0082: no puede abrir una conversación nueva con un estudiante');
+select throws_ok($$insert into conversaciones (usuario_a, usuario_b)
+  values ('00000000-0000-0000-0000-00000000ee02', '00000000-0000-0000-0000-0000000000a1')$$, '42501', null,
+  '0082: ni saltarse abrir_conversacion insertando directo');
+
+-- 6 · lo que SÍ puede: responder donde la buscaron
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select lives_ok($$select abrir_conversacion('00000000-0000-0000-0000-00000000ee02')$$,
+  '0082: un estudiante sí abre la conversación con el arrendador');
+select actuar_como('00000000-0000-0000-0000-00000000ee02');
+select lives_ok($$select abrir_conversacion('00000000-0000-0000-0000-0000000000a1')$$,
+  '0082: la cuenta restringida recupera una conversación que YA existe');
+select lives_ok($$insert into mensajes (conversacion_id, remitente_id, contenido)
+  select id, '00000000-0000-0000-0000-00000000ee02', 'Hola, sí está disponible' from conversaciones
+   where usuario_a = least('00000000-0000-0000-0000-0000000000a1'::uuid, '00000000-0000-0000-0000-00000000ee02'::uuid)
+     and usuario_b = greatest('00000000-0000-0000-0000-0000000000a1'::uuid, '00000000-0000-0000-0000-00000000ee02'::uuid)$$,
+  '0082: y responde en ella');
+
+-- 7 · el control: una cuenta normal conserva todo
+select actuar_como('00000000-0000-0000-0000-00000000ee01');
+select lives_ok($$insert into reportes (reportado_por, publicacion_id, motivo)
+  values ('00000000-0000-0000-0000-00000000ee01', '00000000-0000-0000-0000-00000000dea1', 'spam')$$,
+  '0082: una cuenta universitaria sigue pudiendo reportar');
+select lives_ok($$insert into resenas (usuario_id, publicacion_id, estrellas)
+  values ('00000000-0000-0000-0000-00000000ee01', '00000000-0000-0000-0000-00000000dea1', 4)$$,
+  '0082: y reseñar');
+select throws_ok($$select reportar_resena(gen_random_uuid(), 'spam')$$, '42501', null,
+  '0082: y reportar_resena sigue con su error de siempre para una reseña que no se ve');
+select actuar_como_servicio();
+
+-- ════════════════ 0083 · perfil activo: estudiante o vendedor ════════════════
+-- La barra de pestañas y la primera vista dependen de qué perfil está usando la persona. El alta lo fija según lo declarado; cambiarlo pasa por
+-- `cambiar_perfil_activo`, que no deja pasar a «vendedor» a quien no tiene ninguna función de vendedor (aunque sea sin verificar).
+select actuar_como_servicio();
+select is((select perfil_activo from usuarios where id = '00000000-0000-0000-0000-00000000ee01'), 'estudiante',
+  '0083: el alta de un estudiante deja el perfil activo en «estudiante»');
+select is((select perfil_activo from usuarios where id = '00000000-0000-0000-0000-00000000ee02'), 'vendedor',
+  '0083: el alta declarada como vendedor deja el perfil activo en «vendedor»');
+
+select actuar_como('00000000-0000-0000-0000-00000000ee01');
+select throws_ok($$update usuarios set perfil_activo = 'vendedor' where id = '00000000-0000-0000-0000-00000000ee01'$$, 'CP017', null,
+  '0083: el perfil activo no se cambia con un update directo');
+select throws_ok($$select cambiar_perfil_activo('vendedor')$$, 'CP017', null,
+  '0083: sin ninguna función de vendedor no se puede pasar a «vendedor»');
+select throws_ok($$select cambiar_perfil_activo('admin')$$, '22023', null,
+  '0083: un perfil que no existe se rechaza');
+select lives_ok($$select agregar_funcion('comerciante')$$, '0083: preparación: el estudiante pide la función de comerciante');
+select lives_ok($$select cambiar_perfil_activo('vendedor')$$, '0083: con una función de vendedor (aunque sin verificar) sí pasa a «vendedor»');
+select actuar_como_servicio();
+select is((select perfil_activo from usuarios where id = '00000000-0000-0000-0000-00000000ee01'), 'vendedor',
+  '0083: y queda guardado');
+select actuar_como('00000000-0000-0000-0000-00000000ee01');
+select lives_ok($$select cambiar_perfil_activo('estudiante')$$, '0083: volver a «estudiante» siempre se puede');
+select actuar_como_servicio();
+select is((select perfil_activo from usuarios where id = '00000000-0000-0000-0000-00000000ee01'), 'estudiante',
+  '0083: y queda guardado');
+select is((select count(*)::int from roles_usuario where usuario_id = '00000000-0000-0000-0000-00000000ee01'), 1,
+  '0083: cambiar de perfil no borra ni toca la función de vendedor');
+
+-- ════════════════ 0084 · la prueba gratis la inicia la persona ════════════════
+-- Antes empezaba sola al aprobar la verificación. Ahora la persona la inicia con «Empezar prueba gratis», una sola vez por función, y puede hacerlo antes
+-- de verificarse (la verificación gobierna si PUBLICA, no si tiene un plan). Pagar antes de usar la prueba la consume: no se regala gratis lo ya pagado.
+select actuar_como('00000000-0000-0000-0000-00000000ee02');
+select throws_ok($$select iniciar_prueba('comerciante')$$, 'CP018', null, '0084: sin esa función no se puede iniciar su prueba');
+select throws_ok($$select iniciar_prueba('admin')$$, '22023', null, '0084: un rol que no existe se rechaza');
+select is((select prueba_disponible from mi_suscripcion('arrendador')), true,
+  '0084: antes de iniciarla, la app SABE que la prueba está disponible (para ofrecerla y no rechazarla después)');
+-- `x between a and b` evalúa `x` DOS veces, y `iniciar_prueba` no es idempotente a propósito: se llama una vez y el resultado se compara.
+select ok((select h between now() + interval '14 days' and now() + interval '16 days' from (select iniciar_prueba('arrendador') as h) t),
+  '0084: iniciar la prueba devuelve hasta cuándo dura (15 días), aunque la verificación siga sin hacerse');
+select is((select estado from mi_suscripcion('arrendador')), 'prueba', '0084: y desde entonces el plan es el de prueba');
+select is((select prueba_disponible from mi_suscripcion('arrendador')), false, '0084: iniciada, ya no está disponible');
+select throws_ok($$select iniciar_prueba('arrendador')$$, 'CP019', null, '0084: la prueba se usa UNA sola vez');
+-- Pagar antes de usar la prueba la consume: ee01 tiene la función de comerciante y un pago, y nunca inició la prueba.
+select actuar_como_servicio();
+insert into pagos (usuario_id, rol, plan_id, monto_centavos, origen, periodo_inicio, periodo_fin)
+values ('00000000-0000-0000-0000-00000000ee01', 'comerciante', 'comerciante_basico', 9900, 'simulado', now(), now() + interval '30 days');
+select actuar_como('00000000-0000-0000-0000-00000000ee01');
+select is((select prueba_disponible from mi_suscripcion('comerciante')), false, '0084: quien ya pagó tampoco la tiene disponible');
+select throws_ok($$select iniciar_prueba('comerciante')$$, 'CP019', null, '0084: quien ya pagó esa función no recibe además una prueba gratis');
+select actuar_como_servicio();
+select throws_ok($$select iniciar_prueba('arrendador')$$, '28000', null, '0084: sin sesión no hay prueba que iniciar');
+select ok(not has_function_privilege('anon', 'iniciar_prueba(text)', 'execute') and has_function_privilege('authenticated', 'iniciar_prueba(text)', 'execute'),
+  '0084: la llama quien tiene sesión y nadie sin ella');
+
+
+
+-- ════════════════ 0087 · depas destacados ════════════════
+-- Un arrendador con el plan que destaca (Plus, o su prueba) sale en el carrusel «Destacados» de Departamentos. El destacado SALE DEL PLAN, no de una columna que
+-- el vendedor escriba: la vista lo calcula con los planes efectivos. La función respeta los mismos filtros duros que las sugerencias (presupuesto, radio, mascotas).
+select actuar_como_servicio();
+insert into publicaciones (id, usuario_id, titulo, tipo, direccion, precio_renta, whatsapp, latitud, longitud, permite_mascotas)
+values ('00000000-0000-0000-0000-00000000dea7', '00000000-0000-0000-0000-0000000000f7', 'Depa F7 destacado', 'depa',
+        'Calle Plus 7', 3000, '5512345679', 19.29, -99.56, false);
+select is((select destacado from publicaciones_publicas where titulo = 'Depa F7 destacado'), true,
+  '0087: la publicación de quien tiene el plan que destaca sale marcada como destacada');
+select is((select destacado from publicaciones_publicas where titulo = 'Depa B'), false,
+  '0087: la de quien no tiene ese plan no');
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select ok((select count(*) = 1 from destacadas_publicaciones(10) where titulo = 'Depa F7 destacado'),
+  '0087: otra persona ve la destacada en la lista de destacados');
+select ok((select count(*) = 0 from destacadas_publicaciones(10) where titulo = 'Depa B'),
+  '0087: y NO ve las que no son destacadas');
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select ok((select count(*) = 0 from destacadas_publicaciones(10) where titulo = 'Depa F7 destacado'),
+  '0087: nadie se ve a sí mismo entre los destacados');
+select ok(pg_get_function_result('destacadas_publicaciones(int,text)'::regprocedure) not like '%vector_embedding%',
+  '0087: la función no devuelve el vector al cliente');
+select ok(not has_function_privilege('anon', 'destacadas_publicaciones(int,text)', 'execute') and has_function_privilege('authenticated', 'destacadas_publicaciones(int,text)', 'execute'),
+  '0087: la llama quien tiene sesión y nadie sin ella');
 
 select * from finish();
 rollback;

@@ -7,7 +7,6 @@ import { ThemedText } from '@/components/themed-text';
 import { Radios, Spacing, Texto } from '@/constants/theme';
 import { useAvisosNoLeidos } from '@/hooks/queries/useNotificaciones';
 import { useTheme } from '@/hooks/use-theme';
-import { toque } from '@/lib/tacto';
 import { useAuthStore } from '@/store/useAuthStore';
 
 /** La campana de Inicio · 0072. La insignia lleva el número en TEXTO (no solo un punto de color) y no se pinta si no se sabe o es cero. */
@@ -19,8 +18,8 @@ export function CampanaAvisos() {
 
   return (
     <Pulsable
+      // Sin `toque()`: abrir los avisos es NAVEGAR, no un cambio. El tacto se reserva para lo que responde o compromete algo (ver `lib/tacto`).
       onPress={() => {
-        toque();
         router.push('/notificaciones');
       }}
       accessibilityRole="button"
