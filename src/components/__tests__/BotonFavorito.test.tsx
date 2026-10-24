@@ -39,13 +39,21 @@ const pintar = async () =>
     </QueryClientProvider>
   );
 
+// El corazón nace DESACTIVADO mientras no sabe qué hay guardado (por diseño): un toque antes de que cargue no hace nada. Se espera a que se pueda tocar; sin eso el toque se pierde.
+const tocar = async (etiqueta: string) => {
+  await screen.findByLabelText(etiqueta);
+  await waitFor(() => expect(screen.getByLabelText(etiqueta).props.accessibilityState?.disabled).toBe(false));
+  await fireEvent.press(screen.getByLabelText(etiqueta));
+};
+
 const guardado = () => screen.queryByLabelText('Quitar de favoritos');
 const sinGuardar = () => screen.queryByLabelText('Guardar en favoritos');
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockSesion.id = 'u1';
-  mockIds.mockResolvedValue([]);
+  // La lectura inicial TARDA a propósito. Con una respuesta instantánea, una prueba que toca el corazón sin esperar a que se active pasa en una máquina rápida y falla en una lenta (así fallaba en el CI, distinto en cada corrida).
+  mockIds.mockImplementation(() => new Promise((r) => setTimeout(() => r([]), 60)));
   mockGuardar.mockResolvedValue(undefined);
   mockQuitar.mockResolvedValue(undefined);
 });
@@ -75,28 +83,28 @@ test('mientras no sabe qué hay guardado, no se puede tocar', async () => {
 
 test('tocar guarda con la cuenta de la sesión', async () => {
   await pintar();
-  await fireEvent.press(await screen.findByLabelText('Guardar en favoritos'));
+  await tocar('Guardar en favoritos');
   await waitFor(() => expect(mockGuardar).toHaveBeenCalledWith('u1', 'p1'));
 });
 
 test('tocar uno guardado lo quita', async () => {
   mockIds.mockResolvedValue(['p1']);
   await pintar();
-  await fireEvent.press(await screen.findByLabelText('Quitar de favoritos'));
+  await tocar('Quitar de favoritos');
   await waitFor(() => expect(mockQuitar).toHaveBeenCalledWith('u1', 'p1'));
 });
 
 test('responde al instante: se ve guardado ANTES de que conteste el servidor', async () => {
   mockGuardar.mockReturnValue(new Promise(() => {}));
   await pintar();
-  await fireEvent.press(await screen.findByLabelText('Guardar en favoritos'));
+  await tocar('Guardar en favoritos');
   expect(await screen.findByLabelText('Quitar de favoritos')).toBeTruthy();
 });
 
 test('si el servidor falla, el corazón VUELVE y se avisa como fallo de conexión', async () => {
   mockGuardar.mockRejectedValue(new Error('Network request failed'));
   await pintar();
-  await fireEvent.press(await screen.findByLabelText('Guardar en favoritos'));
+  await tocar('Guardar en favoritos');
   await waitFor(() => expect(mockError).toHaveBeenCalled());
   expect(String(mockError.mock.calls[0][0])).toMatch(/conexi/i);
   expect(await screen.findByLabelText('Guardar en favoritos')).toBeTruthy();
@@ -106,7 +114,7 @@ test('si el servidor falla, el corazón VUELVE y se avisa como fallo de conexió
 test('el tope de 200 se explica por código y el corazón vuelve', async () => {
   mockGuardar.mockRejectedValue({ code: 'CP004', message: 'tope de favoritos alcanzado' });
   await pintar();
-  await fireEvent.press(await screen.findByLabelText('Guardar en favoritos'));
+  await tocar('Guardar en favoritos');
   await waitFor(() => expect(mockError).toHaveBeenCalled());
   expect(String(mockError.mock.calls[0][0])).toMatch(/200/);
   expect(await screen.findByLabelText('Guardar en favoritos')).toBeTruthy();
