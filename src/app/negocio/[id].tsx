@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Linking, ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 
@@ -101,6 +101,9 @@ export default function NegocioScreen() {
   // Divide por el ancho ACOTADO con el que se pintan las fotos (como en la ficha de un depa).
   const alDesplazar = (e: NativeSyntheticEvent<NativeScrollEvent>) => setFoja(Math.round(e.nativeEvent.contentOffset.x / anchoLista));
   const hayMapa = negocio.latitud != null && negocio.longitud != null;
+
+  const verProducto = (productoId: string) =>
+    router.push({ pathname: '/negocio/producto/[id]', params: { id: productoId, negocio: negocio.id } });
 
   const comoLlegar = async () => {
     try {
@@ -214,7 +217,13 @@ export default function NegocioScreen() {
                 {destacados.map((it) => {
                   const url = portada(it) ? urls.get(portada(it) as string) : null;
                   return (
-                    <View key={it.id} style={[estilos.tarjetaDestacada, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
+                    <Pulsable
+                      key={it.id}
+                      onPress={() => verProducto(it.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ver ${it.nombre}`}
+                      style={[estilos.tarjetaDestacada, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}
+                    >
                       {url ? (
                         <Image source={{ uri: url }} style={estilos.fotoDestacada} contentFit="cover" />
                       ) : (
@@ -231,7 +240,7 @@ export default function NegocioScreen() {
                           <ThemedText type="small" themeColor="textSecondary">Consultar precio</ThemedText>
                         )}
                       </View>
-                    </View>
+                    </Pulsable>
                   );
                 })}
               </ScrollView>
@@ -270,8 +279,11 @@ export default function NegocioScreen() {
                     {g.productos.map((it, i) => {
                       const miniatura = portada(it) ? urls.get(portada(it) as string) : null;
                       return (
-                        <View
+                        <Pulsable
                           key={it.id}
+                          onPress={() => verProducto(it.id)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Ver ${it.nombre}`}
                           style={[estilos.renglon, i > 0 && { borderTopWidth: Filete.fino, borderTopColor: theme.filete }]}
                         >
                           {miniatura ? <Image source={{ uri: miniatura }} style={estilos.miniatura} contentFit="cover" /> : null}
@@ -286,7 +298,7 @@ export default function NegocioScreen() {
                           ) : (
                             <ThemedText type="small" themeColor="textSecondary">Consultar precio</ThemedText>
                           )}
-                        </View>
+                        </Pulsable>
                       );
                     })}
                   </View>

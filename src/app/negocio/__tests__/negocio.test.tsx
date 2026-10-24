@@ -16,7 +16,8 @@ jest.mock('@/components/BotonFavoritoNegocio', () => ({
     return <Text>{`CORAZON ${negocioId}`}</Text>;
   },
 }));
-jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: 'n1' }) }));
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: 'n1' }), router: { push: (...a: unknown[]) => mockPush(...a) } }));
 jest.mock('@/hooks/queries/useServicios', () => ({ useNegocio: (...a: unknown[]) => mockNegocio(...a) }));
 jest.mock('@/hooks/queries/useMisNegocios', () => ({ useMisNegocios: (...a: unknown[]) => mockMisNegocios(...a) }));
 jest.mock('@/store/useAuthStore', () => ({
@@ -206,6 +207,28 @@ describe('los destacados de la tienda (producto estrella)', () => {
     mockNegocio.mockReturnValue(estado({ items: [item('a', 'Revisión', { estrella: true, precio: null })] }));
     await render(<NegocioScreen />);
     expect(screen.getAllByText('Consultar precio').length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('abrir un producto', () => {
+  const item = (id: string, nombre: string, extra: Record<string, unknown> = {}) => ({
+    id, negocio_id: 'n1', nombre, precio: 10, orden: 0, seccion: null, descripcion: null, foto: null, fotos: [], estrella: false, ...extra,
+  });
+
+  it('tocar un producto de la lista abre su pantalla, con el id del producto y el del negocio', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('p1', 'Taco')] }));
+    await render(<NegocioScreen />);
+    await act(async () => { fireEvent.press(screen.getByLabelText(/^Ver Taco/)); });
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/negocio/producto/[id]', params: { id: 'p1', negocio: 'n1' } });
+  });
+
+  it('también desde el carrusel de Destacados', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('p1', 'Taco', { estrella: true })] }));
+    await render(<NegocioScreen />);
+    const tarjetas = screen.getAllByLabelText(/^Ver Taco/);
+    expect(tarjetas).toHaveLength(2);
+    await act(async () => { fireEvent.press(tarjetas[0]); });
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/negocio/producto/[id]', params: { id: 'p1', negocio: 'n1' } });
   });
 });
 
