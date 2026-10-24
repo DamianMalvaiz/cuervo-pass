@@ -397,6 +397,8 @@ export interface NegocioItem {
   foto: string | null;
   /** Rutas de Storage de las fotos del producto (hasta 5, dentro de la carpeta de su negocio); la primera es la portada. */
   fotos: string[];
+  /** Producto estrella (0086): el vendedor lo elige y sale primero, en el carrusel «Destacados» de su tienda. */
+  estrella: boolean;
 }
 
 /** Verificación de vendedor · 0049. Privado: solo su dueña lee su fila. */

@@ -31,7 +31,7 @@ jest.mock('expo-image-picker', () => ({
 import { EditorMenu } from '../EditorMenu';
 
 const item = (id: string, nombre: string, extra: Record<string, unknown> = {}) => ({
-  id, negocio_id: 'n1', nombre, precio: 20, orden: 0, seccion: null, descripcion: null, foto: null, fotos: [], ...extra,
+  id, negocio_id: 'n1', nombre, precio: 20, orden: 0, seccion: null, descripcion: null, foto: null, fotos: [], estrella: false, ...extra,
 });
 const ITEMS = [
   item('i1', 'Taco al pastor', { seccion: 'Tacos', descripcion: 'Con piña', foto: 'negocios/n1/p/a.jpg', fotos: ['negocios/n1/p/a.jpg'] }),
@@ -253,6 +253,42 @@ describe('editar productos (todo local hasta guardar)', () => {
     await pulsar('Agregar una foto del producto');
     expect(mockElegir).not.toHaveBeenCalled();
     expect(mockError).toHaveBeenCalled();
+  });
+});
+
+describe('producto estrella', () => {
+  it('se marca con un interruptor y viaja al guardar el menú', async () => {
+    await montar();
+    await pulsar('Editar Agua de horchata');
+    await act(async () => { fireEvent(screen.getByLabelText('Producto estrella'), 'valueChange', true); });
+    await pulsar('Guardar producto');
+    await pulsar('Guardar menú');
+    const productos = mockMutate.mock.calls[0][0].productos;
+    expect(productos.map((x: { nombre: string; estrella: boolean }) => [x.nombre, x.estrella])).toEqual([
+      ['Taco al pastor', false], ['Agua de horchata', true], ['Revisión', false],
+    ]);
+  });
+
+  it('un producto que ya es estrella llega con el interruptor encendido', async () => {
+    mockSus.mockReturnValue({ suscripcion: { max_fotos: 60, max_productos: 250 }, cargando: false, fallo: false });
+    await render(<EditorMenu negocioId="n1" nombreNegocio="Tacos" items={[item('i1', 'Taco', { estrella: true })] as never} />);
+    await pulsar('Editar Taco');
+    expect(screen.getByLabelText('Producto estrella').props.value).toBe(true);
+  });
+
+  it('con 6 estrellas ya en otros productos no se ofrece una séptima: lo dice', async () => {
+    const seis = Array.from({ length: 6 }, (_, i) => item(`e${i}`, `Estrella ${i}`, { estrella: true }));
+    await render(<EditorMenu negocioId="n1" nombreNegocio="Tacos" items={[...seis, item('x', 'Normal')] as never} />);
+    await pulsar('Editar Normal');
+    expect(screen.queryByLabelText('Producto estrella')).toBeNull();
+    expect(screen.getByText(/hasta 6 productos estrella/)).toBeTruthy();
+  });
+
+  it('el que YA es estrella conserva su interruptor aunque haya 6 (se puede quitar)', async () => {
+    const seis = Array.from({ length: 6 }, (_, i) => item(`e${i}`, `Estrella ${i}`, { estrella: true }));
+    await render(<EditorMenu negocioId="n1" nombreNegocio="Tacos" items={seis as never} />);
+    await pulsar('Editar Estrella 0');
+    expect(screen.getByLabelText('Producto estrella').props.value).toBe(true);
   });
 });
 

@@ -355,6 +355,7 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
               producto={editando}
               esNuevo={!productos.some((x) => x.clave === editando.clave)}
               secciones={seccionesDe(productos)}
+              estrellasEnOtros={productos.filter((x) => x.clave !== editando.clave && x.estrella).length}
               onGuardar={(p) => {
                 setProductos((xs) => (xs.some((x) => x.clave === p.clave) ? xs.map((x) => (x.clave === p.clave ? p : x)) : [...xs, p]));
                 setEditando(null);

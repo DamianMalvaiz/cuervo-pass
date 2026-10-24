@@ -95,6 +95,8 @@ export default function NegocioScreen() {
   const claveDe = (g: { seccion: string | null }) => g.seccion ?? SIN_CATEGORIA;
   const conPestanas = grupos.length >= 2;
   const activa = conPestanas && grupos.some((g) => claveDe(g) === categoria) ? categoria : TODO;
+  // Los que el vendedor marcó como estrella, en un carrusel; si no marcó ninguno no hay carrusel (no se inventa uno).
+  const destacados = items.filter((i) => i.estrella);
   const visibles = activa === TODO ? grupos : grupos.filter((g) => claveDe(g) === activa);
   // Divide por el ancho ACOTADO con el que se pintan las fotos (como en la ficha de un depa).
   const alDesplazar = (e: NativeSyntheticEvent<NativeScrollEvent>) => setFoja(Math.round(e.nativeEvent.contentOffset.x / anchoLista));
@@ -197,6 +199,42 @@ export default function NegocioScreen() {
                   ))}
                 </View>
               ) : null}
+            </View>
+          ) : null}
+
+          {destacados.length > 0 ? (
+            <View style={estilos.menu}>
+              <ThemedText type="subtitle">Destacados</ThemedText>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={estilos.carril}
+                accessibilityLabel="Destacados"
+              >
+                {destacados.map((it) => {
+                  const url = portada(it) ? urls.get(portada(it) as string) : null;
+                  return (
+                    <View key={it.id} style={[estilos.tarjetaDestacada, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
+                      {url ? (
+                        <Image source={{ uri: url }} style={estilos.fotoDestacada} contentFit="cover" />
+                      ) : (
+                        <View style={[estilos.fotoDestacada, estilos.sinFoto, { backgroundColor: theme.backgroundSelected }]}>
+                          <Ionicons name="image-outline" size={24} color={theme.textSecondary} />
+                        </View>
+                      )}
+                      <View style={estilos.textoDestacado}>
+                        <ThemedText style={Texto.pesoFuerte} numberOfLines={1}>{it.nombre}</ThemedText>
+                        {it.descripcion ? <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>{it.descripcion}</ThemedText> : null}
+                        {it.precio != null ? (
+                          <ThemedText style={Texto.tituloSeccion}>{`$${formateadorPrecio.format(it.precio)}`}</ThemedText>
+                        ) : (
+                          <ThemedText type="small" themeColor="textSecondary">Consultar precio</ThemedText>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
             </View>
           ) : null}
 
@@ -306,6 +344,10 @@ const estilos = StyleSheet.create({
   diasHorario: { gap: Spacing.two, paddingBottom: Spacing.three },
   diaHorario: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.three },
   pestanas: { gap: Spacing.two },
+  carril: { gap: Spacing.three },
+  tarjetaDestacada: { width: 220, borderWidth: Filete.fino, borderRadius: Radios.tarjeta, overflow: 'hidden' },
+  fotoDestacada: { width: '100%', height: AltoFotoTarjeta * 0.6 },
+  textoDestacado: { padding: Spacing.three, gap: Spacing.half },
   pestana: { minHeight: 44, paddingHorizontal: Spacing.three, borderWidth: Filete.fino, borderRadius: Radios.full, justifyContent: 'center' },
   tarjetaMenu: { borderWidth: Filete.fino, borderRadius: Radios.tarjeta, paddingHorizontal: Spacing.three },
   renglon: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, minHeight: 52, paddingVertical: Spacing.two },

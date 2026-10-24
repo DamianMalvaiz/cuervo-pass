@@ -176,6 +176,39 @@ describe('la galería', () => {
   });
 });
 
+describe('los destacados de la tienda (producto estrella)', () => {
+  const item = (id: string, nombre: string, extra: Record<string, unknown> = {}) => ({
+    id, negocio_id: 'n1', nombre, precio: 10, orden: 0, seccion: null, descripcion: null, foto: null, fotos: [], estrella: false, ...extra,
+  });
+
+  it('con productos estrella hay un carrusel «Destacados» con solo esos', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco', { estrella: true, precio: 28 }), item('b', 'Agua')] }));
+    await render(<NegocioScreen />);
+    expect(screen.getByLabelText('Destacados')).toBeTruthy();
+    // El estrella sale en el carrusel Y en su lista; el que no lo es, solo en la lista.
+    expect(screen.getAllByText('$28')).toHaveLength(2);
+    expect(screen.getAllByText('Agua')).toHaveLength(1);
+  });
+
+  it('sin ninguno no hay carrusel: no se inventa uno con productos al azar', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco'), item('b', 'Agua')] }));
+    await render(<NegocioScreen />);
+    expect(screen.queryByLabelText('Destacados')).toBeNull();
+  });
+
+  it('un producto estrella sigue estando también en su lista de «Lo que vende»', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Taco', { estrella: true })] }));
+    await render(<NegocioScreen />);
+    expect(screen.getAllByText('Taco')).toHaveLength(2);
+  });
+
+  it('sin precio dice «Consultar precio», no un cero', async () => {
+    mockNegocio.mockReturnValue(estado({ items: [item('a', 'Revisión', { estrella: true, precio: null })] }));
+    await render(<NegocioScreen />);
+    expect(screen.getAllByText('Consultar precio').length).toBeGreaterThanOrEqual(1);
+  });
+});
+
 describe('lo que vende', () => {
   it('la sección se llama «Lo que vende» (ya no «Menú y precios»)', async () => {
     await render(<NegocioScreen />);
@@ -186,7 +219,7 @@ describe('lo que vende', () => {
 
 describe('el menú por secciones', () => {
   const item = (id: string, nombre: string, extra: Record<string, unknown> = {}) => ({
-    id, negocio_id: 'n1', nombre, precio: 10, orden: 0, seccion: null, descripcion: null, foto: null, fotos: [], ...extra,
+    id, negocio_id: 'n1', nombre, precio: 10, orden: 0, seccion: null, descripcion: null, foto: null, fotos: [], estrella: false, ...extra,
   });
 
   it('agrupa por sección, en el orden del menú, y deja «Otros» al final', async () => {

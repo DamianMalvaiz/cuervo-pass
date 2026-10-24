@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(771);
+select plan(777);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2344,6 +2344,33 @@ select lives_ok(
   '0085: quitar todas las fotos se puede' );
 select is(
   (select foto is null and cardinality(fotos) = 0 from negocio_items where nombre = 'Taco al pastor'), true, '0085: sin fotos, tampoco hay portada' );
+
+-- ════════════════ 0086 · producto estrella ════════════════
+-- El vendedor marca hasta 6 productos como «estrella»: salen primero, en el carrusel de su tienda. Es una elección suya; NO viene del plan (el «Destacado» del
+-- plan es otra cosa: pone el NEGOCIO primero en las listas) ni de ventas (la app no las mide).
+select lives_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      jsonb_build_array(
+        jsonb_build_object('id', (select id from negocio_items where nombre = 'Taco al pastor'), 'nombre', 'Taco al pastor', 'precio', 22, 'estrella', true),
+        jsonb_build_object('nombre', 'Agua fresca', 'precio', 15),
+        jsonb_build_object('nombre', 'Gringa', 'precio', 40, 'estrella', true)))$$,
+  '0086: el menú guarda qué productos son estrella' );
+select is(
+  (select array_agg(nombre order by orden) from negocio_items where estrella and negocio_id = (select id from negocios where nombre = 'Tienda F7')),
+  array['Taco al pastor', 'Gringa'], '0086: quedan marcados los que se pidieron' );
+select is(
+  (select estrella from negocio_items where nombre = 'Agua fresca'), false, '0086: lo que no se marca NO es estrella (por omisión, no)' );
+select is(
+  (select count(*)::int from negocio_items_publicos where estrella), 2, '0086: la vista pública también dice cuáles son' );
+select throws_ok(
+  $$select guardar_menu(
+      (select id from negocios where nombre = 'Tienda F7'),
+      (select jsonb_agg(jsonb_build_object('nombre', 'P' || g, 'precio', 1, 'estrella', true)) from generate_series(1, 7) g))$$,
+  '23514', null, '0086: más de 6 productos estrella se rechaza' );
+select is(
+  (select count(*)::int from negocio_items where estrella and negocio_id = (select id from negocios where nombre = 'Tienda F7')), 2,
+  '0086: y si se rechaza, el menú queda como estaba' );
 
 
 select lives_ok(

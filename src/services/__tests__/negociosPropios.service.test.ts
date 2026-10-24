@@ -116,8 +116,8 @@ describe('actualizarNegocio', () => {
 
 describe('guardarMenu', () => {
   const items = [
-    { id: 'a', nombre: 'Taco', precio: 20, seccion: 'Tacos', descripcion: null, fotos: [] },
-    { nombre: 'Agua', precio: null, seccion: null, descripcion: 'Fresca', fotos: ['negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg'] },
+    { id: 'a', nombre: 'Taco', precio: 20, seccion: 'Tacos', descripcion: null, fotos: [], estrella: false },
+    { nombre: 'Agua', precio: null, seccion: null, descripcion: 'Fresca', fotos: ['negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg'], estrella: true },
   ];
 
   test('manda el menú ENTERO en una sola llamada a la RPC, en orden', async () => {

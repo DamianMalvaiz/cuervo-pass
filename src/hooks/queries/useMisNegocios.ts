@@ -84,6 +84,7 @@ async function guardarProductos(negocioId: string, productos: ProductoEditable[]
       seccion: p.seccion.trim() || null,
       descripcion: p.descripcion.trim() || null,
       fotos: [...p.fotos, ...subidas],
+      estrella: p.estrella,
     });
   }
   await guardarMenu(negocioId, items);

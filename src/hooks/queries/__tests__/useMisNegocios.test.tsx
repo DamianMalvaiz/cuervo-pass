@@ -111,7 +111,7 @@ describe('useGuardarNegocio · nuevo', () => {
 
   describe('con productos (el primer producto se publica junto con el negocio)', () => {
     const producto = (extra: Record<string, unknown> = {}) => ({
-      clave: 'k1', nombre: ' Lavado por kilo ', precio: '28', seccion: ' Lavado ', descripcion: '', fotos: [], fotosNuevas: [], ...extra,
+      clave: 'k1', nombre: ' Lavado por kilo ', precio: '28', seccion: ' Lavado ', descripcion: '', fotos: [], fotosNuevas: [], estrella: false, ...extra,
     });
 
     it('crea el negocio y DESPUÉS guarda el menú con la foto del producto ya subida', async () => {
@@ -120,7 +120,7 @@ describe('useGuardarNegocio · nuevo', () => {
       await act(async () => { await result.current.mutateAsync({ ...base, productos: [producto({ fotosNuevas: ['file:///p.jpg'] })] }); });
       expect(mockSubirProducto).toHaveBeenCalledWith('n-nuevo', 'file:///p.jpg');
       expect(mockMenu).toHaveBeenCalledWith('n-nuevo', [
-        { id: undefined, nombre: 'Lavado por kilo', precio: 28, seccion: 'Lavado', descripcion: null, fotos: ['negocios/n-nuevo/p/nueva.jpg'] },
+        { id: undefined, nombre: 'Lavado por kilo', precio: 28, seccion: 'Lavado', descripcion: null, fotos: ['negocios/n-nuevo/p/nueva.jpg'], estrella: false },
       ]);
       expect(mockCrear.mock.invocationCallOrder[0]).toBeLessThan(mockMenu.mock.invocationCallOrder[0]);
     });
@@ -238,7 +238,7 @@ describe('useBorrarNegocio', () => {
 
 describe('useGuardarMenu', () => {
   const producto = (extra: Record<string, unknown> = {}) => ({
-    clave: 'k', nombre: ' Taco ', precio: '18', seccion: ' Tacos ', descripcion: '', fotos: [], fotosNuevas: [], ...extra,
+    clave: 'k', nombre: ' Taco ', precio: '18', seccion: ' Tacos ', descripcion: '', fotos: [], fotosNuevas: [], estrella: false, ...extra,
   });
 
   it('manda el menú entero parseado, en una sola llamada y con el orden de la lista', async () => {
@@ -252,8 +252,8 @@ describe('useGuardarMenu', () => {
     });
     expect(mockMenu).toHaveBeenCalledTimes(1);
     expect(mockMenu).toHaveBeenCalledWith('n1', [
-      { id: 'i1', nombre: 'Taco', precio: 18, seccion: 'Tacos', descripcion: null, fotos: [] },
-      { id: undefined, nombre: 'Revisión', precio: null, seccion: null, descripcion: null, fotos: [] },
+      { id: 'i1', nombre: 'Taco', precio: 18, seccion: 'Tacos', descripcion: null, fotos: [], estrella: false },
+      { id: undefined, nombre: 'Revisión', precio: null, seccion: null, descripcion: null, fotos: [], estrella: false },
     ]);
   });
 
@@ -291,6 +291,13 @@ describe('useGuardarMenu', () => {
     expect(mockSubirProducto).toHaveBeenCalledTimes(2);
     expect(mockMenu.mock.calls[0][1][0].fotos).toEqual(['negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg', 'negocios/n1/p/c.jpg', 'negocios/n1/p/d.jpg']);
     expect(mockBorrarFotos).toHaveBeenCalledWith([]);
+  });
+
+  it('manda si un producto es estrella', async () => {
+    const { Envoltura } = envolver();
+    const { result } = await renderHook(() => useGuardarMenu('n1'), { wrapper: Envoltura });
+    await act(async () => { await result.current.mutateAsync({ productos: [producto({ estrella: true }), producto({ clave: 'k2' })], fotosAnteriores: [] }); });
+    expect(mockMenu.mock.calls[0][1].map((i: { estrella: boolean }) => i.estrella)).toEqual([true, false]);
   });
 
   it('quitar UNA de varias fotos borra solo esa de Storage', async () => {

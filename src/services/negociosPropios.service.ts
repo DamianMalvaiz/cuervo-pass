@@ -47,7 +47,7 @@ export async function obtenerMiNegocio(
   if (!negocio) return null;
   const { data: items, error: errorItems } = await supabase
     .from('negocio_items')
-    .select('id, negocio_id, nombre, precio, orden, seccion, descripcion, foto, fotos')
+    .select('id, negocio_id, nombre, precio, orden, seccion, descripcion, foto, fotos, estrella')
     .eq('negocio_id', id)
     .order('orden', { ascending: true });
   if (errorItems) throw errorItems;
@@ -95,6 +95,7 @@ export interface ItemParaGuardar {
   descripcion: string | null;
   /** Hasta 5; la primera es la portada. */
   fotos: string[];
+  estrella: boolean;
 }
 
 /**
@@ -112,6 +113,7 @@ export async function guardarMenu(negocioId: string, items: ItemParaGuardar[]): 
       seccion: i.seccion,
       descripcion: i.descripcion,
       fotos: i.fotos,
+      estrella: i.estrella,
     })),
   });
   if (error) throw error;

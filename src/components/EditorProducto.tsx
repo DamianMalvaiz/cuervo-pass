@@ -5,13 +5,15 @@ import { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
+import { FilaAjuste } from '@/components/ficha/FilaAjuste';
+import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { MAX_FOTOS_PRODUCTO, opcionesDeSeccion, validarProducto, type ErroresProducto, type ProductoEditable } from '@/lib/menu';
+import { MAX_ESTRELLAS, MAX_FOTOS_PRODUCTO, opcionesDeSeccion, validarProducto, type ErroresProducto, type ProductoEditable } from '@/lib/menu';
 import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 
 /**
@@ -26,6 +28,7 @@ export function EditorProducto({
   esNuevo,
   secciones,
   urlsFotos,
+  estrellasEnOtros = 0,
   onGuardar,
   onQuitar,
   onCerrar,
@@ -35,6 +38,8 @@ export function EditorProducto({
   secciones: string[];
   /** Las rutas guardadas ya firmadas, para mostrarlas. */
   urlsFotos?: ReadonlyMap<string, string>;
+  /** Cuántos OTROS productos del negocio ya son estrella: con el tope lleno no se ofrece marcar uno más (sí se puede quitar la marca de este). */
+  estrellasEnOtros?: number;
   onGuardar: (p: ProductoEditable) => void;
   onQuitar: () => void;
   onCerrar: () => void;
@@ -209,6 +214,22 @@ export function EditorProducto({
             )}
             {errores.fotos ? <ThemedText type="small" style={{ color: theme.error }}>{errores.fotos}</ThemedText> : null}
           </View>
+
+          {p.estrella || estrellasEnOtros < MAX_ESTRELLAS ? (
+            <GrupoAjustes>
+              <FilaAjuste
+                icono="star-outline"
+                etiqueta="Producto estrella"
+                descripcion="Sale primero, en «Destacados» de tu tienda."
+                valor={p.estrella}
+                onCambiar={(v) => cambiar({ estrella: v })}
+              />
+            </GrupoAjustes>
+          ) : (
+            <ThemedText type="small" themeColor="textSecondary">
+              Puedes tener hasta {MAX_ESTRELLAS} productos estrella y ya los tienes. Quita la marca de otro para elegir este.
+            </ThemedText>
+          )}
 
           <Sello onPress={guardar} accessibilityLabel="Guardar producto">Guardar producto</Sello>
 

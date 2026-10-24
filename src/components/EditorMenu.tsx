@@ -35,6 +35,7 @@ const desdeItem = (i: NegocioItem): ProductoEditable => ({
   // Una fila de antes de la 0085 puede no traer `fotos`: su portada única se vuelve la primera de la lista.
   fotos: i.fotos?.length ? i.fotos : i.foto ? [i.foto] : [],
   fotosNuevas: [],
+  estrella: i.estrella ?? false,
 });
 
 /**
@@ -200,6 +201,7 @@ export function EditorMenu({ negocioId, nombreNegocio, items }: { negocioId: str
           esNuevo={editando.esNuevo}
           secciones={sugeridas}
           urlsFotos={urls}
+          estrellasEnOtros={productos.filter((x) => x.clave !== editando.producto.clave && x.estrella).length}
           onGuardar={guardarProducto}
           onQuitar={() => quitarProducto(editando.producto.clave)}
           onCerrar={() => setEditando(null)}
