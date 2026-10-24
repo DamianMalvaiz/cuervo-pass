@@ -8,9 +8,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 const mockSignIn = jest.fn();
 const mockEliminar = jest.fn();
 const mockReplace = jest.fn();
+const mockDismissAll = jest.fn();
 const mockBack = jest.fn();
 
-jest.mock('expo-router', () => ({ router: { replace: (...a: unknown[]) => mockReplace(...a), back: (...a: unknown[]) => mockBack(...a) } }));
+jest.mock('expo-router', () => ({
+  router: { replace: (...a: unknown[]) => mockReplace(...a), back: (...a: unknown[]) => mockBack(...a), canDismiss: () => true, dismissAll: (...a: unknown[]) => mockDismissAll(...a) },
+}));
 jest.mock('@/lib/supabase', () => ({ supabase: { auth: { signInWithPassword: (...a: unknown[]) => mockSignIn(...a) } } }));
 jest.mock('@/services/usuarios.service', () => ({ eliminarMiCuenta: (...a: unknown[]) => mockEliminar(...a) }));
 jest.mock('@/store/useAuthStore', () => ({
@@ -91,6 +94,8 @@ describe('al borrar', () => {
     await escribirClave('MiClave#2026');
     await eliminar();
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/login'));
+    // Se vacía el historial: con solo `replace`, «atrás» devolvía a Configuración y a las pestañas, vacías pero visibles.
+    expect(mockDismissAll).toHaveBeenCalled();
   });
 
   // LA prueba que importa: si la pantalla navegara igual al login, la persona se iría creyendo que ejerció su derecho de cancelación sin haberlo ejercido.

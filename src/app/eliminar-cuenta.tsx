@@ -10,6 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { irAlLogin } from '@/lib/navegacion';
 import { supabase } from '@/lib/supabase';
 import { eliminarMiCuenta } from '@/services/usuarios.service';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -51,7 +52,7 @@ export default function EliminarCuentaScreen() {
       if (eClave) return setError('La contraseña no es correcta.');
 
       await eliminarMiCuenta();
-      router.replace('/(auth)/login');
+      irAlLogin();
     } catch (e) {
       setError(`No se pudo eliminar la cuenta. ${e instanceof Error ? e.message : 'Intenta de nuevo.'}`);
     } finally {

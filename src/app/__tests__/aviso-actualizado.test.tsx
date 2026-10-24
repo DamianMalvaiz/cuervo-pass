@@ -5,8 +5,16 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 // acepta tiene una salida (cerrar sesión), no un callejón.
 
 const mockReplace = jest.fn();
+const mockDismissAll = jest.fn();
 const mockPush = jest.fn();
-jest.mock('expo-router', () => ({ router: { replace: (...a: unknown[]) => mockReplace(...a), push: (...a: unknown[]) => mockPush(...a) } }));
+jest.mock('expo-router', () => ({
+  router: {
+    replace: (...a: unknown[]) => mockReplace(...a),
+    push: (...a: unknown[]) => mockPush(...a),
+    canDismiss: () => true,
+    dismissAll: (...a: unknown[]) => mockDismissAll(...a),
+  },
+}));
 const mockAceptar = jest.fn();
 jest.mock('@/services/aviso.service', () => ({ aceptarAviso: (...a: unknown[]) => mockAceptar(...a) }));
 const mockCerrar = jest.fn();
@@ -73,5 +81,6 @@ test('quien no acepta puede cerrar sesión', async () => {
   await fireEvent.press(screen.getByLabelText('No acepto, cerrar sesión'));
   await waitFor(() => expect(mockCerrar).toHaveBeenCalled());
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/login'));
+  expect(mockDismissAll).toHaveBeenCalled();
   expect(mockAceptar).not.toHaveBeenCalled();
 });

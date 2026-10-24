@@ -22,6 +22,7 @@ import { Colors, Spacing, Tipografia } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLimpiarCacheAlCerrarSesion } from '@/hooks/queries/useLimpiarCacheAlCerrarSesion';
 import { useRestaurarSesion } from '@/hooks/use-restaurar-sesion';
+import { useVolverAlLoginSiSeCierraLaSesion } from '@/hooks/use-volver-al-login';
 import { crearClienteConsultas } from '@/lib/consultas';
 import { fallo, limpiar, textoDeError } from '@/lib/registro';
 import { iniciarRegistroRemoto } from '@/lib/registroRemoto';
@@ -73,6 +74,8 @@ export default function RootLayout() {
   useLimpiarCacheAlCerrarSesion(clienteConsultas);
   // La sesión guardada se lee al arrancar por CUALQUIER ruta, no solo por la pantalla de entrada (ver el hook).
   useRestaurarSesion();
+  // Una sesión que termina sin que nadie pulse nada (revocada, cuenta borrada en otro dispositivo) saca de las pantallas protegidas.
+  useVolverAlLoginSiSeCierraLaSesion();
 
   const scheme = useColorScheme();
   const esOscuro = scheme === 'dark';

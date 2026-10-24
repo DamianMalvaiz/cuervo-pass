@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing, Texto } from '@/constants/theme';
 import { AVISO_ACTUALIZACION } from '@/lib/avisoPrivacidad';
+import { irAlLogin } from '@/lib/navegacion';
 import { toast } from '@/lib/toast';
 import { VERSION_AVISO } from '@/lib/verificacion';
 import { aceptarAviso } from '@/services/aviso.service';
@@ -48,7 +49,7 @@ export default function AvisoActualizadoScreen() {
 
   const salir = async () => {
     await cerrarSesion();
-    router.replace('/(auth)/login');
+    irAlLogin();
   };
 
   return (

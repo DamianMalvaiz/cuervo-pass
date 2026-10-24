@@ -6,10 +6,16 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 const mockCerrarSesion = jest.fn();
 const mockReplace = jest.fn();
+const mockDismissAll = jest.fn();
 const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
-  router: { replace: (...a: unknown[]) => mockReplace(...a), push: (...a: unknown[]) => mockPush(...a) },
+  router: {
+    replace: (...a: unknown[]) => mockReplace(...a),
+    push: (...a: unknown[]) => mockPush(...a),
+    canDismiss: () => true,
+    dismissAll: (...a: unknown[]) => mockDismissAll(...a),
+  },
 }));
 jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) =>
@@ -89,6 +95,7 @@ describe('Sesión', () => {
     await pulsar(/^Cerrar sesión/);
     await waitFor(() => expect(mockCerrarSesion).toHaveBeenCalled());
     expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
+    expect(mockDismissAll).toHaveBeenCalled();
   });
 
   it('«Eliminar mi cuenta» lleva a SU pantalla: no borra nada desde aquí y no abre una alerta', async () => {

@@ -7,6 +7,7 @@ import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
+import { irAlLogin } from '@/lib/navegacion';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 
@@ -28,7 +29,7 @@ export default function ConfiguracionScreen() {
 
   const onCerrarSesion = async () => {
     await cerrarSesion();
-    router.replace('/(auth)/login');
+    irAlLogin();
   };
 
   return (
