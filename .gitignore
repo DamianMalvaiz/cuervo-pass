@@ -92,3 +92,4 @@ google-services.json
 
 # Salida generada de la web de la app (node --env-file=.env scripts/construir-app-web.mjs)
 app-web/dist/
+app-web/.wrangler/
