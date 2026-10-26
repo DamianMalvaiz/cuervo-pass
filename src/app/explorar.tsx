@@ -8,10 +8,10 @@ import { FotoLista } from '@/components/FotoLista';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AltoFotoTarjeta, Filete, Radios, Spacing } from '@/constants/theme';
-import { useCategoriasPublicas, useFotosPublicas, usePublicacionesPublicas } from '@/hooks/queries/useExplorar';
+import { useCategoriasPublicas, useFotosPublicas, useNegociosPublicos, usePublicacionesPublicas } from '@/hooks/queries/useExplorar';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
-import type { PublicacionExplorar } from '@/services/explorar.service';
+import type { NegocioExplorar, PublicacionExplorar } from '@/services/explorar.service';
 
 // Portada pública de la web · tramo 1. Se explora SIN cuenta, con datos reducidos (migración 0090): zona y no dirección, ubicación redondeada, sin teléfono.
 // Primero se enseña lo que hay; la cuenta se pide solo para lo que la necesita.
@@ -44,10 +44,30 @@ function TarjetaDepa({ p }: { p: PublicacionExplorar }) {
   );
 }
 
+function TarjetaNegocio({ n }: { n: NegocioExplorar }) {
+  const theme = useTheme();
+  const { fotos } = useFotosPublicas('negocio', n.id, n.num_fotos);
+  const estado = n.abierto_ahora === null ? null : n.abierto_ahora ? 'Abierto ahora' : 'Cerrado ahora';
+  return (
+    <Pulsable onPress={() => router.push(`/explorar/negocio/${n.id}`)} accessibilityRole="button" accessibilityLabel={`${n.nombre}${estado ? `, ${estado}` : ''}`} style={estilos.tarjeta}>
+      <View style={[estilos.foto, { backgroundColor: theme.backgroundSelected }]}>
+        <FotoLista completa={fotos[0]} style={estilos.fotoImagen} accessibilityLabel={n.nombre} />
+      </View>
+      <View style={estilos.linea}>
+        <ThemedText type="smallBold" numberOfLines={1} style={estilos.titulo}>{n.nombre}</ThemedText>
+        {n.calificacion ? <ThemedText type="small">★ {n.calificacion.toFixed(1)}</ThemedText> : null}
+      </View>
+      {n.zona ? <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{n.zona}</ThemedText> : null}
+      {estado ? <ThemedText type="small">{estado}</ThemedText> : null}
+    </Pulsable>
+  );
+}
+
 export default function Explorar() {
   const theme = useTheme();
   const { clase } = useTamanoPantalla();
   const depas = usePublicacionesPublicas({ limite: 8 });
+  const negocios = useNegociosPublicos({ limite: 8 });
   const categorias = useCategoriasPublicas();
 
   return (
@@ -79,6 +99,21 @@ export default function Explorar() {
           ) : (
             <View style={estilos.cuadricula}>
               {depas.publicaciones.map((p) => <TarjetaDepa key={p.id} p={p} />)}
+            </View>
+          )}
+        </View>
+
+        <View style={estilos.seccion}>
+          <ThemedText type="subtitle" accessibilityRole="header">Negocios cerca</ThemedText>
+          {negocios.fallo ? (
+            <ErrorDeCarga etiqueta="No pudimos cargar los negocios" onReintentar={negocios.reintentar} />
+          ) : negocios.cargando ? (
+            <ThemedText type="small" themeColor="textSecondary">Cargando…</ThemedText>
+          ) : negocios.negocios.length === 0 ? (
+            <ThemedText type="small" themeColor="textSecondary">Todavía no hay negocios publicados.</ThemedText>
+          ) : (
+            <View style={estilos.cuadricula}>
+              {negocios.negocios.map((n) => <TarjetaNegocio key={n.id} n={n} />)}
             </View>
           )}
         </View>

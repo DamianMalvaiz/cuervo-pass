@@ -515,6 +515,28 @@ export interface NegocioExplorar {
   creado_en: string;
 }
 
+export interface ProductoExplorar {
+  [key: string]: unknown;
+  id: string;
+  negocio_id: string;
+  nombre: string;
+  /** Nulo = «consulta el precio». */
+  precio: number | null;
+  seccion: string | null;
+  descripcion: string | null;
+  num_fotos: number;
+  estrella: boolean;
+  orden: number;
+}
+
+export interface HorarioExplorar {
+  [key: string]: unknown;
+  negocio_id: string;
+  dia: number;
+  abre: string;
+  cierra: string;
+}
+
 export interface CategoriaExplorar {
   [key: string]: unknown;
   id: string;
@@ -567,6 +589,8 @@ export interface Database {
       explorar_publicaciones: Vista<PublicacionExplorar>;
       explorar_negocios: Vista<NegocioExplorar>;
       explorar_categorias: Vista<CategoriaExplorar>;
+      explorar_productos: Vista<ProductoExplorar>;
+      explorar_horarios: Vista<HorarioExplorar>;
       calificacion_publicaciones: Vista<{ [key: string]: unknown; publicacion_id: string; calificacion: number; num_resenas: number }>;
     };
     Functions: {

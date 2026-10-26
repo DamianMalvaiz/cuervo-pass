@@ -52,7 +52,7 @@ test('al tocar un departamento va a su ficha pública (sin cuenta)', async () =>
 test('si la lectura falla dice que falló (con reintento), no «no hay departamentos»', async () => {
   Object.assign(mockPub, { publicaciones: [], fallo: true });
   await render(<Explorar />);
-  expect(screen.queryByText(/todavía no hay/i)).toBeNull();
+  expect(screen.queryByText(/todavía no hay departamentos/i)).toBeNull();
   await fireEvent.press(screen.getByLabelText('Reintentar'));
   expect(mockPub.reintentar).toHaveBeenCalled();
 });
@@ -60,5 +60,22 @@ test('si la lectura falla dice que falló (con reintento), no «no hay departame
 test('si de verdad no hay departamentos, lo dice sin alarmar', async () => {
   Object.assign(mockPub, { publicaciones: [] });
   await render(<Explorar />);
-  expect(screen.getByText(/todavía no hay/i)).toBeTruthy();
+  expect(screen.getByText(/todavía no hay departamentos/i)).toBeTruthy();
+});
+
+test('enseña los negocios y al tocar uno va a su ficha pública', async () => {
+  Object.assign(mockNeg, { negocios: [{ id: 'n1', nombre: 'Café Lerma', zona: 'Centro, Lerma', abierto_ahora: true, calificacion: 4.6, num_fotos: 0, destacado: false }] });
+  await render(<Explorar />);
+  expect(screen.getByText('Café Lerma')).toBeTruthy();
+  expect(screen.getByText(/Abierto ahora/)).toBeTruthy();
+  await fireEvent.press(screen.getByLabelText(/Café Lerma/));
+  expect(mockPush).toHaveBeenCalledWith('/explorar/negocio/n1');
+});
+
+test('si fallan los negocios lo dice y deja reintentar; el resto de la portada sigue', async () => {
+  Object.assign(mockNeg, { negocios: [], fallo: true });
+  await render(<Explorar />);
+  expect(screen.getByText('Cuarto con baño propio')).toBeTruthy();
+  await fireEvent.press(screen.getByLabelText('Reintentar'));
+  expect(mockNeg.reintentar).toHaveBeenCalled();
 });

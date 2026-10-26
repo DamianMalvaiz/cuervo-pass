@@ -8,7 +8,9 @@ import { INTERVALO_REFIRMA_MS } from '@/hooks/use-fotos-firmadas';
 import {
   fotosPublicas,
   listarCategoriasPublicas,
+  listarHorarioPublico,
   listarNegociosPublicos,
+  listarProductosPublicos,
   listarPublicacionesPublicas,
   obtenerNegocioPublico,
   obtenerPublicacionPublica,
@@ -37,6 +39,16 @@ export function useNegociosPublicos({ limite }: { limite: number }) {
 export function useNegocioPublico(id: string | undefined) {
   const q = useQuery({ queryKey: ['explorarNegocio', id ?? ''], queryFn: () => obtenerNegocioPublico(id as string), enabled: Boolean(id) });
   return { negocio: q.data ?? null, cargando: q.isPending && Boolean(id), fallo: q.isError, reintentar: () => void q.refetch() };
+}
+
+export function useProductosPublicos(negocioId: string | undefined) {
+  const q = useQuery({ queryKey: ['explorarProductos', negocioId ?? ''], queryFn: () => listarProductosPublicos(negocioId as string), enabled: Boolean(negocioId) });
+  return { productos: q.data ?? [], cargando: q.isPending && Boolean(negocioId), fallo: q.isError, reintentar: () => void q.refetch() };
+}
+
+export function useHorarioPublico(negocioId: string | undefined) {
+  const q = useQuery({ queryKey: ['explorarHorario', negocioId ?? ''], queryFn: () => listarHorarioPublico(negocioId as string), enabled: Boolean(negocioId) });
+  return { horario: q.data ?? [], cargando: q.isPending && Boolean(negocioId), fallo: q.isError, reintentar: () => void q.refetch() };
 }
 
 export function useCategoriasPublicas() {

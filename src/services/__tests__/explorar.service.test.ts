@@ -14,6 +14,8 @@ import {
   COLUMNAS_EXPLORAR_PUBLICACION,
   fotosPublicas,
   listarCategoriasPublicas,
+  listarHorarioPublico,
+  listarProductosPublicos,
   listarNegociosPublicos,
   listarPublicacionesPublicas,
   obtenerNegocioPublico,
@@ -115,5 +117,32 @@ describe('fotosPublicas', () => {
   it('una respuesta sin lista de fotos es un fallo, no una galería vacía', async () => {
     mockInvocar.mockResolvedValue({ data: { error: 'x' }, error: null });
     await expect(fotosPublicas('negocio', 'abc')).rejects.toThrow();
+  });
+});
+
+describe('productos y horario de un negocio', () => {
+  it('productos: de explorar_productos, de ESE negocio, estrellas primero y luego por orden', async () => {
+    const c = cadena({ data: [{ id: 'i1' }] });
+    mockDesde.mockReturnValue(c);
+    await expect(listarProductosPublicos('n1')).resolves.toEqual([{ id: 'i1' }]);
+    expect(mockDesde).toHaveBeenCalledWith('explorar_productos');
+    expect(c.eq).toHaveBeenCalledWith('negocio_id', 'n1');
+    expect(c.order).toHaveBeenNthCalledWith(1, 'estrella', { ascending: false });
+    expect(c.order).toHaveBeenNthCalledWith(2, 'orden', { ascending: true });
+  });
+
+  it('horario: de explorar_horarios, de ESE negocio', async () => {
+    const c = cadena({ data: [{ negocio_id: 'n1', dia: 1, abre: '09:00:00', cierra: '18:00:00' }] });
+    mockDesde.mockReturnValue(c);
+    await expect(listarHorarioPublico('n1')).resolves.toHaveLength(1);
+    expect(mockDesde).toHaveBeenCalledWith('explorar_horarios');
+    expect(c.eq).toHaveBeenCalledWith('negocio_id', 'n1');
+  });
+
+  it('si fallan, LANZAN (un menú que no cargó no es un menú vacío)', async () => {
+    mockDesde.mockReturnValueOnce(cadena({ error: new Error('a') }));
+    await expect(listarProductosPublicos('n1')).rejects.toThrow('a');
+    mockDesde.mockReturnValueOnce(cadena({ error: new Error('b') }));
+    await expect(listarHorarioPublico('n1')).rejects.toThrow('b');
   });
 });

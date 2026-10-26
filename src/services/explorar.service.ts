@@ -5,9 +5,9 @@
 // Las fotos las firma la Edge Function `fotos-publicas`. Todo LANZA si falla (END-11): «no se pudo leer» no es «no hay nada».
 
 import { supabase } from '@/lib/supabase';
-import type { CategoriaExplorar, NegocioExplorar, PublicacionExplorar } from '@/types/database.types';
+import type { CategoriaExplorar, HorarioExplorar, NegocioExplorar, ProductoExplorar, PublicacionExplorar } from '@/types/database.types';
 
-export type { CategoriaExplorar, NegocioExplorar, PublicacionExplorar };
+export type { CategoriaExplorar, HorarioExplorar, NegocioExplorar, ProductoExplorar, PublicacionExplorar };
 
 export const COLUMNAS_EXPLORAR_PUBLICACION =
   'id, titulo, tipo, precio_renta, recamaras, amueblado, permite_mascotas, servicios_incluidos, zona, latitud_aprox, longitud_aprox, num_fotos, destacado, calificacion, num_resenas, creado_en';
@@ -57,6 +57,24 @@ export async function listarCategoriasPublicas(): Promise<CategoriaExplorar[]> {
   const { data, error } = await supabase.from('explorar_categorias').select('id, nombre, icono, orden').order('orden', { ascending: true });
   if (error) throw error;
   return (data ?? []) as CategoriaExplorar[];
+}
+
+/** Los productos visibles de un negocio: las estrellas primero, luego en el orden que eligió quien vende. */
+export async function listarProductosPublicos(negocioId: string): Promise<ProductoExplorar[]> {
+  const { data, error } = await supabase
+    .from('explorar_productos')
+    .select('id, negocio_id, nombre, precio, seccion, descripcion, num_fotos, estrella, orden')
+    .eq('negocio_id', negocioId)
+    .order('estrella', { ascending: false })
+    .order('orden', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as ProductoExplorar[];
+}
+
+export async function listarHorarioPublico(negocioId: string): Promise<HorarioExplorar[]> {
+  const { data, error } = await supabase.from('explorar_horarios').select('negocio_id, dia, abre, cierra').eq('negocio_id', negocioId);
+  if (error) throw error;
+  return (data ?? []) as HorarioExplorar[];
 }
 
 /** URL firmadas (1 h) de las fotos de algo visible. Lanza si la función falla o no responde lo esperado: una galería vacía es un hecho, un fallo no. */
