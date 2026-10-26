@@ -474,6 +474,56 @@ type Tabla<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relati
 // resultado se infiere como `{}` y todo lo que lo consume se cae.
 type Vista<Row> = Tabla<Row>;
 
+// Lo que `anon` y `authenticated` leen de las vistas `explorar_*` (0090): datos reducidos, sin dirección exacta, teléfono ni quién publica.
+export interface PublicacionExplorar {
+  [key: string]: unknown;
+  id: string;
+  titulo: string;
+  tipo: 'depa' | 'cuarto' | 'casa_compartida';
+  precio_renta: number;
+  recamaras: number | null;
+  amueblado: boolean | null;
+  permite_mascotas: boolean | null;
+  servicios_incluidos: string[] | null;
+  /** La dirección sin su primer tramo (calle y número); `null` si no se puede decir sin enseñar la calle. */
+  zona: string | null;
+  /** Redondeadas a ~1 km: sirven para el mapa, no para llegar a la puerta. */
+  latitud_aprox: number | null;
+  longitud_aprox: number | null;
+  num_fotos: number;
+  destacado: boolean;
+  calificacion: number | null;
+  num_resenas: number | null;
+  creado_en: string;
+}
+
+export interface NegocioExplorar {
+  [key: string]: unknown;
+  id: string;
+  categoria_id: string | null;
+  nombre: string;
+  descripcion: string | null;
+  zona: string | null;
+  latitud_aprox: number | null;
+  longitud_aprox: number | null;
+  horario: unknown;
+  num_fotos: number;
+  destacado: boolean;
+  calificacion: number | null;
+  num_resenas: number | null;
+  abierto_ahora: boolean | null;
+  creado_en: string;
+}
+
+export interface CategoriaExplorar {
+  [key: string]: unknown;
+  id: string;
+  nombre: string;
+  icono: string | null;
+  orden: number;
+}
+
+
 export interface Database {
   public: {
     Tables: {
@@ -514,6 +564,9 @@ export interface Database {
       negocio_items_publicos: Vista<NegocioItem>;
       negocio_horarios_publicos: Vista<NegocioHorarioFila>;
       resenas_publicas: Vista<ResenaPublica>;
+      explorar_publicaciones: Vista<PublicacionExplorar>;
+      explorar_negocios: Vista<NegocioExplorar>;
+      explorar_categorias: Vista<CategoriaExplorar>;
       calificacion_publicaciones: Vista<{ [key: string]: unknown; publicacion_id: string; calificacion: number; num_resenas: number }>;
     };
     Functions: {
