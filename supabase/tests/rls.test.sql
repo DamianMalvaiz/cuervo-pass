@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(784);
+select plan(788);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1102,6 +1102,7 @@ select is(
     'distancia_km',
     'enviar_verificacion',
     'exportar_mis_datos',
+    'favoritos_por_negocio',
     'favoritos_por_publicacion',
     'guardar_horario',
     'guardar_menu',
@@ -3921,6 +3922,26 @@ select ok(pg_get_function_result('destacadas_publicaciones(int,text)'::regproced
   '0087: la función no devuelve el vector al cliente');
 select ok(not has_function_privilege('anon', 'destacadas_publicaciones(int,text)', 'execute') and has_function_privilege('authenticated', 'destacadas_publicaciones(int,text)', 'execute'),
   '0087: la llama quien tiene sesión y nadie sin ella');
+
+
+-- ════════════════ 0088 · cuántas personas guardaron mi negocio ════════════════
+-- El panel del vendedor dice «te guardaron N». El conteo es SOLO de los negocios del propio vendedor (la tabla de favoritos es privada y nunca dice QUIÉN), así que
+-- quien pregunta por un negocio ajeno no recibe ni un cero: no recibe fila.
+select actuar_como_servicio();
+insert into favoritos_negocios (usuario_id, negocio_id)
+values ('00000000-0000-0000-0000-0000000000a1', (select id from negocios where nombre = 'Tienda F7'));
+select actuar_como('00000000-0000-0000-0000-0000000000f7');
+select is(
+  (select total from favoritos_por_negocio(array[(select id from negocios where nombre = 'Tienda F7')])), 1,
+  '0088: el dueño ve cuántas personas guardaron su negocio');
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is(
+  (select count(*)::int from favoritos_por_negocio(array[(select id from negocios where nombre = 'Tienda F7')])), 0,
+  '0088: quien NO es el dueño no recibe fila (ni siquiera un cero), aunque él mismo lo haya guardado');
+select actuar_como_servicio();
+select throws_ok($$select * from favoritos_por_negocio(array[gen_random_uuid()])$$, '28000', null, '0088: sin sesión no hay conteo');
+select ok(not has_function_privilege('anon', 'favoritos_por_negocio(uuid[])', 'execute') and has_function_privilege('authenticated', 'favoritos_por_negocio(uuid[])', 'execute'),
+  '0088: la llama quien tiene sesión y nadie sin ella');
 
 select * from finish();
 rollback;

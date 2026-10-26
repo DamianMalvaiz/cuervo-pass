@@ -553,6 +553,11 @@ export interface Database {
       };
       // Cuántas personas guardaron cada publicación: solo (id, total), nunca quién (migración 0045).
       // Una publicación que no se puede ver no devuelve fila, igual que una inexistente.
+      // Cuántas personas guardaron MIS negocios (0088): solo del dueño; uno ajeno no devuelve fila.
+      favoritos_por_negocio: {
+        Args: { p_ids: string[] };
+        Returns: { negocio_id: string; total: number }[];
+      };
       favoritos_por_publicacion: {
         Args: { p_ids: string[] };
         Returns: { publicacion_id: string; total: number }[];

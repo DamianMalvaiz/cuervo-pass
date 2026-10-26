@@ -120,6 +120,17 @@ export async function guardarMenu(negocioId: string, items: ItemParaGuardar[]): 
 }
 
 /**
+ * Cuántos productos tengo en total, sumando todos mis negocios: una consulta de solo conteo (no baja filas) y la política de lectura de `negocio_items` ya la
+ * limita a los propios. LANZA si falla o si la respuesta no trae el conteo: un fallo no es «cero productos» (END-11).
+ */
+export async function contarMisProductos(): Promise<number> {
+  const { count, error } = await supabase.from('negocio_items').select('id', { count: 'exact', head: true });
+  if (error) throw error;
+  if (typeof count !== 'number') throw new Error('sin conteo');
+  return count;
+}
+
+/**
  * Borra el negocio y, ANTES, sus fotos de Storage —las de la galería Y las de sus productos—: no hay cola de limpieza para
  * ellas (como sí la hay para las publicaciones), así que si se borrara primero la fila quedarían huérfanas para siempre. Si
  * borrar las fotos falla, `borrarFotos` avisa y sigue; el negocio se borra igual (la persona pidió borrarlo).

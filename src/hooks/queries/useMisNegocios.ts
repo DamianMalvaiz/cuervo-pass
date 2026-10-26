@@ -9,12 +9,14 @@ import type { Turno } from '@/lib/horario';
 import { borrarFotos, subirFotoNegocio, subirFotoProducto } from '@/lib/storage';
 import { parsearPrecio, type ProductoEditable } from '@/lib/menu';
 import {
-  actualizarNegocio, borrarNegocio, crearNegocio, guardarHorario, guardarMenu, listarMisNegocios, obtenerMiNegocio,
+  actualizarNegocio, borrarNegocio, contarMisProductos, crearNegocio, guardarHorario, guardarMenu, listarMisNegocios, obtenerMiNegocio,
   type DatosNegocio,
 } from '@/services/negociosPropios.service';
 
 const claveLista = (usuarioId: string | undefined) => ['misNegocios', usuarioId ?? ''] as const;
 const claveUno = (id: string | undefined) => ['miNegocio', id ?? ''] as const;
+/** Sin id de cuenta a propósito: el conteo se invalida entero al cambiar productos o negocios. */
+const CLAVE_CONTEO_PRODUCTOS = ['misProductosConteo'] as const;
 
 export function useMisNegocios(usuarioId: string | undefined) {
   const q = useQuery({
@@ -29,6 +31,16 @@ export function useMisNegocios(usuarioId: string | undefined) {
     fallo: q.isError,
     reintentar: () => void q.refetch(),
   };
+}
+
+/** Cuántos productos tengo en total (todos mis negocios). `total` es `null` mientras carga o si falló: nunca un cero que parezca un hecho (END-11). */
+export function useMisProductosConteo(usuarioId: string | undefined) {
+  const q = useQuery({
+    queryKey: [...CLAVE_CONTEO_PRODUCTOS, usuarioId ?? ''] as const,
+    queryFn: contarMisProductos,
+    enabled: Boolean(usuarioId),
+  });
+  return { total: q.data ?? null, cargando: q.isPending && Boolean(usuarioId), fallo: q.isError };
 }
 
 export function useMiNegocio(id: string | undefined) {
@@ -129,6 +141,7 @@ export function useGuardarNegocio(usuarioId: string | undefined) {
       // La lista pública y la ficha de Servicios cambian con esto.
       void cliente.invalidateQueries({ queryKey: ['negocios'] });
       void cliente.invalidateQueries({ queryKey: ['negocio', id] });
+      void cliente.invalidateQueries({ queryKey: CLAVE_CONTEO_PRODUCTOS });
     },
   });
 }
@@ -141,6 +154,7 @@ export function useBorrarNegocio(usuarioId: string | undefined) {
       void cliente.invalidateQueries({ queryKey: claveLista(usuarioId) });
       void cliente.removeQueries({ queryKey: claveUno(id) });
       void cliente.invalidateQueries({ queryKey: ['negocios'] });
+      void cliente.invalidateQueries({ queryKey: CLAVE_CONTEO_PRODUCTOS });
     },
   });
 }
@@ -168,6 +182,7 @@ export function useGuardarMenu(negocioId: string | undefined) {
     onSuccess: () => {
       void cliente.invalidateQueries({ queryKey: claveUno(negocioId) });
       void cliente.invalidateQueries({ queryKey: ['negocio', negocioId] });
+      void cliente.invalidateQueries({ queryKey: CLAVE_CONTEO_PRODUCTOS });
     },
   });
 }

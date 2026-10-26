@@ -9,6 +9,7 @@ const mockActualizar = jest.fn();
 const mockMenu = jest.fn();
 const mockHorario = jest.fn();
 const mockBorrar = jest.fn();
+const mockContarProductos = jest.fn();
 const mockSubir = jest.fn();
 const mockSubirProducto = jest.fn();
 const mockBorrarFotos = jest.fn();
@@ -20,6 +21,7 @@ jest.mock('@/services/negociosPropios.service', () => ({
   guardarMenu: (...a: unknown[]) => mockMenu(...a),
   guardarHorario: (...a: unknown[]) => mockHorario(...a),
   borrarNegocio: (...a: unknown[]) => mockBorrar(...a),
+  contarMisProductos: (...a: unknown[]) => mockContarProductos(...a),
 }));
 jest.mock('@/lib/storage', () => ({
   subirFotoNegocio: (...a: unknown[]) => mockSubir(...a),
@@ -28,7 +30,7 @@ jest.mock('@/lib/storage', () => ({
 }));
 
 import { clienteDePrueba } from '@pruebas/consultas';
-import { ErrorParcial, useBorrarNegocio, useGuardarMenu, useGuardarNegocio, useMiNegocio, useMisNegocios } from '../useMisNegocios';
+import { ErrorParcial, useBorrarNegocio, useGuardarMenu, useGuardarNegocio, useMiNegocio, useMisNegocios, useMisProductosConteo } from '../useMisNegocios';
 
 const envolver = () => {
   const cliente = clienteDePrueba({ queries: { retry: false } });
@@ -56,6 +58,25 @@ beforeEach(() => {
   mockBorrarFotos.mockResolvedValue(undefined);
   mockSubir.mockImplementation(async (id: string) => `negocios/${id}/nueva.jpg`);
   mockSubirProducto.mockImplementation(async (id: string) => `negocios/${id}/p/nueva.jpg`);
+});
+
+describe('useMisProductosConteo', () => {
+  it('devuelve el total; un fallo es fallo y no un cero; sin sesión no consulta', async () => {
+    mockContarProductos.mockResolvedValue(12);
+    const { Envoltura } = envolver();
+    const { result } = await renderHook(() => useMisProductosConteo('u1'), { wrapper: Envoltura });
+    await waitFor(() => expect(result.current.total).toBe(12));
+
+    mockContarProductos.mockRejectedValue(new Error('sin red'));
+    const roto = envolver();
+    const r2 = await renderHook(() => useMisProductosConteo('u2'), { wrapper: roto.Envoltura });
+    await waitFor(() => expect(r2.result.current.fallo).toBe(true));
+    expect(r2.result.current.total).toBeNull();
+
+    mockContarProductos.mockClear();
+    await renderHook(() => useMisProductosConteo(undefined), { wrapper: Envoltura });
+    expect(mockContarProductos).not.toHaveBeenCalled();
+  });
 });
 
 describe('lecturas', () => {
@@ -175,6 +196,23 @@ describe('useGuardarNegocio · nuevo', () => {
   });
 });
 
+describe('el conteo de productos del panel se refresca al crear o borrar un negocio', () => {
+  it('crear', async () => {
+    const { Envoltura, cliente } = envolver();
+    const espia = jest.spyOn(cliente, 'invalidateQueries');
+    const { result } = await renderHook(() => useGuardarNegocio('u1'), { wrapper: Envoltura });
+    await act(async () => { await result.current.mutateAsync({ ...base }); });
+    expect(espia).toHaveBeenCalledWith({ queryKey: ['misProductosConteo'] });
+  });
+  it('borrar', async () => {
+    const { Envoltura, cliente } = envolver();
+    const espia = jest.spyOn(cliente, 'invalidateQueries');
+    const { result } = await renderHook(() => useBorrarNegocio('u1'), { wrapper: Envoltura });
+    await act(async () => { await result.current.mutateAsync({ id: 'n1', fotos: [] }); });
+    expect(espia).toHaveBeenCalledWith({ queryKey: ['misProductosConteo'] });
+  });
+});
+
 describe('useGuardarNegocio · editar', () => {
   it('actualiza, conserva las fotos que siguen y borra de Storage las quitadas AL FINAL', async () => {
     const { Envoltura } = envolver();
@@ -291,6 +329,14 @@ describe('useGuardarMenu', () => {
     expect(mockSubirProducto).toHaveBeenCalledTimes(2);
     expect(mockMenu.mock.calls[0][1][0].fotos).toEqual(['negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg', 'negocios/n1/p/c.jpg', 'negocios/n1/p/d.jpg']);
     expect(mockBorrarFotos).toHaveBeenCalledWith([]);
+  });
+
+  it('al guardar el menú se refresca el conteo de productos del panel (si no, mostraría un número viejo)', async () => {
+    const { Envoltura, cliente } = envolver();
+    const espia = jest.spyOn(cliente, 'invalidateQueries');
+    const { result } = await renderHook(() => useGuardarMenu('n1'), { wrapper: Envoltura });
+    await act(async () => { await result.current.mutateAsync({ productos: [producto()], fotosAnteriores: [] }); });
+    expect(espia).toHaveBeenCalledWith({ queryKey: ['misProductosConteo'] });
   });
 
   it('manda si un producto es estrella', async () => {

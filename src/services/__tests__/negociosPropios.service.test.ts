@@ -7,7 +7,7 @@ jest.mock('@/lib/supabase', () => ({ supabase: { from: (...a: unknown[]) => mock
 jest.mock('@/lib/storage', () => ({ borrarFotos: (...a: unknown[]) => mockBorrarFotos(...a) }));
 
 import {
-  actualizarNegocio, borrarNegocio, crearNegocio, guardarHorario, guardarMenu, listarMisNegocios, obtenerMiNegocio,
+  actualizarNegocio, borrarNegocio, contarMisProductos, crearNegocio, guardarHorario, guardarMenu, listarMisNegocios, obtenerMiNegocio,
 } from '../negociosPropios.service';
 
 function cadena(resultado: { data?: unknown; error?: unknown }) {
@@ -168,5 +168,23 @@ describe('borrarNegocio', () => {
     const secuencia = [items, fila];
     mockDesde.mockImplementation(() => secuencia.shift());
     await expect(borrarNegocio('n1', [])).rejects.toBeTruthy();
+  });
+});
+
+describe('contarMisProductos', () => {
+  test('cuenta con una consulta de solo conteo (sin bajar filas); la política ya limita a los propios', async () => {
+    const c = cadena({ count: 7 } as never);
+    mockDesde.mockReturnValue(c);
+    await expect(contarMisProductos()).resolves.toBe(7);
+    expect(mockDesde).toHaveBeenCalledWith('negocio_items');
+    expect((c.select as jest.Mock)).toHaveBeenCalledWith('id', { count: 'exact', head: true });
+  });
+  test('si falla, LANZA: un fallo no es «cero productos»', async () => {
+    mockDesde.mockReturnValue(cadena({ error: { message: 'sin red' } }));
+    await expect(contarMisProductos()).rejects.toMatchObject({ message: 'sin red' });
+  });
+  test('si la respuesta no trae conteo, LANZA en vez de inventar un cero', async () => {
+    mockDesde.mockReturnValue(cadena({ count: null } as never));
+    await expect(contarMisProductos()).rejects.toThrow();
   });
 });
