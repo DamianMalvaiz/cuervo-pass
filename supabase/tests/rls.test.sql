@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(788);
+select plan(792);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -3942,6 +3942,17 @@ select actuar_como_servicio();
 select throws_ok($$select * from favoritos_por_negocio(array[gen_random_uuid()])$$, '28000', null, '0088: sin sesión no hay conteo');
 select ok(not has_function_privilege('anon', 'favoritos_por_negocio(uuid[])', 'execute') and has_function_privilege('authenticated', 'favoritos_por_negocio(uuid[])', 'execute'),
   '0088: la llama quien tiene sesión y nadie sin ella');
+
+
+-- ════════════════ 0089 · aviso de privacidad v4 ════════════════
+-- Cada versión publicada del aviso se registra con una migración, en el mismo paso que la publica (0075). Sin esto, `aceptar_aviso('v4')` se rechazaría.
+select actuar_como_servicio();
+select is(aviso_version_valida('v4'), true, '0089: la versión 4 del aviso está publicada');
+select is(aviso_version_valida('v5'), false, '0089: una versión que no existe sigue sin valer');
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select lives_ok($$select aceptar_aviso('v4')$$, '0089: una persona puede aceptar la versión 4');
+select actuar_como_servicio();
+select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000a1'), 'v4', '0089: y queda registrada esa versión');
 
 select * from finish();
 rollback;
