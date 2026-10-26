@@ -22,7 +22,8 @@ import { useCategoriasPublicas, useFotosPublicas, useNegociosPublicos, usePublic
 
 const envolver = () => {
   const cliente = clienteDePrueba({ queries: { staleTime: 1000, retry: false } });
-  return ({ children }: { children: ReactNode }) => <QueryClientProvider client={cliente}>{children}</QueryClientProvider>;
+  const Envoltura = ({ children }: { children: ReactNode }) => <QueryClientProvider client={cliente}>{children}</QueryClientProvider>;
+  return Envoltura;
 };
 
 beforeEach(() => jest.clearAllMocks());
