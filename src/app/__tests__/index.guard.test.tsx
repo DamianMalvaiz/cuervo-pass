@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 
 // El guardia de entrada · v5 §26. Estaba al 0 % de ramas con 17 de 17 sin
 // cubrir, y es el archivo que decide QUIÉN ENTRA A LA APP. Diecisiete ramas en
@@ -360,5 +361,29 @@ describe('aviso de privacidad vigente', () => {
     await render(<Index />);
     expect(await screen.findByText(/No pudimos comprobar tu cuenta/)).toBeTruthy();
     expect(mockRedirigir).not.toHaveBeenCalledWith('/aviso-actualizado');
+  });
+});
+
+// La web se explora SIN cuenta (tramo 1): quien llega sin sesión ve la portada pública. En el teléfono sigue siendo el login.
+describe('sin sesión, según la plataforma', () => {
+  const original = Platform.OS;
+  afterEach(() => {
+    Platform.OS = original;
+  });
+
+  it('en la web manda a la portada pública', async () => {
+    Platform.OS = 'web';
+    mockAuth.session = null;
+    await render(<Index />);
+    expect(mockRedirigir).toHaveBeenCalledWith('/explorar');
+    expect(mockRedirigir).not.toHaveBeenCalledWith('/(auth)/login');
+  });
+
+  it('en el teléfono sigue mandando al login', async () => {
+    Platform.OS = 'android';
+    mockAuth.session = null;
+    await render(<Index />);
+    expect(mockRedirigir).toHaveBeenCalledWith('/(auth)/login');
+    expect(mockRedirigir).not.toHaveBeenCalledWith('/explorar');
   });
 });
