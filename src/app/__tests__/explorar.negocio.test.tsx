@@ -67,6 +67,18 @@ test('productos con precio; sin precio dice «Consulta el precio», no inventa u
   expect(screen.getByText(/Consulta el precio/)).toBeTruthy();
 });
 
+test('sin secciones, no repite «Productos» como rótulo de grupo', async () => {
+  Object.assign(mockProd, { productos: [{ ...PRODUCTOS[0], seccion: null }] });
+  await render(<FichaNegocio />);
+  expect(screen.getAllByText(/^productos$/i)).toHaveLength(1);
+});
+
+test('con secciones, cada una lleva su rótulo', async () => {
+  await render(<FichaNegocio />);
+  expect(screen.getByText('BEBIDAS')).toBeTruthy();
+  expect(screen.getByText('PAN')).toBeTruthy();
+});
+
 test('si el menú falla, ofrece reintentar y NO dice que no hay productos', async () => {
   Object.assign(mockProd, { productos: [], fallo: true });
   await render(<FichaNegocio />);

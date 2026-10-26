@@ -18,7 +18,7 @@ jest.mock('@/hooks/queries/useExplorar', () => ({
 
 import Explorar from '../explorar';
 
-const DEPA = { id: 'p1', titulo_publico: 'Cuarto en Santa María', tipo: 'cuarto', precio_renta: 2900, zona: 'Santa María, Lerma', num_fotos: 0, destacado: true, calificacion: 4.9, num_resenas: 3 };
+const DEPA = { id: 'p1', titulo_publico: 'Cuarto en Santa María', tipo: 'cuarto', precio_renta: 2900, zona: 'Santa María, Lerma, México, CP 52000', num_fotos: 0, destacado: true, calificacion: 4.9, num_resenas: 3 };
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -41,6 +41,7 @@ test('enseña los departamentos con precio y zona, nunca la dirección', async (
   expect(screen.getByText('Cuarto en Santa María')).toBeTruthy();
   expect(screen.getByText(/2,900/)).toBeTruthy();
   expect(screen.getByText('Santa María, Lerma')).toBeTruthy();
+  expect(screen.queryByText(/CP 52000/)).toBeNull();
 });
 
 test('al tocar un departamento va a su ficha pública (sin cuenta)', async () => {

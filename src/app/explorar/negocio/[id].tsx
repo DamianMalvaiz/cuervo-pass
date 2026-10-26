@@ -10,19 +10,21 @@ import { ThemedView } from '@/components/themed-view';
 import { AltoFotoTarjeta, Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosPublicas, useHorarioPublico, useNegocioPublico, useProductosPublicos } from '@/hooks/queries/useExplorar';
 import { useTheme } from '@/hooks/use-theme';
+import { zonaCorta } from '@/lib/zona';
 import { lineasPorDia, recortarHora, type DiaIso } from '@/lib/horario';
 import type { ProductoExplorar } from '@/services/explorar.service';
 
 // Ficha pública de un negocio · tramo 1 de la web. Datos REDUCIDOS (migración 0090): la zona y no la dirección exacta, sin teléfono. Escribir o guardar pide cuenta.
 // Las fotos de los productos quedan para un siguiente corte: aquí van el nombre, la sección y el precio.
 
+const SECCION_SIN_NOMBRE = 'Productos';
 const precio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 
 /** Agrupa por sección conservando el orden en que llegan (las estrellas ya vienen primero). */
 function porSeccion(productos: ProductoExplorar[]): { seccion: string; items: ProductoExplorar[] }[] {
   const grupos = new Map<string, ProductoExplorar[]>();
   for (const p of productos) {
-    const clave = p.seccion?.trim() || 'Productos';
+    const clave = p.seccion?.trim() || SECCION_SIN_NOMBRE;
     grupos.set(clave, [...(grupos.get(clave) ?? []), p]);
   }
   return [...grupos].map(([seccion, items]) => ({ seccion, items }));
@@ -72,7 +74,7 @@ export default function FichaNegocio() {
           <ThemedText type="title" accessibilityRole="header" style={estilos.titulo}>{n.nombre}</ThemedText>
           {n.calificacion ? <ThemedText type="smallBold">★ {n.calificacion.toFixed(1)}</ThemedText> : null}
         </View>
-        {n.zona ? <ThemedText themeColor="textSecondary">{n.zona}</ThemedText> : null}
+        {zonaCorta(n.zona) ? <ThemedText themeColor="textSecondary">{zonaCorta(n.zona)}</ThemedText> : null}
         {n.abierto_ahora === null ? null : (
           <ThemedText type="smallBold">{n.abierto_ahora ? 'Abierto ahora' : 'Cerrado ahora'}</ThemedText>
         )}
@@ -103,9 +105,11 @@ export default function FichaNegocio() {
           ) : productos.productos.length === 0 ? (
             <ThemedText type="small" themeColor="textSecondary">Este negocio todavía no tiene productos publicados.</ThemedText>
           ) : (
-            porSeccion(productos.productos).map((g) => (
+            porSeccion(productos.productos).map((g, _i, todos) => (
               <View key={g.seccion} style={estilos.grupo}>
-                <ThemedText type="etiqueta" themeColor="textSecondary">{g.seccion.toUpperCase()}</ThemedText>
+                {todos.length === 1 && g.seccion === SECCION_SIN_NOMBRE ? null : (
+                  <ThemedText type="etiqueta" themeColor="textSecondary">{g.seccion.toUpperCase()}</ThemedText>
+                )}
                 {g.items.map((p) => (
                   <View key={p.id} style={[estilos.renglon, { borderBottomColor: theme.filete }]}>
                     <ThemedText type="smallBold" style={estilos.titulo}>{p.nombre}</ThemedText>

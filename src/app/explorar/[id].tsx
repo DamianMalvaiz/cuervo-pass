@@ -10,6 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { AltoFotoTarjeta, Filete, Radios, Spacing } from '@/constants/theme';
 import { useFotosPublicas, usePublicacionPublica } from '@/hooks/queries/useExplorar';
 import { useTheme } from '@/hooks/use-theme';
+import { zonaCorta } from '@/lib/zona';
 
 // Ficha pública de un depa · tramo 1 de la web. Datos REDUCIDOS (migración 0090): la zona y no la dirección, sin teléfono ni quién publica. Escribir o guardar pide cuenta.
 
@@ -63,7 +64,7 @@ export default function FichaPublica() {
           <ThemedText type="title" accessibilityRole="header" style={estilos.titulo}>{p.titulo_publico}</ThemedText>
           {p.calificacion ? <ThemedText type="smallBold">★ {p.calificacion.toFixed(1)}</ThemedText> : null}
         </View>
-        {p.zona ? <ThemedText themeColor="textSecondary">{p.zona}</ThemedText> : null}
+        {zonaCorta(p.zona) ? <ThemedText themeColor="textSecondary">{zonaCorta(p.zona)}</ThemedText> : null}
         <ThemedText>
           <ThemedText type="subtitle">${precio.format(p.precio_renta)}</ThemedText> al mes
         </ThemedText>
