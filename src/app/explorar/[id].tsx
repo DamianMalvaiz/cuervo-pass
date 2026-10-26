@@ -51,6 +51,7 @@ export default function FichaPublica() {
     p.recamaras ? `${p.recamaras} ${p.recamaras === 1 ? 'recámara' : 'recámaras'}` : null,
     p.amueblado ? 'Amueblado' : null,
     p.permite_mascotas ? 'Acepta mascotas' : null,
+    p.servicios_incluidos ? 'Servicios incluidos' : null,
   ].filter((x): x is string => Boolean(x));
 
   return (
@@ -76,9 +77,6 @@ export default function FichaPublica() {
             </View>
           ))}
         </View>
-        {p.servicios_incluidos && p.servicios_incluidos.length > 0 ? (
-          <ThemedText type="small" themeColor="textSecondary">Incluye: {p.servicios_incluidos.join(', ')}</ThemedText>
-        ) : null}
 
         <View style={[estilos.cuenta, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
           <ThemedText type="subtitle" accessibilityRole="header">¿Te interesa?</ThemedText>

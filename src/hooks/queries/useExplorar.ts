@@ -17,10 +17,10 @@ import {
   type FiltroPublicaciones,
 } from '@/services/explorar.service';
 
-export function usePublicacionesPublicas({ limite, precioMax }: FiltroPublicaciones) {
+export function usePublicacionesPublicas(filtro: FiltroPublicaciones) {
   const q = useQuery({
-    queryKey: ['explorarPublicaciones', limite, precioMax ?? null],
-    queryFn: () => listarPublicacionesPublicas({ limite, precioMax }),
+    queryKey: ['explorarPublicaciones', filtro],
+    queryFn: () => listarPublicacionesPublicas(filtro),
     placeholderData: (previa) => previa,
   });
   return { publicaciones: q.data ?? [], cargando: q.isPending, fallo: q.isError, reintentar: () => void q.refetch() };

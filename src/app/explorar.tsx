@@ -1,142 +1,149 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { Pulsable } from '@/components/ficha/Pulsable';
-import { Sello } from '@/components/ficha/Sello';
 import { FotoLista } from '@/components/FotoLista';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AltoFotoTarjeta, Filete, Radios, Spacing } from '@/constants/theme';
-import { useCategoriasPublicas, useFotosPublicas, useNegociosPublicos, usePublicacionesPublicas } from '@/hooks/queries/useExplorar';
+import { BotonWeb } from '@/components/web/BotonWeb';
+import type { SeccionWeb } from '@/components/web/BarraWeb';
+import { ChipsTiposWeb } from '@/components/web/ChipsTiposWeb';
+import { HeroWeb } from '@/components/web/HeroWeb';
+import { PieWeb } from '@/components/web/PieWeb';
+import { TarjetaPublicacionWeb } from '@/components/web/TarjetaPublicacionWeb';
+import { Radios, Spacing, Texto } from '@/constants/theme';
+import { useFotosPublicas, useNegociosPublicos, usePublicacionesPublicas } from '@/hooks/queries/useExplorar';
+import { useDesplazador } from '@/hooks/use-desplazador';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { FILTROS_VACIOS, aFiltroPublicaciones, hayFiltros, type FiltrosWeb } from '@/lib/filtrosWeb';
 import { zonaCorta } from '@/lib/zona';
-import type { NegocioExplorar, PublicacionExplorar } from '@/services/explorar.service';
+import type { NegocioExplorar } from '@/services/explorar.service';
 
 // Portada pública de la web · tramo 1. Se explora SIN cuenta, con datos reducidos (migración 0090): zona y no dirección, ubicación redondeada, sin teléfono.
-// Primero se enseña lo que hay; la cuenta se pide solo para lo que la necesita.
+// Primero se enseña lo que hay; la cuenta se pide solo para lo que la necesita (guardar, escribir, ver perfiles de roomies).
 
-const precio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
+const ANCHO_MAXIMO = 1200;
+const RESULTADOS = 12;
+const HUECO = Spacing.three + Spacing.one;
 
-function TarjetaDepa({ p, compacta }: { p: PublicacionExplorar; compacta: boolean }) {
-  const theme = useTheme();
-  const { fotos } = useFotosPublicas('publicacion', p.id, p.num_fotos);
-  const resumen = `${p.titulo_publico}, ${precio.format(p.precio_renta)} pesos al mes`;
-  return (
-    <Pulsable onPress={() => router.push(`/explorar/${p.id}`)} accessibilityRole="button" accessibilityLabel={resumen} style={[estilos.tarjeta, compacta && estilos.tarjetaCompacta]}>
-      <View style={[estilos.foto, { backgroundColor: theme.backgroundSelected }]}>
-        <FotoLista completa={fotos[0]} style={estilos.fotoImagen} accessibilityLabel={p.titulo_publico} />
-        {p.destacado ? (
-          <View style={[estilos.chip, { backgroundColor: theme.lima }]}>
-            <ThemedText type="etiqueta" style={{ color: theme.limaTexto }}>DESTACADO</ThemedText>
-          </View>
-        ) : null}
-      </View>
-      <View style={estilos.linea}>
-        <ThemedText type="smallBold" numberOfLines={1} style={estilos.titulo}>{p.titulo_publico}</ThemedText>
-        {p.calificacion ? <ThemedText type="small">★ {p.calificacion.toFixed(1)}</ThemedText> : null}
-      </View>
-      {zonaCorta(p.zona) ? <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{zonaCorta(p.zona)}</ThemedText> : null}
-      <ThemedText type="small">
-        <ThemedText type="smallBold">${precio.format(p.precio_renta)}</ThemedText> al mes
-      </ThemedText>
-    </Pulsable>
-  );
-}
-
-function TarjetaNegocio({ n, compacta }: { n: NegocioExplorar; compacta: boolean }) {
+function TarjetaNegocio({ n, ancho }: { n: NegocioExplorar; ancho: number }) {
   const theme = useTheme();
   const { fotos } = useFotosPublicas('negocio', n.id, n.num_fotos);
+  const zona = zonaCorta(n.zona);
   const estado = n.abierto_ahora === null ? null : n.abierto_ahora ? 'Abierto ahora' : 'Cerrado ahora';
   return (
-    <Pulsable onPress={() => router.push(`/explorar/negocio/${n.id}`)} accessibilityRole="button" accessibilityLabel={`${n.nombre}${estado ? `, ${estado}` : ''}`} style={[estilos.tarjeta, compacta && estilos.tarjetaCompacta]}>
-      <View style={[estilos.foto, { backgroundColor: theme.backgroundSelected }]}>
-        <FotoLista completa={fotos[0]} style={estilos.fotoImagen} accessibilityLabel={n.nombre} />
+    <Pulsable
+      onPress={() => router.push(`/explorar/negocio/${n.id}`)}
+      accessibilityRole="button"
+      accessibilityLabel={`${n.nombre}${estado ? `, ${estado}` : ''}`}
+      style={[estilos.tarjetaNegocio, { width: ancho }]}
+    >
+      <View style={[estilos.fotoNegocio, { backgroundColor: theme.backgroundSelected }]}>
+        <FotoLista completa={fotos[0]} style={estilos.imagen} accessibilityLabel={n.nombre} />
       </View>
-      <View style={estilos.linea}>
-        <ThemedText type="smallBold" numberOfLines={1} style={estilos.titulo}>{n.nombre}</ThemedText>
-        {n.calificacion ? <ThemedText type="small">★ {n.calificacion.toFixed(1)}</ThemedText> : null}
-      </View>
-      {zonaCorta(n.zona) ? <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{zonaCorta(n.zona)}</ThemedText> : null}
-      {estado ? <ThemedText type="small">{estado}</ThemedText> : null}
+      <ThemedText style={Texto.pequenoFuerte} numberOfLines={1}>{n.nombre}</ThemedText>
+      {zona ? <ThemedText style={Texto.pequeno} themeColor="textSecondary" numberOfLines={1}>{zona}</ThemedText> : null}
+      {estado ? <ThemedText style={Texto.pequeno}>{estado}</ThemedText> : null}
     </Pulsable>
   );
 }
 
 export default function Explorar() {
-  const theme = useTheme();
-  const { clase } = useTamanoPantalla();
-  const depas = usePublicacionesPublicas({ limite: 8 });
+  const { ancho } = useTamanoPantalla();
+  const escritorio = ancho >= 1000;
+  const columnas = ancho >= 1000 ? 4 : ancho >= 700 ? 3 : ancho >= 480 ? 2 : 1;
+  const margen = ancho >= 700 ? Spacing.five : Spacing.three;
+  const interior = Math.min(ancho, ANCHO_MAXIMO) - margen * 2;
+  const anchoTarjeta = Math.floor((interior - HUECO * (columnas - 1)) / columnas);
+
+  const { registrarScroll, onScroll, desplazador } = useDesplazador();
+  const [nodoDepas, setNodoDepas] = useState<View | null>(null);
+  const [nodoServicios, setNodoServicios] = useState<View | null>(null);
+  const [filtros, setFiltros] = useState<FiltrosWeb>(FILTROS_VACIOS);
+  // El buscador solo filtra al pulsar «Buscar»; los chips filtran al instante.
+  const [aplicados, setAplicados] = useState<FiltrosWeb>(FILTROS_VACIOS);
+
+  const lugares = usePublicacionesPublicas(aFiltroPublicaciones(aplicados, RESULTADOS));
+  const recientes = usePublicacionesPublicas({ limite: 3 });
   const negocios = useNegociosPublicos({ limite: 8 });
-  const categorias = useCategoriasPublicas();
+
+  // Las tres fotos del collage del hero: una por cada lugar más reciente (siempre tres llamadas, para no cambiar el orden de los hooks).
+  const [a, b, c] = [0, 1, 2].map((i) => recientes.publicaciones[i]);
+  const fa = useFotosPublicas('publicacion', a?.id, a?.num_fotos ?? 0).fotos[0];
+  const fb = useFotosPublicas('publicacion', b?.id, b?.num_fotos ?? 0).fotos[0];
+  const fc = useFotosPublicas('publicacion', c?.id, c?.num_fotos ?? 0).fotos[0];
+
+  const irA = (s: SeccionWeb) => {
+    // Los perfiles de roomies solo se ven con cuenta: la pestaña lleva a entrar.
+    if (s === 'roomies') return router.push('/(auth)/login');
+    const nodo = s === 'depas' ? nodoDepas : nodoServicios;
+    if (nodo) desplazador.alNodo(nodo);
+  };
+  const cambiarChips = (f: FiltrosWeb) => {
+    setFiltros(f);
+    setAplicados(f);
+  };
+  const buscar = () => {
+    setAplicados(filtros);
+    irA('depas');
+  };
+  const quitarFiltros = () => {
+    setFiltros(FILTROS_VACIOS);
+    setAplicados(FILTROS_VACIOS);
+  };
+
+  const filtrando = hayFiltros(aplicados);
+  const tituloSeccion = escritorio ? Texto.seccionWeb : Texto.seccionWebCompacto;
 
   return (
     <ThemedView style={estilos.raiz}>
-      <ScrollView contentContainerStyle={estilos.contenido}>
-        <View style={[estilos.barra, { borderBottomColor: theme.filete }]}>
-          <ThemedText type="subtitle">Cuervo 360</ThemedText>
-          <View style={estilos.acciones}>
-            <Sello variante="contorno" onPress={() => router.push('/(auth)/login')} accessibilityLabel="Iniciar sesión">Iniciar sesión</Sello>
-            <Sello onPress={() => router.push('/(auth)/registro')} accessibilityLabel="Crear cuenta">Crear cuenta</Sello>
-          </View>
-        </View>
+      <ScrollView ref={registrarScroll} onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={estilos.scroll}>
+        <View style={[estilos.contenido, { paddingHorizontal: margen >= Spacing.five ? Spacing.three : Spacing.two }]}>
+          <HeroWeb escritorio={escritorio} filtros={filtros} onCambiar={setFiltros} onBuscar={buscar} onIrASeccion={irA} fotos={[fa, fb, fc]} />
 
-        <View style={[estilos.hero, clase === 'amplia' && estilos.heroAmplio]}>
-          <ThemedText type="title" accessibilityRole="header">Encuentra dónde vivir, con quién y qué hay cerca.</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Departamentos y cuartos a minutos de tu universidad, roomies compatibles contigo y los negocios que necesitas en tu día a día.
-          </ThemedText>
-        </View>
+          <ChipsTiposWeb filtros={filtros} onCambiar={cambiarChips} />
 
-        <View style={estilos.seccion}>
-          <ThemedText type="subtitle" accessibilityRole="header">Departamentos y cuartos</ThemedText>
-          {depas.fallo ? (
-            <ErrorDeCarga etiqueta="No pudimos cargar los departamentos" onReintentar={depas.reintentar} />
-          ) : depas.cargando ? (
-            <ThemedText type="small" themeColor="textSecondary">Cargando…</ThemedText>
-          ) : depas.publicaciones.length === 0 ? (
-            <ThemedText type="small" themeColor="textSecondary">Todavía no hay departamentos publicados.</ThemedText>
-          ) : (
-            <View style={estilos.cuadricula}>
-              {depas.publicaciones.map((p) => <TarjetaDepa key={p.id} p={p} compacta={clase !== 'amplia'} />)}
-            </View>
-          )}
-        </View>
-
-        <View style={estilos.seccion}>
-          <ThemedText type="subtitle" accessibilityRole="header">Negocios cerca</ThemedText>
-          {negocios.fallo ? (
-            <ErrorDeCarga etiqueta="No pudimos cargar los negocios" onReintentar={negocios.reintentar} />
-          ) : negocios.cargando ? (
-            <ThemedText type="small" themeColor="textSecondary">Cargando…</ThemedText>
-          ) : negocios.negocios.length === 0 ? (
-            <ThemedText type="small" themeColor="textSecondary">Todavía no hay negocios publicados.</ThemedText>
-          ) : (
-            <View style={estilos.cuadricula}>
-              {negocios.negocios.map((n) => <TarjetaNegocio key={n.id} n={n} compacta={clase !== 'amplia'} />)}
-            </View>
-          )}
-        </View>
-
-        {categorias.categorias.length > 0 ? (
-          <View style={estilos.seccion}>
-            <ThemedText type="subtitle" accessibilityRole="header">Lo que necesitas cerca</ThemedText>
-            <View style={estilos.categorias}>
-              {categorias.categorias.map((c) => (
-                <View key={c.id} style={[estilos.categoria, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
-                  <ThemedText type="smallBold">{c.nombre}</ThemedText>
+          <View ref={setNodoDepas} style={estilos.seccion}>
+            <ThemedText accessibilityRole="header" style={tituloSeccion}>Departamentos y cuartos</ThemedText>
+            {lugares.fallo ? (
+              <ErrorDeCarga etiqueta="No pudimos cargar los lugares" onReintentar={lugares.reintentar} />
+            ) : lugares.cargando ? (
+              <ThemedText style={Texto.pequeno} themeColor="textSecondary">Cargando…</ThemedText>
+            ) : lugares.publicaciones.length === 0 ? (
+              filtrando ? (
+                <View style={estilos.vacio}>
+                  <ThemedText style={Texto.cuerpo} themeColor="textSecondary">No hay lugares con esos filtros. Prueba con menos.</ThemedText>
+                  <BotonWeb variante="contorno" onPress={quitarFiltros}>Quitar filtros</BotonWeb>
                 </View>
-              ))}
-            </View>
+              ) : (
+                <ThemedText style={Texto.cuerpo} themeColor="textSecondary">Todavía no hay lugares publicados.</ThemedText>
+              )
+            ) : (
+              <View style={estilos.cuadricula}>
+                {lugares.publicaciones.map((p) => <TarjetaPublicacionWeb key={p.id} p={p} ancho={anchoTarjeta} />)}
+              </View>
+            )}
           </View>
-        ) : null}
 
-        <View style={[estilos.confianza, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
-          <ThemedText type="subtitle" accessibilityRole="header">Hecho para que confíes</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Quien vende pasa por una revisión de identidad hecha por una persona. No vendemos tus datos ni los usamos para publicidad, y puedes borrar tu cuenta cuando quieras.
-          </ThemedText>
+          <View ref={setNodoServicios} style={estilos.seccion}>
+            <ThemedText accessibilityRole="header" style={tituloSeccion}>Negocios cerca</ThemedText>
+            {negocios.fallo ? (
+              <ErrorDeCarga etiqueta="No pudimos cargar los negocios" onReintentar={negocios.reintentar} />
+            ) : negocios.cargando ? (
+              <ThemedText style={Texto.pequeno} themeColor="textSecondary">Cargando…</ThemedText>
+            ) : negocios.negocios.length === 0 ? (
+              <ThemedText style={Texto.cuerpo} themeColor="textSecondary">Todavía no hay negocios publicados.</ThemedText>
+            ) : (
+              <View style={estilos.cuadricula}>
+                {negocios.negocios.map((n) => <TarjetaNegocio key={n.id} n={n} ancho={anchoTarjeta} />)}
+              </View>
+            )}
+          </View>
+
+          <PieWeb />
         </View>
       </ScrollView>
     </ThemedView>
@@ -145,21 +152,12 @@ export default function Explorar() {
 
 const estilos = StyleSheet.create({
   raiz: { flex: 1 },
-  contenido: { padding: Spacing.three, gap: Spacing.four, width: '100%', maxWidth: 1120, alignSelf: 'center' },
-  barra: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: Spacing.two, paddingBottom: Spacing.three, borderBottomWidth: Filete.fino },
-  acciones: { flexDirection: 'row', gap: Spacing.two },
-  hero: { gap: Spacing.three, paddingVertical: Spacing.four },
-  heroAmplio: { maxWidth: 640 },
-  seccion: { gap: Spacing.three },
-  cuadricula: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
-  tarjeta: { width: 280, maxWidth: '100%', gap: Spacing.one },
-  tarjetaCompacta: { width: '100%' },
-  foto: { height: AltoFotoTarjeta, borderRadius: Radios.tarjeta, overflow: 'hidden', marginBottom: Spacing.one },
-  fotoImagen: { width: '100%', height: '100%' },
-  chip: { position: 'absolute', top: Spacing.two, left: Spacing.two, paddingHorizontal: Spacing.two, paddingVertical: Spacing.one, borderRadius: Radios.full },
-  linea: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.two },
-  titulo: { flex: 1 },
-  categorias: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  categoria: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: Radios.full, borderWidth: Filete.fino },
-  confianza: { gap: Spacing.two, padding: Spacing.four, borderRadius: Radios.hoja, borderWidth: Filete.fino },
+  scroll: { paddingTop: Spacing.three },
+  contenido: { width: '100%', maxWidth: ANCHO_MAXIMO, alignSelf: 'center', gap: Spacing.five },
+  seccion: { gap: Spacing.three + Spacing.one, paddingHorizontal: Spacing.two },
+  cuadricula: { flexDirection: 'row', flexWrap: 'wrap', gap: HUECO },
+  vacio: { gap: Spacing.three, alignItems: 'flex-start' },
+  tarjetaNegocio: { gap: Spacing.one },
+  fotoNegocio: { aspectRatio: 4 / 3, borderRadius: Radios.tarjeta, overflow: 'hidden', marginBottom: Spacing.one },
+  imagen: { width: '100%', height: '100%' },
 });

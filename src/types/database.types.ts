@@ -485,7 +485,8 @@ export interface PublicacionExplorar {
   recamaras: number | null;
   amueblado: boolean | null;
   permite_mascotas: boolean | null;
-  servicios_incluidos: string[] | null;
+  /** Sí/no: «servicios incluidos» en la renta. No dice cuáles (la base solo guarda el sí/no). */
+  servicios_incluidos: boolean | null;
   /** La dirección sin su primer tramo (calle y número); `null` si no se puede decir sin enseñar la calle. */
   zona: string | null;
   /** Redondeadas a ~1 km: sirven para el mapa, no para llegar a la puerta. */

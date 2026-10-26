@@ -24,7 +24,7 @@ import {
 
 function cadena(resultado: { data?: unknown; error?: unknown }) {
   const c: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'order', 'limit', 'lte', 'maybeSingle']) c[m] = jest.fn(() => c);
+  for (const m of ['select', 'eq', 'order', 'limit', 'lte', 'ilike', 'maybeSingle']) c[m] = jest.fn(() => c);
   c.then = (f: (v: unknown) => unknown) => Promise.resolve(resultado).then(f);
   return c;
 }
@@ -71,6 +71,40 @@ describe('listarPublicacionesPublicas', () => {
   it('si la lectura falla, LANZA y no devuelve una lista vacía (END-11)', async () => {
     mockDesde.mockReturnValue(cadena({ error: new Error('red') }));
     await expect(listarPublicacionesPublicas({ limite: 5 })).rejects.toThrow('red');
+  });
+});
+
+describe('listarPublicacionesPublicas · filtros del buscador (todos en el SERVIDOR)', () => {
+  it('tipo, amueblado, mascotas y servicios incluidos son igualdades sobre la vista', async () => {
+    const c = cadena({ data: [] });
+    mockDesde.mockReturnValue(c);
+    await listarPublicacionesPublicas({ limite: 8, tipo: 'cuarto', amueblado: true, mascotas: true, serviciosIncluidos: true });
+    expect(c.eq).toHaveBeenCalledWith('tipo', 'cuarto');
+    expect(c.eq).toHaveBeenCalledWith('amueblado', true);
+    expect(c.eq).toHaveBeenCalledWith('permite_mascotas', true);
+    expect(c.eq).toHaveBeenCalledWith('servicios_incluidos', true);
+  });
+
+  it('sin filtros activos no agrega ninguno (false no es «sin amueblar»)', async () => {
+    const c = cadena({ data: [] });
+    mockDesde.mockReturnValue(c);
+    await listarPublicacionesPublicas({ limite: 8, amueblado: false, mascotas: false, serviciosIncluidos: false, zona: '   ' });
+    expect(c.eq).not.toHaveBeenCalled();
+    expect(c.ilike).not.toHaveBeenCalled();
+  });
+
+  it('la zona se busca por texto parcial, sin distinguir mayúsculas', async () => {
+    const c = cadena({ data: [] });
+    mockDesde.mockReturnValue(c);
+    await listarPublicacionesPublicas({ limite: 8, zona: '  Lerma ' });
+    expect(c.ilike).toHaveBeenCalledWith('zona', '%Lerma%');
+  });
+
+  it('los comodines de LIKE que teclee la persona no se interpretan: «%» y «_» se escapan', async () => {
+    const c = cadena({ data: [] });
+    mockDesde.mockReturnValue(c);
+    await listarPublicacionesPublicas({ limite: 8, zona: '100%_x' });
+    expect(c.ilike).toHaveBeenCalledWith('zona', '%100\\%\\_x%');
   });
 });
 

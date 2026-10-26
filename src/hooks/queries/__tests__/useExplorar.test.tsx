@@ -38,6 +38,16 @@ test('publicaciones: entrega los datos y pasa el filtro al servicio', async () =
   expect(mockListarPub).toHaveBeenCalledWith({ limite: 8, precioMax: 4000 });
 });
 
+test('publicaciones: cada filtro distinto es una consulta distinta (no se reusa la caché de otro)', async () => {
+  mockListarPub.mockResolvedValue([]);
+  const w = envolver();
+  await renderHook(() => usePublicacionesPublicas({ limite: 8, tipo: 'cuarto' }), { wrapper: w });
+  await renderHook(() => usePublicacionesPublicas({ limite: 8, tipo: 'depa', zona: 'Lerma' }), { wrapper: w });
+  await waitFor(() => expect(mockListarPub).toHaveBeenCalledTimes(2));
+  expect(mockListarPub).toHaveBeenCalledWith({ limite: 8, tipo: 'cuarto' });
+  expect(mockListarPub).toHaveBeenCalledWith({ limite: 8, tipo: 'depa', zona: 'Lerma' });
+});
+
 test('publicaciones: si falla, dice «falló» y NO «vacío»', async () => {
   mockListarPub.mockRejectedValue(new Error('red'));
   const { result } = await renderHook(() => usePublicacionesPublicas({ limite: 8 }), { wrapper: envolver() });

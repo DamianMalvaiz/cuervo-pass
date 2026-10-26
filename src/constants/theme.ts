@@ -243,6 +243,14 @@ export const Spacing = {
  */
 export const Texto = {
   cuerpo: { fontFamily: Tipografia.regular, fontSize: 16, lineHeight: 24 },
+  // La web pública (escritorio): titulares grandes de portada. El espaciado va en puntos (-0.034em a 64 px ≈ -2.2).
+  titularWeb: { fontFamily: Tipografia.black, fontSize: 64, lineHeight: 66, letterSpacing: -2.2 },
+  titularWebCompacto: { fontFamily: Tipografia.black, fontSize: 40, lineHeight: 42, letterSpacing: -1.3 },
+  seccionWeb: { fontFamily: Tipografia.black, fontSize: 36, lineHeight: 40, letterSpacing: -1.1 },
+  seccionWebCompacto: { fontFamily: Tipografia.black, fontSize: 26, lineHeight: 30, letterSpacing: -0.8 },
+  subtituloWeb: { fontFamily: Tipografia.regular, fontSize: 19, lineHeight: 29 },
+  precioWeb: { fontFamily: Tipografia.black, fontSize: 18, lineHeight: 24 },
+  ajusteWeb: { fontFamily: Tipografia.black, fontSize: 30, lineHeight: 34, letterSpacing: -0.9 },
   titulo: { fontFamily: Tipografia.bold, fontSize: 26, lineHeight: 30, letterSpacing: -0.4 },
   subtitulo: { fontFamily: Tipografia.semibold, fontSize: 20, lineHeight: 26, letterSpacing: -0.2 },
   pequeno: { fontFamily: Tipografia.regular, fontSize: 14, lineHeight: 20 },
@@ -327,6 +335,8 @@ export const Radios = {
   tarjeta: 22,
   /** Cuervo 360. Las esquinas de arriba de la hoja de contenido que sube sobre la foto de la ficha. */
   hojaInferior: 28,
+  /** La web pública: los paneles grandes (hero, bloques de color). */
+  panel: 36,
   full: 9999,
 } as const;
 

@@ -8,9 +8,10 @@
   --font-serif: Georgia, 'Times New Roman', serif;
 }
 
-/* Solo web (el panel de admin): sin tope, el contenido se estira a todo el ancho de una pantalla grande. Los colores de fuera son los de `theme.ts`. */
+/* Solo web: un tope amplio (90rem = 1440 px) para que el contenido no se estire en un monitor grande. Con el de 60rem de antes, la web pública (hero y rejilla) quedaba recortada a 960 px;
+   cada pantalla acota además su propio contenido (la portada, a 1200). Los colores de fuera son los de `theme.ts`. */
 #root {
-  max-width: 60rem;
+  max-width: 90rem;
   margin-inline: auto;
 }
 html,

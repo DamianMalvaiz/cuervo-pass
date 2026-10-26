@@ -14,16 +14,34 @@ export const COLUMNAS_EXPLORAR_PUBLICACION =
 export const COLUMNAS_EXPLORAR_NEGOCIO =
   'id, categoria_id, nombre, descripcion, zona, latitud_aprox, longitud_aprox, horario, num_fotos, destacado, calificacion, num_resenas, abierto_ahora, creado_en';
 
+export type TipoVivienda = 'depa' | 'cuarto' | 'casa_compartida';
+
 export interface FiltroPublicaciones {
   limite: number;
-  /** Se aplica en el servidor: filtrar sobre una página ya truncada diría «no hay nada» cuando sí hay (invariante 5). */
+  /** Todos los filtros se aplican en el servidor: filtrar sobre una página ya truncada diría «no hay nada» cuando sí hay (invariante 5). */
   precioMax?: number;
+  tipo?: TipoVivienda;
+  /** Texto parcial de la zona (colonia o municipio). */
+  zona?: string;
+  /** `false` es «sin filtro», no «sin amueblar». */
+  amueblado?: boolean;
+  mascotas?: boolean;
+  serviciosIncluidos?: boolean;
 }
 
+/** Lo que la persona teclea va dentro de un LIKE: `%` y `_` serían comodines, así que se escapan. */
+const escaparLike = (t: string) => t.replace(/[\\%_]/g, (c) => `\\${c}`);
+
 /** Destacadas primero y, dentro, las más nuevas. */
-export async function listarPublicacionesPublicas({ limite, precioMax }: FiltroPublicaciones): Promise<PublicacionExplorar[]> {
+export async function listarPublicacionesPublicas({ limite, precioMax, tipo, zona, amueblado, mascotas, serviciosIncluidos }: FiltroPublicaciones): Promise<PublicacionExplorar[]> {
   let q = supabase.from('explorar_publicaciones').select(COLUMNAS_EXPLORAR_PUBLICACION);
   if (precioMax !== undefined) q = q.lte('precio_renta', precioMax);
+  if (tipo) q = q.eq('tipo', tipo);
+  const texto = zona?.trim();
+  if (texto) q = q.ilike('zona', `%${escaparLike(texto)}%`);
+  if (amueblado) q = q.eq('amueblado', true);
+  if (mascotas) q = q.eq('permite_mascotas', true);
+  if (serviciosIncluidos) q = q.eq('servicios_incluidos', true);
   const { data, error } = await q.order('destacado', { ascending: false }).order('creado_en', { ascending: false }).limit(limite);
   if (error) throw error;
   return (data ?? []) as PublicacionExplorar[];

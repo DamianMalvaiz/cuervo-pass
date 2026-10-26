@@ -20,7 +20,7 @@ import FichaPublica from '../explorar/[id]';
 
 const DEPA = {
   id: 'p1', titulo_publico: 'Cuarto en Santa María', tipo: 'cuarto', precio_renta: 2900, recamaras: 1, amueblado: true, permite_mascotas: false,
-  servicios_incluidos: ['agua', 'internet'], zona: 'Santa María, Lerma, México, CP 52000', num_fotos: 0, destacado: true, calificacion: 4.9, num_resenas: 3,
+  servicios_incluidos: true, zona: 'Santa María, Lerma, México, CP 52000', num_fotos: 0, destacado: true, calificacion: 4.9, num_resenas: 3,
 };
 
 beforeEach(() => {
@@ -35,7 +35,7 @@ test('enseña precio, zona, características y calificación', async () => {
   expect(screen.getByText('Santa María, Lerma')).toBeTruthy();
   expect(screen.queryByText(/CP 52000/)).toBeNull();
   expect(screen.getByText(/Amueblado/)).toBeTruthy();
-  expect(screen.getByText(/agua/i)).toBeTruthy();
+  expect(screen.getByText(/Servicios incluidos/)).toBeTruthy();
   expect(screen.getByText(/4\.9/)).toBeTruthy();
 });
 
@@ -45,6 +45,12 @@ test('lo que necesita cuenta lleva a entrar o crearla', async () => {
   expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
   await fireEvent.press(screen.getByLabelText('Crear cuenta'));
   expect(mockPush).toHaveBeenCalledWith('/(auth)/registro');
+});
+
+test('sin servicios incluidos, no lo dice (ni inventa cuáles)', async () => {
+  Object.assign(mockPub, { publicacion: { ...DEPA, servicios_incluidos: false } });
+  await render(<FichaPublica />);
+  expect(screen.queryByText(/Servicios incluidos/)).toBeNull();
 });
 
 test('explica por qué no hay dirección exacta, sin inventar una', async () => {
