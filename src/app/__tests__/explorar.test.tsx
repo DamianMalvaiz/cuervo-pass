@@ -6,6 +6,12 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(...a) } }));
 
+// La pestaña lleva a su sección con `useDesplazador`; aquí solo importa A QUÉ nodo avisa.
+const mockAlNodo = jest.fn();
+jest.mock('@/hooks/use-desplazador', () => ({
+  useDesplazador: () => ({ registrarScroll: () => {}, onScroll: () => {}, desplazador: { alNodo: (...a: unknown[]) => mockAlNodo(...a) } }),
+}));
+
 jest.mock('@/hooks/use-tamano-pantalla', () => ({
   useTamanoPantalla: () => ({ clase: 'amplia', ancho: 1280, alto: 900, anchoContenido: 480, anchoLista: 800, altoApretado: false, escalaTitulo: 1 }),
 }));
@@ -45,7 +51,7 @@ test('dice qué es en una frase y deja entrar o crear cuenta', async () => {
 
 test('enseña los lugares con precio y zona corta, nunca la dirección ni el CP', async () => {
   await render(<Explorar />);
-  expect(screen.getByText('Cuarto en Santa María')).toBeTruthy();
+  expect(screen.getByLabelText(/Cuarto en Santa María, 2,900 pesos al mes/)).toBeTruthy();
   expect(screen.getByText(/2,900/)).toBeTruthy();
   expect(screen.getByText('Santa María, Lerma')).toBeTruthy();
   expect(screen.queryByText(/CP 52000/)).toBeNull();
@@ -114,7 +120,7 @@ describe('negocios', () => {
     Object.assign(mockNeg, { negocios: [NEG] });
     await render(<Explorar />);
     expect(screen.getByText('Café Lerma')).toBeTruthy();
-    expect(screen.getByText(/Abierto ahora/)).toBeTruthy();
+    expect(screen.getByLabelText('Café Lerma, Abierto ahora')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText(/Café Lerma/));
     expect(mockPush).toHaveBeenCalledWith('/explorar/negocio/n1');
   });
@@ -122,14 +128,40 @@ describe('negocios', () => {
   it('si fallan lo dice y deja reintentar; los lugares siguen a la vista', async () => {
     Object.assign(mockNeg, { negocios: [], fallo: true });
     await render(<Explorar />);
-    expect(screen.getByText('Cuarto en Santa María')).toBeTruthy();
+    expect(screen.getByLabelText(/Cuarto en Santa María, 2,900 pesos al mes/)).toBeTruthy();
     await fireEvent.press(screen.getAllByLabelText('Reintentar')[0]);
     expect(mockNeg.reintentar).toHaveBeenCalled();
   });
 });
 
-test('la pestaña Roomies pide entrar: sus perfiles solo se ven con cuenta', async () => {
-  await render(<Explorar />);
-  await fireEvent.press(screen.getByLabelText('Roomies'));
-  expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
+describe('las secciones y las pestañas', () => {
+  it('trae todas las secciones de la portada', async () => {
+    await render(<Explorar />);
+    expect(screen.getByText('Departamentos y cuartos')).toBeTruthy();
+    expect(screen.getByText('Negocios cerca')).toBeTruthy();
+    expect(screen.getByText('Con quién vives importa tanto como dónde')).toBeTruthy();
+    expect(screen.getByText('Cómo funciona, sin adivinar')).toBeTruthy();
+    expect(screen.getByText('Hecho para que confíes')).toBeTruthy();
+  });
+
+  it('cada pestaña lleva a SU sección (nada de entrar: Roomies ya enseña de qué trata)', async () => {
+    await render(<Explorar />);
+    await fireEvent.press(screen.getByLabelText('Roomies'));
+    await fireEvent.press(screen.getByLabelText('Servicios'));
+    await fireEvent.press(screen.getByLabelText('Departamentos'));
+    expect(mockAlNodo).toHaveBeenCalledTimes(3);
+    expect(mockPush).not.toHaveBeenCalledWith('/(auth)/login');
+  });
+
+  it('«Ver roomies», dentro de su sección, sí lleva a entrar', async () => {
+    await render(<Explorar />);
+    await fireEvent.press(screen.getByLabelText('Ver roomies'));
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
+  });
+
+  it('«Cómo funciona» usa el título del primer lugar publicado, para reconocerlo (y sigue siendo un ejemplo)', async () => {
+    await render(<Explorar />);
+    expect(screen.getAllByText('Cuarto en Santa María').length).toBeGreaterThan(1);
+    expect(screen.getAllByText('Ejemplo').length).toBeGreaterThan(1);
+  });
 });

@@ -1,26 +1,24 @@
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
-import { Pulsable } from '@/components/ficha/Pulsable';
-import { FotoLista } from '@/components/FotoLista';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import type { SeccionWeb } from '@/components/web/BarraWeb';
 import { ChipsTiposWeb } from '@/components/web/ChipsTiposWeb';
+import { ComoFuncionaWeb } from '@/components/web/ComoFuncionaWeb';
+import { ConfianzaWeb } from '@/components/web/ConfianzaWeb';
 import { HeroWeb } from '@/components/web/HeroWeb';
+import { MosaicoNegociosWeb } from '@/components/web/MosaicoNegociosWeb';
 import { PieWeb } from '@/components/web/PieWeb';
+import { RoomiesWeb } from '@/components/web/RoomiesWeb';
 import { TarjetaPublicacionWeb } from '@/components/web/TarjetaPublicacionWeb';
-import { Radios, Spacing, Texto } from '@/constants/theme';
+import { Spacing, Texto } from '@/constants/theme';
 import { useFotosPublicas, useNegociosPublicos, usePublicacionesPublicas } from '@/hooks/queries/useExplorar';
 import { useDesplazador } from '@/hooks/use-desplazador';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
-import { useTheme } from '@/hooks/use-theme';
 import { FILTROS_VACIOS, aFiltroPublicaciones, hayFiltros, type FiltrosWeb } from '@/lib/filtrosWeb';
-import { zonaCorta } from '@/lib/zona';
-import type { NegocioExplorar } from '@/services/explorar.service';
 
 // Portada pública de la web · tramo 1. Se explora SIN cuenta, con datos reducidos (migración 0090): zona y no dirección, ubicación redondeada, sin teléfono.
 // Primero se enseña lo que hay; la cuenta se pide solo para lo que la necesita (guardar, escribir, ver perfiles de roomies).
@@ -28,28 +26,6 @@ import type { NegocioExplorar } from '@/services/explorar.service';
 const ANCHO_MAXIMO = 1200;
 const RESULTADOS = 12;
 const HUECO = Spacing.three + Spacing.one;
-
-function TarjetaNegocio({ n, ancho }: { n: NegocioExplorar; ancho: number }) {
-  const theme = useTheme();
-  const { fotos } = useFotosPublicas('negocio', n.id, n.num_fotos);
-  const zona = zonaCorta(n.zona);
-  const estado = n.abierto_ahora === null ? null : n.abierto_ahora ? 'Abierto ahora' : 'Cerrado ahora';
-  return (
-    <Pulsable
-      onPress={() => router.push(`/explorar/negocio/${n.id}`)}
-      accessibilityRole="button"
-      accessibilityLabel={`${n.nombre}${estado ? `, ${estado}` : ''}`}
-      style={[estilos.tarjetaNegocio, { width: ancho }]}
-    >
-      <View style={[estilos.fotoNegocio, { backgroundColor: theme.backgroundSelected }]}>
-        <FotoLista completa={fotos[0]} style={estilos.imagen} accessibilityLabel={n.nombre} />
-      </View>
-      <ThemedText style={Texto.pequenoFuerte} numberOfLines={1}>{n.nombre}</ThemedText>
-      {zona ? <ThemedText style={Texto.pequeno} themeColor="textSecondary" numberOfLines={1}>{zona}</ThemedText> : null}
-      {estado ? <ThemedText style={Texto.pequeno}>{estado}</ThemedText> : null}
-    </Pulsable>
-  );
-}
 
 export default function Explorar() {
   const { ancho } = useTamanoPantalla();
@@ -62,6 +38,7 @@ export default function Explorar() {
   const { registrarScroll, onScroll, desplazador } = useDesplazador();
   const [nodoDepas, setNodoDepas] = useState<View | null>(null);
   const [nodoServicios, setNodoServicios] = useState<View | null>(null);
+  const [nodoRoomies, setNodoRoomies] = useState<View | null>(null);
   const [filtros, setFiltros] = useState<FiltrosWeb>(FILTROS_VACIOS);
   // El buscador solo filtra al pulsar «Buscar»; los chips filtran al instante.
   const [aplicados, setAplicados] = useState<FiltrosWeb>(FILTROS_VACIOS);
@@ -77,9 +54,7 @@ export default function Explorar() {
   const fc = useFotosPublicas('publicacion', c?.id, c?.num_fotos ?? 0).fotos[0];
 
   const irA = (s: SeccionWeb) => {
-    // Los perfiles de roomies solo se ven con cuenta: la pestaña lleva a entrar.
-    if (s === 'roomies') return router.push('/(auth)/login');
-    const nodo = s === 'depas' ? nodoDepas : nodoServicios;
+    const nodo = s === 'depas' ? nodoDepas : s === 'servicios' ? nodoServicios : nodoRoomies;
     if (nodo) desplazador.alNodo(nodo);
   };
   const cambiarChips = (f: FiltrosWeb) => {
@@ -137,11 +112,19 @@ export default function Explorar() {
             ) : negocios.negocios.length === 0 ? (
               <ThemedText style={Texto.cuerpo} themeColor="textSecondary">Todavía no hay negocios publicados.</ThemedText>
             ) : (
-              <View style={estilos.cuadricula}>
-                {negocios.negocios.map((n) => <TarjetaNegocio key={n.id} n={n} ancho={anchoTarjeta} />)}
-              </View>
+              <MosaicoNegociosWeb negocios={negocios.negocios} escritorio={escritorio} ancho={anchoTarjeta} />
             )}
           </View>
+
+          <View ref={setNodoRoomies}>
+            <RoomiesWeb escritorio={escritorio} />
+          </View>
+
+          <View style={estilos.seccion}>
+            <ComoFuncionaWeb escritorio={escritorio} foto={fa} titulo={a?.titulo_publico} />
+          </View>
+
+          <ConfianzaWeb escritorio={escritorio} />
 
           <PieWeb />
         </View>
@@ -157,7 +140,4 @@ const estilos = StyleSheet.create({
   seccion: { gap: Spacing.three + Spacing.one, paddingHorizontal: Spacing.two },
   cuadricula: { flexDirection: 'row', flexWrap: 'wrap', gap: HUECO },
   vacio: { gap: Spacing.three, alignItems: 'flex-start' },
-  tarjetaNegocio: { gap: Spacing.one },
-  fotoNegocio: { aspectRatio: 4 / 3, borderRadius: Radios.tarjeta, overflow: 'hidden', marginBottom: Spacing.one },
-  imagen: { width: '100%', height: '100%' },
 });
