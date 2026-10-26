@@ -10,7 +10,7 @@ import type { CategoriaExplorar, HorarioExplorar, NegocioExplorar, ProductoExplo
 export type { CategoriaExplorar, HorarioExplorar, NegocioExplorar, ProductoExplorar, PublicacionExplorar };
 
 export const COLUMNAS_EXPLORAR_PUBLICACION =
-  'id, titulo, tipo, precio_renta, recamaras, amueblado, permite_mascotas, servicios_incluidos, zona, latitud_aprox, longitud_aprox, num_fotos, destacado, calificacion, num_resenas, creado_en';
+  'id, titulo_publico, tipo, precio_renta, recamaras, amueblado, permite_mascotas, servicios_incluidos, zona, latitud_aprox, longitud_aprox, num_fotos, destacado, calificacion, num_resenas, creado_en';
 export const COLUMNAS_EXPLORAR_NEGOCIO =
   'id, categoria_id, nombre, descripcion, zona, latitud_aprox, longitud_aprox, horario, num_fotos, destacado, calificacion, num_resenas, abierto_ahora, creado_en';
 

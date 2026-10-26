@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(821);
+select plan(824);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -3999,17 +3999,21 @@ select is(zona_aproximada('Calle Falsa 123'), null, '0090: sin coma no hay zona 
 select is(zona_aproximada(null), null, '0090: un dato nulo no inventa zona');
 select is(zona_aproximada(' , '), null, '0090: tramos vacíos tampoco');
 
+-- La vista ya no trae el título (0092): se localiza cada fila por su id, guardado aquí con el rol de servicio.
+select actuar_como_servicio();
+create temp table ids90 as select id, titulo from publicaciones where titulo in ('Depa B', 'Depa preciso', 'Depa inactivo 90', 'Depa oculto 90');
+grant select on ids90 to anon, authenticated;
 select actuar_como_anon();
-select is((select count(*)::int from explorar_publicaciones where titulo = 'Depa B'), 1, '0090: sin cuenta se ve una publicación visible');
-select is((select count(*)::int from explorar_publicaciones where titulo in ('Depa inactivo 90', 'Depa oculto 90')), 0, '0090: lo inactivo y lo oculto por reportes NO se ve');
-select is((select zona from explorar_publicaciones where titulo = 'Depa B'), 'Colonia Centro, Lerma', '0090: se ve la zona, no la dirección');
-select is((select latitud_aprox from explorar_publicaciones where titulo = 'Depa preciso'), 19.3::double precision, '0090: la latitud sale redondeada (≈ 1 km), no exacta');
-select is((select longitud_aprox from explorar_publicaciones where titulo = 'Depa preciso'), -99.56::double precision, '0090: la longitud también');
-select is((select num_fotos from explorar_publicaciones where titulo = 'Depa preciso'), 2, '0090: se dice CUÁNTAS fotos hay (las rutas no salen: llevan el id de la cuenta)');
+select is((select count(*)::int from explorar_publicaciones e join ids90 i on i.id = e.id where i.titulo = 'Depa B'), 1, '0090: sin cuenta se ve una publicación visible');
+select is((select count(*)::int from explorar_publicaciones e join ids90 i on i.id = e.id where i.titulo in ('Depa inactivo 90', 'Depa oculto 90')), 0, '0090: lo inactivo y lo oculto por reportes NO se ve');
+select is((select e.zona from explorar_publicaciones e join ids90 i on i.id = e.id where i.titulo = 'Depa B'), 'Colonia Centro, Lerma', '0090: se ve la zona, no la dirección');
+select is((select e.latitud_aprox from explorar_publicaciones e join ids90 i on i.id = e.id where i.titulo = 'Depa preciso'), 19.3::double precision, '0090: la latitud sale redondeada (≈ 1 km), no exacta');
+select is((select e.longitud_aprox from explorar_publicaciones e join ids90 i on i.id = e.id where i.titulo = 'Depa preciso'), -99.56::double precision, '0090: la longitud también');
+select is((select e.num_fotos from explorar_publicaciones e join ids90 i on i.id = e.id where i.titulo = 'Depa preciso'), 2, '0090: se dice CUÁNTAS fotos hay (las rutas no salen: llevan el id de la cuenta)');
 select is(
   (select array_agg(column_name::text order by ordinal_position) from information_schema.columns where table_schema = 'public' and table_name = 'explorar_publicaciones'),
-  array['id', 'titulo', 'tipo', 'precio_renta', 'recamaras', 'amueblado', 'permite_mascotas', 'servicios_incluidos', 'zona', 'latitud_aprox', 'longitud_aprox', 'num_fotos', 'destacado', 'calificacion', 'num_resenas', 'creado_en'],
-  '0090: las columnas de explorar_publicaciones son EXACTAMENTE estas (sin dirección, teléfono, dueño, descripción ni vector)');
+  array['id', 'titulo_publico', 'tipo', 'precio_renta', 'recamaras', 'amueblado', 'permite_mascotas', 'servicios_incluidos', 'zona', 'latitud_aprox', 'longitud_aprox', 'num_fotos', 'destacado', 'calificacion', 'num_resenas', 'creado_en'],
+  '0090/0092: las columnas de explorar_publicaciones son EXACTAMENTE estas (sin título libre, dirección, teléfono, dueño, descripción ni vector)');
 select throws_ok($$select whatsapp from explorar_publicaciones$$, '42703', null, '0090: el teléfono no existe en la vista');
 select throws_ok($$select * from publicaciones$$, '42501', null, '0090: sin cuenta la tabla sigue cerrada');
 select throws_ok($$select * from publicaciones_publicas$$, '42501', null, '0090: y la vista de la app (con dirección exacta) también');
@@ -4034,6 +4038,21 @@ select throws_ok($$select * from negocio_items$$, '42501', null, '0090: y la de 
 
 select actuar_como('00000000-0000-0000-0000-0000000000a1');
 select ok((select count(*) > 0 from explorar_publicaciones), '0090: con cuenta también se leen (la web con sesión usa las mismas)');
+select actuar_como_servicio();
+
+
+-- ════════════════ 0092 · el título libre no sale a quien no tiene cuenta ════════════════
+-- El título lo escribe quien publica (o lo generó una migración vieja a partir de la dirección): puede llevar la calle, el número o un teléfono, igual que la descripción.
+-- Sin cuenta se ve un título ARMADO con el tipo y la colonia, que no puede llevar nada de eso.
+select actuar_como_servicio();
+insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp, latitud, longitud) values
+  ('00000000-0000-0000-0000-0000000000b2', 'Cuarto en Privada Secreta 45, llama al 5544443333', 'cuarto', 'Privada Secreta 45, Barrio Bajo, Lerma', 1900, '5544443333', 19.3, -99.5);
+create temp table ids92 as select id from publicaciones where titulo like 'Cuarto en Privada Secreta 45%';
+grant select on ids92 to anon, authenticated;
+select actuar_como_anon();
+select is((select e.titulo_publico from explorar_publicaciones e join ids92 i on i.id = e.id), 'Cuarto en Barrio Bajo', '0092: sin cuenta el título sale armado con el tipo y la colonia');
+select ok(not exists (select 1 from explorar_publicaciones where titulo_publico ~ '[0-9]' or titulo_publico ilike '%secreta%'), '0092: ningún título público lleva números ni la calle de nadie');
+select throws_ok($$select titulo from explorar_publicaciones$$, '42703', null, '0092: el título libre ya no existe en la vista');
 select actuar_como_servicio();
 
 select * from finish();

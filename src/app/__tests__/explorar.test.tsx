@@ -18,7 +18,7 @@ jest.mock('@/hooks/queries/useExplorar', () => ({
 
 import Explorar from '../explorar';
 
-const DEPA = { id: 'p1', titulo: 'Cuarto con baño propio', tipo: 'cuarto', precio_renta: 2900, zona: 'Santa María, Lerma', num_fotos: 0, destacado: true, calificacion: 4.9, num_resenas: 3 };
+const DEPA = { id: 'p1', titulo_publico: 'Cuarto en Santa María', tipo: 'cuarto', precio_renta: 2900, zona: 'Santa María, Lerma', num_fotos: 0, destacado: true, calificacion: 4.9, num_resenas: 3 };
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -38,14 +38,14 @@ test('dice qué es en una frase y deja entrar o crear cuenta', async () => {
 
 test('enseña los departamentos con precio y zona, nunca la dirección', async () => {
   await render(<Explorar />);
-  expect(screen.getByText('Cuarto con baño propio')).toBeTruthy();
+  expect(screen.getByText('Cuarto en Santa María')).toBeTruthy();
   expect(screen.getByText(/2,900/)).toBeTruthy();
-  expect(screen.getByText(/Santa María/)).toBeTruthy();
+  expect(screen.getByText('Santa María, Lerma')).toBeTruthy();
 });
 
 test('al tocar un departamento va a su ficha pública (sin cuenta)', async () => {
   await render(<Explorar />);
-  await fireEvent.press(screen.getByLabelText(/Cuarto con baño propio/));
+  await fireEvent.press(screen.getByLabelText(/Cuarto en Santa María/));
   expect(mockPush).toHaveBeenCalledWith('/explorar/p1');
 });
 
@@ -75,7 +75,7 @@ test('enseña los negocios y al tocar uno va a su ficha pública', async () => {
 test('si fallan los negocios lo dice y deja reintentar; el resto de la portada sigue', async () => {
   Object.assign(mockNeg, { negocios: [], fallo: true });
   await render(<Explorar />);
-  expect(screen.getByText('Cuarto con baño propio')).toBeTruthy();
+  expect(screen.getByText('Cuarto en Santa María')).toBeTruthy();
   await fireEvent.press(screen.getByLabelText('Reintentar'));
   expect(mockNeg.reintentar).toHaveBeenCalled();
 });

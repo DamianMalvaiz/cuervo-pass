@@ -35,6 +35,12 @@ beforeEach(() => {
 });
 
 describe('columnas', () => {
+  it('piden el título ARMADO, no el texto libre (puede llevar la calle o un teléfono)', () => {
+    const cols = COLUMNAS_EXPLORAR_PUBLICACION.split(',').map((x) => x.trim());
+    expect(cols).toContain('titulo_publico');
+    expect(cols).not.toContain('titulo');
+  });
+
   it('nunca piden lo que la vista no enseña ni lo sensible', () => {
     for (const col of ['direccion', 'telefono', 'usuario_id', 'latitud', 'longitud', 'fotos', 'descripcion_vivienda', 'vector_embedding']) {
       expect(COLUMNAS_EXPLORAR_PUBLICACION.split(',').map((s) => s.trim())).not.toContain(col);

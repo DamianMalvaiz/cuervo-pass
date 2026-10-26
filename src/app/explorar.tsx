@@ -21,11 +21,11 @@ const precio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 function TarjetaDepa({ p }: { p: PublicacionExplorar }) {
   const theme = useTheme();
   const { fotos } = useFotosPublicas('publicacion', p.id, p.num_fotos);
-  const resumen = `${p.titulo}, ${precio.format(p.precio_renta)} pesos al mes`;
+  const resumen = `${p.titulo_publico}, ${precio.format(p.precio_renta)} pesos al mes`;
   return (
     <Pulsable onPress={() => router.push(`/explorar/${p.id}`)} accessibilityRole="button" accessibilityLabel={resumen} style={estilos.tarjeta}>
       <View style={[estilos.foto, { backgroundColor: theme.backgroundSelected }]}>
-        <FotoLista completa={fotos[0]} style={estilos.fotoImagen} accessibilityLabel={p.titulo} />
+        <FotoLista completa={fotos[0]} style={estilos.fotoImagen} accessibilityLabel={p.titulo_publico} />
         {p.destacado ? (
           <View style={[estilos.chip, { backgroundColor: theme.lima }]}>
             <ThemedText type="etiqueta" style={{ color: theme.limaTexto }}>DESTACADO</ThemedText>
@@ -33,7 +33,7 @@ function TarjetaDepa({ p }: { p: PublicacionExplorar }) {
         ) : null}
       </View>
       <View style={estilos.linea}>
-        <ThemedText type="smallBold" numberOfLines={1} style={estilos.titulo}>{p.titulo}</ThemedText>
+        <ThemedText type="smallBold" numberOfLines={1} style={estilos.titulo}>{p.titulo_publico}</ThemedText>
         {p.calificacion ? <ThemedText type="small">★ {p.calificacion.toFixed(1)}</ThemedText> : null}
       </View>
       {p.zona ? <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>{p.zona}</ThemedText> : null}

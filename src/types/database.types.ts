@@ -478,7 +478,8 @@ type Vista<Row> = Tabla<Row>;
 export interface PublicacionExplorar {
   [key: string]: unknown;
   id: string;
-  titulo: string;
+  /** Armado en la base con el tipo y la colonia («Cuarto en Barrio Bajo»): NO es el título que escribió quien publica, que puede llevar la calle o un teléfono (0092). */
+  titulo_publico: string;
   tipo: 'depa' | 'cuarto' | 'casa_compartida';
   precio_renta: number;
   recamaras: number | null;

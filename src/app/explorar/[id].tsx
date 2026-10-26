@@ -56,11 +56,11 @@ export default function FichaPublica() {
     <ThemedView style={estilos.raiz}>
       <ScrollView contentContainerStyle={estilos.contenido}>
         <View style={[estilos.foto, { backgroundColor: theme.backgroundSelected }]}>
-          <FotoLista completa={fotos[0]} style={estilos.fotoImagen} accessibilityLabel={p.titulo} />
+          <FotoLista completa={fotos[0]} style={estilos.fotoImagen} accessibilityLabel={p.titulo_publico} />
         </View>
 
         <View style={estilos.linea}>
-          <ThemedText type="title" accessibilityRole="header" style={estilos.titulo}>{p.titulo}</ThemedText>
+          <ThemedText type="title" accessibilityRole="header" style={estilos.titulo}>{p.titulo_publico}</ThemedText>
           {p.calificacion ? <ThemedText type="smallBold">★ {p.calificacion.toFixed(1)}</ThemedText> : null}
         </View>
         {p.zona ? <ThemedText themeColor="textSecondary">{p.zona}</ThemedText> : null}

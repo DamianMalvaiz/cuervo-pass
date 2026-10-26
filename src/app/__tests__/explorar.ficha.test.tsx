@@ -19,7 +19,7 @@ jest.mock('@/hooks/queries/useExplorar', () => ({
 import FichaPublica from '../explorar/[id]';
 
 const DEPA = {
-  id: 'p1', titulo: 'Cuarto con baño propio', tipo: 'cuarto', precio_renta: 2900, recamaras: 1, amueblado: true, permite_mascotas: false,
+  id: 'p1', titulo_publico: 'Cuarto en Santa María', tipo: 'cuarto', precio_renta: 2900, recamaras: 1, amueblado: true, permite_mascotas: false,
   servicios_incluidos: ['agua', 'internet'], zona: 'Santa María, Lerma', num_fotos: 0, destacado: true, calificacion: 4.9, num_resenas: 3,
 };
 
@@ -30,9 +30,9 @@ beforeEach(() => {
 
 test('enseña precio, zona, características y calificación', async () => {
   await render(<FichaPublica />);
-  expect(screen.getByText('Cuarto con baño propio')).toBeTruthy();
+  expect(screen.getByText('Cuarto en Santa María')).toBeTruthy();
   expect(screen.getByText(/2,900/)).toBeTruthy();
-  expect(screen.getByText(/Santa María/)).toBeTruthy();
+  expect(screen.getByText('Santa María, Lerma')).toBeTruthy();
   expect(screen.getByText(/Amueblado/)).toBeTruthy();
   expect(screen.getByText(/agua/i)).toBeTruthy();
   expect(screen.getByText(/4\.9/)).toBeTruthy();
