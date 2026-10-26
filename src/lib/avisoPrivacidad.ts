@@ -33,7 +33,7 @@ export interface Seccion {
 
 export const AVISO_TITULO = 'Aviso de privacidad integral — Cuervo 360';
 
-export const AVISO_ACTUALIZACION = '26 de octubre de 2026 · Versión 4';
+export const AVISO_ACTUALIZACION = '26 de octubre de 2026 · Versión 5';
 
 export const AVISO_INTRO =
   'Emitido conforme a la Ley Federal de Protección de Datos Personales en ' +
@@ -333,6 +333,11 @@ export const SECCIONES: Seccion[] = [
       {
         tipo: 'filas',
         filas: [
+          {
+            titulo: 'Cualquier persona, sin cuenta (la web)',
+            detalle:
+              'De una publicación de vivienda: el título, el tipo, el precio, las recámaras, las condiciones, la zona (la dirección sin la calle ni el número), una ubicación aproximada (redondeada a cerca de 1 km), la calificación y las fotos. **No** la dirección exacta, **no** el teléfono, **no** quién publica y **no** la descripción de una vivienda. De un negocio: el nombre, la descripción, la zona, el horario, los productos con su precio, la calificación y las fotos. Las fotos se ven con un enlace temporal, que dura una hora.',
+          },
           {
             titulo: 'Cualquier usuario con sesión',
             detalle:

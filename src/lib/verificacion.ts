@@ -7,7 +7,7 @@
 /** Versión del aviso de privacidad que se registra con el consentimiento. Es la que la app muestra hoy
  *  (`AVISO_ACTUALIZACION` en avisoPrivacidad.ts); una prueba falla si dejan de coincidir. La v3 ya menciona la INE y NO trata
  *  la biometría: para encenderla hace falta una versión que la cubra (ver `BIOMETRIA_HABILITADA`). */
-export const VERSION_AVISO = 'v4';
+export const VERSION_AVISO = 'v5';
 
 export const MAX_FOTOS_LUGAR = 6;
 

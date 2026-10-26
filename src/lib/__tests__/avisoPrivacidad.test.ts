@@ -116,9 +116,37 @@ test('el aviso no cita al INAI ni artículos de la ley abrogada', () => {
   expect(todo).not.toMatch(/artículos 15, 16 y 17|artículos 24 a 30|artículo 3, fracción|artículo 36|artículo 37/);
 });
 
-test('el aviso es la versión 4 y lo dice en las dos copias', () => {
-  expect(AVISO_ACTUALIZACION).toContain('Versión 4');
-  expect(markdown).toContain('**Versión:** 4');
+test('el aviso es la versión 5 y lo dice en las dos copias', () => {
+  expect(AVISO_ACTUALIZACION).toContain('Versión 5');
+  expect(markdown).toContain('**Versión:** 5');
+});
+
+// ── v5 (26/10/2026): la web se explora SIN cuenta ───────────────────────────────────────────────────────────────────────────────────────────────
+// Antes, nada de lo que alguien publicaba lo veía quien no tuviera sesión. Con la web, una parte sí: se dice cuál, y sobre todo cuál NO.
+describe('el aviso v5 dice qué ve quien explora sin cuenta, en las dos copias', () => {
+  const pantalla = JSON.stringify(SECCIONES);
+  const md = markdown.replace(/\s+/g, ' ');
+
+  it('nombra a quien no tiene cuenta como alguien que ve publicaciones y negocios', () => {
+    for (const texto of [pantalla, md]) {
+      expect(texto).toMatch(/Cualquier persona, sin cuenta/);
+      expect(texto).toMatch(/sin la calle ni el número/);
+      expect(texto).toMatch(/aproximad/);
+    }
+  });
+
+  it('dice lo que NO ve: dirección exacta, teléfono, quién publica y la descripción de la vivienda', () => {
+    for (const texto of [pantalla, md]) {
+      expect(texto).toMatch(/dirección exacta/);
+      expect(texto).toMatch(/teléfono/);
+      expect(texto).toMatch(/quién publica/);
+      expect(texto).toMatch(/descripción de una vivienda/);
+    }
+  });
+
+  it('avisa que las fotos se ven con un enlace temporal', () => {
+    for (const texto of [pantalla, md]) expect(texto).toMatch(/enlace temporal/);
+  });
 });
 
 // ── v4 (26/10/2026): lo que dejó de ser cierto y lo que faltaba ─────────────────────────────────────────────────────────────────────────────────

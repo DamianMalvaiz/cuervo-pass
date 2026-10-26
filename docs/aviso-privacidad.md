@@ -1,6 +1,6 @@
 # Aviso de privacidad integral — Cuervo 360
 
-**Última actualización:** 26 de octubre de 2026 · **Versión:** 4
+**Última actualización:** 26 de octubre de 2026 · **Versión:** 5
 
 Emitido conforme a la **Ley Federal de Protección de Datos Personales en
 Posesión de los Particulares** (LFPDPPP), publicada en el Diario Oficial de la
@@ -193,6 +193,7 @@ Esto no es una transferencia: es el funcionamiento del servicio que solicitaste.
 
 | Quién | Qué ve de ti |
 |---|---|
+| Cualquier persona, sin cuenta (la web) | De una publicación de vivienda: el título, el tipo, el precio, las recámaras, las condiciones, la zona (la dirección sin la calle ni el número), una ubicación aproximada (redondeada a cerca de 1 km), la calificación y las fotos. **No** la dirección exacta, **no** el teléfono, **no** quién publica y **no** la descripción de una vivienda. De un negocio: el nombre, la descripción, la zona, el horario, los productos con su precio, la calificación y las fotos. Las fotos se ven con un enlace temporal, que dura una hora. |
 | Cualquier usuario con sesión | Solo lo que expone la vista `perfiles_publicos`: nombre, usuario, foto, biografía, mascotas, tabaco, nivel de ruido y horario. **No** tu presupuesto, **no** tu universidad, **no** tu texto libre, **no** tu vector. |
 | Usuarios que ven tus publicaciones | Todo el contenido de la publicación **menos tu teléfono** |
 | Quien ve tus negocios o publicaciones de vendedor | Las fotos, la descripción, el horario y la ubicación que tú publicas. **No** tu INE, **no** tu domicilio legal ni tu nombre legal: eso solo lo ve quien revisa tu verificación. |

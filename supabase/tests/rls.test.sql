@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(818);
+select plan(821);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -3957,11 +3957,21 @@ select ok(not has_function_privilege('anon', 'favoritos_por_negocio(uuid[])', 'e
 -- Cada versión publicada del aviso se registra con una migración, en el mismo paso que la publica (0075). Sin esto, `aceptar_aviso('v4')` se rechazaría.
 select actuar_como_servicio();
 select is(aviso_version_valida('v4'), true, '0089: la versión 4 del aviso está publicada');
-select is(aviso_version_valida('v5'), false, '0089: una versión que no existe sigue sin valer');
+select is(aviso_version_valida('v99'), false, '0089: una versión que no existe sigue sin valer');
 select actuar_como('00000000-0000-0000-0000-0000000000a1');
 select lives_ok($$select aceptar_aviso('v4')$$, '0089: una persona puede aceptar la versión 4');
 select actuar_como_servicio();
 select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000a1'), 'v4', '0089: y queda registrada esa versión');
+
+
+-- ════════════════ 0091 · aviso de privacidad v5 ════════════════
+-- La web se explora sin cuenta: cambia QUIÉN ve lo publicado, así que hay versión nueva. Se registra con su migración (0075).
+select actuar_como_servicio();
+select is(aviso_version_valida('v5'), true, '0091: la versión 5 del aviso está publicada');
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select lives_ok($$select aceptar_aviso('v5')$$, '0091: una persona puede aceptar la versión 5');
+select actuar_como_servicio();
+select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000a1'), 'v5', '0091: y queda registrada esa versión');
 
 
 -- ════════════════ 0090 · explorar sin cuenta ════════════════
