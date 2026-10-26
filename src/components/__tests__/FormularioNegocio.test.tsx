@@ -32,11 +32,8 @@ jest.mock('@/hooks/queries/useMisNegocios', () => {
   };
 });
 jest.mock('@/hooks/queries/usePlanes', () => ({ useMiSuscripcion: (...a: unknown[]) => mockSus(...a) }));
-jest.mock('@/hooks/queries/useServicios', () => ({
-  useCategoriasServicio: () => ({
-    categorias: [{ id: 'comida', nombre: 'Comida', icono: 'x', orden: 1 }, { id: 'cafes', nombre: 'Cafés', icono: 'x', orden: 2 }],
-  }),
-}));
+const mockCategorias = jest.fn();
+jest.mock('@/hooks/queries/useServicios', () => ({ useCategoriasServicio: (...a: unknown[]) => mockCategorias(...a) }));
 jest.mock('@/hooks/use-fotos-firmadas', () => ({
   useFotosFirmadas: () => ({ urls: new Map([['negocios/n1/a.jpg', 'https://f.test/a'], ['negocios/n1/b.jpg', 'https://f.test/b']]) }),
 }));
@@ -93,6 +90,10 @@ const llenarNuevo = async () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCategorias.mockReturnValue({
+    categorias: [{ id: 'comida', nombre: 'Comida', icono: 'x', orden: 1 }, { id: 'cafes', nombre: 'Cafés', icono: 'x', orden: 2 }],
+    cargando: false, fallo: false, reintentar: jest.fn(),
+  });
   mockSus.mockReturnValue({ suscripcion: { max_fotos: 60, max_productos: 250 }, cargando: false, fallo: false });
   mockGeocodificar.mockResolvedValue({ lat: 19.32, lng: -99.45, proveedor: 'osm' });
   mockPermiso.mockResolvedValue({ granted: true });
@@ -554,5 +555,21 @@ describe('horario obligatorio (0070)', () => {
     await escribir('Lunes, turno 1, abre', '8');
     await act(async () => { fireEvent(screen.getByLabelText('Lunes, turno 1, abre'), 'endEditing'); });
     expect(screen.getByDisplayValue('08:00')).toBeTruthy();
+  });
+});
+
+describe('cuando FALLA la lectura de las categorías se dice, no queda una lista vacía sin explicación', () => {
+  it('dice que no pudo cargarlas y ofrece reintentar', async () => {
+    const reintentar = jest.fn();
+    mockCategorias.mockReturnValue({ categorias: [], cargando: false, fallo: true, reintentar });
+    await render(<FormularioNegocio />);
+    expect(screen.getByText('No pudimos cargar las categorías')).toBeTruthy();
+    await pulsar('Reintentar');
+    expect(reintentar).toHaveBeenCalledTimes(1);
+  });
+
+  it('con las categorías cargadas no hay aviso', async () => {
+    await render(<FormularioNegocio />);
+    expect(screen.queryByText('No pudimos cargar las categorías')).toBeNull();
   });
 });

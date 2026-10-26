@@ -140,3 +140,20 @@ describe('el historial', () => {
     expect(screen.getByText(/no es una factura/)).toBeTruthy();
   });
 });
+
+describe('cuando FALLA la lectura del plan se dice, no se omite en silencio', () => {
+  it('si falla un plan: dice que no pudo cargarlo y ofrece reintentar', async () => {
+    const reintentar = jest.fn();
+    mockSus.mockImplementation((_u: string, rol: string) => ({ suscripcion: null, cargando: false, fallo: rol === 'comerciante', reintentar }));
+    await render(<PagosScreen />);
+    expect(screen.getByText('No pudimos cargar tu plan')).toBeTruthy();
+    await pulsar('Reintentar');
+    expect(reintentar).toHaveBeenCalled();
+  });
+
+  it('sin fallo y sin función no hay aviso: simplemente no hay plan que enseñar', async () => {
+    mockSus.mockImplementation(() => lectura(null));
+    await render(<PagosScreen />);
+    expect(screen.queryByText('No pudimos cargar tu plan')).toBeNull();
+  });
+});

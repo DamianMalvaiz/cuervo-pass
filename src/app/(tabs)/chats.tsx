@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
+import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Encabezado } from '@/components/ficha/Encabezado';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
@@ -27,7 +28,7 @@ export default function ChatsScreen() {
   const session = useAuthStore((s) => s.session);
   // END-18 · La suscripción de Realtime, el guardia de respuestas fuera de orden
   // y la distinción entre recarga visible y silenciosa viven ahora en el hook.
-  const { conversaciones, cargando } = useConversaciones(session?.user.id);
+  const { conversaciones, cargando, fallo, reintentar } = useConversaciones(session?.user.id);
 
   // AUD-08: una sola petición firmada para todos los avatares visibles, no una
   // por fila. El bucket es privado (§14), así que una ruta cruda no carga.
@@ -120,11 +121,16 @@ export default function ChatsScreen() {
             );
           }}
           ListEmptyComponent={
-            <BloqueEstado
-              etiqueta="Sin conversaciones"
-              mensaje="Cuando pidas el contacto de una publicación o te escriba alguien, el hilo aparece aquí."
-              icono="chatbubbles-outline"
-            />
+            // «Falló la conexión» no es «no tienes conversaciones»: con un fallo y nada que enseñar se dice y se puede reintentar.
+            fallo ? (
+              <ErrorDeCarga etiqueta="No pudimos cargar tus conversaciones" onReintentar={reintentar} />
+            ) : (
+              <BloqueEstado
+                etiqueta="Sin conversaciones"
+                mensaje="Cuando pidas el contacto de una publicación o te escriba alguien, el hilo aparece aquí."
+                icono="chatbubbles-outline"
+              />
+            )
           }
         />
       )}

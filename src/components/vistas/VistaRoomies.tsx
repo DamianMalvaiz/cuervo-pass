@@ -4,6 +4,7 @@ import { FlatList, StyleSheet, Switch, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
+import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Encabezado } from '@/components/ficha/Encabezado';
 import { TarjetaRoomie } from '@/components/TarjetaRoomie';
@@ -40,7 +41,7 @@ export function VistaRoomies({ selector, campana }: { selector?: ReactNode; camp
   // `useFocusEffect`. Guardar la ficha propia ya no obliga a volver a pedir la
   // lista de sugeridos, que es lo caro.
   const miId = session?.user.id;
-  const { roomies, cargando } = useRoomiesSugeridos(Boolean(miId));
+  const { roomies, cargando, fallo, reintentar } = useRoomiesSugeridos(Boolean(miId));
   const { miRoomie } = useMiRoomie(miId);
   const guardar = useGuardarMiRoomie(miId);
   const guardando = guardar.isPending;
@@ -210,6 +211,9 @@ export function VistaRoomies({ selector, campana }: { selector?: ReactNode; camp
             // esqueleto viene a evitar.
             <ListaEsqueleto variante="hoja" filas={3} conFoto={false}
                             etiquetas={['APORTACIÓN', 'DISTANCIA']} />
+          ) : fallo ? (
+            // «Falló la conexión» no es «nadie busca roomie»: se dice y se puede reintentar.
+            <ErrorDeCarga etiqueta="No pudimos cargar los roomies" onReintentar={reintentar} />
           ) : (
             <BloqueEstado
               etiqueta="Sin resultados"

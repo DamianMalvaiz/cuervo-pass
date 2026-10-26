@@ -8,6 +8,7 @@ import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Campo } from '@/components/Campo';
 import { EditorHorario } from '@/components/EditorHorario';
 import { EditorProducto } from '@/components/EditorProducto';
+import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
@@ -43,7 +44,7 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
   const theme = useTheme();
   const { anchoContenido, clase } = useTamanoPantalla();
   const miId = useAuthStore((s) => s.session?.user.id);
-  const { categorias } = useCategoriasServicio();
+  const { categorias, fallo: falloCategorias, reintentar: reintentarCategorias } = useCategoriasServicio();
   const guardar = useGuardarNegocio(miId);
   const borrar = useBorrarNegocio(miId);
   // El límite REAL del plan; mientras no se sepa, rige la cota técnica y la base hace cumplir el plan (CP012).
@@ -198,6 +199,10 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
 
           <View style={estilos.bloque}>
             <ThemedText type="smallBold" themeColor="textSecondary">Categoría</ThemedText>
+            {falloCategorias && categorias.length === 0 ? (
+              // Sin categorías no se puede publicar: se dice por qué (no una lista vacía) y se puede reintentar.
+              <ErrorDeCarga etiqueta="No pudimos cargar las categorías" onReintentar={reintentarCategorias} />
+            ) : null}
             <View style={estilos.chips}>
               {categorias.map((c) => {
                 const activa = c.id === categoriaId;

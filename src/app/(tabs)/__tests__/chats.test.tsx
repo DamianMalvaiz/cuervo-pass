@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 // V.8 · `chats.tsx`, la lista de conversaciones.
 //
@@ -160,4 +160,29 @@ test('con foto firmada se pinta la imagen y no la inicial', async () => {
   await render(<ChatsScreen />);
   expect(screen.queryByText('A')).toBeNull();
   expect(screen.getByText('Ana Pérez')).toBeTruthy();
+});
+
+describe('cuando FALLA la lectura se dice, no se pinta como «sin conversaciones»', () => {
+  it('sin nada que enseñar: dice que no pudo cargarlas y ofrece reintentar', async () => {
+    const reintentar = jest.fn();
+    mockConversaciones.mockReturnValue({ conversaciones: [], cargando: false, fallo: 'No pudimos cargar tus conversaciones.', reintentar });
+    await render(<ChatsScreen />);
+    expect(screen.getByText('No pudimos cargar tus conversaciones')).toBeTruthy();
+    expect(screen.queryByText('Sin conversaciones')).toBeNull();
+    await act(async () => { fireEvent.press(screen.getByLabelText('Reintentar')); });
+    expect(reintentar).toHaveBeenCalledTimes(1);
+  });
+
+  it('con conversaciones ya cargadas y un fallo de refresco se sigue viendo la lista', async () => {
+    mockConversaciones.mockReturnValue({ conversaciones: [hilo()], cargando: false, fallo: 'x', reintentar: jest.fn() });
+    await render(<ChatsScreen />);
+    expect(screen.getByText('Ana Pérez')).toBeTruthy();
+    expect(screen.queryByText('No pudimos cargar tus conversaciones')).toBeNull();
+  });
+
+  it('sin fallo y sin conversaciones sí es «Sin conversaciones»', async () => {
+    mockConversaciones.mockReturnValue({ conversaciones: [], cargando: false, fallo: null, reintentar: jest.fn() });
+    await render(<ChatsScreen />);
+    expect(screen.getByText('Sin conversaciones')).toBeTruthy();
+  });
 });

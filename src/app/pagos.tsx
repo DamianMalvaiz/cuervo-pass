@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
@@ -105,6 +106,16 @@ export default function PagosScreen() {
         <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
           <ThemedText style={Texto.tituloHoja}>Mi plan y pagos</ThemedText>
 
+          {comerciante.fallo || arrendador.fallo ? (
+            // Sin leer el plan no se omite la tarjeta en silencio (parecería que no hay plan): se dice y se puede reintentar.
+            <ErrorDeCarga
+              etiqueta="No pudimos cargar tu plan"
+              onReintentar={() => {
+                if (comerciante.fallo) comerciante.reintentar();
+                if (arrendador.fallo) arrendador.reintentar();
+              }}
+            />
+          ) : null}
           {planes.map(({ rol, titulo, s }) => (s ? <TarjetaPlan key={rol} rol={rol} titulo={titulo} s={s} /> : null))}
 
           <ThemedText type="etiqueta" themeColor="textSecondary">HISTORIAL DE PAGOS</ThemedText>

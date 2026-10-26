@@ -20,6 +20,7 @@ export function useRoomiesSugeridos(habilitado: boolean) {
     roomies: q.data ?? [],
     cargando: q.isPending,
     fallo: q.isError ? 'No pudimos cargar los roomies.' : null,
+    reintentar: () => void q.refetch(),
   };
 }
 
