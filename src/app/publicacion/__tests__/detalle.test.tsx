@@ -273,17 +273,17 @@ test('si no se puede revelar el contacto, se avisa con el mensaje del botón', a
 // Depende de DOS cosas: que la publicación tenga coordenadas y que el perfil
 // tenga las de su universidad. Faltando cualquiera, «sin dato» y atenuado — no
 // un 0.0 km, que sería una afirmación falsa.
-test('sin coordenadas de universidad la distancia dice «sin dato»', async () => {
+test('sin coordenadas de universidad no se dice ninguna distancia (ni un 0.0 km)', async () => {
   mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, latitud: 19.3, longitud: -99.45 } }));
   mockPerfil.valor = { id: 'u1' };
   await pintar();
-  expect(screen.getByText('Distancia sin dato')).toBeTruthy();
+  expect(screen.queryByText(/km de tu universidad/)).toBeNull();
 });
 
 test('sin coordenadas de la publicación tampoco se inventa', async () => {
   mockPerfil.valor = { id: 'u1', latitud_universidad: 19.32568, longitud_universidad: -99.458244 };
   await pintar();
-  expect(screen.getByText('Distancia sin dato')).toBeTruthy();
+  expect(screen.queryByText(/km de tu universidad/)).toBeNull();
 });
 
 test('con las dos, se calcula', async () => {
@@ -345,9 +345,47 @@ test('las condiciones se dicen por los dos lados', async () => {
 });
 
 // Cuervo 360 · el precio manda y va con «al mes»; las condiciones son pastillas, no una tabla de campos.
-test('el precio va grande, con «al mes»', async () => {
+test('el precio va GRANDE y «al mes» aparte, en pequeño', async () => {
   await pintar();
-  expect(screen.getByText(/^\$[\d,]+ al mes$/)).toBeTruthy();
+  expect(screen.getByText(/^\$[\d,]+$/)).toBeTruthy();
+  expect(screen.getByText('al mes')).toBeTruthy();
+});
+
+// La ficha de un depa (maqueta 1, 24/10/2026): la calificación junto al título, la distancia junto a la dirección y los servicios como una línea con palomita.
+describe('el encabezado de la ficha', () => {
+  it('con reseñas, la calificación va junto al título', async () => {
+    mockCalificacion.mockReturnValue({ calificacion: 4.5, numResenas: 12 });
+    await pintar();
+    expect(screen.getByLabelText(/4\.5 de 5 estrellas, 12 reseñas/)).toBeTruthy();
+  });
+
+  it('sin reseñas no se inventa una calificación junto al título', async () => {
+    mockCalificacion.mockReturnValue({ calificacion: null, numResenas: 0 });
+    await pintar();
+    expect(screen.queryByLabelText(/de 5 estrellas/)).toBeNull();
+  });
+
+  it('la distancia va junto a la dirección, no como una pastilla más', async () => {
+    mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, latitud: 19.33, longitud: -99.46 } }));
+    mockPerfil.valor = { id: 'u1', latitud_universidad: 19.32568, longitud_universidad: -99.458244 };
+    await pintar();
+    expect(screen.getByTestId('linea-ubicacion')).toBeTruthy();
+    expect(screen.getByTestId('linea-ubicacion')).toHaveTextContent(/km de tu universidad/);
+    expect(screen.getByTestId('linea-ubicacion')).toHaveTextContent(new RegExp(PUBLICACION.direccion));
+  });
+
+  it('los servicios van como una línea propia, con palomita si están incluidos', async () => {
+    mockPublicacion.mockReturnValue(estado({ publicacion: { ...PUBLICACION, servicios_incluidos: true } }));
+    await pintar();
+    expect(screen.getByTestId('linea-servicios')).toHaveTextContent(/Servicios incluidos/);
+    expect(screen.getByTestId('icono-servicios-incluidos')).toBeTruthy();
+  });
+
+  it('servicios aparte: se dice sin palomita', async () => {
+    await pintar();
+    expect(screen.getByTestId('linea-servicios')).toHaveTextContent(/Servicios aparte/);
+    expect(screen.queryByTestId('icono-servicios-incluidos')).toBeNull();
+  });
 });
 
 test('las recámaras se cuentan en singular y plural', async () => {

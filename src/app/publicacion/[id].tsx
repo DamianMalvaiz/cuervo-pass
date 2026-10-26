@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BotonVerContacto } from '@/components/BotonVerContacto';
+import { Estrellas } from '@/components/ficha/Estrellas';
 import { Pastilla } from '@/components/ficha/Pastilla';
 import { SeccionResenas } from '@/components/SeccionResenas';
 import { PorQueEsBuena } from '@/components/ficha/PorQueEsBuena';
@@ -26,7 +27,7 @@ import { ConteoFavoritos } from '@/components/ConteoFavoritos';
 import { MapaUbicacion } from '@/components/MapaUbicacion';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import {Filete, Radios, Spacing } from '@/constants/theme';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
@@ -303,15 +304,36 @@ export default function DetallePublicacionScreen() {
           </View>
         ) : null}
 
+        {/* Maqueta 1 (24/10/2026): título con su calificación al lado, dirección con la distancia, el precio GRANDE con «al mes» en pequeño y los servicios
+            como una línea propia. La distancia solo se dice si se SABE (sin coordenadas de una de las dos puntas no se inventa un 0.0 km). */}
         <View style={estilos.encabezadoFicha}>
-          <ThemedText type="title">{publicacion.titulo}</ThemedText>
-          <ThemedText type="subtitle">
-            {`$${formateadorPrecio.format(publicacion.precio_renta)} al mes`}
-          </ThemedText>
-          <View style={estilos.direccion}>
+          <View style={estilos.filaTitulo}>
+            <ThemedText type="title" style={estilos.textoDireccion}>{publicacion.titulo}</ThemedText>
+            <Estrellas calificacion={calificacion} numResenas={numResenas} compacta />
+          </View>
+          <View testID="linea-ubicacion" style={estilos.lineaUbicacion}>
             <Ionicons name="location-outline" size={16} color={theme.textSecondary} />
             <ThemedText type="small" themeColor="textSecondary" style={estilos.textoDireccion}>
               {publicacion.direccion}
+            </ThemedText>
+            {distanciaKm != null ? (
+              <ThemedText type="small" themeColor="textSecondary">{`A ${distanciaKm.toFixed(1)} km de tu universidad`}</ThemedText>
+            ) : null}
+          </View>
+          <View style={estilos.filaPrecio}>
+            <ThemedText style={Texto.tituloHoja}>{`$${formateadorPrecio.format(publicacion.precio_renta)}`}</ThemedText>
+            <ThemedText themeColor="textSecondary" style={Texto.pesoFuerte}>al mes</ThemedText>
+          </View>
+          <View testID="linea-servicios" style={estilos.lineaServicios}>
+            {publicacion.servicios_incluidos ? (
+              <Ionicons testID="icono-servicios-incluidos" name="checkmark" size={18} color={theme.bosque} />
+            ) : null}
+            <ThemedText
+              type="small"
+              themeColor={publicacion.servicios_incluidos ? 'text' : 'textSecondary'}
+              style={publicacion.servicios_incluidos ? Texto.pesoFuerte : undefined}
+            >
+              {publicacion.servicios_incluidos ? 'Servicios incluidos' : 'Servicios aparte'}
             </ThemedText>
           </View>
         </View>
@@ -329,16 +351,6 @@ export default function DetallePublicacionScreen() {
             icono="home-outline"
             texto={publicacion.amueblado ? 'Amueblado' : 'Sin amueblar'}
             atenuada={!publicacion.amueblado}
-          />
-          <Pastilla
-            icono="flash-outline"
-            texto={publicacion.servicios_incluidos ? 'Servicios incluidos' : 'Servicios aparte'}
-            atenuada={!publicacion.servicios_incluidos}
-          />
-          <Pastilla
-            icono="walk-outline"
-            texto={distanciaKm != null ? `A ${distanciaKm.toFixed(1)} km de tu universidad` : 'Distancia sin dato'}
-            atenuada={distanciaKm == null}
           />
         </View>
 
@@ -471,7 +483,10 @@ const estilos = StyleSheet.create({
     paddingVertical: Spacing.one,
   },
   encabezadoFicha: { gap: Spacing.one },
-  direccion: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
+  filaTitulo: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
+  lineaUbicacion: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.one },
+  filaPrecio: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.two },
+  lineaServicios: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   textoDireccion: { flex: 1 },
   pastillas: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   // La hoja de contenido sube sobre la foto con las esquinas de arriba redondeadas (propuesta del 17/10/2026).
