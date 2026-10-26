@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(792);
+select plan(818);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -1123,16 +1123,19 @@ select is(
     'sugerencias_con_ranking',
     'sugerencias_publicaciones',
     'sugerencias_roomies',
-    'tiene_rol_aprobado'
+    'tiene_rol_aprobado',
+    'zona_aproximada'
   ],
   'solo la lista blanca es ejecutable por authenticated' );
 
 -- `anon` es el rol de antes de iniciar sesion. Ninguna funcion del proyecto
 -- tiene nada que hacer ahi: todas dependen de auth.uid().
+-- Desde la 0090 son DOS, y solo porque las vistas de explorar las llaman (los permisos de una función dentro de una vista los comprueba quien consulta): la función
+-- pura `zona_aproximada` y `negocio_abierto_en`, que devuelve un booleano para un id de negocio. Una tercera rompe esta aserción.
 select is(
   ejecutables_por('anon'),
-  '{}'::text[],
-  'anon no puede ejecutar ninguna funcion del proyecto' );
+  array['negocio_abierto_en', 'zona_aproximada'],
+  'anon solo ejecuta las dos funciones auxiliares de las vistas de explorar (0090) y ninguna otra del proyecto' );
 
 -- La firma vieja de devolver_cuota desaparece. Dejarla en su sitio y solo
 -- revocarla bastaria hoy, pero un `grant` posterior escrito sin pensar la
@@ -2935,9 +2938,15 @@ select is(
      join information_schema.views v on v.table_schema = g.table_schema and v.table_name = g.table_name
     where g.table_schema = 'public' and g.grantee = 'authenticated' and g.privilege_type <> 'SELECT'),
   0, 'vistas: authenticated solo tiene SELECT sobre las vistas públicas (si no, las escribiría saltándose RLS)' );
+-- Desde la 0090 `anon` lee SOLO las vistas de explorar (datos reducidos, sin cuenta) y solo con SELECT. Una lista exacta: cualquier objeto nuevo abierto a `anon`
+-- rompe esta aserción en vez de colarse.
 select is(
-  (select count(*)::int from information_schema.role_table_grants where table_schema = 'public' and grantee = 'anon'),
-  0, 'anon no tiene ningún privilegio sobre tablas ni vistas de public' );
+  (select array_agg(distinct table_name::text order by table_name::text) from information_schema.role_table_grants where table_schema = 'public' and grantee = 'anon'),
+  array['explorar_categorias', 'explorar_horarios', 'explorar_negocios', 'explorar_productos', 'explorar_publicaciones'],
+  'anon solo lee las vistas de explorar (0090), ninguna otra tabla ni vista de public' );
+select is(
+  (select count(*)::int from information_schema.role_table_grants where table_schema = 'public' and grantee = 'anon' and privilege_type <> 'SELECT'),
+  0, 'anon solo tiene SELECT sobre ellas (nunca escribe)' );
 select is(
   (select count(*)::int from information_schema.role_table_grants
     where table_schema = 'public' and grantee = 'authenticated' and privilege_type in ('TRUNCATE', 'REFERENCES', 'TRIGGER')),
@@ -3953,6 +3962,69 @@ select actuar_como('00000000-0000-0000-0000-0000000000a1');
 select lives_ok($$select aceptar_aviso('v4')$$, '0089: una persona puede aceptar la versión 4');
 select actuar_como_servicio();
 select is((select version_aviso_aceptada from usuarios where id = '00000000-0000-0000-0000-0000000000a1'), 'v4', '0089: y queda registrada esa versión');
+
+
+-- ════════════════ 0090 · explorar sin cuenta ════════════════
+-- La web se puede EXPLORAR sin iniciar sesión, con datos REDUCIDOS: sin la dirección exacta, sin el contacto, sin quién publica y sin la descripción de una vivienda.
+-- Cinco vistas de lista blanca para `anon`; las listas de columnas se fijan EXACTAS porque lo que protege aquí es lo que NO está.
+create or replace function actuar_como_anon() returns void
+language sql as $$
+  select set_config('request.jwt.claims', '', true), set_config('role', 'anon', true);
+$$;
+
+select actuar_como_servicio();
+update publicaciones set direccion = 'Calle Falsa 123, Colonia Centro, Lerma' where titulo = 'Depa B';
+insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp, latitud, longitud, fotos, descripcion) values
+  ('00000000-0000-0000-0000-0000000000b2', 'Depa preciso', 'depa', 'Privada Secreta 45, Barrio Alto, Lerma', 3100, '5599998888', 19.2987654, -99.5612345,
+   array['publicaciones/00000000-0000-0000-0000-0000000000b2/a.jpg', 'publicaciones/00000000-0000-0000-0000-0000000000b2/b.jpg'], 'Llama al 5599998888'),
+  ('00000000-0000-0000-0000-0000000000b2', 'Depa inactivo 90', 'depa', 'Calle X 1, Lerma', 2000, '5511112222', 19.3, -99.5, null, null);
+update publicaciones set activa = false where titulo = 'Depa inactivo 90';
+insert into publicaciones (usuario_id, titulo, tipo, direccion, precio_renta, whatsapp, latitud, longitud) values
+  ('00000000-0000-0000-0000-0000000000b2', 'Depa oculto 90', 'depa', 'Calle Y 2, Lerma', 2100, '5533334444', 19.3, -99.5);
+update publicaciones set oculta_por_reportes = true where titulo = 'Depa oculto 90';
+
+select is(zona_aproximada('Calle Falsa 123, Colonia Centro, Lerma'), 'Colonia Centro, Lerma', '0090: la zona quita la calle y el número (el primer tramo)');
+select is(zona_aproximada('Av. Las Torres 408, Lerma'), 'Lerma', '0090: con dos tramos queda el segundo');
+select is(zona_aproximada('Calle Falsa 123'), null, '0090: sin coma no hay zona que decir (no se enseña la calle)');
+select is(zona_aproximada(null), null, '0090: un dato nulo no inventa zona');
+select is(zona_aproximada(' , '), null, '0090: tramos vacíos tampoco');
+
+select actuar_como_anon();
+select is((select count(*)::int from explorar_publicaciones where titulo = 'Depa B'), 1, '0090: sin cuenta se ve una publicación visible');
+select is((select count(*)::int from explorar_publicaciones where titulo in ('Depa inactivo 90', 'Depa oculto 90')), 0, '0090: lo inactivo y lo oculto por reportes NO se ve');
+select is((select zona from explorar_publicaciones where titulo = 'Depa B'), 'Colonia Centro, Lerma', '0090: se ve la zona, no la dirección');
+select is((select latitud_aprox from explorar_publicaciones where titulo = 'Depa preciso'), 19.3::double precision, '0090: la latitud sale redondeada (≈ 1 km), no exacta');
+select is((select longitud_aprox from explorar_publicaciones where titulo = 'Depa preciso'), -99.56::double precision, '0090: la longitud también');
+select is((select num_fotos from explorar_publicaciones where titulo = 'Depa preciso'), 2, '0090: se dice CUÁNTAS fotos hay (las rutas no salen: llevan el id de la cuenta)');
+select is(
+  (select array_agg(column_name::text order by ordinal_position) from information_schema.columns where table_schema = 'public' and table_name = 'explorar_publicaciones'),
+  array['id', 'titulo', 'tipo', 'precio_renta', 'recamaras', 'amueblado', 'permite_mascotas', 'servicios_incluidos', 'zona', 'latitud_aprox', 'longitud_aprox', 'num_fotos', 'destacado', 'calificacion', 'num_resenas', 'creado_en'],
+  '0090: las columnas de explorar_publicaciones son EXACTAMENTE estas (sin dirección, teléfono, dueño, descripción ni vector)');
+select throws_ok($$select whatsapp from explorar_publicaciones$$, '42703', null, '0090: el teléfono no existe en la vista');
+select throws_ok($$select * from publicaciones$$, '42501', null, '0090: sin cuenta la tabla sigue cerrada');
+select throws_ok($$select * from publicaciones_publicas$$, '42501', null, '0090: y la vista de la app (con dirección exacta) también');
+select throws_ok($$insert into explorar_publicaciones (id) values (gen_random_uuid())$$, '55000', null, '0090: no se escribe a través de una vista de explorar');
+
+select is((select count(*)::int from explorar_negocios where nombre = 'Tienda F7'), 1, '0090: sin cuenta se ve un negocio visible');
+select is(
+  (select array_agg(column_name::text order by ordinal_position) from information_schema.columns where table_schema = 'public' and table_name = 'explorar_negocios'),
+  array['id', 'categoria_id', 'nombre', 'descripcion', 'zona', 'latitud_aprox', 'longitud_aprox', 'horario', 'num_fotos', 'destacado', 'calificacion', 'num_resenas', 'abierto_ahora', 'creado_en'],
+  '0090: las columnas de explorar_negocios son EXACTAMENTE estas (sin dirección exacta ni dueño)');
+select is(
+  (select array_agg(column_name::text order by ordinal_position) from information_schema.columns where table_schema = 'public' and table_name = 'explorar_productos'),
+  array['id', 'negocio_id', 'nombre', 'precio', 'seccion', 'descripcion', 'num_fotos', 'estrella', 'orden'],
+  '0090: las columnas de explorar_productos son EXACTAMENTE estas');
+select ok((select count(*) > 0 from explorar_productos where nombre = 'Taco al pastor'), '0090: se ven los productos de un negocio visible');
+select is(
+  (select array_agg(column_name::text order by ordinal_position) from information_schema.columns where table_schema = 'public' and table_name = 'explorar_horarios'),
+  array['negocio_id', 'dia', 'abre', 'cierra'], '0090: las columnas de explorar_horarios son EXACTAMENTE estas');
+select ok((select count(*) > 0 from explorar_categorias), '0090: se ven las categorías de servicios');
+select throws_ok($$select * from negocios$$, '42501', null, '0090: la tabla de negocios sigue cerrada sin cuenta');
+select throws_ok($$select * from negocio_items$$, '42501', null, '0090: y la de productos');
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select ok((select count(*) > 0 from explorar_publicaciones), '0090: con cuenta también se leen (la web con sesión usa las mismas)');
+select actuar_como_servicio();
 
 select * from finish();
 rollback;
