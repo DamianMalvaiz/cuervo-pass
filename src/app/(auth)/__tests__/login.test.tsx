@@ -64,35 +64,29 @@ describe('la marca en la portada', () => {
   });
 });
 
+// El login NO decide el destino: entrega la persona al guardia de entrada (`app/index.tsx`), que es el ÚNICO que sabe los cuatro estados (aviso vigente, cuestionario, perfil de
+// vendedor, fallo de lectura) y que ya los prueba (`index.guard.test.tsx`). Antes el login leía el perfil él mismo y mandaba directo a las pestañas: una cuenta con un aviso
+// viejo entraba sin aceptar el nuevo hasta reabrir la app, y un fallo de red al leer el perfil la mandaba a repetir el cuestionario como si no lo hubiera hecho.
 describe('a dónde lleva entrar', () => {
-  it('con el cuestionario terminado, a Sugerencias', async () => {
+  it('entrega la decisión al guardia de entrada: va a «/»', async () => {
     await entrar();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/inicio'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
 
-  // 0083 · un vendedor entra por su panel, haya o no hecho el cuestionario de estudiante (que no le corresponde).
-  it('con perfil de vendedor, al panel', async () => {
-    mockSingle.mockResolvedValue({ data: { cuestionario_completo: true, perfil_activo: 'vendedor' } });
+  it('no lee el perfil ni elige pestañas por su cuenta (se saltaría el aviso vigente)', async () => {
     await entrar();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/panel'));
-  });
-
-  it('un vendedor sin cuestionario tampoco va al cuestionario', async () => {
-    mockSingle.mockResolvedValue({ data: { cuestionario_completo: false, perfil_activo: 'vendedor' } });
-    await entrar();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/panel'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+    expect(mockSingle).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalledWith('/(tabs)/inicio');
+    expect(mockReplace).not.toHaveBeenCalledWith('/(tabs)/panel');
     expect(mockReplace).not.toHaveBeenCalledWith('/(auth)/cuestionario-inicial');
   });
 
-  it('con el cuestionario a medias, DE VUELTA al cuestionario', async () => {
-    // `cuestionario_completo` y no `universidad` (la proxy frágil de la que habla `app/index.tsx`): un arrendador o un negocio no tiene
-    // universidad y su alta ya deja el cuestionario como hecho (0082); con `universidad` volverían a él en cada entrada.
-    // Sin universidad, el filtro duro no tiene con qué filtrar: la lista sale
-    // vacía y nada explica por qué. Mandar a Sugerencias a esta persona es
-    // enseñarle un motor roto que no lo está.
-    mockSingle.mockResolvedValue({ data: { cuestionario_completo: false } });
+  it('con la clave mala no navega a ninguna parte', async () => {
+    mockIniciarSesion.mockRejectedValue(new Error('Invalid login credentials'));
     await entrar();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/cuestionario-inicial'));
+    await waitFor(() => expect(screen.getByText(/no coinciden/)).toBeTruthy());
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });
 

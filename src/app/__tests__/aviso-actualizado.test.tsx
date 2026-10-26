@@ -43,6 +43,19 @@ test('explica qué cambió, sobre todo lo de quien vende', async () => {
   expect(screen.getByText(/INE/)).toBeTruthy();
 });
 
+// La lista de cambios es lo que se lee ANTES de aceptar: tiene que decir lo que el aviso vigente dice (v5), no lo de una versión anterior.
+test('dice lo nuevo de la v5: la web se explora sin cuenta, con datos reducidos', async () => {
+  await render(<Pantalla />);
+  expect(screen.getByText(/sin cuenta/)).toBeTruthy();
+  expect(screen.getByText(/dirección exacta/)).toBeTruthy();
+});
+
+test('no dice que los cobros son simulados (desde la v4 van por Mercado Pago, en modo de pruebas)', async () => {
+  await render(<Pantalla />);
+  expect(screen.queryByText(/simulad/i)).toBeNull();
+  expect(screen.getByText(/Mercado Pago/)).toBeTruthy();
+});
+
 test('la casilla nunca viene marcada', async () => {
   await render(<Pantalla />);
   expect(screen.getByLabelText(/Acepto el aviso de privacidad/).props.accessibilityState).toEqual({ checked: false });
