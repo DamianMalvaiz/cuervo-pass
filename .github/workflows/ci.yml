@@ -29,7 +29,16 @@ jobs:
       # versión que se usa en la máquina de desarrollo.
       - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1   # rama v1 al 19/09/2026
         with: { version: 2.117.0 }
-      - run: supabase start
+      # ghcr.io a veces limita las descargas de las imágenes («toomanyrequests») y `supabase start` falla sin que el código tenga nada que ver (24-26/10/2026).
+      # Hasta cuatro intentos, con espera creciente, antes de dar el job por caído: si es una falla real de la base, lo seguirá siendo `supabase test db`.
+      - run: |
+          for intento in 1 2 3 4; do
+            supabase start && exit 0
+            echo "supabase start falló (intento $intento de 4)"
+            supabase stop --no-backup || true
+            sleep $((intento * 45))
+          done
+          exit 1
       - run: supabase test db
 
   # §34 · ORDEN A.3 — el reparto de variables deja de ser un parrafo y pasa a
