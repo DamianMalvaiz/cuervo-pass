@@ -113,6 +113,43 @@ test('si la lectura falla dice que falló (con reintento), no «no hay lugares»
   expect(mockPub.reintentar).toHaveBeenCalled();
 });
 
+describe('ver más lugares', () => {
+  const muchos = (n: number) => Array.from({ length: n }, (_, i) => ({ ...DEPA, id: `p${i}`, titulo_publico: `Lugar ${i}`, destacado: false }));
+  const tarjetas = () => screen.queryAllByLabelText(/pesos al mes/).length;
+
+  it('al principio enseña dos filas (8 en escritorio) y un botón para ver el resto', async () => {
+    Object.assign(mockPub, { publicaciones: muchos(12) });
+    await render(<Explorar />);
+    expect(tarjetas()).toBe(8);
+    expect(screen.getByLabelText('Ver más lugares')).toBeTruthy();
+  });
+
+  it('al pulsarlo salen todos y el botón desaparece', async () => {
+    Object.assign(mockPub, { publicaciones: muchos(12) });
+    await render(<Explorar />);
+    await fireEvent.press(screen.getByLabelText('Ver más lugares'));
+    expect(tarjetas()).toBe(12);
+    expect(screen.queryByLabelText('Ver más lugares')).toBeNull();
+  });
+
+  it('si caben todos, no hay botón (no promete más de lo que hay)', async () => {
+    Object.assign(mockPub, { publicaciones: muchos(8) });
+    await render(<Explorar />);
+    expect(tarjetas()).toBe(8);
+    expect(screen.queryByLabelText('Ver más lugares')).toBeNull();
+  });
+
+  it('al cambiar un filtro vuelve a las dos filas (otra búsqueda, otra lista)', async () => {
+    Object.assign(mockPub, { publicaciones: muchos(12) });
+    await render(<Explorar />);
+    await fireEvent.press(screen.getByLabelText('Ver más lugares'));
+    expect(tarjetas()).toBe(12);
+    await fireEvent.press(screen.getByLabelText('Filtrar por departamentos'));
+    expect(tarjetas()).toBe(8);
+    expect(screen.getByLabelText('Ver más lugares')).toBeTruthy();
+  });
+});
+
 describe('negocios', () => {
   const NEG = { id: 'n1', nombre: 'Café Lerma', zona: 'Centro, Lerma, México, CP 52000', abierto_ahora: true, calificacion: 4.6, num_fotos: 0, destacado: false };
 

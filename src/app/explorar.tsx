@@ -42,6 +42,9 @@ export default function Explorar() {
   const [filtros, setFiltros] = useState<FiltrosWeb>(FILTROS_VACIOS);
   // El buscador solo filtra al pulsar «Buscar»; los chips filtran al instante.
   const [aplicados, setAplicados] = useState<FiltrosWeb>(FILTROS_VACIOS);
+  // «Ver más lugares» vale para ESTA búsqueda: con otros filtros se vuelve a las dos filas.
+  const firmaBusqueda = JSON.stringify(aplicados);
+  const [expandida, setExpandida] = useState<string | null>(null);
 
   const lugares = usePublicacionesPublicas(aFiltroPublicaciones(aplicados, RESULTADOS));
   const recientes = usePublicacionesPublicas({ limite: 3 });
@@ -71,6 +74,10 @@ export default function Explorar() {
   };
 
   const filtrando = hayFiltros(aplicados);
+  // Dos filas al principio (mínimo seis): una columna de doce tarjetas en un teléfono son siete pantallas antes de llegar al resto de la página.
+  const inicial = Math.max(6, columnas * 2);
+  const verTodos = expandida === firmaBusqueda;
+  const visibles = verTodos ? lugares.publicaciones : lugares.publicaciones.slice(0, inicial);
   const tituloSeccion = escritorio ? Texto.seccionWeb : Texto.seccionWebCompacto;
 
   return (
@@ -97,9 +104,16 @@ export default function Explorar() {
                 <ThemedText style={Texto.cuerpo} themeColor="textSecondary">Todavía no hay lugares publicados.</ThemedText>
               )
             ) : (
-              <View style={estilos.cuadricula}>
-                {lugares.publicaciones.map((p) => <TarjetaPublicacionWeb key={p.id} p={p} ancho={anchoTarjeta} />)}
-              </View>
+              <>
+                <View style={estilos.cuadricula}>
+                  {visibles.map((p) => <TarjetaPublicacionWeb key={p.id} p={p} ancho={anchoTarjeta} />)}
+                </View>
+                {!verTodos && lugares.publicaciones.length > inicial ? (
+                  <View style={estilos.masLugares}>
+                    <BotonWeb variante="contorno" onPress={() => setExpandida(firmaBusqueda)}>Ver más lugares</BotonWeb>
+                  </View>
+                ) : null}
+              </>
             )}
           </View>
 
@@ -140,4 +154,5 @@ const estilos = StyleSheet.create({
   seccion: { gap: Spacing.three + Spacing.one, paddingHorizontal: Spacing.two },
   cuadricula: { flexDirection: 'row', flexWrap: 'wrap', gap: HUECO },
   vacio: { gap: Spacing.three, alignItems: 'flex-start' },
+  masLugares: { alignItems: 'center', marginTop: Spacing.two },
 });
