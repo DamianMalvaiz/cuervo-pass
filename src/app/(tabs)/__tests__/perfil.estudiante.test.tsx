@@ -14,9 +14,10 @@ jest.mock('@/store/useModuloStore', () => ({ useModuloStore: { getState: () => (
 jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) => sel({ session: { user: { id: 'u1' } } }),
 }));
-const almacen: { perfil: Record<string, unknown> | null; cargando: boolean } = { perfil: null, cargando: false };
+const almacen: { perfil: Record<string, unknown> | null; cargando: boolean; error: string | null } = { perfil: null, cargando: false, error: null };
+const mockCargarPerfil = jest.fn();
 jest.mock('@/store/usePerfilStore', () => ({
-  usePerfilStore: () => ({ perfil: almacen.perfil, cargando: almacen.cargando, cargarPerfil: jest.fn(), actualizarPerfil: jest.fn() }),
+  usePerfilStore: () => ({ perfil: almacen.perfil, cargando: almacen.cargando, error: almacen.error, cargarPerfil: (...a: unknown[]) => mockCargarPerfil(...a), actualizarPerfil: jest.fn() }),
 }));
 jest.mock('@/components/perfil/TarjetaIdentidad', () => ({
   TarjetaIdentidad: ({ insignia }: { insignia?: string }) => {
@@ -45,6 +46,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   almacen.perfil = { ...PERFIL };
   almacen.cargando = false;
+  almacen.error = null;
   mockRoomie.mockReturnValue({ miRoomie: null });
   mockPublicaciones.mockReturnValue({ datos: [], cargando: false });
   mockRoles.mockReturnValue({ roles: [], cargando: false, fallo: false, reintentar: jest.fn() });
@@ -267,6 +269,41 @@ describe('el acceso a ser vendedor', () => {
   it('ya NO hay «Tus funciones» con alertas', async () => {
     await render(<PerfilScreen />);
     expect(screen.queryByText('Tus funciones')).toBeNull();
+  });
+});
+
+describe('cuando FALLA la conexión se dice, no se pinta como «sin datos»', () => {
+  it('sin perfil y con error: dice que no pudo cargarlo y ofrece reintentar; no pinta «sin definir»', async () => {
+    almacen.perfil = null;
+    almacen.error = 'No pudimos actualizar tu ficha.';
+    await render(<PerfilScreen />);
+    expect(screen.getByText('No pudimos cargar tu perfil')).toBeTruthy();
+    expect(screen.queryByText('sin definir')).toBeNull();
+    expect(screen.queryByText('MI BÚSQUEDA')).toBeNull();
+    await pulsar('Reintentar');
+    expect(mockCargarPerfil).toHaveBeenCalledWith('u1');
+  });
+
+  it('con un perfil ya cargado y un error de refresco se sigue viendo el perfil (el dato viejo, no una mentira)', async () => {
+    almacen.error = 'No pudimos actualizar tu ficha.';
+    await render(<PerfilScreen />);
+    expect(screen.getByText('MI BÚSQUEDA')).toBeTruthy();
+  });
+
+  it('si fallan las funciones de vendedor: no pregunta «Crea tu perfil» ni ofrece entrar, y deja reintentar', async () => {
+    mockRoles.mockReturnValue({ roles: [], cargando: false, fallo: true, reintentar: jest.fn() });
+    await render(<PerfilScreen />);
+    expect(screen.queryByLabelText(/^Crea tu perfil de vendedor/)).toBeNull();
+    expect(screen.queryByLabelText(/^Ir a mi perfil de vendedor/)).toBeNull();
+    expect(screen.getByText('No pudimos comprobar tu perfil de vendedor')).toBeTruthy();
+  });
+
+  it('«Reintentar» de las funciones las vuelve a pedir', async () => {
+    const reintentar = jest.fn();
+    mockRoles.mockReturnValue({ roles: [], cargando: false, fallo: true, reintentar });
+    await render(<PerfilScreen />);
+    await pulsar('Reintentar');
+    expect(reintentar).toHaveBeenCalledTimes(1);
   });
 });
 

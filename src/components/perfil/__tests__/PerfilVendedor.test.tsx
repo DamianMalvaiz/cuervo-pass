@@ -12,8 +12,9 @@ jest.mock('@/lib/toast', () => ({ toast: { error: (...a: unknown[]) => mockToast
 jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) => sel({ session: { user: { id: 'u1' } } }),
 }));
-const perfilMock: { valor: Record<string, unknown> | null } = { valor: { id: 'u1', universidad: null, nombre_completo: 'Dueña Prueba' } };
-jest.mock('@/store/usePerfilStore', () => ({ usePerfilStore: () => ({ perfil: perfilMock.valor }) }));
+const perfilMock: { valor: Record<string, unknown> | null; error: string | null } = { valor: { id: 'u1', universidad: null, nombre_completo: 'Dueña Prueba' }, error: null };
+const mockCargarPerfil = jest.fn();
+jest.mock('@/store/usePerfilStore', () => ({ usePerfilStore: () => ({ perfil: perfilMock.valor, error: perfilMock.error, cargarPerfil: (...a: unknown[]) => mockCargarPerfil(...a) }) }));
 // La tarjeta de identidad tiene sus propias pruebas: aquí solo importa la insignia que recibe y lo que lleva dentro.
 jest.mock('../TarjetaIdentidad', () => ({
   TarjetaIdentidad: ({ insignia, children }: { insignia?: string; children?: React.ReactNode }) => {
@@ -37,6 +38,7 @@ const pulsar = async (e: string | RegExp) => { await act(async () => { fireEvent
 beforeEach(() => {
   jest.clearAllMocks();
   perfilMock.valor = { id: 'u1', universidad: null, nombre_completo: 'Dueña Prueba' };
+  perfilMock.error = null;
   mockRoles.mockReturnValue(roles(rol('arrendador', 'sin_verificar')));
   mockSuscripcion.mockReturnValue({ suscripcion: null, cargando: false, fallo: false, reintentar: jest.fn() });
   mockCambiar.mockResolvedValue(undefined);
@@ -132,5 +134,33 @@ describe('pasar al perfil de estudiante', () => {
     await pulsar(/^Activar mi perfil de estudiante/);
     expect(mockToastError).toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+});
+
+describe('cuando FALLA la conexión se dice, no se pinta como «sin verificar»', () => {
+  it('si fallan las funciones: no dice «Sin verificar» ni enseña filas que suponen lo contrario; ofrece reintentar', async () => {
+    const reintentar = jest.fn();
+    mockRoles.mockReturnValue({ roles: [], cargando: false, fallo: true, reintentar });
+    await render(<PerfilVendedor />);
+    expect(screen.queryByText(/INSIGNIA:/)).toBeNull();
+    expect(screen.queryByLabelText(/Verificación de identidad/)).toBeNull();
+    expect(screen.getByText('No pudimos comprobar tu verificación')).toBeTruthy();
+    await pulsar('Reintentar');
+    expect(reintentar).toHaveBeenCalledTimes(1);
+  });
+
+  it('aun así se puede pasar al perfil de estudiante', async () => {
+    mockRoles.mockReturnValue({ roles: [], cargando: false, fallo: true, reintentar: jest.fn() });
+    await render(<PerfilVendedor />);
+    expect(screen.getByLabelText(/Activar mi perfil de estudiante/)).toBeTruthy();
+  });
+
+  it('sin perfil y con error de lectura: dice que no pudo cargarlo y ofrece reintentar', async () => {
+    perfilMock.valor = null;
+    perfilMock.error = 'No pudimos actualizar tu ficha.';
+    await render(<PerfilVendedor />);
+    expect(screen.getByText('No pudimos cargar tu perfil')).toBeTruthy();
+    await pulsar('Reintentar');
+    expect(mockCargarPerfil).toHaveBeenCalledWith('u1');
   });
 });

@@ -177,3 +177,22 @@ describe('publicar exige la verificación hecha', () => {
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/publicar');
   });
 });
+
+describe('cuando FALLA la conexión se dice, no se pinta como «sin verificar» ni como cero', () => {
+  it('si fallan las funciones: no enseña el paso de verificar ni la fila bloqueada, y ofrece reintentar', async () => {
+    const reintentar = jest.fn();
+    mockRoles.mockReturnValue({ roles: [], cargando: false, fallo: true, reintentar });
+    await render(<PanelScreen />);
+    expect(screen.queryByText(/Verifica tu identidad/)).toBeNull();
+    expect(screen.queryByLabelText(/Disponible cuando te verifiquemos/)).toBeNull();
+    expect(screen.getByText('No pudimos comprobar tu verificación')).toBeTruthy();
+    await act(async () => { fireEvent.press(screen.getByLabelText('Reintentar')); });
+    expect(reintentar).toHaveBeenCalledTimes(1);
+  });
+
+  it('si fallan mis publicaciones, «Activos» dice «sin dato», no 0', async () => {
+    mockPublicaciones.mockReturnValue({ datos: [], cargando: false, fallo: 'x' });
+    await render(<PanelScreen />);
+    expect(screen.getByLabelText('Activos: sin dato')).toBeTruthy();
+  });
+});

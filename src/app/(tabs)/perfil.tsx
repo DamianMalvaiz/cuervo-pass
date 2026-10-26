@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
+import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { FilaAjuste } from '@/components/ficha/FilaAjuste';
 import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
 import { Pulsable } from '@/components/ficha/Pulsable';
@@ -54,12 +55,12 @@ function PerfilEstudiante() {
   const margenSuperior = useMargenSuperior();
   const { anchoContenido, clase } = useTamanoPantalla();
   const miId = useAuthStore((s) => s.session?.user.id);
-  const { perfil, cargando } = usePerfilStore();
+  const { perfil, cargando, error: errorPerfil, cargarPerfil } = usePerfilStore();
   // La ficha de roomie, para decir la VERDAD sobre si apareces en esa lista: la fila de `roomies`, no el booleano del cuestionario.
   const { miRoomie } = useMiRoomie(miId);
   const { datos: misPublicaciones, cargando: cargandoPublicaciones } = useMisPublicaciones(miId);
   // Quien YA tiene un perfil de vendedor entra a él con un botón, sin volver a elegir qué es.
-  const { roles } = useMisRoles(miId);
+  const { roles, fallo: falloRoles, reintentar: reintentarRoles } = useMisRoles(miId);
   const { cambiar } = usePerfilActivo(miId);
   const [cambiandoPerfil, setCambiandoPerfil] = useState(false);
   const funciones = funcionesDeVendedor(roles);
@@ -86,6 +87,21 @@ function PerfilEstudiante() {
         <ScrollView contentContainerStyle={[estilos.desplazable, { paddingTop: margenSuperior }, clase === 'amplia' && estilos.centradoAmplio]}>
           <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
             <ListaEsqueleto variante="hoja" filas={1} conFoto={false} etiquetas={['PRESUPUESTO MENSUAL', 'DISTANCIA MÁXIMA']} />
+          </View>
+        </ScrollView>
+      </ThemedView>
+    );
+  }
+
+  // Falló la lectura y no hay NADA que enseñar: se dice (y se puede reintentar). Pintar «sin definir» y «Sin nombre» le hacía creer a la persona que su
+  // cuenta estaba vacía o borrada. Con un perfil ya cargado y un fallo de refresco se sigue viendo el perfil: el dato viejo no es una mentira.
+  if (!perfil && errorPerfil) {
+    return (
+      <ThemedView style={estilos.pantalla}>
+        <ScrollView contentContainerStyle={[estilos.desplazable, { paddingTop: margenSuperior }, clase === 'amplia' && estilos.centradoAmplio]}>
+          <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
+            <EncabezadoPerfil />
+            <ErrorDeCarga etiqueta="No pudimos cargar tu perfil" onReintentar={() => miId && void cargarPerfil(miId)} />
           </View>
         </ScrollView>
       </ThemedView>
@@ -183,31 +199,36 @@ function PerfilEstudiante() {
             ) : null}
           </GrupoAjustes>
 
-          <GrupoAjustes>
-            {tieneVendedor ? (
-              <FilaAjuste
-                icono="storefront-outline"
-                etiqueta="Ir a mi perfil de vendedor"
-                descripcion="Tu panel, tu verificación y lo que publicas."
-                onPress={cambiandoPerfil ? undefined : () => void aVendedor()}
-              />
-            ) : (
-              <FilaAjuste
-                icono="storefront-outline"
-                etiqueta="Crea tu perfil de vendedor"
-                descripcion="¿Tienes un negocio o un depa para rentar?"
-                onPress={() => router.push('/perfil/crear-vendedor')}
-              />
-            )}
-            {falta ? (
-              <FilaAjuste
-                icono="add-circle-outline"
-                etiqueta="Agregar otro tipo de perfil"
-                descripcion={`¿También tienes ${falta}?`}
-                onPress={() => router.push('/perfil/crear-vendedor')}
-              />
-            ) : null}
-          </GrupoAjustes>
+          {falloRoles ? (
+            // No se sabe si tiene perfil de vendedor: ni «Crea tu perfil» (sería preguntar lo que quizá ya existe) ni «Ir a mi perfil».
+            <ErrorDeCarga etiqueta="No pudimos comprobar tu perfil de vendedor" onReintentar={reintentarRoles} />
+          ) : (
+            <GrupoAjustes>
+              {tieneVendedor ? (
+                <FilaAjuste
+                  icono="storefront-outline"
+                  etiqueta="Ir a mi perfil de vendedor"
+                  descripcion="Tu panel, tu verificación y lo que publicas."
+                  onPress={cambiandoPerfil ? undefined : () => void aVendedor()}
+                />
+              ) : (
+                <FilaAjuste
+                  icono="storefront-outline"
+                  etiqueta="Crea tu perfil de vendedor"
+                  descripcion="¿Tienes un negocio o un depa para rentar?"
+                  onPress={() => router.push('/perfil/crear-vendedor')}
+                />
+              )}
+              {falta ? (
+                <FilaAjuste
+                  icono="add-circle-outline"
+                  etiqueta="Agregar otro tipo de perfil"
+                  descripcion={`¿También tienes ${falta}?`}
+                  onPress={() => router.push('/perfil/crear-vendedor')}
+                />
+              ) : null}
+            </GrupoAjustes>
+          )}
         </View>
       </ScrollView>
     </ThemedView>

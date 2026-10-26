@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { CampanaAvisos } from '@/components/CampanaAvisos';
 import { Encabezado } from '@/components/ficha/Encabezado';
+import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { FilaAjuste } from '@/components/ficha/FilaAjuste';
 import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
 import { Pulsable } from '@/components/ficha/Pulsable';
@@ -53,7 +54,7 @@ export default function PanelScreen() {
   const margenSuperior = useMargenSuperior();
   const miId = useAuthStore((s) => s.session?.user.id);
 
-  const { roles } = useMisRoles(miId);
+  const { roles, fallo: falloRoles, reintentar: reintentarRoles } = useMisRoles(miId);
   const conv = useConversaciones(miId);
   const pubs = useMisPublicaciones(miId);
   const negocios = useMisNegocios(miId);
@@ -66,7 +67,7 @@ export default function PanelScreen() {
   // «—» si no llegó (cargando o falló): nunca un 0 que parezca un hecho.
   const sinLeer = conv.cargando || conv.fallo ? null : conv.conversaciones.reduce((n, c) => n + c.noLeidos, 0);
   const activos =
-    pubs.cargando || negocios.cargando || negocios.fallo
+    pubs.cargando || pubs.fallo || negocios.cargando || negocios.fallo
       ? null
       : pubs.datos.filter((p) => p.activa).length + negocios.negocios.filter((n) => (n as { activo?: boolean }).activo).length;
 
@@ -80,7 +81,10 @@ export default function PanelScreen() {
       >
         <Encabezado titulo="Mi panel" accion={<CampanaAvisos />} />
 
-        {paso && paso.tipo !== 'listo' ? (
+        {falloRoles ? (
+          // No se sabe en qué paso va: ni «Verifica tu identidad» ni «sin verificar» (decir lo que no se sabe es peor que decir que falló).
+          <ErrorDeCarga etiqueta="No pudimos comprobar tu verificación" onReintentar={reintentarRoles} />
+        ) : paso && paso.tipo !== 'listo' ? (
           <View style={[estilos.tarjeta, { borderColor: theme.tintedBorder, backgroundColor: theme.backgroundElement }]}>
             <ThemedText type="etiqueta" themeColor="textSecondary">VERIFICACIÓN</ThemedText>
             {paso.tipo === 'empezar' ? (
@@ -136,16 +140,18 @@ export default function PanelScreen() {
           </Pulsable>
         </View>
 
-        {/* Una sola forma de fila en toda la app (`FilaAjuste`): icono, título, descripción y flecha. */}
-        <GrupoAjustes>
-          <FilaAjuste
-            icono="storefront-outline"
-            etiqueta={tituloDeLoPropio(roles)}
-            descripcion={publica ? 'Datos, fotos y lo que publicas.' : 'Disponible cuando te verifiquemos'}
-            bloqueada={!publica}
-            onPress={() => router.push('/(tabs)/publicar')}
-          />
-        </GrupoAjustes>
+        {/* Una sola forma de fila en toda la app (`FilaAjuste`): icono, título, descripción y flecha. Sin saber si está verificada no se enseña (ni abierta ni bloqueada). */}
+        {falloRoles ? null : (
+          <GrupoAjustes>
+            <FilaAjuste
+              icono="storefront-outline"
+              etiqueta={tituloDeLoPropio(roles)}
+              descripcion={publica ? 'Datos, fotos y lo que publicas.' : 'Disponible cuando te verifiquemos'}
+              bloqueada={!publica}
+              onPress={() => router.push('/(tabs)/publicar')}
+            />
+          </GrupoAjustes>
+        )}
       </ScrollView>
     </ThemedView>
   );

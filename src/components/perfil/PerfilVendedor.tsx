@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { FilaAjuste } from '@/components/ficha/FilaAjuste';
 import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
 import { ThemedText } from '@/components/themed-text';
@@ -49,8 +50,8 @@ export function PerfilVendedor() {
   const margenSuperior = useMargenSuperior();
   const { anchoContenido, clase } = useTamanoPantalla();
   const miId = useAuthStore((s) => s.session?.user.id);
-  const { perfil } = usePerfilStore();
-  const { roles } = useMisRoles(miId);
+  const { perfil, error: errorPerfil, cargarPerfil } = usePerfilStore();
+  const { roles, fallo: falloRoles, reintentar: reintentarRoles } = useMisRoles(miId);
   const { cambiar } = usePerfilActivo(miId);
   const [cambiando, setCambiando] = useState(false);
 
@@ -81,34 +82,44 @@ export function PerfilVendedor() {
       >
         <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
           <EncabezadoPerfil />
-          <TarjetaIdentidad insignia={insigniaDe(paso)} />
+          {!perfil && errorPerfil ? (
+            // Falló la lectura y no hay nada que enseñar: se dice, no se pinta «Sin nombre». Con un perfil ya cargado se sigue viendo el perfil.
+            <ErrorDeCarga etiqueta="No pudimos cargar tu perfil" onReintentar={() => miId && void cargarPerfil(miId)} />
+          ) : (
+            <TarjetaIdentidad insignia={falloRoles ? undefined : insigniaDe(paso)} />
+          )}
 
-          <GrupoAjustes>
-            <FilaAjuste
-              icono="storefront-outline"
-              etiqueta={tituloDeLoPropio(roles)}
-              descripcion="Datos, fotos y lo que publicas."
-              onPress={() => router.push('/(tabs)/publicar')}
-            />
-            <FilaAjuste
-              icono="shield-checkmark-outline"
-              etiqueta="Verificación de identidad"
-              descripcion={descripcionDe(paso)}
-              onPress={() => router.push({ pathname: '/verificacion/[rol]', params: { rol: rolDeVerificacion } })}
-            />
-            <FilaAjuste
-              icono="card-outline"
-              etiqueta="Mi plan y pagos"
-              descripcion={suscripcion ? describirSuscripcion(suscripcion) : 'Consultando…'}
-              onPress={() => router.push('/pagos')}
-            />
-            <FilaAjuste
-              icono="eye-outline"
-              etiqueta="Cómo me ven"
-              descripcion="Lo que ve otra persona cuando entra a tu ficha."
-              onPress={miId ? () => router.push({ pathname: '/perfil/[usuarioId]', params: { usuarioId: miId } }) : undefined}
-            />
-          </GrupoAjustes>
+          {falloRoles ? (
+            // No se sabe en qué paso va: ni «Sin verificar» ni filas que suponen una función.
+            <ErrorDeCarga etiqueta="No pudimos comprobar tu verificación" onReintentar={reintentarRoles} />
+          ) : (
+            <GrupoAjustes>
+              <FilaAjuste
+                icono="storefront-outline"
+                etiqueta={tituloDeLoPropio(roles)}
+                descripcion="Datos, fotos y lo que publicas."
+                onPress={() => router.push('/(tabs)/publicar')}
+              />
+              <FilaAjuste
+                icono="shield-checkmark-outline"
+                etiqueta="Verificación de identidad"
+                descripcion={descripcionDe(paso)}
+                onPress={() => router.push({ pathname: '/verificacion/[rol]', params: { rol: rolDeVerificacion } })}
+              />
+              <FilaAjuste
+                icono="card-outline"
+                etiqueta="Mi plan y pagos"
+                descripcion={suscripcion ? describirSuscripcion(suscripcion) : 'Consultando…'}
+                onPress={() => router.push('/pagos')}
+              />
+              <FilaAjuste
+                icono="eye-outline"
+                etiqueta="Cómo me ven"
+                descripcion="Lo que ve otra persona cuando entra a tu ficha."
+                onPress={miId ? () => router.push({ pathname: '/perfil/[usuarioId]', params: { usuarioId: miId } }) : undefined}
+              />
+            </GrupoAjustes>
+          )}
 
           <GrupoAjustes>
             <FilaAjuste
