@@ -23,7 +23,7 @@ function TarjetaDepa({ p }: { p: PublicacionExplorar }) {
   const { fotos } = useFotosPublicas('publicacion', p.id, p.num_fotos);
   const resumen = `${p.titulo}, ${precio.format(p.precio_renta)} pesos al mes`;
   return (
-    <Pulsable onPress={() => router.push(`/publicacion/${p.id}`)} accessibilityRole="button" accessibilityLabel={resumen} style={estilos.tarjeta}>
+    <Pulsable onPress={() => router.push(`/explorar/${p.id}`)} accessibilityRole="button" accessibilityLabel={resumen} style={estilos.tarjeta}>
       <View style={[estilos.foto, { backgroundColor: theme.backgroundSelected }]}>
         <FotoLista completa={fotos[0]} style={estilos.fotoImagen} accessibilityLabel={p.titulo} />
         {p.destacado ? (

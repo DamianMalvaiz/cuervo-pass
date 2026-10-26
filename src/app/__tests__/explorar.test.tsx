@@ -43,10 +43,10 @@ test('enseña los departamentos con precio y zona, nunca la dirección', async (
   expect(screen.getByText(/Santa María/)).toBeTruthy();
 });
 
-test('al tocar un departamento va a su ficha pública', async () => {
+test('al tocar un departamento va a su ficha pública (sin cuenta)', async () => {
   await render(<Explorar />);
   await fireEvent.press(screen.getByLabelText(/Cuarto con baño propio/));
-  expect(mockPush).toHaveBeenCalledWith('/publicacion/p1');
+  expect(mockPush).toHaveBeenCalledWith('/explorar/p1');
 });
 
 test('si la lectura falla dice que falló (con reintento), no «no hay departamentos»', async () => {
