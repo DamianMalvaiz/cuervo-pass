@@ -10,6 +10,7 @@ import type { SeccionWeb } from '@/components/web/PestanasWeb';
 import { AnchoMaximoWeb, Spacing } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { medidasWeb } from '@/lib/medidasWeb';
+import { anim } from '@/lib/movimientoWeb';
 
 /**
  * El armazón de una página interior de la web: la barra con su sección marcada, el contenido acotado y centrado, y el pie de borde a borde. Pone además el título de la pestaña del navegador
@@ -26,7 +27,8 @@ export function PaginaWeb({ activa, titulo, children }: { activa: SeccionWeb | n
       <ScrollView contentContainerStyle={telefono ? { paddingBottom: ALTO_BARRA_INFERIOR } : undefined}>
         <View style={[estilos.contenido, { paddingHorizontal: relleno }]}>
           <EncabezadoWeb activa={activa} escritorio={escritorio} telefono={telefono} />
-          {children}
+          {/* El encabezado se queda quieto; el contenido de cada página entra con un ascenso corto. */}
+          <View style={estilos.cuerpo} {...anim('pagina')}>{children}</View>
         </View>
         <PieWeb />
       </ScrollView>
@@ -37,5 +39,6 @@ export function PaginaWeb({ activa, titulo, children }: { activa: SeccionWeb | n
 
 const estilos = StyleSheet.create({
   raiz: { flex: 1 },
+  cuerpo: { gap: Spacing.five },
   contenido: { width: '100%', maxWidth: AnchoMaximoWeb, alignSelf: 'center', gap: Spacing.five, paddingTop: Spacing.three, paddingBottom: Spacing.six },
 });

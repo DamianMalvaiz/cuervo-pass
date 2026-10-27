@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
+import { EsqueletoTarjetasWeb } from '@/components/web/EsqueletoWeb';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { PaginaSesionWeb } from '@/components/web/PaginaSesionWeb';
 import { TarjetaNegocioWeb } from '@/components/web/TarjetaNegocioWeb';
@@ -29,7 +30,7 @@ export function FavoritosWeb() {
   const theme = useTheme();
   const miId = useAuthStore((s) => s.session?.user.id);
   const { ancho } = useTamanoPantalla();
-  const { telefono, anchoTarjeta } = medidasWeb(ancho);
+  const { telefono, anchoTarjeta, columnas } = medidasWeb(ancho);
   const [segmento, setSegmento] = useState<Segmento>('publicaciones');
 
   const guardadasPub = useMisFavoritosIds(miId);
@@ -54,7 +55,7 @@ export function FavoritosWeb() {
   if (guardadas.fallo || lista.fallo) {
     cuerpo = <ErrorDeCarga etiqueta="No pudimos cargar tus favoritos" onReintentar={lista.reintentar} />;
   } else if (guardadas.cargando || lista.cargando) {
-    cuerpo = <ThemedText style={Texto.pequeno} themeColor="textSecondary">Cargando…</ThemedText>;
+    cuerpo = <EsqueletoTarjetasWeb cuantas={columnas} ancho={anchoTarjeta} />;
   } else if (guardadas.ids.size === 0) {
     cuerpo = (
       <View style={estilos.vacio}>
@@ -78,8 +79,8 @@ export function FavoritosWeb() {
         ) : null}
         <View style={estilos.cuadricula}>
           {esViviendas
-            ? viviendas.publicaciones.map((p) => <TarjetaPublicacionWeb key={p.id} p={p} ancho={anchoTarjeta} compacta={telefono} />)
-            : negocios.negocios.map((n) => <TarjetaNegocioWeb key={n.id} n={n} ancho={anchoTarjeta} />)}
+            ? viviendas.publicaciones.map((p, i) => <TarjetaPublicacionWeb key={p.id} p={p} ancho={anchoTarjeta} compacta={telefono} paso={i % columnas} />)
+            : negocios.negocios.map((n, i) => <TarjetaNegocioWeb key={n.id} n={n} ancho={anchoTarjeta} paso={i % columnas} />)}
         </View>
       </>
     );

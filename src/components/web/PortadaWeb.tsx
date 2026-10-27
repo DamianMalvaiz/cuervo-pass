@@ -6,6 +6,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { EsqueletoTarjetasWeb } from '@/components/web/EsqueletoWeb';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { ChipsTiposWeb } from '@/components/web/ChipsTiposWeb';
 import { ComoFuncionaWeb } from '@/components/web/ComoFuncionaWeb';
@@ -84,7 +85,7 @@ export function PortadaWeb() {
             {lugares.fallo ? (
               <ErrorDeCarga etiqueta="No pudimos cargar los lugares" onReintentar={lugares.reintentar} />
             ) : lugares.cargando ? (
-              <ThemedText style={Texto.pequeno} themeColor="textSecondary">Cargando…</ThemedText>
+              <EsqueletoTarjetasWeb cuantas={cuantosLugares} ancho={anchoTarjeta} />
             ) : lugares.publicaciones.length === 0 ? (
               <ThemedText style={Texto.cuerpo} themeColor="textSecondary">Todavía no hay lugares publicados.</ThemedText>
             ) : (

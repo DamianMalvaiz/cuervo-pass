@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { ThemedText } from '@/components/themed-text';
+import { EsqueletoTarjetasWeb } from '@/components/web/EsqueletoWeb';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { ChipsCategoriasWeb } from '@/components/web/ChipsCategoriasWeb';
 import { MosaicoNegociosWeb } from '@/components/web/MosaicoNegociosWeb';
@@ -19,7 +20,7 @@ const RESULTADOS = 20;
 
 export default function Servicios() {
   const { ancho } = useTamanoPantalla();
-  const { escritorio, telefono, anchoMosaico, anchoTarjeta } = medidasWeb(ancho);
+  const { escritorio, telefono, anchoMosaico, anchoTarjeta, columnas } = medidasWeb(ancho);
   const [categoriaId, setCategoriaId] = useState<string | undefined>(undefined);
 
   const categorias = useCategoriasPublicas();
@@ -39,7 +40,7 @@ export default function Servicios() {
         {negocios.fallo ? (
           <ErrorDeCarga etiqueta="No pudimos cargar los negocios" onReintentar={negocios.reintentar} />
         ) : negocios.cargando ? (
-          <ThemedText style={Texto.pequeno} themeColor="textSecondary">Cargando…</ThemedText>
+          <EsqueletoTarjetasWeb cuantas={columnas * 2} ancho={anchoTarjeta} />
         ) : negocios.negocios.length === 0 ? (
           categoriaId ? (
             <View style={estilos.vacio}>
@@ -52,7 +53,7 @@ export default function Servicios() {
         ) : (
           telefono ? (
             <View style={estilos.cuadricula}>
-              {negocios.negocios.map((n) => <TarjetaNegocioWeb key={n.id} n={n} ancho={anchoTarjeta} />)}
+              {negocios.negocios.map((n, i) => <TarjetaNegocioWeb key={n.id} n={n} ancho={anchoTarjeta} paso={i % columnas} />)}
             </View>
           ) : (
             <MosaicoNegociosWeb negocios={negocios.negocios} escritorio={escritorio} ancho={anchoMosaico} />

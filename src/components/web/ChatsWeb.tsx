@@ -8,6 +8,7 @@ import { ConversacionHilo } from '@/components/ConversacionHilo';
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
+import { EsqueletoFilasWeb } from '@/components/web/EsqueletoWeb';
 import { PaginaSesionWeb } from '@/components/web/PaginaSesionWeb';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useConversaciones } from '@/hooks/queries/useChat';
@@ -36,7 +37,7 @@ export function ChatsWeb() {
   const actual = conversaciones.find((c) => c.conversacionId === elegida) ?? null;
 
   const lista = cargando ? (
-    <ThemedText style={[Texto.pequeno, estilos.aviso]} themeColor="textSecondary">Cargando…</ThemedText>
+    <EsqueletoFilasWeb filas={5} />
   ) : conversaciones.length === 0 ? (
     fallo ? (
       <View style={estilos.aviso}>

@@ -11,6 +11,7 @@ import { usePerfilActivo } from '@/hooks/queries/usePerfilActivo';
 import { useMisRoles } from '@/hooks/queries/useRoles';
 import { useTheme } from '@/hooks/use-theme';
 import { puedePublicar } from '@/lib/funciones';
+import { anim } from '@/lib/movimientoWeb';
 import { pestanasVisibles } from '@/lib/perfilActivo';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -98,7 +99,7 @@ function CuentaConSesion({ usuarioId, nombre, escritorio, telefono, tono }: { us
         {abierto ? (
           <>
             <Pulsable onPress={() => setAbierto(false)} accessibilityLabel="Cerrar el menú" style={CAPA} />
-            <View role="menu" style={[estilos.menu, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
+            <View role="menu" style={[estilos.menu, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]} {...anim('menu')}>
               {telefono ? null : (
                 <View style={[estilos.cabecera, { borderBottomColor: theme.filete }]}>
                   <ThemedText style={Texto.pequenoFuerte} numberOfLines={1}>{nombre}</ThemedText>

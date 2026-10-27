@@ -72,7 +72,7 @@ describe('FavoritosWeb', () => {
   it('mientras carga no afirma que no hay nada', async () => {
     mockIdsPub.cargando = true;
     await render(<FavoritosWeb />);
-    expect(screen.getByText('Cargando…')).toBeTruthy();
+    expect(screen.getByLabelText('Cargando')).toBeTruthy();
     expect(screen.queryByText(/Aún no guardas/)).toBeNull();
   });
 

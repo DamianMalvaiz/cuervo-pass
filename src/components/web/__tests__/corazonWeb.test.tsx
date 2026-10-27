@@ -77,4 +77,26 @@ describe('CorazonWeb', () => {
     opciones.onError(new Error('red'));
     expect(mockToast).toHaveBeenCalledWith(expect.stringContaining('No pudimos actualizar tus favoritos'));
   });
+
+  // El salto es respuesta a un gesto: una tarjeta que YA estaba guardada al cargar no debe saltar.
+  it('no salta al cargar una tarjeta que ya estaba guardada', async () => {
+    mockSesion.valor = { user: { id: 'u1' } };
+    mockGuardadas.ids = new Set(['p1']);
+    await render(<CorazonWeb tipo="publicacion" id="p1" />);
+    expect(screen.getByTestId('corazon-icono').props.dataSet).toBeUndefined();
+  });
+
+  it('salta cuando la persona guarda, y no al quitar', async () => {
+    mockSesion.valor = { user: { id: 'u1' } };
+    const { rerender } = await render(<CorazonWeb tipo="publicacion" id="p1" />);
+    await fireEvent.press(screen.getByLabelText('Guardar en favoritos'));
+    mockGuardadas.ids = new Set(['p1']);
+    await rerender(<CorazonWeb tipo="publicacion" id="p1" />);
+    expect(screen.getByTestId('corazon-icono').props.dataSet).toEqual({ anim: 'pop' });
+    // Quitar: ya no salta.
+    await fireEvent.press(screen.getByLabelText('Quitar de favoritos'));
+    mockGuardadas.ids = new Set();
+    await rerender(<CorazonWeb tipo="publicacion" id="p1" />);
+    expect(screen.getByTestId('corazon-icono').props.dataSet).toBeUndefined();
+  });
 });

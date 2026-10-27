@@ -7,6 +7,7 @@ import { PieWeb } from '@/components/web/PieWeb';
 import { Spacing, Texto } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { medidasWeb } from '@/lib/medidasWeb';
+import { anim } from '@/lib/movimientoWeb';
 
 /**
  * El cuerpo de una página de DENTRO en la web (favoritos, chats, perfil…): título grande, subtítulo, el contenido con el margen de siempre y el pie. El encabezado y la barra inferior los pone el marco
@@ -20,7 +21,7 @@ export function PaginaSesionWeb({ titulo, subtitulo, children }: { titulo: strin
       <Head>
         <title>{`${titulo} · Cuervo 360`}</title>
       </Head>
-      <View style={[estilos.contenido, { paddingHorizontal: relleno }]}>
+      <View style={[estilos.contenido, { paddingHorizontal: relleno }]} {...anim('pagina')}>
         <View style={estilos.cabecera}>
           <ThemedText accessibilityRole="header" style={escritorio ? Texto.titularWebCompacto : Texto.seccionWebCompacto}>{titulo}</ThemedText>
           {subtitulo && !telefono ? <ThemedText style={Texto.cuerpo} themeColor="textSecondary">{subtitulo}</ThemedText> : null}

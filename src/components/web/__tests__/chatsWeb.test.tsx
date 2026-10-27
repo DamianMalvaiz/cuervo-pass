@@ -101,7 +101,7 @@ describe('ChatsWeb', () => {
   it('mientras carga no afirma que no hay nada', async () => {
     mockChats.cargando = true;
     await render(<ChatsWeb />);
-    expect(screen.getByText('Cargando…')).toBeTruthy();
+    expect(screen.getByLabelText('Cargando')).toBeTruthy();
     expect(screen.queryByText('Sin conversaciones')).toBeNull();
   });
 

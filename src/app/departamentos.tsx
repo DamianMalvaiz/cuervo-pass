@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { ThemedText } from '@/components/themed-text';
+import { EsqueletoTarjetasWeb } from '@/components/web/EsqueletoWeb';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { BuscadorWeb } from '@/components/web/BuscadorWeb';
 import { PildoraBusquedaWeb } from '@/components/web/PildoraBusquedaWeb';
@@ -89,7 +90,7 @@ export default function Departamentos() {
         {lugares.fallo ? (
           <ErrorDeCarga etiqueta="No pudimos cargar los lugares" onReintentar={lugares.reintentar} />
         ) : lugares.cargando ? (
-          <ThemedText style={Texto.pequeno} themeColor="textSecondary">Cargando…</ThemedText>
+          <EsqueletoTarjetasWeb cuantas={inicial} ancho={anchoTarjeta} />
         ) : lugares.publicaciones.length === 0 ? (
           filtrando ? (
             <View style={estilos.vacio}>
@@ -110,7 +111,7 @@ export default function Departamentos() {
         ) : (
           <>
             <View style={estilos.cuadricula}>
-              {visibles.map((p) => <TarjetaPublicacionWeb key={p.id} p={p} ancho={anchoTarjeta} compacta={telefono} />)}
+              {visibles.map((p, i) => <TarjetaPublicacionWeb key={p.id} p={p} ancho={anchoTarjeta} compacta={telefono} paso={i % columnas} />)}
             </View>
             {!verTodos && lugares.publicaciones.length > inicial ? (
               <View style={estilos.masLugares}>

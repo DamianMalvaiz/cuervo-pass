@@ -11,6 +11,7 @@ import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useGuardado } from '@/hooks/use-guardado';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuthStore } from '@/store/useAuthStore';
+import { anim } from '@/lib/movimientoWeb';
 import { RutasWeb } from '@/lib/rutasWeb';
 
 /**
@@ -77,16 +78,22 @@ function GuardarConCuenta({ guardar }: { guardar: { tipo: 'publicacion' | 'negoc
 
 function BotonGuardar({ guardado, cargando, etiqueta, onPress }: { guardado: boolean; cargando: boolean; etiqueta: string; onPress: () => void }) {
   const theme = useTheme();
+  // Salta solo cuando la persona guarda, no al cargar una ficha que ya estaba guardada.
+  const [saltos, setSaltos] = useState(0);
   return (
     <Pulsable
       onPress={() => {
-        if (!cargando) onPress();
+        if (cargando) return;
+        if (!guardado) setSaltos((n) => n + 1);
+        onPress();
       }}
       accessibilityRole="button"
       accessibilityLabel={etiqueta}
       style={[estilos.accion, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
     >
-      <Ionicons name={guardado ? 'heart' : 'heart-outline'} size={18} color={guardado ? theme.bosque : theme.text} />
+      <View key={saltos} testID="guardar-icono" {...(saltos > 0 && guardado ? anim('pop') : {})}>
+        <Ionicons name={guardado ? 'heart' : 'heart-outline'} size={18} color={guardado ? theme.bosque : theme.text} />
+      </View>
       <ThemedText style={Texto.pequenoFuerte}>{guardado ? 'Guardado' : 'Guardar'}</ThemedText>
     </Pulsable>
   );

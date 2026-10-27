@@ -9,18 +9,21 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosPublicas } from '@/hooks/queries/useExplorar';
 import { useTheme } from '@/hooks/use-theme';
+import { animTarjeta } from '@/lib/movimientoWeb';
 import { RutasWeb } from '@/lib/rutasWeb';
 import { zonaCorta } from '@/lib/zona';
 import type { PublicacionExplorar } from '@/services/explorar.service';
 
 const D = Colors.dark;
+// El contenedor de la foto: al pasar el cursor por la tarjeta, su imagen se acerca y gana sombra (CSS global).
+const FOTOZOOM = { dataSet: { fotozoom: '1' } } as object;
 const precio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 
 /**
  * Una vivienda para quien explora: foto grande 4:5, la etiqueta de destacado, el corazón (pide entrar sin cuenta; con cuenta guarda de verdad), título armado, zona corta y precio.
  * Solo lo que la vista pública enseña: nada de dirección exacta ni de quién publica.
  */
-export function TarjetaPublicacionWeb({ p, ancho, compacta = false }: { p: PublicacionExplorar; ancho?: number; compacta?: boolean }) {
+export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso }: { p: PublicacionExplorar; ancho?: number; compacta?: boolean; paso?: number }) {
   const theme = useTheme();
   const { fotos } = useFotosPublicas('publicacion', p.id, p.num_fotos);
   const zona = zonaCorta(p.zona);
@@ -31,8 +34,9 @@ export function TarjetaPublicacionWeb({ p, ancho, compacta = false }: { p: Publi
       accessibilityRole="button"
       accessibilityLabel={`${p.titulo_publico}, ${precio.format(p.precio_renta)} pesos al mes`}
       style={[estilos.tarjeta, ancho ? { width: ancho } : estilos.flexible]}
+      {...animTarjeta(paso)}
     >
-      <View style={[estilos.foto, compacta && estilos.fotoCompacta, { backgroundColor: theme.backgroundSelected }]}>
+      <View style={[estilos.foto, compacta && estilos.fotoCompacta, { backgroundColor: theme.backgroundSelected }]} {...FOTOZOOM}>
         <FotoLista completa={fotos[0]} style={estilos.imagen} accessibilityLabel={p.titulo_publico} />
         {p.destacado ? (
           <View style={[estilos.destacado, compacta && estilos.destacadoCompacto]}>

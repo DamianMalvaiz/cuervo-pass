@@ -1,10 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Colors, Radios, Spacing } from '@/constants/theme';
 import { useGuardado } from '@/hooks/use-guardado';
+import { anim } from '@/lib/movimientoWeb';
 import { useAuthStore } from '@/store/useAuthStore';
 
 const L = Colors.light;
@@ -26,10 +28,14 @@ function ConCuenta({ tipo, id, compacta }: { tipo: 'publicacion' | 'negocio'; id
 }
 
 function Base({ guardado, cargando, compacta, etiqueta, onPress }: { guardado: boolean; cargando: boolean; compacta: boolean; etiqueta: string; onPress: () => void }) {
+  // El corazón «salta» solo cuando la persona guarda (no al cargar una tarjeta que ya estaba guardada): cada guardado nuevo remonta el icono y repite el salto.
+  const [saltos, setSaltos] = useState(0);
   return (
     <Pulsable
       onPress={() => {
-        if (!cargando) onPress();
+        if (cargando) return;
+        if (!guardado) setSaltos((n) => n + 1);
+        onPress();
       }}
       accessibilityRole="button"
       accessibilityLabel={etiqueta}
@@ -37,7 +43,9 @@ function Base({ guardado, cargando, compacta, etiqueta, onPress }: { guardado: b
       hitSlop={compacta ? 4 : undefined}
       style={[estilos.corazon, compacta && estilos.compacto]}
     >
-      <Ionicons name={guardado ? 'heart' : 'heart-outline'} size={compacta ? 20 : 22} color={guardado ? L.bosque : L.text} />
+      <View key={saltos} testID="corazon-icono" {...(saltos > 0 && guardado ? anim('pop') : {})}>
+        <Ionicons name={guardado ? 'heart' : 'heart-outline'} size={compacta ? 20 : 22} color={guardado ? L.bosque : L.text} />
+      </View>
     </Pulsable>
   );
 }

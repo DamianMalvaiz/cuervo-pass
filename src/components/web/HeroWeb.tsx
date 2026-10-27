@@ -6,8 +6,10 @@ import { FotoLista } from '@/components/FotoLista';
 import { ThemedText } from '@/components/themed-text';
 import { BarraWeb } from '@/components/web/BarraWeb';
 import { BuscadorWeb } from '@/components/web/BuscadorWeb';
+import { CifraAnimadaWeb } from '@/components/web/CifraAnimadaWeb';
 import { AnchoMaximoWeb, Colors, Radios, Spacing, Texto } from '@/constants/theme';
 import type { FiltrosWeb } from '@/lib/filtrosWeb';
+import { anim } from '@/lib/movimientoWeb';
 
 const D = Colors.dark;
 const L = Colors.light;
@@ -46,20 +48,23 @@ export function HeroWeb({
   return (
     <View style={escritorio ? estilos.envoltura : undefined}>
       <View style={[estilos.panel, escritorio ? estilos.panelAncho : undefined]}>
-        <Image source={require('../../../assets/images/web/topografia.svg')} style={estilos.topografia} contentFit="cover" accessible={false} pointerEvents="none" />
+        {/* Las líneas del mapa entran despacio (un acercamiento de 1.6 s): el fondo se «traza» antes que el resto. */}
+        <View style={estilos.topografia} pointerEvents="none" {...anim('traza')}>
+          <Image source={require('../../../assets/images/web/topografia.svg')} style={estilos.topografiaImagen} contentFit="cover" accessible={false} />
+        </View>
 
         <View style={[estilos.interior, escritorio ? estilos.interiorAncho : estilos.interiorCompacto]}>
         <BarraWeb escritorio={escritorio} />
 
         <View style={escritorio ? estilos.cuerpoAncho : estilos.cuerpoCompacto}>
           <View style={escritorio ? estilos.texto : undefined}>
-            <Text accessibilityRole="header" style={[escritorio ? Texto.titularWeb : Texto.titularWebCompacto, { color: D.text }]}>
+            <Text accessibilityRole="header" style={[escritorio ? Texto.titularWeb : Texto.titularWebCompacto, { color: D.text }]} {...anim('sube')}>
               Encuentra dónde <Text style={{ color: D.lima }}>vivir</Text>, con quién y qué hay cerca.
             </Text>
-            <ThemedText style={[Texto.subtituloWeb, estilos.subtitulo, { color: D.textSecondary }]}>
+            <ThemedText style={[Texto.subtituloWeb, estilos.subtitulo, { color: D.textSecondary }]} {...anim('sube', 1)}>
               Departamentos y cuartos a minutos de tu universidad, roomies compatibles contigo y los negocios que necesitas en tu día a día.
             </ThemedText>
-            <View style={estilos.promesas}>
+            <View style={estilos.promesas} {...anim('sube', 2)}>
               {PROMESAS.map((p) => (
                 <View key={p.texto} style={estilos.promesa}>
                   <Ionicons name={p.icono} size={20} color={D.lima} />
@@ -72,15 +77,16 @@ export function HeroWeb({
           {escritorio ? (
             <View style={estilos.collage}>
               {HUECOS.map((h, i) => (
-                <View key={i} style={[estilos.foto, h]}>
+                <View key={i} style={[estilos.foto, h]} {...anim('sube', 3 + i)}>
                   {fotos[i] ? <FotoLista completa={fotos[i]} style={estilos.fotoImagen} accessibilityLabel="Foto de un lugar publicado" /> : <Ionicons name="image-outline" size={32} color={D.textSecondary} />}
                 </View>
               ))}
-              <View style={estilos.ajuste}>
+              {/* El momento central: después de las fotos, el ajuste cae como un sello y su cifra cuenta hasta 94. */}
+              <View style={estilos.ajuste} {...anim('sello')}>
                 <ThemedText style={[Texto.etiqueta, estilos.ejemplo]}>Ejemplo</ThemedText>
                 <View style={estilos.ajusteCabeza}>
                   <View style={estilos.ajusteNumero}>
-                    <Text style={[Texto.ajusteWeb, { color: D.limaTexto }]}>94</Text>
+                    <CifraAnimadaWeb valor={94} retardoMs={1050} style={[Texto.ajusteWeb, { color: D.limaTexto }]} />
                   </View>
                   <View style={estilos.ajusteTexto}>
                     <ThemedText style={[Texto.pequenoFuerte, { color: L.text }]}>de ajuste contigo</ThemedText>
@@ -122,6 +128,7 @@ const estilos = StyleSheet.create({
   interiorAncho: { paddingHorizontal: Spacing.five },
   interiorCompacto: { padding: Spacing.three, gap: Spacing.four },
   topografia: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  topografiaImagen: { width: '100%', height: '100%' },
   cuerpoAncho: { flexDirection: 'row', alignItems: 'center', gap: Spacing.four, paddingTop: Spacing.five },
   cuerpoCompacto: { gap: Spacing.three },
   texto: { flex: 1, minWidth: 0 },
