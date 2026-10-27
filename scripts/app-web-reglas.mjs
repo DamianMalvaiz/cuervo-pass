@@ -23,6 +23,7 @@ export function construirCsp({ supabaseUrl, hashes }) {
   ].join('; ');
 }
 
+// `no-transform`: Cloudflare inyecta en el HTML su Web Analytics y sus detecciones de JavaScript, y la CSP (sin scripts de terceros) los bloquea; con esta cabecera no modifica la respuesta.
 // Cloudflare SUMA las cabeceras de todas las reglas que coinciden: por eso lo estático empieza con `! Cache-Control`, que quita el `no-store` de la regla general.
 export function construirCabeceras({ supabaseUrl, hashes }) {
   return `/*
@@ -33,7 +34,7 @@ export function construirCabeceras({ supabaseUrl, hashes }) {
   Strict-Transport-Security: max-age=31536000
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   X-Robots-Tag: noindex, nofollow
-  Cache-Control: no-store
+  Cache-Control: no-store, no-transform
 /_expo/static/*
   ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable

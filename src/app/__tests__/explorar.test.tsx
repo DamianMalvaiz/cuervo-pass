@@ -150,6 +150,22 @@ describe('ver más lugares', () => {
   });
 });
 
+describe('ver más lugares · al volver a una búsqueda anterior', () => {
+  const muchos = (n: number) => Array.from({ length: n }, (_, i) => ({ ...DEPA, id: `p${i}`, titulo_publico: `Lugar ${i}`, destacado: false }));
+  const tarjetas = () => screen.queryAllByLabelText(/pesos al mes/).length;
+
+  it('volver a la búsqueda de antes (apagar el filtro que se prendió) regresa a las dos filas, aunque ahí se hubiera pulsado «Ver más»', async () => {
+    Object.assign(mockPub, { publicaciones: muchos(12) });
+    await render(<Explorar />);
+    await fireEvent.press(screen.getByLabelText('Ver más lugares'));
+    expect(tarjetas()).toBe(12);
+    await fireEvent.press(screen.getByLabelText('Filtrar por cuartos'));
+    await fireEvent.press(screen.getByLabelText('Filtrar por cuartos'));
+    expect(tarjetas()).toBe(8);
+    expect(screen.getByLabelText('Ver más lugares')).toBeTruthy();
+  });
+});
+
 describe('negocios', () => {
   const NEG = { id: 'n1', nombre: 'Café Lerma', zona: 'Centro, Lerma, México, CP 52000', abierto_ahora: true, calificacion: 4.6, num_fotos: 0, destacado: false };
 

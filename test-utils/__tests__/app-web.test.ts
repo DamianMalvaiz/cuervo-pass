@@ -53,6 +53,13 @@ describe('cabeceras', () => {
     expect(h().split('/assets/*')[1]).toMatch(/! Cache-Control\n  Cache-Control: public, max-age=31536000, immutable/);
   });
 
+  // Cloudflare inyecta en el HTML su Web Analytics (beacon.min.js) y sus detecciones de JavaScript (script en línea `__CF$cv$params`); la CSP los bloquea y deja 2 violaciones por página.
+  // `no-transform` le dice a Cloudflare que no modifique la respuesta. Sin verificar hasta desplegarlo: depende de cómo Cloudflare trate la cabecera.
+  it('las páginas llevan `no-transform` para que Cloudflare no les inyecte scripts', () => {
+    const general = h().split('/_expo/static/*')[0];
+    expect(general).toContain('Cache-Control: no-store, no-transform');
+  });
+
   it('no se deja enmarcar ni adivinar el tipo, y exige https', () => {
     expect(h()).toContain('X-Frame-Options: DENY');
     expect(h()).toContain('X-Content-Type-Options: nosniff');

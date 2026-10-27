@@ -42,9 +42,12 @@ export default function Explorar() {
   const [filtros, setFiltros] = useState<FiltrosWeb>(FILTROS_VACIOS);
   // El buscador solo filtra al pulsar «Buscar»; los chips filtran al instante.
   const [aplicados, setAplicados] = useState<FiltrosWeb>(FILTROS_VACIOS);
-  // «Ver más lugares» vale para ESTA búsqueda: con otros filtros se vuelve a las dos filas.
-  const firmaBusqueda = JSON.stringify(aplicados);
-  const [expandida, setExpandida] = useState<string | null>(null);
+  // «Ver más lugares» vale solo mientras no cambie la búsqueda: cualquier cambio (incluido volver a una anterior) regresa a las dos filas.
+  const [verTodos, setVerTodos] = useState(false);
+  const aplicar = (f: FiltrosWeb) => {
+    setAplicados(f);
+    setVerTodos(false);
+  };
 
   const lugares = usePublicacionesPublicas(aFiltroPublicaciones(aplicados, RESULTADOS));
   const recientes = usePublicacionesPublicas({ limite: 3 });
@@ -62,21 +65,20 @@ export default function Explorar() {
   };
   const cambiarChips = (f: FiltrosWeb) => {
     setFiltros(f);
-    setAplicados(f);
+    aplicar(f);
   };
   const buscar = () => {
-    setAplicados(filtros);
+    aplicar(filtros);
     irA('depas');
   };
   const quitarFiltros = () => {
     setFiltros(FILTROS_VACIOS);
-    setAplicados(FILTROS_VACIOS);
+    aplicar(FILTROS_VACIOS);
   };
 
   const filtrando = hayFiltros(aplicados);
   // Dos filas al principio (mínimo seis): una columna de doce tarjetas en un teléfono son siete pantallas antes de llegar al resto de la página.
   const inicial = Math.max(6, columnas * 2);
-  const verTodos = expandida === firmaBusqueda;
   const visibles = verTodos ? lugares.publicaciones : lugares.publicaciones.slice(0, inicial);
   const tituloSeccion = escritorio ? Texto.seccionWeb : Texto.seccionWebCompacto;
 
@@ -110,7 +112,7 @@ export default function Explorar() {
                 </View>
                 {!verTodos && lugares.publicaciones.length > inicial ? (
                   <View style={estilos.masLugares}>
-                    <BotonWeb variante="contorno" onPress={() => setExpandida(firmaBusqueda)}>Ver más lugares</BotonWeb>
+                    <BotonWeb variante="contorno" onPress={() => setVerTodos(true)}>Ver más lugares</BotonWeb>
                   </View>
                 ) : null}
               </>
