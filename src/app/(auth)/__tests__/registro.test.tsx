@@ -73,9 +73,9 @@ async function rellenar({
   // «`render` function has not been called», que suena a que no se llamó.
   await render(<RegistroScreen />);
   if (tipo) await interactuar(() => fireEvent.press(screen.getByLabelText(tipo)));
-  await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Angel Damian'), 'Ana'));
-  await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Malvaiz'), 'Ruiz'));
-  await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('damianml'), 'ana_r'));
+  await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Tu nombre'), 'Ana'));
+  await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Tu apellido'), 'Ruiz'));
+  await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('tu_usuario'), 'ana_r'));
   await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('tucorreo@ejemplo.mx'), email));
   await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Al menos 10 caracteres'), password));
   await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Escríbela otra vez'), confirmacion));
@@ -189,7 +189,7 @@ describe('tipo de cuenta · 0082', () => {
 describe('validación al salir del campo', () => {
   it('un nombre demasiado corto se dice al salir del campo, SIN enviar', async () => {
     await render(<RegistroScreen />);
-    const campo = screen.getByPlaceholderText('Angel Damian');
+    const campo = screen.getByPlaceholderText('Tu nombre');
     await interactuar(() => fireEvent.changeText(campo, 'A'));
     expect(screen.queryByText('Escribe tu nombre')).toBeNull();
     await interactuar(() => fireEvent(campo, 'blur'));

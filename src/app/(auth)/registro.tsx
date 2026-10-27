@@ -291,7 +291,7 @@ export default function RegistroScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
                     etiqueta="Nombre"
-                    placeholder="Angel Damian"
+                    placeholder="Tu nombre"
                     autoComplete="given-name"
                     error={errors.nombre?.message}
                     onBlur={onBlur}
@@ -306,7 +306,7 @@ export default function RegistroScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
                     etiqueta="Apellido paterno"
-                    placeholder="Malvaiz"
+                    placeholder="Tu apellido"
                     autoComplete="family-name"
                     error={errors.apellidoPaterno?.message}
                     onBlur={onBlur}
@@ -321,7 +321,7 @@ export default function RegistroScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
                     etiqueta="APELLIDO MATERNO (OPCIONAL)"
-                    placeholder="Gonzalez"
+                    placeholder="Tu segundo apellido"
                     error={errors.apellidoMaterno?.message}
                     onBlur={onBlur}
                     onChangeText={onChange}
@@ -340,7 +340,7 @@ export default function RegistroScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
                     etiqueta="Nombre de usuario"
-                    placeholder="damianml"
+                    placeholder="tu_usuario"
                     autoCapitalize="none"
                     autoCorrect={false}
                     autoComplete="username"
