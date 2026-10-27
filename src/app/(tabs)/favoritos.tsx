@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, Platform, StyleSheet, View } from 'react-native';
 
 import { FilaPublicacion } from '@/components/FilaPublicacion';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
@@ -9,6 +9,7 @@ import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
 import { TarjetaNegocio } from '@/components/TarjetaNegocio';
+import { FavoritosWeb } from '@/components/web/FavoritosWeb';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
@@ -38,7 +39,12 @@ const SEGMENTOS: { valor: Segmento; etiqueta: string }[] = [
  * nada». Lo guardado que ya no es visible (el dueño lo desactivó, o se ocultó por reportes) se DICE: la fila del favorito se conserva y si vuelve a ser
  * visible, vuelve a aparecer.
  */
+/** En la web, su propia página (rejilla de tarjetas); en la app, la lista de siempre. */
 export default function FavoritosScreen() {
+  return Platform.OS === 'web' ? <FavoritosWeb /> : <FavoritosApp />;
+}
+
+function FavoritosApp() {
   const margenSuperior = useMargenSuperior();
   const { anchoLista } = useTamanoPantalla();
   const [segmento, setSegmento] = useState<Segmento>('publicaciones');

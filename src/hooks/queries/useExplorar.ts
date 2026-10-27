@@ -9,7 +9,9 @@ import {
   fotosPublicas,
   listarCategoriasPublicas,
   listarHorarioPublico,
+  listarNegociosPorIds,
   listarNegociosPublicos,
+  listarPublicacionesPorIds,
   listarProductosPublicos,
   listarPublicacionesPublicas,
   obtenerNegocioPublico,
@@ -69,4 +71,15 @@ export function useFotosPublicas(tipo: 'publicacion' | 'negocio' | 'producto', i
     refetchInterval: INTERVALO_REFIRMA_MS,
   });
   return { fotos: q.data ?? [], cargando: q.isPending && activo, fallo: q.isError };
+}
+
+// Favoritos en la web: las viviendas y los negocios guardados, por sus ids. Sin ids no hay consulta (y no es «cargando»): la lista es vacía.
+export function usePublicacionesPorIds(ids: string[]) {
+  const q = useQuery({ queryKey: ['explorarPorIds', 'publicaciones', ids.join(',')], queryFn: () => listarPublicacionesPorIds(ids), enabled: ids.length > 0, placeholderData: (previa) => previa });
+  return { publicaciones: q.data ?? [], cargando: q.isPending && ids.length > 0, fallo: q.isError, reintentar: () => void q.refetch() };
+}
+
+export function useNegociosPorIds(ids: string[]) {
+  const q = useQuery({ queryKey: ['explorarPorIds', 'negocios', ids.join(',')], queryFn: () => listarNegociosPorIds(ids), enabled: ids.length > 0, placeholderData: (previa) => previa });
+  return { negocios: q.data ?? [], cargando: q.isPending && ids.length > 0, fallo: q.isError, reintentar: () => void q.refetch() };
 }

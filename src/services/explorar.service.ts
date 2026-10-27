@@ -54,6 +54,21 @@ export async function obtenerPublicacionPublica(id: string): Promise<Publicacion
   return (data as PublicacionExplorar | null) ?? null;
 }
 
+/** Las viviendas guardadas (favoritos), por sus ids y con el mismo recorte de datos que la portada. Una que ya no es visible simplemente no sale: quien llama compara contra los ids. */
+export async function listarPublicacionesPorIds(ids: string[]): Promise<PublicacionExplorar[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase.from('explorar_publicaciones').select(COLUMNAS_EXPLORAR_PUBLICACION).in('id', ids);
+  if (error) throw error;
+  return (data ?? []) as PublicacionExplorar[];
+}
+
+export async function listarNegociosPorIds(ids: string[]): Promise<NegocioExplorar[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase.from('explorar_negocios').select(COLUMNAS_EXPLORAR_NEGOCIO).in('id', ids);
+  if (error) throw error;
+  return (data ?? []) as NegocioExplorar[];
+}
+
 export async function listarNegociosPublicos({ limite, categoriaId }: { limite: number; categoriaId?: string }): Promise<NegocioExplorar[]> {
   let q = supabase.from('explorar_negocios').select(COLUMNAS_EXPLORAR_NEGOCIO);
   if (categoriaId) q = q.eq('categoria_id', categoriaId);

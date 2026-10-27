@@ -16,7 +16,9 @@ import {
   listarCategoriasPublicas,
   listarHorarioPublico,
   listarProductosPublicos,
+  listarNegociosPorIds,
   listarNegociosPublicos,
+  listarPublicacionesPorIds,
   listarPublicacionesPublicas,
   obtenerNegocioPublico,
   obtenerPublicacionPublica,
@@ -24,7 +26,7 @@ import {
 
 function cadena(resultado: { data?: unknown; error?: unknown }) {
   const c: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'order', 'limit', 'lte', 'ilike', 'maybeSingle']) c[m] = jest.fn(() => c);
+  for (const m of ['select', 'eq', 'in', 'order', 'limit', 'lte', 'ilike', 'maybeSingle']) c[m] = jest.fn(() => c);
   c.then = (f: (v: unknown) => unknown) => Promise.resolve(resultado).then(f);
   return c;
 }
@@ -200,5 +202,37 @@ describe('productos y horario de un negocio', () => {
     await expect(listarProductosPublicos('n1')).rejects.toThrow('a');
     mockDesde.mockReturnValueOnce(cadena({ error: new Error('b') }));
     await expect(listarHorarioPublico('n1')).rejects.toThrow('b');
+  });
+});
+
+// Favoritos en la web: se leen las viviendas y los negocios GUARDADOS por sus ids, siempre de las vistas `explorar_*` (el mismo recorte de datos que la portada).
+describe('por ids (favoritos)', () => {
+  it('sin ids no consulta nada: la lista es vacía, no un error', async () => {
+    expect(await listarPublicacionesPorIds([])).toEqual([]);
+    expect(await listarNegociosPorIds([])).toEqual([]);
+    expect(mockDesde).not.toHaveBeenCalled();
+  });
+
+  it('las viviendas salen de explorar_publicaciones, con las columnas enumeradas y filtradas por id', async () => {
+    const c = cadena({ data: [{ id: 'a' }] });
+    mockDesde.mockReturnValue(c);
+    expect(await listarPublicacionesPorIds(['a', 'b'])).toEqual([{ id: 'a' }]);
+    expect(mockDesde).toHaveBeenCalledWith('explorar_publicaciones');
+    expect(c.select).toHaveBeenCalledWith(COLUMNAS_EXPLORAR_PUBLICACION);
+    expect(c.in).toHaveBeenCalledWith('id', ['a', 'b']);
+  });
+
+  it('los negocios salen de explorar_negocios', async () => {
+    const c = cadena({ data: [{ id: 'n' }] });
+    mockDesde.mockReturnValue(c);
+    expect(await listarNegociosPorIds(['n'])).toEqual([{ id: 'n' }]);
+    expect(mockDesde).toHaveBeenCalledWith('explorar_negocios');
+    expect(c.select).toHaveBeenCalledWith(COLUMNAS_EXPLORAR_NEGOCIO);
+  });
+
+  it('un fallo se lanza (nunca se vuelve «no hay nada»)', async () => {
+    mockDesde.mockReturnValue(cadena({ error: { message: 'x' } }));
+    await expect(listarPublicacionesPorIds(['a'])).rejects.toBeTruthy();
+    await expect(listarNegociosPorIds(['n'])).rejects.toBeTruthy();
   });
 });

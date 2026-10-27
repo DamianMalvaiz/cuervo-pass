@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { FotoLista } from '@/components/FotoLista';
+import { CorazonWeb } from '@/components/web/CorazonWeb';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosPublicas } from '@/hooks/queries/useExplorar';
@@ -13,11 +14,10 @@ import { zonaCorta } from '@/lib/zona';
 import type { PublicacionExplorar } from '@/services/explorar.service';
 
 const D = Colors.dark;
-const L = Colors.light;
 const precio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 
 /**
- * Una vivienda para quien explora sin cuenta: foto grande 4:5, la etiqueta de destacado, el corazón (que pide entrar: sin cuenta no se guarda nada), título armado, zona corta y precio.
+ * Una vivienda para quien explora: foto grande 4:5, la etiqueta de destacado, el corazón (pide entrar sin cuenta; con cuenta guarda de verdad), título armado, zona corta y precio.
  * Solo lo que la vista pública enseña: nada de dirección exacta ni de quién publica.
  */
 export function TarjetaPublicacionWeb({ p, ancho, compacta = false }: { p: PublicacionExplorar; ancho?: number; compacta?: boolean }) {
@@ -39,16 +39,7 @@ export function TarjetaPublicacionWeb({ p, ancho, compacta = false }: { p: Publi
             <ThemedText style={[compacta ? Texto.etiqueta : Texto.pequenoFuerte, { color: D.limaTexto }]}>Destacado</ThemedText>
           </View>
         ) : null}
-        <Pulsable
-          onPress={() => router.push('/(auth)/login')}
-          accessibilityRole="button"
-          accessibilityLabel="Guardar: inicia sesión para guardar"
-          // toque-ok: en la tarjeta compacta el círculo mide 36 y el hitSlop de 4 a cada lado lo lleva a 44
-          hitSlop={compacta ? 4 : undefined}
-          style={[estilos.corazon, compacta && estilos.corazonCompacto]}
-        >
-          <Ionicons name="heart-outline" size={compacta ? 20 : 22} color={L.text} />
-        </Pulsable>
+        <CorazonWeb tipo="publicacion" id={p.id} compacta={compacta} />
       </View>
 
       {compacta ? (
@@ -96,9 +87,7 @@ const estilos = StyleSheet.create({
   imagen: { width: '100%', height: '100%' },
   destacado: { position: 'absolute', left: Spacing.three, top: Spacing.three, backgroundColor: D.lima, borderRadius: Radios.full, paddingVertical: Spacing.one + Spacing.half, paddingHorizontal: Spacing.three },
   destacadoCompacto: { left: Spacing.two, top: Spacing.two, paddingVertical: Spacing.half, paddingHorizontal: Spacing.two },
-  corazonCompacto: { right: Spacing.two, top: Spacing.two, width: 36, height: 36 },
   precioFila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap' },
-  corazon: { position: 'absolute', right: Spacing.three, top: Spacing.three, width: 44, height: 44, borderRadius: Radios.full, backgroundColor: L.backgroundElement, alignItems: 'center', justifyContent: 'center' },
   linea: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.two },
   titulo: { flex: 1 },
   calificacion: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },

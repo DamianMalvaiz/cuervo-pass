@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
@@ -8,6 +8,7 @@ import { FileteHoja } from '@/components/ficha/CampoFicha';
 import { Encabezado } from '@/components/ficha/Encabezado';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { ThemedText } from '@/components/themed-text';
+import { ChatsWeb } from '@/components/web/ChatsWeb';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
@@ -21,7 +22,12 @@ import { useConversaciones } from '@/hooks/queries/useChat';
 // Documento maestro v5 · §25. El nombre de la contraparte y el último mensaje
 // ya vienen resueltos desde el servicio: antes esta pantalla pedía los perfiles
 // aparte y armaba los hilos agrupando todos los mensajes del usuario.
+/** En la web, su propia bandeja (lista y conversación en una página); en la app, la lista de siempre. */
 export default function ChatsScreen() {
+  return Platform.OS === 'web' ? <ChatsWeb /> : <ChatsApp />;
+}
+
+function ChatsApp() {
   const theme = useTheme();
   const { anchoLista } = useTamanoPantalla();
   const margenSuperior = useMargenSuperior();
