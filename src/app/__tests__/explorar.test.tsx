@@ -12,8 +12,10 @@ jest.mock('@/hooks/use-desplazador', () => ({
   useDesplazador: () => ({ registrarScroll: () => {}, onScroll: () => {}, desplazador: { alNodo: (...a: unknown[]) => mockAlNodo(...a) } }),
 }));
 
+// El ancho de la ventana lo fija cada prueba (1280 por omisión: un portátil).
+const mockPantalla = { ancho: 1280 };
 jest.mock('@/hooks/use-tamano-pantalla', () => ({
-  useTamanoPantalla: () => ({ clase: 'amplia', ancho: 1280, alto: 900, anchoContenido: 480, anchoLista: 800, altoApretado: false, escalaTitulo: 1 }),
+  useTamanoPantalla: () => ({ clase: 'amplia', ancho: mockPantalla.ancho, alto: 900, anchoContenido: 480, anchoLista: 800, altoApretado: false, escalaTitulo: 1 }),
 }));
 
 const mockFiltros: Record<string, unknown>[] = [];
@@ -35,6 +37,7 @@ const ultimoFiltro = () => mockFiltros.filter((f) => (f.limite as number) > 3).a
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPantalla.ancho = 1280;
   mockFiltros.length = 0;
   Object.assign(mockPub, { publicaciones: [DEPA], cargando: false, fallo: false });
   Object.assign(mockNeg, { negocios: [], cargando: false, fallo: false });
@@ -66,24 +69,24 @@ test('al tocar un lugar va a su ficha pública (sin cuenta)', async () => {
 describe('filtros', () => {
   it('sin tocar nada, la lista no lleva filtro', async () => {
     await render(<Explorar />);
-    expect(ultimoFiltro()).toEqual({ limite: 12 });
+    expect(ultimoFiltro()).toEqual({ limite: 20 });
   });
 
   it('un chip filtra al instante, en el servidor', async () => {
     await render(<Explorar />);
     await fireEvent.press(screen.getByLabelText('Filtrar por departamentos'));
-    expect(ultimoFiltro()).toEqual({ limite: 12, tipo: 'depa' });
+    expect(ultimoFiltro()).toEqual({ limite: 20, tipo: 'depa' });
     await fireEvent.press(screen.getByLabelText('Filtrar por acepta mascotas'));
-    expect(ultimoFiltro()).toEqual({ limite: 12, tipo: 'depa', mascotas: true });
+    expect(ultimoFiltro()).toEqual({ limite: 20, tipo: 'depa', mascotas: true });
   });
 
   it('el buscador NO filtra mientras se teclea: solo al pulsar Buscar', async () => {
     await render(<Explorar />);
     await fireEvent.changeText(screen.getByLabelText('Zona o colonia'), 'Lerma');
     await fireEvent.changeText(screen.getByLabelText('Presupuesto máximo al mes'), '4000');
-    expect(ultimoFiltro()).toEqual({ limite: 12 });
+    expect(ultimoFiltro()).toEqual({ limite: 20 });
     await fireEvent.press(screen.getByLabelText('Buscar'));
-    expect(ultimoFiltro()).toEqual({ limite: 12, zona: 'Lerma', precioMax: 4000 });
+    expect(ultimoFiltro()).toEqual({ limite: 20, zona: 'Lerma', precioMax: 4000 });
   });
 
   it('con filtros y sin resultados dice que NO hay con esos filtros, y se pueden quitar', async () => {
@@ -92,7 +95,7 @@ describe('filtros', () => {
     await fireEvent.press(screen.getByLabelText('Filtrar por cuartos'));
     expect(screen.getByText(/No hay lugares con esos filtros/)).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Quitar filtros'));
-    expect(ultimoFiltro()).toEqual({ limite: 12 });
+    expect(ultimoFiltro()).toEqual({ limite: 20 });
     expect(screen.queryByText(/No hay lugares con esos filtros/)).toBeNull();
   });
 
@@ -111,6 +114,24 @@ test('si la lectura falla dice que falló (con reintento), no «no hay lugares»
   expect(screen.queryByText(/No hay lugares con esos filtros/)).toBeNull();
   await fireEvent.press(screen.getAllByLabelText('Reintentar')[0]);
   expect(mockPub.reintentar).toHaveBeenCalled();
+});
+
+describe('la cuadrícula se ajusta al ancho de la ventana', () => {
+  const muchos = (n: number) => Array.from({ length: n }, (_, i) => ({ ...DEPA, id: `p${i}`, titulo_publico: `Lugar ${i}`, destacado: false }));
+  const tarjetas = () => screen.queryAllByLabelText(/pesos al mes/).length;
+
+  it.each([
+    [1920, 10], // 5 por fila, dos filas
+    [1280, 8], // 4 por fila
+    [800, 6], // 3 por fila
+    [560, 6], // 2 por fila (mínimo seis)
+    [390, 6], // una columna (mínimo seis)
+  ])('con %i px de ancho, las dos filas del principio son %i lugares', async (ancho, esperadas) => {
+    mockPantalla.ancho = ancho;
+    Object.assign(mockPub, { publicaciones: muchos(20) });
+    await render(<Explorar />);
+    expect(tarjetas()).toBe(esperadas);
+  });
 });
 
 describe('ver más lugares', () => {

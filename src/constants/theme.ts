@@ -367,3 +367,5 @@ export const DescuentoBarraIOS = 8;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+/** La web pública: el contenido se centra y no pasa de este ancho; el hero y el pie sí ocupan todo el ancho de la ventana. */
+export const AnchoMaximoWeb = 1440;

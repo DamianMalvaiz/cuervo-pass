@@ -14,7 +14,7 @@ import { MosaicoNegociosWeb } from '@/components/web/MosaicoNegociosWeb';
 import { PieWeb } from '@/components/web/PieWeb';
 import { RoomiesWeb } from '@/components/web/RoomiesWeb';
 import { TarjetaPublicacionWeb } from '@/components/web/TarjetaPublicacionWeb';
-import { Spacing, Texto } from '@/constants/theme';
+import { AnchoMaximoWeb, Spacing, Texto } from '@/constants/theme';
 import { useFotosPublicas, useNegociosPublicos, usePublicacionesPublicas } from '@/hooks/queries/useExplorar';
 import { useDesplazador } from '@/hooks/use-desplazador';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
@@ -23,17 +23,19 @@ import { FILTROS_VACIOS, aFiltroPublicaciones, hayFiltros, type FiltrosWeb } fro
 // Portada pública de la web · tramo 1. Se explora SIN cuenta, con datos reducidos (migración 0090): zona y no dirección, ubicación redondeada, sin teléfono.
 // Primero se enseña lo que hay; la cuenta se pide solo para lo que la necesita (guardar, escribir, ver perfiles de roomies).
 
-const ANCHO_MAXIMO = 1200;
-const RESULTADOS = 12;
+const RESULTADOS = 20;
 const HUECO = Spacing.three + Spacing.one;
 
 export default function Explorar() {
   const { ancho } = useTamanoPantalla();
   const escritorio = ancho >= 1000;
-  const columnas = ancho >= 1000 ? 4 : ancho >= 700 ? 3 : ancho >= 480 ? 2 : 1;
-  const margen = ancho >= 700 ? Spacing.five : Spacing.three;
-  const interior = Math.min(ancho, ANCHO_MAXIMO) - margen * 2;
+  // Las columnas se ajustan al ancho de la ventana: 5 en una pantalla muy ancha, hasta 1 en un teléfono.
+  const columnas = ancho >= 1360 ? 5 : ancho >= 1000 ? 4 : ancho >= 700 ? 3 : ancho >= 480 ? 2 : 1;
+  const relleno = ancho >= 700 ? Spacing.five : Spacing.three;
+  const interior = Math.min(ancho, AnchoMaximoWeb) - relleno * 2;
   const anchoTarjeta = Math.floor((interior - HUECO * (columnas - 1)) / columnas);
+  // El mosaico de negocios es de 4 celdas de ancho (la grande ocupa dos): no sigue las columnas de la cuadrícula.
+  const anchoMosaico = escritorio ? Math.floor((interior - HUECO * 3) / 4) : anchoTarjeta;
 
   const { registrarScroll, onScroll, desplazador } = useDesplazador();
   const [nodoDepas, setNodoDepas] = useState<View | null>(null);
@@ -84,9 +86,9 @@ export default function Explorar() {
 
   return (
     <ThemedView style={estilos.raiz}>
-      <ScrollView ref={registrarScroll} onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={estilos.scroll}>
-        <View style={[estilos.contenido, { paddingHorizontal: margen >= Spacing.five ? Spacing.three : Spacing.two }]}>
-          <HeroWeb escritorio={escritorio} filtros={filtros} onCambiar={setFiltros} onBuscar={buscar} onIrASeccion={irA} fotos={[fa, fb, fc]} />
+      <ScrollView ref={registrarScroll} onScroll={onScroll} scrollEventThrottle={16}>
+        <HeroWeb escritorio={escritorio} filtros={filtros} onCambiar={setFiltros} onBuscar={buscar} onIrASeccion={irA} fotos={[fa, fb, fc]} />
+        <View style={[estilos.contenido, { paddingHorizontal: relleno }]}>
 
           <ChipsTiposWeb filtros={filtros} onCambiar={cambiarChips} />
 
@@ -128,7 +130,7 @@ export default function Explorar() {
             ) : negocios.negocios.length === 0 ? (
               <ThemedText style={Texto.cuerpo} themeColor="textSecondary">Todavía no hay negocios publicados.</ThemedText>
             ) : (
-              <MosaicoNegociosWeb negocios={negocios.negocios} escritorio={escritorio} ancho={anchoTarjeta} />
+              <MosaicoNegociosWeb negocios={negocios.negocios} escritorio={escritorio} ancho={anchoMosaico} />
             )}
           </View>
 
@@ -141,9 +143,8 @@ export default function Explorar() {
           </View>
 
           <ConfianzaWeb escritorio={escritorio} />
-
-          <PieWeb />
         </View>
+        <PieWeb />
       </ScrollView>
     </ThemedView>
   );
@@ -151,9 +152,8 @@ export default function Explorar() {
 
 const estilos = StyleSheet.create({
   raiz: { flex: 1 },
-  scroll: { paddingTop: Spacing.three },
-  contenido: { width: '100%', maxWidth: ANCHO_MAXIMO, alignSelf: 'center', gap: Spacing.five },
-  seccion: { gap: Spacing.three + Spacing.one, paddingHorizontal: Spacing.two },
+  contenido: { width: '100%', maxWidth: AnchoMaximoWeb, alignSelf: 'center', gap: Spacing.five, paddingBottom: Spacing.six },
+  seccion: { gap: Spacing.three + Spacing.one },
   cuadricula: { flexDirection: 'row', flexWrap: 'wrap', gap: HUECO },
   vacio: { gap: Spacing.three, alignItems: 'flex-start' },
   masLugares: { alignItems: 'center', marginTop: Spacing.two },

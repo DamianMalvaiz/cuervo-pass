@@ -6,7 +6,7 @@ import { FotoLista } from '@/components/FotoLista';
 import { ThemedText } from '@/components/themed-text';
 import { BarraWeb, type SeccionWeb } from '@/components/web/BarraWeb';
 import { BuscadorWeb } from '@/components/web/BuscadorWeb';
-import { Colors, Radios, Spacing, Texto } from '@/constants/theme';
+import { AnchoMaximoWeb, Colors, Radios, Spacing, Texto } from '@/constants/theme';
 import type { FiltrosWeb } from '@/lib/filtrosWeb';
 
 const D = Colors.dark;
@@ -47,9 +47,10 @@ export function HeroWeb({
 }) {
   return (
     <View style={escritorio ? estilos.envoltura : undefined}>
-      <View style={[estilos.panel, escritorio ? estilos.panelAncho : estilos.panelCompacto]}>
+      <View style={[estilos.panel, escritorio ? estilos.panelAncho : undefined]}>
         <Image source={require('../../../assets/images/web/topografia.svg')} style={estilos.topografia} contentFit="cover" accessible={false} pointerEvents="none" />
 
+        <View style={[estilos.interior, escritorio ? estilos.interiorAncho : estilos.interiorCompacto]}>
         <BarraWeb escritorio={escritorio} onIrASeccion={onIrASeccion} />
 
         <View style={escritorio ? estilos.cuerpoAncho : estilos.cuerpoCompacto}>
@@ -102,6 +103,7 @@ export function HeroWeb({
         </View>
 
         {!escritorio ? <BuscadorWeb compacto filtros={filtros} onCambiar={onCambiar} onBuscar={onBuscar} /> : null}
+        </View>
       </View>
 
       {escritorio ? (
@@ -115,9 +117,12 @@ export function HeroWeb({
 
 const estilos = StyleSheet.create({
   envoltura: { position: 'relative', marginBottom: 56 },
-  panel: { backgroundColor: D.background, borderRadius: Radios.panel, overflow: 'hidden' },
-  panelAncho: { paddingHorizontal: Spacing.five + Spacing.two, paddingTop: Spacing.four, paddingBottom: 124 },
-  panelCompacto: { padding: Spacing.three, gap: Spacing.four },
+  // De borde a borde: el panel ocupa todo el ancho de la ventana (solo se redondean las esquinas de abajo) y su contenido se centra dentro, acotado a `AnchoMaximoWeb`.
+  panel: { width: '100%', backgroundColor: D.background, borderBottomLeftRadius: Radios.panel, borderBottomRightRadius: Radios.panel, overflow: 'hidden' },
+  panelAncho: { paddingTop: Spacing.four, paddingBottom: 124 },
+  interior: { width: '100%', maxWidth: AnchoMaximoWeb, alignSelf: 'center' },
+  interiorAncho: { paddingHorizontal: Spacing.five },
+  interiorCompacto: { padding: Spacing.three, gap: Spacing.four },
   topografia: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   cuerpoAncho: { flexDirection: 'row', alignItems: 'center', gap: Spacing.four, paddingTop: Spacing.five },
   cuerpoCompacto: { gap: Spacing.three },
@@ -145,5 +150,5 @@ const estilos = StyleSheet.create({
   ajusteTexto: { flex: 1, minWidth: 0 },
   ajusteChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   ajusteChip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, backgroundColor: L.background, borderRadius: Radios.full, paddingVertical: Spacing.one, paddingHorizontal: Spacing.two },
-  buscador: { position: 'absolute', left: 0, right: 0, bottom: -44, alignItems: 'center', paddingHorizontal: Spacing.four },
+  buscador: { position: 'absolute', left: 0, right: 0, bottom: -44, alignItems: 'center', paddingHorizontal: Spacing.five },
 });

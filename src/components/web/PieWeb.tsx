@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { LogoMarca } from '@/components/LogoMarca';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { AnchoMaximoWeb, Colors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
 
 const D = Colors.dark;
 
@@ -12,6 +12,7 @@ const D = Colors.dark;
 export function PieWeb() {
   return (
     <View style={estilos.pie}>
+      <View style={estilos.interior}>
       <View style={estilos.fila}>
         <View style={estilos.marca}>
           <View style={estilos.logoYNombre}>
@@ -31,12 +32,15 @@ export function PieWeb() {
         </View>
       </View>
       <ThemedText style={[Texto.pequeno, estilos.linea, { color: D.textSecondary }]}>© Cuervo 360 · Proyecto académico de la UTVT</ThemedText>
+      </View>
     </View>
   );
 }
 
 const estilos = StyleSheet.create({
-  pie: { backgroundColor: D.background, borderTopLeftRadius: Radios.panel, borderTopRightRadius: Radios.panel, padding: Spacing.five, gap: Spacing.four },
+  // De borde a borde, como el hero: el fondo ocupa todo el ancho y el contenido se centra dentro.
+  pie: { width: '100%', backgroundColor: D.background, borderTopLeftRadius: Radios.panel, borderTopRightRadius: Radios.panel },
+  interior: { width: '100%', maxWidth: AnchoMaximoWeb, alignSelf: 'center', padding: Spacing.five, gap: Spacing.four },
   fila: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: Spacing.five },
   marca: { gap: Spacing.three, maxWidth: 360 },
   logoYNombre: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },

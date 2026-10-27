@@ -8,12 +8,8 @@
   --font-serif: Georgia, 'Times New Roman', serif;
 }
 
-/* Solo web: un tope amplio (90rem = 1440 px) para que el contenido no se estire en un monitor grande. Con el de 60rem de antes, la web pública (hero y rejilla) quedaba recortada a 960 px;
-   cada pantalla acota además su propio contenido (la portada, a 1200). Los colores de fuera son los de `theme.ts`. */
-#root {
-  max-width: 90rem;
-  margin-inline: auto;
-}
+/* Solo web: el contenido ocupa todo el ancho de la ventana. Cada pantalla acota el suyo (la web pública, a `AnchoMaximoWeb`, con el hero y el pie de borde a borde); antes un tope de 60rem y luego de 90rem
+   dejaba franjas vacías a los lados en un monitor ancho. Los colores de fuera son los de `theme.ts`. */
 html,
 body {
   background-color: #f4f6f2;

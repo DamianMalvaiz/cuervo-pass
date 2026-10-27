@@ -141,8 +141,8 @@ export default function FichaNegocio() {
             </View>
           </View>
 
-          <PieWeb />
         </View>
+        <PieWeb />
       </ScrollView>
     </ThemedView>
   );
@@ -152,7 +152,7 @@ const estilos = StyleSheet.create({
   raiz: { flex: 1 },
   scroll: { paddingTop: Spacing.three },
   centro: { flex: 1, padding: Spacing.three, gap: Spacing.three, justifyContent: 'center', width: '100%', maxWidth: 560, alignSelf: 'center' },
-  contenido: { width: '100%', maxWidth: ANCHO_MAXIMO, alignSelf: 'center', gap: Spacing.four },
+  contenido: { width: '100%', maxWidth: ANCHO_MAXIMO, alignSelf: 'center', gap: Spacing.four, paddingBottom: Spacing.six },
   fila: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.six - Spacing.three },
   columna: { gap: Spacing.four },
   izquierda: { flex: 1, minWidth: 0 },
