@@ -252,7 +252,7 @@ const estilos = StyleSheet.create({
   holaMapa: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   holaImagen: { width: '100%', height: '100%' },
   holaTexto: { flex: 1, minWidth: 280, gap: Spacing.four },
-  holaBusca: { width: 700, maxWidth: '100%' },
+  holaBusca: { width: 780, maxWidth: '100%' },
   cifras: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.five },
   cifra: { gap: Spacing.half },
   seccion: { gap: Spacing.four },
