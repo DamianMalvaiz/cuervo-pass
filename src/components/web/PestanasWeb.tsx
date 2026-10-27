@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Radios, Spacing, Texto } from '@/constants/theme';
+import { Colors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { RutasWeb } from '@/lib/rutasWeb';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -23,9 +23,9 @@ const PESTANAS: { seccion: SeccionWeb; nombre: string; icono: keyof typeof Ionic
 
 /**
  * Las tres pestañas de la web: cada una lleva a SU página (no a un punto de una misma pantalla). La de la página en que se está se anuncia como la actual (`aria-current`).
- * `oscuro` es para sobre el carbón del hero (que no cambia con el modo); `claro`, para la barra de las páginas interiores, que sí sigue al modo.
+ * `forma="pildora"` las dibuja como botones con borde (los atajos del inicio en el teléfono); la `pestana` es la barra de siempre. `oscuro` es para sobre el carbón del hero (que no cambia con el modo); `claro`, para la barra de las páginas interiores, que sí sigue al modo.
  */
-export function PestanasWeb({ activa, tono }: { activa: SeccionWeb | null; tono: 'oscuro' | 'claro' }) {
+export function PestanasWeb({ activa, tono, forma = 'pestana' }: { activa: SeccionWeb | null; tono: 'oscuro' | 'claro'; forma?: 'pestana' | 'pildora' }) {
   const theme = useTheme();
   const texto = tono === 'oscuro' ? D.text : theme.text;
   const fondoActiva = tono === 'oscuro' ? D.backgroundSelected : theme.backgroundSelected;
@@ -40,7 +40,7 @@ export function PestanasWeb({ activa, tono }: { activa: SeccionWeb | null; tono:
             accessibilityRole="link"
             accessibilityLabel={p.nombre}
             {...(seleccionada ? ACTUAL : {})}
-            style={[estilos.pestana, seleccionada && { backgroundColor: fondoActiva }]}
+            style={[estilos.pestana, forma === 'pildora' && [estilos.pildora, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }], seleccionada && { backgroundColor: fondoActiva }]}
           >
             <Ionicons name={p.icono} size={20} color={texto} />
             <ThemedText style={[Texto.pequenoFuerte, { color: texto }]}>{p.nombre}</ThemedText>
@@ -53,5 +53,6 @@ export function PestanasWeb({ activa, tono }: { activa: SeccionWeb | null; tono:
 
 const estilos = StyleSheet.create({
   fila: { flexDirection: 'row', gap: Spacing.one },
+  pildora: { borderWidth: Filete.fino, paddingHorizontal: Spacing.four },
   pestana: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 44, paddingHorizontal: Spacing.three, borderRadius: Radios.full },
 });

@@ -168,3 +168,49 @@ describe('ver más lugares', () => {
     expect(tarjetas()).toBe(8);
   });
 });
+
+describe('en el teléfono (390 px)', () => {
+  beforeEach(() => {
+    mockPantalla.ancho = 390;
+  });
+
+  it('el buscador es una píldora: los campos están ocultos hasta tocarla', async () => {
+    await render(<Departamentos />);
+    expect(screen.getByLabelText('¿Dónde quieres vivir?. Zona · presupuesto · tipo')).toBeTruthy();
+    expect(screen.queryByLabelText('Zona o colonia')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('¿Dónde quieres vivir?. Zona · presupuesto · tipo'));
+    expect(screen.getByLabelText('Zona o colonia')).toBeTruthy();
+  });
+
+  it('al pulsar Buscar filtra y la píldora se pliega diciendo qué se buscó', async () => {
+    await render(<Departamentos />);
+    await fireEvent.press(screen.getByLabelText('¿Dónde quieres vivir?. Zona · presupuesto · tipo'));
+    await fireEvent.changeText(screen.getByLabelText('Zona o colonia'), 'Lerma');
+    await fireEvent.press(screen.getByLabelText('Buscar'));
+    expect(ultimoFiltro()).toEqual({ limite: 20, zona: 'Lerma' });
+    expect(screen.queryByLabelText('Zona o colonia')).toBeNull();
+    expect(screen.getByLabelText('Lerma. Todos los tipos')).toBeTruthy();
+  });
+
+  it('una búsqueda que viene en la URL se resume en la píldora', async () => {
+    Object.assign(mockParams, { tipo: 'cuarto', zona: 'Lerma', presupuesto: '4000' });
+    await render(<Departamentos />);
+    expect(screen.getByLabelText('Lerma. Cuarto · hasta $4,000')).toBeTruthy();
+  });
+
+  it('las tarjetas son compactas (título de hasta dos renglones) y trae la barra inferior', async () => {
+    await render(<Departamentos />);
+    expect(screen.getByText('Cuarto en Santa María').props.numberOfLines).toBe(2);
+    expect(screen.getByLabelText('Navegación principal')).toBeTruthy();
+  });
+});
+
+test('en el teléfono el subtítulo no gasta espacio; en escritorio sí está', async () => {
+  mockPantalla.ancho = 390;
+  const { unmount } = await render(<Departamentos />);
+  expect(screen.queryByText(/Cuartos, departamentos y casas compartidas/)).toBeNull();
+  await unmount();
+  mockPantalla.ancho = 1280;
+  await render(<Departamentos />);
+  expect(screen.getByText(/Cuartos, departamentos y casas compartidas/)).toBeTruthy();
+});

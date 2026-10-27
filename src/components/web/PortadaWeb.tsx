@@ -13,6 +13,7 @@ import { ConfianzaWeb } from '@/components/web/ConfianzaWeb';
 import { HeroWeb } from '@/components/web/HeroWeb';
 import { MosaicoNegociosWeb } from '@/components/web/MosaicoNegociosWeb';
 import { PieWeb } from '@/components/web/PieWeb';
+import { PortadaTelefonoWeb } from '@/components/web/PortadaTelefonoWeb';
 import { RoomiesWeb } from '@/components/web/RoomiesWeb';
 import { TarjetaPublicacionWeb } from '@/components/web/TarjetaPublicacionWeb';
 import { AnchoMaximoWeb, Spacing, Texto } from '@/constants/theme';
@@ -28,7 +29,7 @@ import { RutasWeb, aParametros } from '@/lib/rutasWeb';
  */
 export function PortadaWeb() {
   const { ancho } = useTamanoPantalla();
-  const { escritorio, columnas, relleno, anchoTarjeta, anchoMosaico } = medidasWeb(ancho);
+  const { escritorio, telefono, columnas, relleno, anchoTarjeta, anchoMosaico, anchoCarrusel } = medidasWeb(ancho);
   const [filtros, setFiltros] = useState<FiltrosWeb>(FILTROS_VACIOS);
 
   const lugares = usePublicacionesPublicas({ limite: 5 });
@@ -39,6 +40,25 @@ export function PortadaWeb() {
   const fa = useFotosPublicas('publicacion', a?.id, a?.num_fotos ?? 0).fotos[0];
   const fb = useFotosPublicas('publicacion', b?.id, b?.num_fotos ?? 0).fotos[0];
   const fc = useFotosPublicas('publicacion', c?.id, c?.num_fotos ?? 0).fotos[0];
+
+  // En el teléfono el inicio es otro diseño (de app, con carruseles y barra inferior); los hooks de arriba se ejecutan igual en los dos.
+  if (telefono) {
+    return (
+      <>
+        <Head>
+          <title>Cuervo 360 · Departamentos, roomies y servicios cerca de tu universidad</title>
+        </Head>
+        <PortadaTelefonoWeb
+          relleno={relleno}
+          anchoCarrusel={anchoCarrusel}
+          lugares={{ datos: lugares.publicaciones, cargando: lugares.cargando, fallo: lugares.fallo, reintentar: lugares.reintentar }}
+          negocios={{ datos: negocios.negocios, cargando: negocios.cargando, fallo: negocios.fallo, reintentar: negocios.reintentar }}
+          fotoEjemplo={fa}
+          tituloEjemplo={a?.titulo_publico}
+        />
+      </>
+    );
+  }
 
   const abrirBusqueda = (f: FiltrosWeb) => router.push({ pathname: RutasWeb.departamentos, params: aParametros(f) });
   // Una fila de lugares (en tres columnas, justo tres; en pantallas angostas, cuatro) y un mosaico de negocios de cinco celdas (cuatro si no cabe el mosaico).

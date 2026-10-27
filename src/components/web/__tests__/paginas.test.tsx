@@ -14,14 +14,18 @@ jest.mock('expo-router/head', () => ({
     return null;
   },
 }));
+const mockPantalla = { ancho: 1280 };
 jest.mock('@/hooks/use-tamano-pantalla', () => ({
-  useTamanoPantalla: () => ({ clase: 'amplia', ancho: 1280, alto: 900, anchoContenido: 480, anchoLista: 800, altoApretado: false, escalaTitulo: 1 }),
+  useTamanoPantalla: () => ({ clase: 'amplia', ancho: mockPantalla.ancho, alto: 900, anchoContenido: 480, anchoLista: 800, altoApretado: false, escalaTitulo: 1 }),
 }));
 
 import { EncabezadoWeb } from '../EncabezadoWeb';
 import { PaginaWeb } from '../PaginaWeb';
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockPantalla.ancho = 1280;
+});
 
 describe('EncabezadoWeb', () => {
   it('cada pestaña lleva a su página', async () => {
@@ -71,5 +75,31 @@ describe('PaginaWeb', () => {
     expect(mockHead).toHaveBeenCalled();
     const hijo = (mockHead.mock.calls[0][0] as { children: { props: { children: string } } }).children;
     expect(hijo.props.children).toBe('Departamentos y cuartos · Cuervo 360');
+  });
+});
+
+describe('en el teléfono (menos de 700 px)', () => {
+  it('el encabezado es delgado: sin pestañas (las reemplaza la barra de abajo) y solo «Iniciar sesión»', async () => {
+    await render(<EncabezadoWeb activa="servicios" escritorio={false} telefono />);
+    expect(screen.queryByLabelText('Roomies')).toBeNull();
+    expect(screen.queryByLabelText('Crear cuenta')).toBeNull();
+    expect(screen.getByLabelText('Iniciar sesión')).toBeTruthy();
+    expect(screen.getByLabelText('Ir al inicio')).toBeTruthy();
+  });
+
+  it('la página trae la barra inferior fija con su sección marcada', async () => {
+    mockPantalla.ancho = 390;
+    await render(<PaginaWeb activa="servicios" titulo="Negocios y servicios"><Text>contenido</Text></PaginaWeb>);
+    expect(screen.getByLabelText('Navegación principal')).toBeTruthy();
+    expect(screen.getByLabelText('Servicios').props['aria-current']).toBe('page');
+  });
+
+  it('en escritorio y en tableta no hay barra inferior', async () => {
+    for (const ancho of [700, 1280]) {
+      mockPantalla.ancho = ancho;
+      const { unmount } = await render(<PaginaWeb activa="depas" titulo="Lugares"><Text>contenido</Text></PaginaWeb>);
+      expect(screen.queryByLabelText('Navegación principal')).toBeNull();
+      await unmount();
+    }
   });
 });

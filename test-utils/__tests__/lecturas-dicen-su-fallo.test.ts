@@ -19,6 +19,7 @@ const OMITE_A_PROPOSITO: Record<string, string> = {
   'src/components/web/TarjetaPublicacionWeb.tsx': 'una foto que no cargó deja el recuadro gris y la tarjeta sigue diciendo título, zona y precio: no afirma nada falso',
   'src/components/web/MosaicoNegociosWeb.tsx': 'igual que TarjetaPublicacionWeb: la foto que no cargó deja el recuadro gris y el mosaico sigue diciendo el nombre y si está abierto',
   'src/components/web/FilaProductoWeb.tsx': 'igual que TarjetaPublicacionWeb: la foto del producto que no cargó no se pinta y la fila sigue diciendo nombre y precio',
+  'src/components/web/TarjetaNegocioWeb.tsx': 'igual que TarjetaPublicacionWeb: la foto que no cargó deja el recuadro gris y la tarjeta sigue diciendo el nombre y si está abierto',
   'src/components/ficha/Calificacion.tsx': 'es una casilla de presentación, no lee de la red',
   'src/components/EditorMenu.tsx': 'usa el plan solo para el tope de productos: sin él rige la cota técnica y la base hace cumplir el plan (CP009)',
   'src/app/perfil/crear-vendedor.tsx': 'solo lee las funciones para no pedir dos veces la misma; si falla, el servidor decide al continuar',

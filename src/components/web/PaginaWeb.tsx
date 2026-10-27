@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedView } from '@/components/themed-view';
+import { ALTO_BARRA_INFERIOR, BarraInferiorWeb } from '@/components/web/BarraInferiorWeb';
 import { EncabezadoWeb } from '@/components/web/EncabezadoWeb';
 import { PieWeb } from '@/components/web/PieWeb';
 import type { SeccionWeb } from '@/components/web/PestanasWeb';
@@ -16,19 +17,20 @@ import { medidasWeb } from '@/lib/medidasWeb';
  */
 export function PaginaWeb({ activa, titulo, children }: { activa: SeccionWeb | null; titulo: string; children: ReactNode }) {
   const { ancho } = useTamanoPantalla();
-  const { escritorio, relleno } = medidasWeb(ancho);
+  const { escritorio, telefono, relleno } = medidasWeb(ancho);
   return (
     <ThemedView style={estilos.raiz}>
       <Head>
         <title>{`${titulo} · Cuervo 360`}</title>
       </Head>
-      <ScrollView>
+      <ScrollView contentContainerStyle={telefono ? { paddingBottom: ALTO_BARRA_INFERIOR } : undefined}>
         <View style={[estilos.contenido, { paddingHorizontal: relleno }]}>
-          <EncabezadoWeb activa={activa} escritorio={escritorio} />
+          <EncabezadoWeb activa={activa} escritorio={escritorio} telefono={telefono} />
           {children}
         </View>
         <PieWeb />
       </ScrollView>
+      {telefono ? <BarraInferiorWeb activa={activa} /> : null}
     </ThemedView>
   );
 }

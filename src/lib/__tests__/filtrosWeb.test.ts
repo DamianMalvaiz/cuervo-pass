@@ -1,4 +1,4 @@
-import { FILTROS_VACIOS, aFiltroPublicaciones, etiquetaDeTipo, hayFiltros, parsearPresupuesto, siguienteTipo } from '../filtrosWeb';
+import { FILTROS_VACIOS, aFiltroPublicaciones, etiquetaDeTipo, hayFiltros, parsearPresupuesto, resumenBusqueda, siguienteTipo } from '../filtrosWeb';
 
 // El buscador de la portada pública. Lo que se fija: qué número es un presupuesto, cómo se vuelve filtro del servidor y que un filtro vacío NO filtra nada.
 
@@ -61,5 +61,28 @@ describe('hayFiltros', () => {
     expect(hayFiltros({ ...FILTROS_VACIOS, tipo: 'depa' })).toBe(true);
     expect(hayFiltros({ ...FILTROS_VACIOS, presupuesto: 'abc' })).toBe(false);
     expect(hayFiltros({ ...FILTROS_VACIOS, mascotas: true })).toBe(true);
+  });
+});
+
+describe('resumenBusqueda', () => {
+  it('sin filtros invita a buscar', () => {
+    expect(resumenBusqueda(FILTROS_VACIOS)).toEqual({ titulo: '¿Dónde quieres vivir?', subtitulo: 'Zona · presupuesto · tipo' });
+  });
+
+  it('con zona, la zona es el título y lo demás el detalle', () => {
+    expect(resumenBusqueda({ ...FILTROS_VACIOS, zona: 'Lerma', presupuesto: '4000', tipo: 'cuarto' })).toEqual({ titulo: 'Lerma', subtitulo: 'Cuarto · hasta $4,000' });
+  });
+
+  it('solo con zona, el detalle dice que son todos los tipos', () => {
+    expect(resumenBusqueda({ ...FILTROS_VACIOS, zona: 'Lerma' })).toEqual({ titulo: 'Lerma', subtitulo: 'Todos los tipos' });
+  });
+
+  it('sin zona, el título es el tipo (o «Lugares») y el detalle suma lo demás', () => {
+    expect(resumenBusqueda({ ...FILTROS_VACIOS, tipo: 'depa', amueblado: true, mascotas: true })).toEqual({ titulo: 'Departamento', subtitulo: 'Amueblado · acepta mascotas' });
+    expect(resumenBusqueda({ ...FILTROS_VACIOS, presupuesto: '3500' })).toEqual({ titulo: 'Lugares', subtitulo: 'Hasta $3,500' });
+  });
+
+  it('un presupuesto sin cifras no cuenta, y espacios no son una zona', () => {
+    expect(resumenBusqueda({ ...FILTROS_VACIOS, zona: '   ', presupuesto: 'abc' })).toEqual(resumenBusqueda(FILTROS_VACIOS));
   });
 });

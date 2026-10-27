@@ -4,8 +4,9 @@ import { HUECO_WEB, medidasWeb } from '../medidasWeb';
 
 describe('columnas', () => {
   it.each([
-    [320, 1],
-    [479, 1],
+    [320, 2],
+    [390, 2],
+    [479, 2],
     [480, 2],
     [699, 2],
     [700, 3],
@@ -16,6 +17,24 @@ describe('columnas', () => {
     [2560, 5],
   ])('con %i px caben %i columnas', (ancho, columnas) => {
     expect(medidasWeb(ancho).columnas).toBe(columnas);
+  });
+});
+
+describe('teléfono', () => {
+  it('es teléfono por debajo de 700 px; desde ahí, tableta o escritorio', () => {
+    expect(medidasWeb(390).telefono).toBe(true);
+    expect(medidasWeb(699).telefono).toBe(true);
+    expect(medidasWeb(700).telefono).toBe(false);
+    expect(medidasWeb(1280).telefono).toBe(false);
+  });
+
+  it('en el teléfono las tarjetas de un carrusel dejan ver un pedazo de la siguiente (se nota que se desliza)', () => {
+    for (const ancho of [360, 390, 430, 699]) {
+      const m = medidasWeb(ancho);
+      const visibles = (ancho - m.relleno) / (m.anchoCarrusel + 12);
+      expect(visibles).toBeGreaterThan(2);
+      expect(visibles % 1).not.toBe(0);
+    }
   });
 });
 

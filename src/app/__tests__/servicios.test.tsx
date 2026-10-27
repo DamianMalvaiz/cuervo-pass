@@ -5,8 +5,9 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(...a) } }));
 jest.mock('expo-router/head', () => ({ __esModule: true, default: () => null }));
+const mockPantalla = { ancho: 1280 };
 jest.mock('@/hooks/use-tamano-pantalla', () => ({
-  useTamanoPantalla: () => ({ clase: 'amplia', ancho: 1280, alto: 900, anchoContenido: 480, anchoLista: 800, altoApretado: false, escalaTitulo: 1 }),
+  useTamanoPantalla: () => ({ clase: 'amplia', ancho: mockPantalla.ancho, alto: 900, anchoContenido: 480, anchoLista: 800, altoApretado: false, escalaTitulo: 1 }),
 }));
 
 const mockLlamadas: Record<string, unknown>[] = [];
@@ -29,6 +30,7 @@ const ultimo = () => mockLlamadas.at(-1);
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPantalla.ancho = 1280;
   mockLlamadas.length = 0;
   Object.assign(mockNeg, { negocios: [NEG], cargando: false, fallo: false });
   Object.assign(mockCat, { categorias: CATS, cargando: false, fallo: false });
@@ -97,5 +99,25 @@ describe('estados', () => {
     expect(screen.queryByText(/Todavía no hay negocios/)).toBeNull();
     await fireEvent.press(screen.getByLabelText('Reintentar'));
     expect(mockNeg.reintentar).toHaveBeenCalled();
+  });
+});
+
+describe('en el teléfono (390 px)', () => {
+  beforeEach(() => {
+    mockPantalla.ancho = 390;
+  });
+
+  it('cada negocio es una tarjeta compacta (foto con el nombre debajo) que lleva a su ficha', async () => {
+    await render(<Servicios />);
+    expect(screen.getByText('Café Lerma').props.numberOfLines).toBe(2);
+    await fireEvent.press(screen.getByLabelText('Café Lerma, Abierto ahora'));
+    expect(mockPush).toHaveBeenCalledWith('/servicios/n1');
+  });
+
+  it('las categorías siguen filtrando y la barra inferior está', async () => {
+    await render(<Servicios />);
+    await fireEvent.press(screen.getByLabelText('Salud'));
+    expect(ultimo()).toEqual({ limite: 20, categoriaId: 'c2' });
+    expect(screen.getByLabelText('Navegación principal')).toBeTruthy();
   });
 });

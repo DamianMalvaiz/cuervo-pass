@@ -20,7 +20,7 @@ const precio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
  * Una vivienda para quien explora sin cuenta: foto grande 4:5, la etiqueta de destacado, el corazón (que pide entrar: sin cuenta no se guarda nada), título armado, zona corta y precio.
  * Solo lo que la vista pública enseña: nada de dirección exacta ni de quién publica.
  */
-export function TarjetaPublicacionWeb({ p, ancho }: { p: PublicacionExplorar; ancho?: number }) {
+export function TarjetaPublicacionWeb({ p, ancho, compacta = false }: { p: PublicacionExplorar; ancho?: number; compacta?: boolean }) {
   const theme = useTheme();
   const { fotos } = useFotosPublicas('publicacion', p.id, p.num_fotos);
   const zona = zonaCorta(p.zona);
@@ -32,36 +32,58 @@ export function TarjetaPublicacionWeb({ p, ancho }: { p: PublicacionExplorar; an
       accessibilityLabel={`${p.titulo_publico}, ${precio.format(p.precio_renta)} pesos al mes`}
       style={[estilos.tarjeta, ancho ? { width: ancho } : estilos.flexible]}
     >
-      <View style={[estilos.foto, { backgroundColor: theme.backgroundSelected }]}>
+      <View style={[estilos.foto, compacta && estilos.fotoCompacta, { backgroundColor: theme.backgroundSelected }]}>
         <FotoLista completa={fotos[0]} style={estilos.imagen} accessibilityLabel={p.titulo_publico} />
         {p.destacado ? (
-          <View style={estilos.destacado}>
-            <ThemedText style={[Texto.pequenoFuerte, { color: D.limaTexto }]}>Destacado</ThemedText>
+          <View style={[estilos.destacado, compacta && estilos.destacadoCompacto]}>
+            <ThemedText style={[compacta ? Texto.etiqueta : Texto.pequenoFuerte, { color: D.limaTexto }]}>Destacado</ThemedText>
           </View>
         ) : null}
         <Pulsable
           onPress={() => router.push('/(auth)/login')}
           accessibilityRole="button"
           accessibilityLabel="Guardar: inicia sesión para guardar"
-          style={estilos.corazon}
+          // toque-ok: en la tarjeta compacta el círculo mide 36 y el hitSlop de 4 a cada lado lo lleva a 44
+          hitSlop={compacta ? 4 : undefined}
+          style={[estilos.corazon, compacta && estilos.corazonCompacto]}
         >
-          <Ionicons name="heart-outline" size={22} color={L.text} />
+          <Ionicons name="heart-outline" size={compacta ? 20 : 22} color={L.text} />
         </Pulsable>
       </View>
 
-      <View style={estilos.linea}>
-        <ThemedText style={[Texto.pequenoFuerte, estilos.titulo]} numberOfLines={1}>{p.titulo_publico}</ThemedText>
-        {p.calificacion ? (
-          <View style={estilos.calificacion} accessibilityLabel={`Calificación ${p.calificacion.toFixed(1)} de 5`}>
-            <Ionicons name="star" size={14} color={theme.text} />
-            <ThemedText style={Texto.pequenoFuerte}>{p.calificacion.toFixed(1)}</ThemedText>
+      {compacta ? (
+        <>
+          <ThemedText style={Texto.pequenoFuerte} numberOfLines={2}>{p.titulo_publico}</ThemedText>
+          {zona ? <ThemedText style={Texto.pequeno} themeColor="textSecondary" numberOfLines={1}>{zona}</ThemedText> : null}
+          <View style={estilos.precioFila}>
+            <ThemedText style={Texto.pequeno}>
+              <ThemedText style={Texto.pequenoFuerte}>${precio.format(p.precio_renta)}</ThemedText> al mes
+            </ThemedText>
+            {p.calificacion ? (
+              <View style={estilos.calificacion} accessibilityLabel={`Calificación ${p.calificacion.toFixed(1)} de 5`}>
+                <Ionicons name="star" size={12} color={theme.text} />
+                <ThemedText style={Texto.pequeno}>{p.calificacion.toFixed(1)}</ThemedText>
+              </View>
+            ) : null}
           </View>
-        ) : null}
-      </View>
-      {zona ? <ThemedText style={Texto.pequeno} themeColor="textSecondary" numberOfLines={1}>{zona}</ThemedText> : null}
-      <ThemedText style={Texto.pequeno}>
-        <ThemedText style={Texto.precioWeb}>${precio.format(p.precio_renta)}</ThemedText> al mes
-      </ThemedText>
+        </>
+      ) : (
+        <>
+          <View style={estilos.linea}>
+            <ThemedText style={[Texto.pequenoFuerte, estilos.titulo]} numberOfLines={1}>{p.titulo_publico}</ThemedText>
+            {p.calificacion ? (
+              <View style={estilos.calificacion} accessibilityLabel={`Calificación ${p.calificacion.toFixed(1)} de 5`}>
+                <Ionicons name="star" size={14} color={theme.text} />
+                <ThemedText style={Texto.pequenoFuerte}>{p.calificacion.toFixed(1)}</ThemedText>
+              </View>
+            ) : null}
+          </View>
+          {zona ? <ThemedText style={Texto.pequeno} themeColor="textSecondary" numberOfLines={1}>{zona}</ThemedText> : null}
+          <ThemedText style={Texto.pequeno}>
+            <ThemedText style={Texto.precioWeb}>${precio.format(p.precio_renta)}</ThemedText> al mes
+          </ThemedText>
+        </>
+      )}
     </Pulsable>
   );
 }
@@ -70,8 +92,12 @@ const estilos = StyleSheet.create({
   tarjeta: { gap: Spacing.one },
   flexible: { flexGrow: 1, flexBasis: 240, maxWidth: 360 },
   foto: { aspectRatio: 4 / 5, borderRadius: Radios.tarjeta, overflow: 'hidden', marginBottom: Spacing.one },
+  fotoCompacta: { aspectRatio: 1 },
   imagen: { width: '100%', height: '100%' },
   destacado: { position: 'absolute', left: Spacing.three, top: Spacing.three, backgroundColor: D.lima, borderRadius: Radios.full, paddingVertical: Spacing.one + Spacing.half, paddingHorizontal: Spacing.three },
+  destacadoCompacto: { left: Spacing.two, top: Spacing.two, paddingVertical: Spacing.half, paddingHorizontal: Spacing.two },
+  corazonCompacto: { right: Spacing.two, top: Spacing.two, width: 36, height: 36 },
+  precioFila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap' },
   corazon: { position: 'absolute', right: Spacing.three, top: Spacing.three, width: 44, height: 44, borderRadius: Radios.full, backgroundColor: L.backgroundElement, alignItems: 'center', justifyContent: 'center' },
   linea: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.two },
   titulo: { flex: 1 },

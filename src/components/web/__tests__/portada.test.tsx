@@ -13,8 +13,9 @@ jest.mock('expo-router/head', () => ({
     return null;
   },
 }));
+const mockPantalla = { ancho: 1280 };
 jest.mock('@/hooks/use-tamano-pantalla', () => ({
-  useTamanoPantalla: () => ({ clase: 'amplia', ancho: 1280, alto: 900, anchoContenido: 480, anchoLista: 800, altoApretado: false, escalaTitulo: 1 }),
+  useTamanoPantalla: () => ({ clase: 'amplia', ancho: mockPantalla.ancho, alto: 900, anchoContenido: 480, anchoLista: 800, altoApretado: false, escalaTitulo: 1 }),
 }));
 
 const mockPub = { publicaciones: [] as unknown[], cargando: false, fallo: false, reintentar: jest.fn() };
@@ -32,6 +33,7 @@ const negocio = (i: number) => ({ id: `n${i}`, nombre: `Negocio ${i}`, zona: 'Ce
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPantalla.ancho = 1280;
   Object.assign(mockPub, { publicaciones: [1, 2, 3, 4, 5].map(lugar), cargando: false, fallo: false });
   Object.assign(mockNeg, { negocios: [1, 2, 3, 4, 5].map(negocio), cargando: false, fallo: false });
 });
@@ -131,5 +133,54 @@ describe('estados de lectura', () => {
     await render(<PortadaWeb />);
     expect(screen.getByText(/Todavía no hay lugares publicados/)).toBeTruthy();
     expect(screen.getByText(/Todavía no hay negocios publicados/)).toBeTruthy();
+  });
+});
+
+describe('en el teléfono (390 px): diseño de app, no el hero de escritorio', () => {
+  beforeEach(() => {
+    mockPantalla.ancho = 390;
+  });
+
+  it('no trae el hero grande: trae la píldora de búsqueda, que lleva a la página de departamentos', async () => {
+    await render(<PortadaWeb />);
+    expect(screen.queryByText(/Encuentra dónde/)).toBeNull();
+    await fireEvent.press(screen.getByLabelText('¿Dónde quieres vivir?. Zona · presupuesto · tipo'));
+    expect(mockPush).toHaveBeenLastCalledWith('/departamentos');
+  });
+
+  it('trae atajos a las tres secciones', async () => {
+    await render(<PortadaWeb />);
+    for (const [etiqueta, ruta] of [['Departamentos', '/departamentos'], ['Roomies', '/roomies'], ['Servicios', '/servicios']] as const) {
+      await fireEvent.press(screen.getAllByLabelText(etiqueta)[0]);
+      expect(mockPush).toHaveBeenLastCalledWith(ruta);
+    }
+  });
+
+  it('lugares y negocios van en carruseles con su flecha a la página completa', async () => {
+    await render(<PortadaWeb />);
+    expect(screen.getByText('Departamentos y cuartos')).toBeTruthy();
+    expect(screen.getByText('Negocios cerca')).toBeTruthy();
+    expect(screen.queryAllByLabelText(/pesos al mes/).length).toBeGreaterThan(0);
+    await fireEvent.press(screen.getByLabelText('Ver todos los lugares'));
+    expect(mockPush).toHaveBeenLastCalledWith('/departamentos');
+    await fireEvent.press(screen.getByLabelText('Ver todos los negocios'));
+    expect(mockPush).toHaveBeenLastCalledWith('/servicios');
+  });
+
+  it('trae la barra inferior, roomies, cómo funciona y la confianza', async () => {
+    await render(<PortadaWeb />);
+    expect(screen.getByLabelText('Navegación principal')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Ver roomies'));
+    expect(mockPush).toHaveBeenLastCalledWith('/roomies');
+    expect(screen.getByText('Cómo funciona, sin adivinar')).toBeTruthy();
+    expect(screen.getByText('Hecho para que confíes')).toBeTruthy();
+  });
+
+  it('si fallan los lugares lo dice (con reintento), no «todavía no hay»', async () => {
+    Object.assign(mockPub, { publicaciones: [], fallo: true });
+    await render(<PortadaWeb />);
+    expect(screen.queryByText(/Todavía no hay lugares/)).toBeNull();
+    await fireEvent.press(screen.getAllByLabelText('Reintentar')[0]);
+    expect(mockPub.reintentar).toHaveBeenCalled();
   });
 });

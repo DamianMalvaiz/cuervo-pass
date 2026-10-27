@@ -6,13 +6,14 @@ import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { ThemedText } from '@/components/themed-text';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { BuscadorWeb } from '@/components/web/BuscadorWeb';
+import { PildoraBusquedaWeb } from '@/components/web/PildoraBusquedaWeb';
 import { ChipsTiposWeb } from '@/components/web/ChipsTiposWeb';
 import { PaginaWeb } from '@/components/web/PaginaWeb';
 import { TarjetaPublicacionWeb } from '@/components/web/TarjetaPublicacionWeb';
 import { Spacing, Texto } from '@/constants/theme';
 import { usePublicacionesPublicas } from '@/hooks/queries/useExplorar';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
-import { FILTROS_VACIOS, aFiltroPublicaciones, hayFiltros, type FiltrosWeb } from '@/lib/filtrosWeb';
+import { FILTROS_VACIOS, aFiltroPublicaciones, hayFiltros, resumenBusqueda, type FiltrosWeb } from '@/lib/filtrosWeb';
 import { HUECO_WEB, medidasWeb } from '@/lib/medidasWeb';
 import { deParametros } from '@/lib/rutasWeb';
 
@@ -23,7 +24,7 @@ const RESULTADOS = 20;
 
 export default function Departamentos() {
   const { ancho } = useTamanoPantalla();
-  const { escritorio, columnas, anchoTarjeta } = medidasWeb(ancho);
+  const { escritorio, telefono, columnas, anchoTarjeta } = medidasWeb(ancho);
   const params = useLocalSearchParams<Record<string, string | string[]>>();
 
   const [filtros, setFiltros] = useState<FiltrosWeb>(() => deParametros(params));
@@ -31,10 +32,13 @@ export default function Departamentos() {
   const [aplicados, setAplicados] = useState<FiltrosWeb>(() => deParametros(params));
   // «Ver más lugares» vale solo mientras no cambie la búsqueda: cualquier cambio (incluido volver a una anterior) regresa a las dos filas.
   const [verTodos, setVerTodos] = useState(false);
+  // En el teléfono el buscador es una píldora que despliega los campos.
+  const [buscadorAbierto, setBuscadorAbierto] = useState(false);
   const aplicar = (f: FiltrosWeb) => {
     setAplicados(f);
     setVerTodos(false);
   };
+  const resumen = resumenBusqueda(aplicados);
 
   const lugares = usePublicacionesPublicas(aFiltroPublicaciones(aplicados, RESULTADOS));
   const filtrando = hayFiltros(aplicados);
@@ -46,13 +50,33 @@ export default function Departamentos() {
     <PaginaWeb activa="depas" titulo="Departamentos y cuartos">
       <View style={estilos.cabecera}>
         <ThemedText accessibilityRole="header" style={escritorio ? Texto.titularWebCompacto : Texto.seccionWebCompacto}>Departamentos y cuartos</ThemedText>
-        <ThemedText style={Texto.cuerpo} themeColor="textSecondary">Cuartos, departamentos y casas compartidas cerca de tu universidad.</ThemedText>
+        {/* En el teléfono el subtítulo sobra: gasta espacio antes del contenido. */}
+        {telefono ? null : <ThemedText style={Texto.cuerpo} themeColor="textSecondary">Cuartos, departamentos y casas compartidas cerca de tu universidad.</ThemedText>}
       </View>
 
       <View style={estilos.filtros}>
-        <BuscadorWeb compacto={!escritorio} filtros={filtros} onCambiar={setFiltros} onBuscar={() => aplicar(filtros)} />
+        {telefono ? (
+          <>
+            <PildoraBusquedaWeb titulo={resumen.titulo} subtitulo={resumen.subtitulo} expandida={buscadorAbierto} onPress={() => setBuscadorAbierto(!buscadorAbierto)} />
+            {buscadorAbierto ? (
+              <BuscadorWeb
+                compacto
+                filtros={filtros}
+                onCambiar={setFiltros}
+                onBuscar={() => {
+                  aplicar(filtros);
+                  setBuscadorAbierto(false);
+                }}
+              />
+            ) : null}
+          </>
+        ) : (
+          <View style={estilos.buscadorAncho}>
+            <BuscadorWeb compacto={!escritorio} filtros={filtros} onCambiar={setFiltros} onBuscar={() => aplicar(filtros)} />
+          </View>
+        )}
         <ChipsTiposWeb
-          alinear="inicio"
+          alinear={telefono ? 'deslizar' : 'inicio'}
           filtros={filtros}
           onCambiar={(f) => {
             setFiltros(f);
@@ -86,7 +110,7 @@ export default function Departamentos() {
         ) : (
           <>
             <View style={estilos.cuadricula}>
-              {visibles.map((p) => <TarjetaPublicacionWeb key={p.id} p={p} ancho={anchoTarjeta} />)}
+              {visibles.map((p) => <TarjetaPublicacionWeb key={p.id} p={p} ancho={anchoTarjeta} compacta={telefono} />)}
             </View>
             {!verTodos && lugares.publicaciones.length > inicial ? (
               <View style={estilos.masLugares}>
@@ -102,7 +126,8 @@ export default function Departamentos() {
 
 const estilos = StyleSheet.create({
   cabecera: { gap: Spacing.two },
-  filtros: { gap: Spacing.three, alignItems: 'flex-start' },
+  filtros: { gap: Spacing.three, alignItems: 'stretch' },
+  buscadorAncho: { alignItems: 'flex-start' },
   resultados: { gap: Spacing.three },
   cuadricula: { flexDirection: 'row', flexWrap: 'wrap', gap: HUECO_WEB },
   vacio: { gap: Spacing.three, alignItems: 'flex-start' },

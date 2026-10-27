@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
@@ -25,10 +25,10 @@ const CHIPS: Chip[] = [
  * La fila de filtros rápidos bajo el buscador. Los tres TIPOS son excluyentes entre sí (tocar uno lo prende, tocarlo otra vez lo apaga) y los otros tres son interruptores de sí/no.
  * Comparten el estado del buscador: el chip de tipo y el campo «Tipo» del buscador dicen siempre lo mismo.
  */
-export function ChipsTiposWeb({ filtros, onCambiar, alinear = 'centro' }: { filtros: FiltrosWeb; onCambiar: (f: FiltrosWeb) => void; alinear?: 'centro' | 'inicio' }) {
+export function ChipsTiposWeb({ filtros, onCambiar, alinear = 'centro' }: { filtros: FiltrosWeb; onCambiar: (f: FiltrosWeb) => void; alinear?: 'centro' | 'inicio' | 'deslizar' }) {
   const theme = useTheme();
-  return (
-    <View style={[estilos.fila, alinear === 'inicio' && estilos.alInicio]}>
+  const chips = (
+    <>
       {CHIPS.map((c) => {
         const activo = 'tipo' in c ? filtros.tipo === c.tipo : filtros[c.campo];
         const alTocar = () => {
@@ -51,12 +51,22 @@ export function ChipsTiposWeb({ filtros, onCambiar, alinear = 'centro' }: { filt
           </Pulsable>
         );
       })}
-    </View>
+    </>
   );
+  // `deslizar` (teléfono): una sola fila que se desliza de lado, en vez de tres renglones de chips.
+  if (alinear === 'deslizar') {
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.deslizable}>
+        {chips}
+      </ScrollView>
+    );
+  }
+  return <View style={[estilos.fila, alinear === 'inicio' && estilos.alInicio]}>{chips}</View>;
 }
 
 const estilos = StyleSheet.create({
   fila: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: Spacing.two },
   alInicio: { justifyContent: 'flex-start' },
+  deslizable: { flexDirection: 'row', gap: Spacing.two },
   chip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 44, paddingHorizontal: Spacing.three, borderRadius: Radios.full, borderWidth: Filete.fino },
 });

@@ -12,9 +12,9 @@ import { RutasWeb } from '@/lib/rutasWeb';
 
 /**
  * La barra de las páginas interiores (`/departamentos`, `/roomies`, `/servicios`): el logo (lleva al inicio), las tres pestañas con la de esta página marcada y las dos cuentas.
- * En pantalla angosta las pestañas pasan a una segunda fila que se desliza, para que la navegación no se pierda.
+ * En una tableta las pestañas pasan a una segunda fila que se desliza. En el teléfono (`telefono`) el encabezado es delgado —el logo y «Iniciar sesión»— porque la navegación vive en la barra inferior fija.
  */
-export function EncabezadoWeb({ activa, escritorio }: { activa: SeccionWeb | null; escritorio: boolean }) {
+export function EncabezadoWeb({ activa, escritorio, telefono = false }: { activa: SeccionWeb | null; escritorio: boolean; telefono?: boolean }) {
   const theme = useTheme();
   const pestanas = <PestanasWeb activa={activa} tono="claro" />;
   return (
@@ -27,10 +27,10 @@ export function EncabezadoWeb({ activa, escritorio }: { activa: SeccionWeb | nul
         {escritorio ? <View style={estilos.pestanas}>{pestanas}</View> : null}
         <View style={estilos.cuentas}>
           <BotonWeb compacto={!escritorio} variante="contorno" onPress={() => router.push('/(auth)/login')}>Iniciar sesión</BotonWeb>
-          <BotonWeb compacto={!escritorio} variante="carbon" onPress={() => router.push('/(auth)/registro')}>Crear cuenta</BotonWeb>
+          {telefono ? null : <BotonWeb compacto={!escritorio} variante="carbon" onPress={() => router.push('/(auth)/registro')}>Crear cuenta</BotonWeb>}
         </View>
       </View>
-      {!escritorio ? (
+      {!escritorio && !telefono ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {pestanas}
         </ScrollView>

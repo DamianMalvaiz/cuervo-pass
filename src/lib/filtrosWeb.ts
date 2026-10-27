@@ -51,3 +51,20 @@ export function aFiltroPublicaciones(f: FiltrosWeb, limite: number): FiltroPubli
 
 /** ¿Hay algo que realmente filtre? Un texto de presupuesto sin cifras no cuenta. */
 export const hayFiltros = (f: FiltrosWeb): boolean => Object.keys(aFiltroPublicaciones(f, 1)).length > 1;
+
+const pesos = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
+
+/** Lo que dice la píldora de búsqueda del teléfono: sin filtros, la invitación; con ellos, la zona (o el tipo) y el detalle. Solo cuenta lo que de verdad filtra. */
+export function resumenBusqueda(f: FiltrosWeb): { titulo: string; subtitulo: string } {
+  if (!hayFiltros(f)) return { titulo: '¿Dónde quieres vivir?', subtitulo: 'Zona · presupuesto · tipo' };
+  const zona = f.zona.trim();
+  const tope = parsearPresupuesto(f.presupuesto);
+  const detalles: string[] = [];
+  if (zona && f.tipo) detalles.push(etiquetaDeTipo(f.tipo));
+  if (tope !== undefined) detalles.push(`hasta $${pesos.format(tope)}`);
+  if (f.amueblado) detalles.push('amueblado');
+  if (f.mascotas) detalles.push('acepta mascotas');
+  if (f.serviciosIncluidos) detalles.push('servicios incluidos');
+  const detalle = detalles.join(' · ');
+  return { titulo: zona || (f.tipo ? etiquetaDeTipo(f.tipo) : 'Lugares'), subtitulo: detalle ? detalle[0].toUpperCase() + detalle.slice(1) : 'Todos los tipos' };
+}

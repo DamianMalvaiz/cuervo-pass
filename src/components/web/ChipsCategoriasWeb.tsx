@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
@@ -7,11 +7,11 @@ import { useTheme } from '@/hooks/use-theme';
 import type { CategoriaExplorar } from '@/services/explorar.service';
 
 /** Las categorías de negocios como chips: «Todos» y una por categoría; la elegida queda marcada y se anuncia como seleccionada. `activa` es el id de la categoría, o `undefined` para «Todos». */
-export function ChipsCategoriasWeb({ categorias, activa, onElegir }: { categorias: CategoriaExplorar[]; activa: string | undefined; onElegir: (id: string | undefined) => void }) {
+export function ChipsCategoriasWeb({ categorias, activa, onElegir, deslizar = false }: { categorias: CategoriaExplorar[]; activa: string | undefined; onElegir: (id: string | undefined) => void; deslizar?: boolean }) {
   const theme = useTheme();
   const opciones: { id: string | undefined; nombre: string }[] = [{ id: undefined, nombre: 'Todos' }, ...categorias.map((c) => ({ id: c.id, nombre: c.nombre }))];
-  return (
-    <View style={estilos.fila} accessibilityRole="radiogroup" accessibilityLabel="Categorías">
+  const chips = (
+    <>
       {opciones.map((o) => {
         const seleccionada = activa === o.id;
         return (
@@ -29,11 +29,24 @@ export function ChipsCategoriasWeb({ categorias, activa, onElegir }: { categoria
           </Pulsable>
         );
       })}
+    </>
+  );
+  if (deslizar) {
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.deslizable} accessibilityRole="radiogroup" accessibilityLabel="Categorías">
+        {chips}
+      </ScrollView>
+    );
+  }
+  return (
+    <View style={estilos.fila} accessibilityRole="radiogroup" accessibilityLabel="Categorías">
+      {chips}
     </View>
   );
 }
 
 const estilos = StyleSheet.create({
   fila: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  deslizable: { flexDirection: 'row', gap: Spacing.two },
   chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.four, borderRadius: Radios.full, borderWidth: Filete.fino },
 });
