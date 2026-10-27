@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 import { useToastStore } from '@/store/useToastStore';
@@ -84,45 +84,29 @@ beforeEach(() => {
   mockMutar.mockResolvedValue(undefined);
 });
 
-/** Toca la acción y devuelve los argumentos con los que se abrió el diálogo. */
+/** Toca la acción. Desactivar y reactivar son reversibles: actúan al instante, sin diálogo (el skill de Apple: confirmar solo lo irreversible). */
 async function tocar(etiqueta: string) {
   await act(async () => {
     fireEvent.press(screen.getByLabelText(etiqueta));
   });
-  await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
-  return (Alert.alert as jest.Mock).mock.calls[0];
 }
 
-/** Pulsa el botón de confirmación del diálogo abierto (el que no es Cancelar). */
-async function confirmar(botones: { text: string; onPress?: () => unknown }[]) {
-  const boton = botones.find((b) => b.text !== 'Cancelar');
-  await act(async () => {
-    await boton?.onPress?.();
-  });
-}
-
-test('el primer toque solo pregunta: no muta nada', async () => {
+test('desactivar actúa AL INSTANTE: sin diálogo de confirmación', async () => {
   await render(<PublicacionesScreen />);
   await tocar('Desactivar Depa centro');
-  expect(mockMutar).not.toHaveBeenCalled();
-});
-
-test('al confirmar, desactiva con activa=false', async () => {
-  await render(<PublicacionesScreen />);
-  const [, , botones] = await tocar('Desactivar Depa centro');
-  await confirmar(botones);
   expect(mockMutar).toHaveBeenCalledWith({ id: 'p1', activa: false });
+  expect(Alert.alert).not.toHaveBeenCalled();
 });
 
 // Una inactiva ofrece lo contrario. Si la etiqueta y la mutación se
 // desincronizaran, el dueño pulsaría «Reactivar» y la volvería a apagar.
-test('una inactiva ofrece reactivar, y reactiva con activa=true', async () => {
+test('una inactiva ofrece reactivar, y reactiva con activa=true, también sin diálogo', async () => {
   mockMisPublicaciones.mockReturnValue({ datos: [publicacion({ activa: false })], cargando: false });
   await render(<PublicacionesScreen />);
   expect(screen.getByText('Inactiva: no aparece en las sugerencias')).toBeTruthy();
-  const [, , botones] = await tocar('Reactivar Depa centro');
-  await confirmar(botones);
+  await tocar('Reactivar Depa centro');
   expect(mockMutar).toHaveBeenCalledWith({ id: 'p1', activa: true });
+  expect(Alert.alert).not.toHaveBeenCalled();
 });
 
 // END-27 · El código manda, no el idioma del servidor. Este error trae el texto
@@ -132,10 +116,8 @@ test('END-27 · el límite de 15 se reconoce por código, no por el texto', asyn
   mockMutar.mockRejectedValue({ code: 'CP002', message: 'maximum of 15 active listings reached' });
   mockMisPublicaciones.mockReturnValue({ datos: [publicacion({ activa: false })], cargando: false });
   await render(<PublicacionesScreen />);
-  const [, , botones] = await tocar('Reactivar Depa centro');
-  await confirmar(botones);
+  await tocar('Reactivar Depa centro');
 
-  // Paso 3 · el fallo se AVISA. Solo se queda como Alert la pregunta de confirmar.
   expect(useToastStore.getState().actual).toMatchObject({ tipo: 'error' });
   expect(useToastStore.getState().actual?.mensaje).toContain('No se pudo cambiar el estado');
   expect(useToastStore.getState().actual?.mensaje).toContain('15 publicaciones activas');
@@ -144,8 +126,7 @@ test('END-27 · el límite de 15 se reconoce por código, no por el texto', asyn
 test('un fallo sin código da el mensaje genérico, no el del límite', async () => {
   mockMutar.mockRejectedValue(new Error('network request failed'));
   await render(<PublicacionesScreen />);
-  const [, , botones] = await tocar('Desactivar Depa centro');
-  await confirmar(botones);
+  await tocar('Desactivar Depa centro');
 
   expect(useToastStore.getState().actual).toMatchObject({
     tipo: 'error',
@@ -154,33 +135,56 @@ test('un fallo sin código da el mensaje genérico, no el del límite', async ()
   expect(useToastStore.getState().actual?.mensaje).not.toContain('15');
 });
 
-// Paso 3 · antes, un cambio exitoso no decía nada: la publicación solo cambiaba de
-// aspecto en la lista, y quien estaba mirando otra cosa no se enteraba.
-test('al desactivar bien, se confirma con un aviso de éxito', async () => {
+// Paso 3 · antes, un cambio exitoso no decía nada. Y ahora, sin diálogo previo, el aviso es la red de seguridad: lleva «Deshacer».
+test('al desactivar bien, se confirma con un aviso de éxito que ofrece «Deshacer»', async () => {
   await render(<PublicacionesScreen />);
-  const [, , botones] = await tocar('Desactivar Depa centro');
-  await confirmar(botones);
+  await tocar('Desactivar Depa centro');
 
   expect(useToastStore.getState().actual).toMatchObject({ tipo: 'exito', mensaje: 'Publicación desactivada' });
+  expect(useToastStore.getState().actual?.accion?.etiqueta).toBe('Deshacer');
 });
 
-test('al reactivar bien, se confirma con un aviso de éxito', async () => {
+test('«Deshacer» tras desactivar la vuelve a activar', async () => {
+  await render(<PublicacionesScreen />);
+  await tocar('Desactivar Depa centro');
+  mockMutar.mockClear();
+
+  await act(async () => { useToastStore.getState().actual?.accion?.onPress(); });
+
+  expect(mockMutar).toHaveBeenCalledWith({ id: 'p1', activa: true });
+});
+
+test('al reactivar bien, se confirma con un aviso de éxito, y «Deshacer» la vuelve a desactivar', async () => {
   mockMisPublicaciones.mockReturnValue({ datos: [publicacion({ activa: false })], cargando: false });
   await render(<PublicacionesScreen />);
-  const [, , botones] = await tocar('Reactivar Depa centro');
-  await confirmar(botones);
+  await tocar('Reactivar Depa centro');
 
   expect(useToastStore.getState().actual).toMatchObject({ tipo: 'exito', mensaje: 'Publicación reactivada' });
+  mockMutar.mockClear();
+  await act(async () => { useToastStore.getState().actual?.accion?.onPress(); });
+  expect(mockMutar).toHaveBeenCalledWith({ id: 'p1', activa: false });
+});
+
+// Deshacer una desactivación es reactivar, y reactivar puede chocar con el límite de 15 si mientras tanto se activó otra: se dice, no se traga.
+test('si «Deshacer» falla por el límite, lo dice', async () => {
+  await render(<PublicacionesScreen />);
+  await tocar('Desactivar Depa centro');
+  mockMutar.mockRejectedValue({ code: 'CP002', message: 'maximum of 15 active listings reached' });
+
+  await act(async () => { useToastStore.getState().actual?.accion?.onPress(); });
+
+  expect(useToastStore.getState().actual).toMatchObject({ tipo: 'error' });
+  expect(useToastStore.getState().actual?.mensaje).toContain('15 publicaciones activas');
 });
 
 // Un fallo no debe dar también el aviso de éxito.
-test('si falla, NO hay aviso de éxito', async () => {
+test('si falla, NO hay aviso de éxito ni «Deshacer»', async () => {
   mockMutar.mockRejectedValue(new Error('sin red'));
   await render(<PublicacionesScreen />);
-  const [, , botones] = await tocar('Desactivar Depa centro');
-  await confirmar(botones);
+  await tocar('Desactivar Depa centro');
 
   expect(useToastStore.getState().actual?.tipo).toBe('error');
+  expect(useToastStore.getState().actual?.accion).toBeUndefined();
 });
 
 // AUD-16 · Sin esto, una publicación oculta por reportes desaparecía de las

@@ -31,10 +31,10 @@ jest.mock('expo-image-picker', () => ({
 import { EditorMenu } from '../EditorMenu';
 
 const item = (id: string, nombre: string, extra: Record<string, unknown> = {}) => ({
-  id, negocio_id: 'n1', nombre, precio: 20, orden: 0, seccion: null, descripcion: null, foto: null, ...extra,
+  id, negocio_id: 'n1', nombre, precio: 20, orden: 0, seccion: null, descripcion: null, foto: null, fotos: [], estrella: false, ...extra,
 });
 const ITEMS = [
-  item('i1', 'Taco al pastor', { seccion: 'Tacos', descripcion: 'Con piña', foto: 'negocios/n1/p/a.jpg' }),
+  item('i1', 'Taco al pastor', { seccion: 'Tacos', descripcion: 'Con piña', foto: 'negocios/n1/p/a.jpg', fotos: ['negocios/n1/p/a.jpg'] }),
   item('i2', 'Agua de horchata', { seccion: 'Bebidas', precio: 15 }),
   item('i3', 'Revisión', { precio: null }),
 ];
@@ -117,7 +117,9 @@ describe('editar productos (todo local hasta guardar)', () => {
     expect(screen.getByText('Nuevo producto')).toBeTruthy();
     await escribir('Nombre del producto', 'Quesadilla');
     await escribir(/Precio/, '35');
-    await escribir(/Sección/, 'Antojitos');
+    await pulsar(/^Sección:/);
+    await pulsar('Otra sección');
+    await escribir('Escribe la sección', 'Antojitos');
     await pulsar('Guardar producto');
     expect(screen.getByText('Quesadilla')).toBeTruthy();
     expect(screen.getByText('Antojitos')).toBeTruthy();
@@ -158,20 +160,90 @@ describe('editar productos (todo local hasta guardar)', () => {
     expect(screen.queryByText('Cambiado')).toBeNull();
   });
 
-  it('las secciones que ya existen se ofrecen como atajos', async () => {
-    await montar();
-    await pulsar('Agregar un producto');
-    await pulsar('Usar la sección Bebidas');
-    expect(screen.getByDisplayValue('Bebidas')).toBeTruthy();
+  describe('la sección se elige de una lista (con «Otra» al final, donde se escribe)', () => {
+    it('sin elegir dice «Sección: sin elegir» y no hay un campo de texto a la vista', async () => {
+      await montar();
+      await pulsar('Agregar un producto');
+      expect(screen.getByLabelText('Sección: sin elegir')).toBeTruthy();
+      expect(screen.queryByLabelText('Escribe la sección')).toBeNull();
+    });
+
+    it('al abrirla ofrece las predefinidas y «Otra sección» va la ÚLTIMA', async () => {
+      await montar();
+      await pulsar('Agregar un producto');
+      await pulsar(/^Sección:/);
+      for (const s of ['Comida', 'Bebidas', 'Postres', 'Productos', 'Servicios']) expect(screen.getAllByLabelText(`Sección ${s}`).length).toBeGreaterThan(0);
+      const opciones = screen.getAllByLabelText(/^Sección |^Otra sección$/).map((o) => o.props.accessibilityLabel);
+      expect(opciones[opciones.length - 1]).toBe('Otra sección');
+    });
+
+    it('elegir una predefinida la guarda y cierra la lista', async () => {
+      await montar();
+      await pulsar('Agregar un producto');
+      await escribir('Nombre del producto', 'Flan');
+      await pulsar(/^Sección:/);
+      await pulsar('Sección Postres');
+      expect(screen.getByLabelText('Sección: Postres')).toBeTruthy();
+      expect(screen.queryByLabelText('Sección Comida')).toBeNull();
+      await pulsar('Guardar producto');
+      expect(screen.getByText('Postres')).toBeTruthy();
+    });
+
+    it('las secciones que el negocio ya usa también están en la lista', async () => {
+      await montar();
+      await pulsar('Agregar un producto');
+      await pulsar(/^Sección:/);
+      expect(screen.getAllByLabelText('Sección Tacos').length).toBeGreaterThan(0);
+    });
+
+    it('«Otra sección» abre un campo para escribirla, con el tope de 40', async () => {
+      await montar();
+      await pulsar('Agregar un producto');
+      await pulsar(/^Sección:/);
+      await pulsar('Otra sección');
+      expect(screen.getByLabelText('Escribe la sección').props.maxLength).toBe(40);
+    });
+
+    it('editar un producto con una sección propia la muestra elegida (no la pierde)', async () => {
+      await montar();
+      await pulsar('Editar Taco al pastor');
+      expect(screen.getByLabelText('Sección: Tacos')).toBeTruthy();
+    });
   });
 
-  it('se puede agregar y quitar la foto de un producto', async () => {
+  it('se puede agregar y quitar una foto de un producto', async () => {
     await montar();
     await pulsar('Editar Agua de horchata');
     await pulsar('Agregar una foto del producto');
-    expect(screen.getByLabelText('Quitar la foto del producto')).toBeTruthy();
-    await pulsar('Quitar la foto del producto');
-    expect(screen.queryByLabelText('Quitar la foto del producto')).toBeNull();
+    expect(screen.getByLabelText('Quitar la foto 1 del producto')).toBeTruthy();
+    await pulsar('Quitar la foto 1 del producto');
+    expect(screen.queryByLabelText('Quitar la foto 1 del producto')).toBeNull();
+  });
+
+  it('un producto puede llevar varias fotos: las guardadas y las nuevas se enumeran juntas', async () => {
+    await montar();
+    await pulsar('Editar Taco al pastor');
+    expect(screen.getByLabelText('Quitar la foto 1 del producto')).toBeTruthy();
+    await pulsar('Agregar una foto del producto');
+    await pulsar('Agregar una foto del producto');
+    expect(screen.getByLabelText('Quitar la foto 3 del producto')).toBeTruthy();
+  });
+
+  it('con 5 fotos ya no se ofrece agregar otra: dice el tope', async () => {
+    await montar();
+    await pulsar('Editar Taco al pastor');
+    for (let i = 0; i < 4; i++) await pulsar('Agregar una foto del producto');
+    expect(screen.queryByLabelText('Agregar una foto del producto')).toBeNull();
+    expect(screen.getByText(/hasta 5 fotos/)).toBeTruthy();
+  });
+
+  it('quitar una foto en medio deja las demás y las vuelve a enumerar', async () => {
+    await montar();
+    await pulsar('Editar Taco al pastor');
+    await pulsar('Agregar una foto del producto');
+    await pulsar('Quitar la foto 1 del producto');
+    expect(screen.getByLabelText('Quitar la foto 1 del producto')).toBeTruthy();
+    expect(screen.queryByLabelText('Quitar la foto 2 del producto')).toBeNull();
   });
 
   it('sin permiso de galería no agrega foto', async () => {
@@ -184,6 +256,42 @@ describe('editar productos (todo local hasta guardar)', () => {
   });
 });
 
+describe('producto estrella', () => {
+  it('se marca con un interruptor y viaja al guardar el menú', async () => {
+    await montar();
+    await pulsar('Editar Agua de horchata');
+    await act(async () => { fireEvent(screen.getByLabelText('Producto estrella'), 'valueChange', true); });
+    await pulsar('Guardar producto');
+    await pulsar('Guardar menú');
+    const productos = mockMutate.mock.calls[0][0].productos;
+    expect(productos.map((x: { nombre: string; estrella: boolean }) => [x.nombre, x.estrella])).toEqual([
+      ['Taco al pastor', false], ['Agua de horchata', true], ['Revisión', false],
+    ]);
+  });
+
+  it('un producto que ya es estrella llega con el interruptor encendido', async () => {
+    mockSus.mockReturnValue({ suscripcion: { max_fotos: 60, max_productos: 250 }, cargando: false, fallo: false });
+    await render(<EditorMenu negocioId="n1" nombreNegocio="Tacos" items={[item('i1', 'Taco', { estrella: true })] as never} />);
+    await pulsar('Editar Taco');
+    expect(screen.getByLabelText('Producto estrella').props.value).toBe(true);
+  });
+
+  it('con 6 estrellas ya en otros productos no se ofrece una séptima: lo dice', async () => {
+    const seis = Array.from({ length: 6 }, (_, i) => item(`e${i}`, `Estrella ${i}`, { estrella: true }));
+    await render(<EditorMenu negocioId="n1" nombreNegocio="Tacos" items={[...seis, item('x', 'Normal')] as never} />);
+    await pulsar('Editar Normal');
+    expect(screen.queryByLabelText('Producto estrella')).toBeNull();
+    expect(screen.getByText(/hasta 6 productos estrella/)).toBeTruthy();
+  });
+
+  it('el que YA es estrella conserva su interruptor aunque haya 6 (se puede quitar)', async () => {
+    const seis = Array.from({ length: 6 }, (_, i) => item(`e${i}`, `Estrella ${i}`, { estrella: true }));
+    await render(<EditorMenu negocioId="n1" nombreNegocio="Tacos" items={seis as never} />);
+    await pulsar('Editar Estrella 0');
+    expect(screen.getByLabelText('Producto estrella').props.value).toBe(true);
+  });
+});
+
 describe('guardar el menú', () => {
   it('manda la lista ENTERA y las fotos con que se cargó, en una sola llamada', async () => {
     await montar();
@@ -193,6 +301,17 @@ describe('guardar el menú', () => {
     expect(entrada.productos.map((p: { nombre: string }) => p.nombre)).toEqual(['Taco al pastor', 'Agua de horchata', 'Revisión']);
     expect(entrada.fotosAnteriores).toEqual(['negocios/n1/p/a.jpg']);
     expect(entrada.productos[0].id).toBe('i1');
+  });
+
+  it('las fotos nuevas de un producto viajan en `fotosNuevas` y las guardadas en `fotos`', async () => {
+    await montar();
+    await pulsar('Editar Taco al pastor');
+    await pulsar('Agregar una foto del producto');
+    await pulsar('Guardar producto');
+    await pulsar('Guardar menú');
+    const taco = mockMutate.mock.calls[0][0].productos[0];
+    expect(taco.fotos).toEqual(['negocios/n1/p/a.jpg']);
+    expect(taco.fotosNuevas).toHaveLength(1);
   });
 
   it('los cambios locales viajan en esa llamada', async () => {

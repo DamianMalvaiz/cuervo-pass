@@ -15,7 +15,7 @@ import {
   listarPlanes,
   obtenerMiSuscripcion,
   obtenerMiUltimaOrden,
-  simularPago,
+  iniciarPrueba,
 } from '@/services/planes.service';
 
 type Rol = 'comerciante' | 'arrendador';
@@ -66,11 +66,12 @@ function invalidarTrasPago(cliente: QueryClient, usuarioId: string | undefined, 
   void cliente.invalidateQueries({ queryKey: ['negocio'] });
 }
 
-export function useContratarPlan(usuarioId: string | undefined) {
+/** Inicia la prueba gratis de una función. Al terminar vuelve a pedir lo que depende del plan: los límites y lo que se ve en Servicios cambian con él. */
+export function useIniciarPrueba(usuarioId: string | undefined) {
   const cliente = useQueryClient();
   return useMutation({
-    mutationFn: ({ planId }: { planId: string; rol: Rol }) => simularPago(planId),
-    onSuccess: (_hasta, { rol }) => invalidarTrasPago(cliente, usuarioId, rol),
+    mutationFn: (rol: Rol) => iniciarPrueba(rol),
+    onSuccess: (_hasta, rol) => invalidarTrasPago(cliente, usuarioId, rol),
   });
 }
 

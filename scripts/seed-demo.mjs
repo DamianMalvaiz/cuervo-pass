@@ -170,6 +170,7 @@ async function main() {
       email,
       password: PASSWORD_DEMO,
       email_confirm: true,
+      app_metadata: { sin_restriccion: true }, // cuenta de demo con correo no universitario (0082)
     });
     if (errorAuth || !creado?.user) {
       console.warn(`  [${i}] auth falló (${email}):`, errorAuth?.message);

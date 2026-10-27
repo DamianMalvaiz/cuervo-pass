@@ -328,3 +328,25 @@ describe('responder (el dueño)', () => {
     expect(mockResponder).not.toHaveBeenCalled();
   });
 });
+
+// 0082 · una cuenta restringida no ve lo que la base va a rechazar. `useCuentaRestringida` está simulado por omisión en jest.setup.js (false).
+const { useCuentaRestringida } = jest.requireMock('@/hooks/queries/useCuentaRestringida');
+afterEach(() => useCuentaRestringida.mockReturnValue(false));
+
+describe('cuenta restringida · 0082', () => {
+  it('no ofrece reseñar ni reportar, y dice por qué', async () => {
+    useCuentaRestringida.mockReturnValue(true);
+    await montar();
+    expect(screen.queryByLabelText('Escribir mi reseña')).toBeNull();
+    expect(screen.queryByLabelText(/Reportar la reseña/)).toBeNull();
+    expect(screen.getByText(/Para reseñar necesitas/i)).toBeTruthy();
+    // Lo que SÍ se ve: las reseñas de los demás.
+    expect(screen.getByText('Muy rico')).toBeTruthy();
+  });
+
+  it('una cuenta normal conserva las dos acciones', async () => {
+    await montar();
+    expect(screen.getByLabelText('Escribir mi reseña')).toBeTruthy();
+    expect(screen.getByLabelText(/Reportar la reseña/)).toBeTruthy();
+  });
+});

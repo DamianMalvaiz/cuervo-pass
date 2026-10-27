@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing, Texto } from '@/constants/theme';
 import { AVISO_ACTUALIZACION } from '@/lib/avisoPrivacidad';
+import { irAlLogin } from '@/lib/navegacion';
 import { toast } from '@/lib/toast';
 import { VERSION_AVISO } from '@/lib/verificacion';
 import { aceptarAviso } from '@/services/aviso.service';
@@ -17,9 +18,10 @@ import { useAuthStore } from '@/store/useAuthStore';
 // Lo esencial de lo que cambió en la versión 3. El detalle completo está en el aviso, que se puede leer antes de aceptar.
 const CAMBIOS = [
   'Quien ofrece servicios o viviendas entrega su INE, su nombre y su domicilio para verificar su identidad. Una persona del equipo la revisa, y se borra a los 30 días de aprobada (7 si se rechaza).',
-  'Hay planes de suscripción para vendedores. Por ahora los cobros son simulados: no se procesa ninguna tarjeta.',
+  'Hay planes de suscripción para vendedores. Se pagan con Mercado Pago, por ahora en modo de pruebas: Mercado Pago recibe solo el plan, el monto y un número de orden, no tus datos.',
   'Puedes escribir reseñas de negocios y viviendas. Las ve cualquier usuario con sesión, con tu nombre de usuario.',
   'Tus favoritos son privados: solo se muestra cuántas personas guardaron algo, nunca quiénes.',
+  'La web de Cuervo 360 se puede explorar sin cuenta. Quien no tiene cuenta ve, de las viviendas y los negocios publicados, datos reducidos: la zona (sin calle ni número), una ubicación aproximada, las fotos y los precios. No ve la dirección exacta, el teléfono ni quién publica.',
   'Hoy no tratamos datos biométricos. Si algún día se ofrece, te lo avisaremos y pediremos un consentimiento aparte.',
 ];
 
@@ -48,7 +50,7 @@ export default function AvisoActualizadoScreen() {
 
   const salir = async () => {
     await cerrarSesion();
-    router.replace('/(auth)/login');
+    irAlLogin();
   };
 
   return (

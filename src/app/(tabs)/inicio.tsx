@@ -1,8 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { FlatList, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ANCHO_FICHA_COMPACTA, FichaCompacta } from '@/components/FichaCompacta';
 import { FilaPublicacion } from '@/components/FilaPublicacion';
@@ -34,7 +34,7 @@ import type {
   PublicacionSugerida,
   TipoPublicacion,
 } from '@/types/database.types';
-import { useNuevas, useSugerencias } from '@/hooks/queries/usePublicaciones';
+import { useDestacadas, useNuevas, useSugerencias } from '@/hooks/queries/usePublicaciones';
 
 // Documento maestro v5 · §17, §18, §25.
 //
@@ -118,7 +118,7 @@ function ResumenFiltros() {
         <ThemedText type="etiqueta" themeColor="textSecondary">
           TU BÚSQUEDA
         </ThemedText>
-        <ThemedText type="small" numberOfLines={1}>
+        <ThemedText type="small" numberOfLines={2}>
           {partes.join(' · ')}
         </ThemedText>
       </View>
@@ -172,7 +172,7 @@ function ChipsTipo({
   );
 }
 
-function VistaDepas({ selector }: { selector?: ReactNode }) {
+function VistaDepas({ selector, campana }: { selector?: ReactNode; campana?: ReactNode }) {
   const session = useAuthStore((s) => s.session);
   const cargarPerfil = usePerfilStore((s) => s.cargarPerfil);
   // Dos números y no una bandera: en una misma lista conviven publicaciones
@@ -201,6 +201,8 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
   // END-32 · El único carrusel. No depende del orden de la lista: ordena por
   // fecha, que es lo suyo.
   const { datos: nuevas } = useNuevas(tipo);
+  // Los destacados salen del PLAN del arrendador (0087): uno solo ya se pinta, porque no es relleno sino algo que se paga.
+  const { datos: destacadas } = useDestacadas(tipo);
 
   // AUD-08: una sola petición para todas las miniaturas visibles, y las del
   // carrusel VAN INCLUIDAS. Firmarlas en dos llamadas separadas era el defecto
@@ -208,10 +210,11 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
   const { urls: urlsFirmadas } = useFotosFirmadas([
     ...sugerencias.map((s) => s.fotos?.[0]),
     ...nuevas.map((n) => n.fotos?.[0]),
+    ...destacadas.map((d) => d.fotos?.[0]),
   ]);
   // Miniaturas (lib/miniaturas.ts): sin red, solo URLs con la sesión en cabeceras. La foto completa de arriba queda de respaldo.
   const miniaturasLista = useMiniaturas(sugerencias.map((s) => s.fotos?.[0]), ANCHOS.ancha);
-  const miniaturasCarrusel = useMiniaturas(nuevas.map((n) => n.fotos?.[0]), ANCHOS.compacta);
+  const miniaturasCarrusel = useMiniaturas([...nuevas, ...destacadas].map((n) => n.fotos?.[0]), ANCHOS.compacta);
 
   // B.3 · El filtro ya corre en Postgres, dentro de la función que trunca a
   // treinta, así que lo que llega aquí es el top-30 DE ESE TIPO y no lo que
@@ -228,8 +231,9 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
   }, []);
 
   const compacta = useCallback(
-    (item: PublicacionNueva) => (
+    (item: PublicacionNueva, destacada = false) => (
       <FichaCompacta
+        destacada={destacada}
         titulo={item.titulo}
         tipo={item.tipo}
         precio={item.precio_renta}
@@ -270,7 +274,7 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
           <View style={estilos.cabecera}>
             {selector ? <View style={estilos.margen}>{selector}</View> : null}
             <View style={estilos.margen}>
-              <Encabezado titulo="Sugerencias" />
+              <Encabezado titulo="Sugerencias" accion={campana} />
               <ResumenFiltros />
             </View>
 
@@ -296,6 +300,16 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
                   No pudimos actualizar. Estás viendo los últimos resultados cargados.
                 </ThemedText>
               </View>
+            )}
+
+            {destacadas.length > 0 && (
+              <Carrusel
+                titulo="Destacados cerca de ti"
+                datos={destacadas}
+                claveDe={(p) => `ds-${p.id}`}
+                renderizar={(p) => compacta(p, true)}
+                anchoItem={ANCHO_FICHA_COMPACTA}
+              />
             )}
 
             {/* Lo ÚNICO que la lista de abajo no dice. Se pinta solo si hay
@@ -392,8 +406,6 @@ function VistaDepas({ selector }: { selector?: ReactNode }) {
 }
 
 const estilos = StyleSheet.create({
-  filaSelector: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  selectorFlex: { flex: 1 },
   columna: { width: '100%', alignSelf: 'center' },
   pantalla: { flex: 1 },
   lista: { paddingBottom: Spacing.six },
@@ -453,15 +465,17 @@ const estilos = StyleSheet.create({
 export default function InicioScreen() {
   const modulo = useModuloStore((s) => s.modulo);
   const setModulo = useModuloStore((s) => s.setModulo);
+  // El selector tiene su PROPIA fila a todo el ancho: con la campana al lado, «Roomies» y «Servicios» se partían en dos renglones (probado en un
+  // teléfono real el 24/10/2026). La campana va con el título de cada vista.
   const selector = (
-    <View style={estilos.filaSelector}>
-      <View style={estilos.selectorFlex}>
-        <SelectorModulo valor={modulo} onCambiar={setModulo} />
-      </View>
-      <CampanaAvisos />
+    <View testID="fila-selector">
+      <SelectorModulo valor={modulo} onCambiar={setModulo} />
     </View>
   );
-  if (modulo === 'roomies') return <VistaRoomies selector={selector} />;
-  if (modulo === 'servicios') return <VistaServicios selector={selector} />;
-  return <VistaDepas selector={selector} />;
+  const campana = <CampanaAvisos />;
+  // En la web explorar son las páginas de siempre (`/departamentos`, `/roomies`, `/servicios`); esta pantalla es la del teléfono.
+  if (Platform.OS === 'web') return <Redirect href="/departamentos" />;
+  if (modulo === 'roomies') return <VistaRoomies selector={selector} campana={campana} />;
+  if (modulo === 'servicios') return <VistaServicios selector={selector} campana={campana} />;
+  return <VistaDepas selector={selector} campana={campana} />;
 }

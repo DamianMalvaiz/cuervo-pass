@@ -28,8 +28,10 @@ import { z } from 'zod';
 
 export const MENSAJE_OBLIGATORIO = 'Este campo es obligatorio';
 
+// `jitless`: Zod no prueba `new Function` (la CSP de la web, sin unsafe-eval, lo bloquea y deja una violación en la consola). Mismo resultado, sin eval.
 z.config({
   ...z.locales.es(),
+  jitless: true,
   customError: (issue) =>
     issue.input === undefined || issue.input === null ? MENSAJE_OBLIGATORIO : undefined,
 });

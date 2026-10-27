@@ -17,6 +17,8 @@ interface DatosRegistro {
   nombreCompleto: string;
   /** Se guarda en el servidor al crear la cuenta (migración 0046): sin sesión no hay quién lo escriba desde el cliente. */
   aceptoAviso: boolean;
+  /** Lo que la persona dice ser (0082). Solo los vendedores lo mandan; el servidor no lo toma como prueba de nada, solo como el rol que pide. */
+  tipoCuenta?: 'arrendador' | 'comerciante';
 }
 
 interface AuthState {
@@ -101,6 +103,8 @@ function limpiarMemoriaDeSesion() {
   }
 }
 
+export const MENSAJE_CORREO_YA_REGISTRADO = 'Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.';
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   cargando: true,
@@ -109,7 +113,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    * veces.
    *
    * Antes, `onAuthStateChange` se registraba sin guardar nada. Cada llamada a
-   * `cargarSesionInicial` —y el layout raíz la llama al montar— dejaba UN
+   * `cargarSesionInicial` —la pantalla de inicio la llama al montar— dejaba UN
    * listener más, vivo para siempre, todos escribiendo el mismo estado. En
    * desarrollo, con Fast Refresh, eso se acumula en cada guardado.
    *
@@ -147,7 +151,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // que dejaba una ventana en la que existía la cuenta de Auth y no el perfil:
   // si la app se cerraba entre las dos llamadas, la cuenta quedaba rota y nada
   // lo reparaba.
-  registrarse: async ({ email, password, nombreUsuario, nombreCompleto, aceptoAviso }) => {
+  registrarse: async ({ email, password, nombreUsuario, nombreCompleto, aceptoAviso, tipoCuenta }) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -158,13 +162,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           acepto_aviso: aceptoAviso,
           // QUÉ versión se aceptó, no solo que se aceptó (migración 0059).
           aviso_version: VERSION_AVISO,
+          ...(tipoCuenta ? { tipo_cuenta: tipoCuenta } : {}),
         },
       },
     });
     if (error) throw error;
+    // Con un correo YA registrado Supabase no manda nada y devuelve un usuario falso, sin sesión y con `identities` vacío. Se dice en
+    // claro (decisión del 23/10/2026): callar dejaba a la persona esperando un código que no iba a llegar. A cambio, quien pruebe correos
+    // puede saber cuáles tienen cuenta (enumeración de cuentas); queda anotado en docs/modelo-amenazas.md.
+    if (data.user?.identities?.length === 0) throw new Error(MENSAJE_CORREO_YA_REGISTRADO);
     set({ session: data.session });
-    // Sin sesión = hay que confirmar el correo. También ocurre con un correo YA registrado: Supabase responde
-    // igual (sin error) para no revelar qué correos existen, y la respuesta correcta es la misma.
+    // Sin sesión = hay que confirmar el correo.
     return { requiereConfirmacion: !data.session };
   },
 

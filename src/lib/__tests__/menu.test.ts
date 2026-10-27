@@ -1,10 +1,10 @@
 import {
-  MAX_PRODUCTOS_TECNICO, agruparPorSeccion, buscarEnMenu, claveNueva, parsearPrecio, productoVacio, seccionesDe,
+  MAX_ESTRELLAS, MAX_FOTOS_PRODUCTO, MAX_PRODUCTOS_TECNICO, agruparPorSeccion, buscarEnMenu, claveNueva, parsearPrecio, productoVacio, seccionesDe,
   validarMenu, validarProducto, type ProductoEditable,
 } from '../menu';
 
 const p = (nombre: string, seccion = '', extra: Partial<ProductoEditable> = {}): ProductoEditable => ({
-  clave: nombre, nombre, precio: '10', seccion, descripcion: '', foto: null, fotoNueva: null, ...extra,
+  clave: nombre, nombre, precio: '10', seccion, descripcion: '', fotos: [], fotosNuevas: [], estrella: false, ...extra,
 });
 
 describe('parsearPrecio', () => {
@@ -99,11 +99,33 @@ describe('buscarEnMenu', () => {
 
 describe('claves nuevas', () => {
   it('dos claves nuevas no chocan', () => expect(claveNueva()).not.toBe(claveNueva()));
-  it('un producto vacío arranca sin foto ni id', () => {
+  it('un producto vacío arranca sin fotos ni id', () => {
     const v = productoVacio();
     expect(v.id).toBeUndefined();
-    expect(v.foto).toBeNull();
-    expect(v.fotoNueva).toBeNull();
+    expect(v.fotos).toEqual([]);
+    expect(v.fotosNuevas).toEqual([]);
+    expect(v.estrella).toBe(false);
     expect(v.nombre).toBe('');
   });
+});
+
+describe('fotos de un producto (0085)', () => {
+  it('el tope es 5, el de la base', () => expect(MAX_FOTOS_PRODUCTO).toBe(5));
+  it('cinco entre las guardadas y las nuevas está bien', () => {
+    expect(validarProducto(p('Taco', '', { fotos: ['a', 'b', 'c'], fotosNuevas: ['d', 'e'] })).fotos).toBeUndefined();
+  });
+  it('seis (guardadas + nuevas) no: dice cuántas quitar', () => {
+    expect(validarProducto(p('Taco', '', { fotos: ['a', 'b', 'c', 'd'], fotosNuevas: ['e', 'f'] })).fotos).toBe('Un producto lleva hasta 5 fotos. Quita 1.');
+  });
+  it('el menú entero se rechaza si un producto se pasa de fotos, con su nombre', () => {
+    expect(validarMenu([p('Taco', '', { fotosNuevas: ['1', '2', '3', '4', '5', '6'] })])).toBe('«Taco»: Un producto lleva hasta 5 fotos. Quita 1.');
+  });
+});
+
+describe('producto estrella (0086)', () => {
+  const estrellas = (n: number) => Array.from({ length: n }, (_, i) => p(`P${i}`, '', { estrella: true }));
+  it('el tope es 6, el de la base', () => expect(MAX_ESTRELLAS).toBe(6));
+  it('seis estrellas está bien', () => expect(validarMenu(estrellas(6))).toBeNull());
+  it('siete no: dice cuántas quitar', () => expect(validarMenu(estrellas(7))).toBe('Puedes tener hasta 6 productos estrella. Quita 1.'));
+  it('las que no son estrella no cuentan', () => expect(validarMenu([...estrellas(6), p('Normal')])).toBeNull());
 });

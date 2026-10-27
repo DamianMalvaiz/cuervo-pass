@@ -20,6 +20,7 @@ export const claves = {
   // entre C.3 y B.3.
   sugerencias: (tipo: string | null, orden: string) => ['sugerencias', tipo, orden] as const,
   nuevas: (tipo: string | null) => ['nuevas', tipo] as const,
+  destacadas: (tipo: string | null) => ['destacadas', tipo] as const,
   publicacion: (id: string) => ['publicacion', id] as const,
   misPublicaciones: (usuarioId: string) => ['misPublicaciones', usuarioId] as const,
   contactosRecibidos: () => ['contactosRecibidos'] as const,

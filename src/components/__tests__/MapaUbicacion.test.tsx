@@ -65,4 +65,9 @@ describe('hayMapaIntegrado', () => {
   test('Android con clave: hay mapa', () => {
     expect(hayMapaIntegrado('android', 'AIza-algo')).toBe(true);
   });
+  // La web (panel de admin) no tiene mapa nativo: `MapaNativo.web.tsx` no dibuja nada, así que NUNCA debe elegirse el mapa integrado ahí, con o sin clave.
+  it('en web nunca hay mapa integrado: se usa el enlace a Maps', () => {
+    expect(hayMapaIntegrado('web', undefined)).toBe(false);
+    expect(hayMapaIntegrado('web', 'AIza-algo')).toBe(false);
+  });
 });

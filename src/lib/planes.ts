@@ -6,12 +6,24 @@
 
 export type EstadoSuscripcion = 'vigente' | 'prueba' | 'gratis';
 
+/**
+ * Cuántos días dura la prueba gratis. Es el número de la base (`iniciar_prueba`, migración 0084): la pantalla lo nombra ANTES de empezar, así que vive aquí
+ * y la prueba lo ata a lo que dice el texto. Si la base cambia, se cambia aquí y en la prueba, a la vista.
+ */
+export const DIAS_DE_PRUEBA = 15;
+
+/** Lo que se lee antes de pulsar «Empezar prueba gratis». */
+export const textoDePrueba = (nombrePlan: string): string =>
+  `${DIAS_DE_PRUEBA} días con todo lo del plan ${nombrePlan}. Sin tarjeta y sin compromiso.`;
+
 export interface MiSuscripcion {
   plan_id: string;
   plan_nombre: string;
   estado: EstadoSuscripcion;
   /** Fin del periodo pagado o de la prueba; `null` en el plan gratuito. */
   hasta: string | null;
+  /** ¿Puede iniciar su prueba gratis ahora? (no la ha usado y no ha pagado). La calcula la base: así el botón se ofrece solo cuando funciona. */
+  prueba_disponible: boolean;
   limite_principal: number;
   max_fotos: number;
   max_productos: number;

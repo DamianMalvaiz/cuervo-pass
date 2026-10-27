@@ -1,10 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Linking, Platform, StyleSheet, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { Sello } from '@/components/ficha/Sello';
 import { useTheme } from '@/hooks/use-theme';
+import { MapaNativo } from './MapaNativo';
 import { ThemedText } from './themed-text';
 
 interface Props {
@@ -24,6 +24,8 @@ interface Props {
 // `EXPO_PUBLIC_*` se sustituye al empaquetar, igual que la clave que lee
 // `app.config.js`: las dos ven el mismo `.env` en la misma compilación.
 export function hayMapaIntegrado(os: string, claveGoogle: string | undefined): boolean {
+  // La web no tiene mapa nativo: ahí siempre se muestra la dirección con el enlace a Maps.
+  if (os === 'web') return false;
   return os !== 'android' || Boolean(claveGoogle?.trim());
 }
 
@@ -41,21 +43,7 @@ export function MapaUbicacion({
   if (mapaIntegrado) {
     return (
       <View style={[estilos.marco, { borderColor: theme.border }]}>
-        <MapView
-          style={estilos.mapa}
-          initialRegion={{
-            latitude: latitud,
-            longitude: longitud,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }}
-          zoomEnabled
-          scrollEnabled
-          rotateEnabled
-          zoomControlEnabled
-        >
-          <Marker coordinate={{ latitude: latitud, longitude: longitud }} title={titulo} />
-        </MapView>
+        <MapaNativo latitud={latitud} longitud={longitud} titulo={titulo} />
       </View>
     );
   }
@@ -84,7 +72,6 @@ export function MapaUbicacion({
 
 const estilos = StyleSheet.create({
   marco: { borderWidth: Filete.fino, borderRadius: Radios.hoja, overflow: 'hidden' },
-  mapa: { height: 220 },
   sustituto: { padding: Spacing.three, gap: Spacing.two, alignItems: 'flex-start' },
   direccion: { ...Texto.cuerpo },
 });

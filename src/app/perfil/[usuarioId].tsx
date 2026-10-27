@@ -19,6 +19,7 @@ import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { folioDe } from '@/lib/folio';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useCuentaRestringida } from '@/hooks/queries/useCuentaRestringida';
 import { abrirChatCon } from '@/lib/abrirChat';
 import { obtenerAfinidadRoomie, obtenerPerfilPublico, reportarUsuario } from '@/services/usuarios.service';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -97,6 +98,8 @@ export default function PerfilRoomieScreen() {
 
   const { urls: urlsFirmadas } = useFotosFirmadas([usuario?.foto_url]);
   const esPropio = Boolean(session?.user.id) && session?.user.id === usuarioId;
+  // 0082: una cuenta sin correo universitario no inicia chats ni reporta; no se ofrece lo que la base va a rechazar.
+  const restringida = useCuentaRestringida(session?.user.id);
 
   // AUD-07: la conversación la abre una función de Postgres, no un insert desde
   // el cliente. Dos personas tocando el botón a la vez reciben el MISMO
@@ -286,6 +289,10 @@ export default function PerfilRoomieScreen() {
         {esPropio ? (
           <ThemedText type="small" themeColor="textSecondary">
             Así te ven las demás personas.
+          </ThemedText>
+        ) : restringida ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Una cuenta de vendedor no inicia conversaciones ni reporta. Sí puedes responder a quien te escribe.
           </ThemedText>
         ) : (
           <>

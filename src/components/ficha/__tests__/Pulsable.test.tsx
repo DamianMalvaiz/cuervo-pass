@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
 // El control táctil de toda la app. Lo que se fija: nunca se traga los eventos de quien lo usa (onPress, onPressIn, onPressOut), responde al toque con
 // «reducir movimiento» encendido, apagado y aún sin saber, y no rompe el ref ni el resto de props (accesibilidad, deshabilitado).
@@ -65,4 +65,18 @@ test('pinta su contenido', async () => {
   mockReducido = false;
   await montar();
   expect(screen.getByText('contenido')).toBeTruthy();
+});
+
+// La opacidad animada parte de 1 y pisaba la del propio estilo: un control con `opacity: 0.45` (deshabilitado) volvía a verse activo. Ahora la que se
+// anima se MULTIPLICA por la del estilo.
+test('respeta la opacidad que trae su estilo (un control deshabilitado se sigue viendo deshabilitado)', async () => {
+  mockReducido = false;
+  await montar({ style: { opacity: 0.45 } });
+  expect(StyleSheet.flatten(screen.getByLabelText('Tocar').props.style).opacity).toBeCloseTo(0.45);
+});
+
+test('sin opacidad propia en el estilo, parte de 1', async () => {
+  mockReducido = false;
+  await montar();
+  expect(StyleSheet.flatten(screen.getByLabelText('Tocar').props.style).opacity).toBe(1);
 });

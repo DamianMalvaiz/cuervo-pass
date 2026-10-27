@@ -3,12 +3,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import '@/lib/zodEs';
 
 import { Campo } from '@/components/Campo';
+import { EncabezadoAuth } from '@/components/EncabezadoAuth';
 import { Sello } from '@/components/ficha/Sello';
 import { RequisitosPassword } from '@/components/RequisitosPassword';
 import { ThemedText } from '@/components/themed-text';
@@ -22,6 +23,7 @@ import { fallo } from '@/lib/registro';
 import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 const esquema = z.object({ email: z.string().email('Correo inválido') });
 type Form = z.infer<typeof esquema>;
@@ -60,7 +62,7 @@ export default function RecuperarContrasenaScreen() {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<Form>({ resolver: zodResolver(esquema) });
+  } = useForm<Form>({ resolver: zodResolver(esquema), mode: 'onTouched' });
 
   const onSubmit = async (datos: Form) => {
     setEnviando(true);
@@ -121,17 +123,11 @@ export default function RecuperarContrasenaScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
-            <View style={estilos.membrete}>
-              <ThemedText type="etiqueta" themeColor="textSecondary">
-                RECUPERACIÓN DE ACCESO
-              </ThemedText>
-              <ThemedText type="title">Olvidé mi contraseña</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" style={estilos.explicacion}>
-                Te mandamos un código de {LONGITUD_CODIGO} dígitos al correo de tu cuenta. Escríbelo aquí y elige
-                una contraseña nueva.
-              </ThemedText>
-              <View style={[estilos.filete, { backgroundColor: theme.text }]} />
-            </View>
+            <EncabezadoAuth etiqueta="RECUPERACIÓN DE ACCESO" titulo="Olvidé mi contraseña" tamanoLogo={64} />
+            <ThemedText type="small" themeColor="textSecondary" style={estilos.explicacion}>
+              Te mandamos un código de {LONGITUD_CODIGO} dígitos al correo de tu cuenta. Escríbelo aquí y elige una
+              contraseña nueva.
+            </ThemedText>
 
             <Controller
               control={control}
@@ -227,7 +223,7 @@ export default function RecuperarContrasenaScreen() {
               </>
             )}
 
-            <Pressable
+            <Pulsable
               onPress={() => router.back()}
               style={estilos.volver}
               accessibilityRole="button"
@@ -237,7 +233,7 @@ export default function RecuperarContrasenaScreen() {
               <ThemedText type="small" themeColor="acento">
                 Volver
               </ThemedText>
-            </Pressable>
+            </Pulsable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -250,9 +246,7 @@ const estilos = StyleSheet.create({
   desplazable: { flexGrow: 1, justifyContent: 'center', padding: Spacing.four },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
-  membrete: { gap: Spacing.one, marginBottom: Spacing.two },
   explicacion: { lineHeight: 20 },
-  filete: { height: Filete.grueso, marginTop: Spacing.three },
   acuse: {
     flexDirection: 'row',
     alignItems: 'flex-start',

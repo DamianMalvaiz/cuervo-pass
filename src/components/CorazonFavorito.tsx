@@ -28,6 +28,7 @@ export function CorazonFavorito({ guardado, cargando, onAlternar }: { guardado: 
   };
 
   return (
+    // respuesta-ok: el corazón ya anima su propia respuesta con un resorte
     <Pressable
       onPress={onPress}
       disabled={cargando}

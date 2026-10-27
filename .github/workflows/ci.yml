@@ -29,7 +29,20 @@ jobs:
       # versión que se usa en la máquina de desarrollo.
       - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1   # rama v1 al 19/09/2026
         with: { version: 2.117.0 }
-      - run: supabase start
+      # ghcr.io a veces limita las descargas de las imágenes («toomanyrequests») y `supabase start` falla sin que el código tenga nada que ver (24-26/10/2026;
+      # el 26/10 cayeron los cuatro intentos de la versión anterior de este paso). Dos defensas:
+      #  · se arrancan SOLO los servicios que las pruebas de la base necesitan (base, auth, API, almacenamiento, tiempo real): sin Studio, imágenes, correo de
+      #    pruebas, metadatos de Postgres, edge-runtime, logs, vector ni pooler son 6 imágenes en lugar de 13. Comprobado el 26/10/2026 desde cero: las 792
+      #    aserciones de `supabase test db` pasan igual.
+      #  · hasta cuatro intentos, con espera creciente, antes de dar el job por caído. Si la falla es de la base, `supabase test db` la sigue mostrando.
+      - run: |
+          for intento in 1 2 3 4; do
+            supabase start -x studio,imgproxy,mailpit,postgres-meta,edge-runtime,logflare,vector,supavisor && exit 0
+            echo "supabase start falló (intento $intento de 4)"
+            supabase stop --no-backup || true
+            sleep $((intento * 45))
+          done
+          exit 1
       - run: supabase test db
 
   # §34 · ORDEN A.3 — el reparto de variables deja de ser un parrafo y pasa a
@@ -149,6 +162,28 @@ jobs:
       # por cobertura, la respuesta es escribir la prueba que falta, nunca bajar
       # el numero.
       - run: npm test -- --watchAll=false --coverage
+
+  # El panel de admin web (`panel-admin/`) es un proyecto APARTE, con su propio package.json y su propio lock: el job `frontend` mira la app de estudiantes y no lo toca. Decide quién aprueba
+  # vendedores y quién ve documentos de identidad, y sin este job un cambio que rompiera su tipado, sus pruebas o su construcción llegaría a producción sin que el CI dijera nada.
+  # test-utils/__tests__/ci-panel-admin.test.ts fija que el job existe y cómo se instala.
+  panel-admin:
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: panel-admin }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        # Node 24, el mismo que en el job `frontend`: `@supabase/supabase-js` pide Node >= 22.
+        with: { node-version: 24, cache: npm, cache-dependency-path: panel-admin/package-lock.json }
+      # `npm ci` instala exactamente el lock; `npm install` podría resolver versiones distintas y hacer que CI y la laptop difieran.
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      # La construcción NO necesita las variables VITE_*: se leen al ARRANCAR en el navegador, y sin ellas el panel se niega a iniciar (falla cerrado). Aquí solo se comprueba que construye.
+      - run: npm run build
+      # A diferencia de la app, el panel tiene cero avisos hoy, así que la puerta es el comando a secas: si aparece un aviso alto, el CI se pone en rojo y hay que DECIDIR (subir la
+      # dependencia o escribir la excepción con su motivo), no ignorarlo.
+      - run: npm run verificar:audit
 
   servicio-ia:
     runs-on: ubuntu-latest

@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 
 // El guardia de entrada · v5 §26. Estaba al 0 % de ramas con 17 de 17 sin
 // cubrir, y es el archivo que decide QUIÉN ENTRA A LA APP. Diecisiete ramas en
@@ -42,6 +43,18 @@ jest.mock('@/lib/supabase', () => ({
   },
   supabase: { from: (...a: unknown[]) => mockDesde(...a) },
 }));
+
+jest.mock('@/components/web/PortadaWeb', () => {
+  const { createElement } = require('react');
+  const { Text } = require('react-native');
+  return { PortadaWeb: () => createElement(Text, null, 'portada pública') };
+});
+
+jest.mock('@/components/web/ParaTiWeb', () => {
+  const { createElement } = require('react');
+  const { Text } = require('react-native');
+  return { ParaTiWeb: () => createElement(Text, null, 'para ti') };
+});
 
 import { VERSION_AVISO } from '@/lib/verificacion';
 
@@ -100,6 +113,40 @@ test('con cuestionario completo manda a las pestañas', async () => {
 
   await render(<Index />);
   await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/inicio'));
+});
+
+// 0083 · un vendedor entra por SU panel. El cuestionario es de quien busca (universidad, presupuesto, hábitos): mandarlo ahí en cada entrada sería pedirle
+// a un negocio que diga cuánto quiere pagar de renta.
+describe('perfil de vendedor · 0083', () => {
+  it('con perfil de vendedor entra al panel', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO, perfil_activo: 'vendedor' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/panel'));
+  });
+
+  it('un vendedor SIN cuestionario tampoco va al cuestionario: va al panel', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: false, version_aviso_aceptada: VERSION_AVISO, perfil_activo: 'vendedor' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/panel'));
+    expect(mockRedirigir).not.toHaveBeenCalledWith('/(auth)/cuestionario-inicial');
+  });
+
+  it('el aviso de privacidad va ANTES que el panel', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: 'v0', perfil_activo: 'vendedor' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/aviso-actualizado'));
+    expect(mockRedirigir).not.toHaveBeenCalledWith('/(tabs)/panel');
+  });
+
+  it('un estudiante sigue entrando a Inicio', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO, perfil_activo: 'estudiante' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/inicio'));
+  });
 });
 
 // El destino que v3 no tenía. Un usuario con sesión y sin cuestionario llegaba a
@@ -184,7 +231,7 @@ test('pregunta por cuestionario_completo del usuario de la sesión', async () =>
   await waitFor(() => expect(mockRedirigir).toHaveBeenCalled());
 
   expect(mockDesde).toHaveBeenCalledWith('usuarios');
-  expect(cadena.select).toHaveBeenCalledWith('cuestionario_completo, version_aviso_aceptada');
+  expect(cadena.select).toHaveBeenCalledWith('cuestionario_completo, version_aviso_aceptada, perfil_activo');
   expect(cadena.eq).toHaveBeenCalledWith('id', 'u1');
 });
 
@@ -326,5 +373,73 @@ describe('aviso de privacidad vigente', () => {
     await render(<Index />);
     expect(await screen.findByText(/No pudimos comprobar tu cuenta/)).toBeTruthy();
     expect(mockRedirigir).not.toHaveBeenCalledWith('/aviso-actualizado');
+  });
+});
+
+// La web se explora SIN cuenta (tramo 1): quien llega sin sesión ve la portada pública. En el teléfono sigue siendo el login.
+describe('sin sesión, según la plataforma', () => {
+  const original = Platform.OS;
+  afterEach(() => {
+    Platform.OS = original;
+  });
+
+  it('en la web enseña la portada pública EN la raíz (sin redirigir: el inicio vive en «/»)', async () => {
+    Platform.OS = 'web';
+    mockAuth.session = null;
+    await render(<Index />);
+    expect(screen.getByText('portada pública')).toBeTruthy();
+    expect(mockRedirigir).not.toHaveBeenCalled();
+  });
+
+  it('en el teléfono sigue mandando al login', async () => {
+    Platform.OS = 'android';
+    mockAuth.session = null;
+    await render(<Index />);
+    expect(mockRedirigir).toHaveBeenCalledWith('/(auth)/login');
+    expect(screen.queryByText('portada pública')).toBeNull();
+  });
+});
+
+// En la web, quien busca y ya hizo todo cae en «Para ti» (la portada de dentro), no en las pantallas de teléfono. Las demás puertas no cambian: el aviso va antes, el cuestionario sigue siendo de quien busca y un
+// vendedor entra por su panel.
+describe('en la web', () => {
+  const plataforma = Platform.OS;
+  beforeEach(() => {
+    Platform.OS = 'web';
+  });
+  afterEach(() => {
+    Platform.OS = plataforma;
+  });
+
+  it('un estudiante con cuestionario completo ve «Para ti» y NO se le redirige', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO, perfil_activo: 'estudiante' } }).cadena);
+    await render(<Index />);
+    expect(await screen.findByText('para ti')).toBeTruthy();
+    expect(mockRedirigir).not.toHaveBeenCalledWith('/(tabs)/inicio');
+  });
+
+  it('sin cuestionario sigue yendo a hacerlo', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: false, version_aviso_aceptada: VERSION_AVISO, perfil_activo: 'estudiante' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(auth)/cuestionario-inicial'));
+    expect(screen.queryByText('para ti')).toBeNull();
+  });
+
+  it('un vendedor sigue entrando por su panel', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO, perfil_activo: 'vendedor' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/panel'));
+    expect(screen.queryByText('para ti')).toBeNull();
+  });
+
+  it('el aviso de privacidad va antes que «Para ti»', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: 'v0', perfil_activo: 'estudiante' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/aviso-actualizado'));
+    expect(screen.queryByText('para ti')).toBeNull();
   });
 });

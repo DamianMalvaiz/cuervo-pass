@@ -1,6 +1,6 @@
 # Aviso de privacidad integral — Cuervo 360
 
-**Última actualización:** 17 de octubre de 2026 · **Versión:** 3
+**Última actualización:** 26 de octubre de 2026 · **Versión:** 5
 
 Emitido conforme a la **Ley Federal de Protección de Datos Personales en
 Posesión de los Particulares** (LFPDPPP), publicada en el Diario Oficial de la
@@ -19,8 +19,8 @@ Toluca (UTVT), es el responsable del tratamiento de tus datos personales.
 
 Cuervo 360 es un proyecto académico desarrollado dentro del programa integrador
 de la UTVT y no persigue fines de lucro. Para quien ofrece servicios o viviendas
-existen planes de suscripción; **en esta etapa los cobros son simulados: no se
-procesa ninguna tarjeta ni se recibe dinero.**
+existen planes de suscripción; **en esta etapa los pagos funcionan en el modo de
+pruebas de Mercado Pago: no se cobra dinero real.**
 
 ## 2. Qué datos personales tratamos
 
@@ -35,9 +35,10 @@ procesa ninguna tarjeta ni se recibe dinero.**
 
 **Lo que generas al usar la app:**
 
-- Tus favoritos. **Son privados:** la app muestra cuántas personas guardaron una
-  publicación, nunca quiénes.
+- Tus favoritos, de publicaciones y de negocios. **Son privados:** la app muestra
+  cuántas personas guardaron una publicación o un negocio, nunca quiénes.
 - Tus conversaciones con otras personas dentro de la app.
+- Tus **avisos** dentro de la app (por ejemplo, que aprobaron tu verificación).
 - Tus reseñas de negocios y viviendas. **Las ve cualquier usuario con sesión,
   junto con tu nombre de usuario.**
 
@@ -59,8 +60,11 @@ procesa ninguna tarjeta ni se recibe dinero.**
 - Fotografías de tu **INE** (frente y reverso).
 - Fotografías de tu local o de tu inmueble, su ubicación y los datos de contacto
   del negocio.
-- Los datos de tu **suscripción**: plan, fechas y estado. **La app no ve datos de
-  tarjeta**, y por ahora los pagos son simulados.
+- Los **productos** de tu tienda: nombre, descripción, precio y fotos, que verá
+  cualquier usuario con sesión.
+- Los datos de tu **suscripción y de tus pagos**: plan, fechas, estado y el número
+  de orden. **La app no ve ni guarda datos de tarjeta**: el pago se hace en la
+  página de Mercado Pago (ver sección 5).
 
 **Lo que NO recabamos, a propósito** (principio de minimización): fecha de
 nacimiento, RFC, matrícula escolar, datos financieros ni tu ubicación en tiempo
@@ -82,8 +86,8 @@ consentimiento aparte, expreso y opcional. No empezará a funcionar antes.
 
 Ahora bien, el **texto libre** es un campo abierto: si escribes ahí información
 sensible, la estaremos tratando sin habértela pedido. Te pedimos expresamente
-que no lo hagas. Puedes borrar ese texto cuando quieras desde *Mi perfil →
-Editar mis preferencias*.
+que no lo hagas. Puedes borrar ese texto cuando quieras desde *Mi perfil → Mis
+datos*.
 
 ## 3. Finalidades del tratamiento
 
@@ -110,7 +114,8 @@ oponerse a ellos conservando la cuenta:
 - **Verificar que quien publica es quien dice ser**, con una revisión hecha por
   una persona del equipo, para proteger a quienes buscan vivienda o servicios.
   Sin esta verificación no se puede publicar.
-- Gestionar tu suscripción y los límites de tu plan.
+- Gestionar tu suscripción y los límites de tu plan, y procesar su pago con
+  Mercado Pago.
 
 ### 3.2 Secundaria (opcional)
 
@@ -123,8 +128,8 @@ La casilla de análisis con IA **no viene premarcada**. No marcarla es negarse, 
 la app funciona con normalidad sin ella: las sugerencias se calculan solo con tu
 cuestionario.
 
-Si ya la marcaste, puedes retirarla cuando quieras desde *Mi perfil → Editar mis
-preferencias*. No necesitas escribirnos ni justificarlo.
+Si ya la marcaste, puedes retirarla cuando quieras desde *Configuración →
+Personalización*. No necesitas escribirnos ni justificarlo.
 
 **No tratamos tus datos con fines de mercadotecnia, publicidad ni prospección
 comercial, y no los vendemos ni los cedemos a nadie.**
@@ -169,7 +174,8 @@ su tarea:
 | **OpenStreetMap / Nominatim** | La dirección que escribes al publicar | Convertirla en coordenadas |
 | **Mapbox** | Lo que escribes en el campo de dirección | Autocompletarla |
 | **Cloudflare** | El tráfico hacia nuestro servicio de IA | Transportarlo cifrado. Solo pasa texto si diste tu consentimiento para el análisis con IA |
-| **Expo** | El identificador de tu dispositivo | Enviarte avisos en el teléfono |
+| **Expo** | El identificador de tu dispositivo | Enviarte avisos en el teléfono. En Android los entrega a través de Firebase Cloud Messaging (Google) |
+| **Mercado Pago** | El plan, el monto y un número de orden (ni tu nombre ni tu correo) | Procesar el pago de tu plan en su propia página, con sus términos y su aviso de privacidad. **La app no ve ni guarda datos de tarjeta** |
 
 ### 5.2 Transferencias
 
@@ -187,6 +193,7 @@ Esto no es una transferencia: es el funcionamiento del servicio que solicitaste.
 
 | Quién | Qué ve de ti |
 |---|---|
+| Cualquier persona, sin cuenta (la web) | De una publicación de vivienda: el título, el tipo, el precio, las recámaras, las condiciones, la zona (la dirección sin la calle ni el número), una ubicación aproximada (redondeada a cerca de 1 km), la calificación y las fotos. **No** la dirección exacta, **no** el teléfono, **no** quién publica y **no** la descripción de una vivienda. De un negocio: el nombre, la descripción, la zona, el horario, los productos con su precio, la calificación y las fotos. Las fotos se ven con un enlace temporal, que dura una hora. |
 | Cualquier usuario con sesión | Solo lo que expone la vista `perfiles_publicos`: nombre, usuario, foto, biografía, mascotas, tabaco, nivel de ruido y horario. **No** tu presupuesto, **no** tu universidad, **no** tu texto libre, **no** tu vector. |
 | Usuarios que ven tus publicaciones | Todo el contenido de la publicación **menos tu teléfono** |
 | Quien ve tus negocios o publicaciones de vendedor | Las fotos, la descripción, el horario y la ubicación que tú publicas. **No** tu INE, **no** tu domicilio legal ni tu nombre legal: eso solo lo ve quien revisa tu verificación. |
@@ -202,6 +209,8 @@ Esto no es una transferencia: es el funcionamiento del servicio que solicitaste.
 | Publicaciones y sus fotos | Mientras la cuenta exista o hasta que las elimines | Tú |
 | Mensajes | Mientras la cuenta exista | Tú |
 | Registro de contactos solicitados | Mientras la cuenta exista. Es lo que permite detectar abuso | Se elimina con la cuenta |
+| Productos de tu tienda y sus fotos | Mientras la cuenta exista o hasta que los quites | Tú, o al eliminar la cuenta |
+| Órdenes y pagos | Mientras la cuenta exista | Se eliminan con la cuenta |
 | Favoritos y reseñas | Mientras la cuenta exista | Se eliminan con la cuenta |
 | INE de una verificación aprobada | **30 días** después de aprobarla. Queda solo el estado, la fecha y quién aprobó | Borrado programado |
 | INE de una verificación rechazada | **7 días** después del rechazo. Si reenvías antes, los archivos de la entrega anterior se borran en el barrido siguiente (cada hora, con un día de gracia) | Borrado programado |
@@ -223,20 +232,25 @@ a su tratamiento para fines específicos.
 
 | Derecho | Dónde |
 |---|---|
-| **Acceso** | *Mi perfil → Descargar mis datos*. Entrega un archivo JSON con tu perfil, tus publicaciones, tus mensajes enviados, los contactos que solicitaste, tus funciones y su verificación (sin las rutas internas de tu INE), tus negocios y su menú, tus favoritos, tus reseñas y tus suscripciones y pagos. |
-| **Rectificación** | *Mi perfil* y *Editar mis preferencias* corrigen cualquier dato que hayas proporcionado. |
-| **Cancelación** | *Mi perfil → Eliminar mi cuenta*. |
-| **Oposición** | Desmarcar la casilla de análisis con IA en *Editar mis preferencias*. |
+| **Rectificación** | *Mi perfil → Mis datos* y *Mi perfil → Sobre mí* corrigen cualquier dato que hayas proporcionado. |
+| **Cancelación** | *Configuración → Eliminar mi cuenta*. |
+| **Oposición** | *Configuración → Personalización*: apagar «Usar mi descripción». |
 
 ### 7.2 Por escrito
 
-Si algo de lo anterior falla, o prefieres el trámite formal, escribe al correo
-de la sección 1 indicando:
+El **acceso** a tus datos se ejerce por escrito, y este camino sirve también para
+cualquier otro derecho si algo de lo anterior falla o prefieres el trámite
+formal. Escribe al correo de la sección 1 indicando:
 
 1. Tu nombre y un medio para comunicarte la respuesta.
 2. Los documentos que acrediten tu identidad (o la representación legal).
 3. La descripción clara de los datos sobre los que ejerces el derecho.
 4. Cualquier elemento que facilite localizar los datos.
+
+Para el acceso te entregamos un archivo con tu perfil, tus publicaciones, tus
+mensajes enviados, los contactos que solicitaste, tus funciones y su verificación
+(sin las rutas internas de tu INE), tus negocios y su menú, tus favoritos, tus
+reseñas y tus suscripciones y pagos.
 
 **Plazos** (artículo 31 de la LFPDPPP): responderemos en un máximo de **20 días
 hábiles** y, si procede, lo haremos efectivo dentro de los **15 días hábiles**
@@ -253,11 +267,11 @@ que antes ejercía esa función, se extinguió).
 
 Puedes revocar en cualquier momento el consentimiento que nos otorgaste.
 
-- **Para el análisis con IA:** desmarca la casilla en *Editar mis preferencias*.
+- **Para el análisis con IA:** apágalo en *Configuración → Personalización*.
   Surte efecto de inmediato y el vector se borra.
 - **Para el tratamiento en general:** equivale a cancelar la cuenta, porque sin
-  los datos de la sección 2 el servicio no puede operar. Se hace desde *Mi
-  perfil → Eliminar mi cuenta*.
+  los datos de la sección 2 el servicio no puede operar. Se hace desde
+  *Configuración → Eliminar mi cuenta*.
 
 En ninguno de los dos casos hace falta escribirnos ni justificar la decisión.
 

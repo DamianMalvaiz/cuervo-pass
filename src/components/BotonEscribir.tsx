@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { Sello } from '@/components/ficha/Sello';
+import { useCuentaRestringida } from '@/hooks/queries/useCuentaRestringida';
 import { abrirChatCon } from '@/lib/abrirChat';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -15,8 +16,10 @@ import { useAuthStore } from '@/store/useAuthStore';
 export function BotonEscribir({ otroUsuarioId }: { otroUsuarioId: string }) {
   const miId = useAuthStore((s) => s.session?.user.id);
   const [abriendo, setAbriendo] = useState(false);
+  // Una cuenta restringida (0082) no abre conversaciones nuevas: no se ofrece lo que la base va a rechazar.
+  const restringida = useCuentaRestringida(miId);
 
-  if (!miId || miId === otroUsuarioId) return null;
+  if (!miId || miId === otroUsuarioId || restringida) return null;
 
   const abrir = async () => {
     if (abriendo) return;

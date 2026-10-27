@@ -18,7 +18,8 @@ export interface DatosNegocio {
   direccion: string;
   latitud: number | null;
   longitud: number | null;
-  rango_precio: number | null;
+  /** Ya no se pide (se publican los productos con su precio); la columna sigue en la base para los negocios de antes. */
+  rango_precio?: number | null;
   horario: string | null;
   activo: boolean;
 }
@@ -46,7 +47,7 @@ export async function obtenerMiNegocio(
   if (!negocio) return null;
   const { data: items, error: errorItems } = await supabase
     .from('negocio_items')
-    .select('id, negocio_id, nombre, precio, orden, seccion, descripcion, foto')
+    .select('id, negocio_id, nombre, precio, orden, seccion, descripcion, foto, fotos, estrella')
     .eq('negocio_id', id)
     .order('orden', { ascending: true });
   if (errorItems) throw errorItems;
@@ -92,7 +93,9 @@ export interface ItemParaGuardar {
   precio: number | null;
   seccion: string | null;
   descripcion: string | null;
-  foto: string | null;
+  /** Hasta 5; la primera es la portada. */
+  fotos: string[];
+  estrella: boolean;
 }
 
 /**
@@ -109,10 +112,22 @@ export async function guardarMenu(negocioId: string, items: ItemParaGuardar[]): 
       precio: i.precio,
       seccion: i.seccion,
       descripcion: i.descripcion,
-      foto: i.foto,
+      fotos: i.fotos,
+      estrella: i.estrella,
     })),
   });
   if (error) throw error;
+}
+
+/**
+ * Cuántos productos tengo en total, sumando todos mis negocios: una consulta de solo conteo (no baja filas) y la política de lectura de `negocio_items` ya la
+ * limita a los propios. LANZA si falla o si la respuesta no trae el conteo: un fallo no es «cero productos» (END-11).
+ */
+export async function contarMisProductos(): Promise<number> {
+  const { count, error } = await supabase.from('negocio_items').select('id', { count: 'exact', head: true });
+  if (error) throw error;
+  if (typeof count !== 'number') throw new Error('sin conteo');
+  return count;
 }
 
 /**
@@ -121,9 +136,12 @@ export async function guardarMenu(negocioId: string, items: ItemParaGuardar[]): 
  * borrar las fotos falla, `borrarFotos` avisa y sigue; el negocio se borra igual (la persona pidió borrarlo).
  */
 export async function borrarNegocio(id: string, fotos: string[]): Promise<void> {
-  const { data: items, error: errorItems } = await supabase.from('negocio_items').select('foto').eq('negocio_id', id);
+  const { data: items, error: errorItems } = await supabase.from('negocio_items').select('foto, fotos').eq('negocio_id', id);
   if (errorItems) throw errorItems;
-  const deProductos = ((items ?? []) as { foto: string | null }[]).map((i) => i.foto).filter((f): f is string => Boolean(f));
+  // Todas las fotos de cada producto (la portada es la primera de `fotos`; `foto` se suma por si una fila aún no la trae, sin repetirla).
+  const deProductos = ((items ?? []) as { foto: string | null; fotos: string[] | null }[])
+    .flatMap((i) => [...(i.fotos ?? []), ...(i.foto ? [i.foto] : [])])
+    .filter((f, k, todas) => todas.indexOf(f) === k);
   await borrarFotos([...fotos, ...deProductos]);
   const { error } = await supabase.from('negocios').delete().eq('id', id);
   if (error) throw error;

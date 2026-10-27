@@ -12,6 +12,7 @@ import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import {
   useBorrarResena, useGuardarResena, useMiResena, useReportarResena, useResenas, useResponderResena,
 } from '@/hooks/queries/useResenas';
+import { useCuentaRestringida } from '@/hooks/queries/useCuentaRestringida';
 import { useTheme } from '@/hooks/use-theme';
 import { SQL, esCodigo } from '@/lib/erroresPostgres';
 import {
@@ -60,6 +61,8 @@ export function SeccionResenas({
   const borrar = useBorrarResena(miId, objetivo);
   const responder = useResponderResena(miId, objetivo);
   const reportar = useReportarResena(miId, objetivo);
+  // 0082: una cuenta sin correo universitario ni reseña ni reporta; las reseñas de los demás sí las ve.
+  const restringida = useCuentaRestringida(miId);
 
   const [editando, setEditando] = useState(false);
   const [estrellas, setEstrellas] = useState(0);
@@ -162,7 +165,11 @@ export function SeccionResenas({
       <Estrellas calificacion={calificacion} numResenas={numResenas} />
 
       {/* Mi reseña: solo quien NO es dueña y tiene sesión. */}
-      {!esDueno && miId ? (
+      {!esDueno && miId && restringida ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Para reseñar necesitas una cuenta con correo de tu universidad.
+        </ThemedText>
+      ) : !esDueno && miId ? (
         editando ? (
           <View style={[estilos.tarjeta, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
             <ThemedText type="smallBold" themeColor="textSecondary">Tu reseña</ThemedText>
@@ -256,7 +263,7 @@ export function SeccionResenas({
                   <ThemedText type="small" themeColor="acento">{r.respuesta ? 'Editar respuesta' : 'Responder'}</ThemedText>
                 </Pulsable>
               )
-            ) : miId ? (
+            ) : miId && !restringida ? (
               <Pulsable onPress={() => onReportar(r)} accessibilityRole="button" accessibilityLabel={`Reportar la reseña de @${r.autor}`} style={estilos.accion}>
                 <ThemedText type="small" themeColor="textSecondary">Reportar</ThemedText>
               </Pulsable>

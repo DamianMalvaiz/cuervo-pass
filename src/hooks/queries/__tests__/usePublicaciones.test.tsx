@@ -6,11 +6,13 @@ import type { ReactNode } from 'react';
 // como «falló», la afinidad es de QUIEN pregunta, y cambiar el estado invalida TODO lo que depende de él (si no, una publicación desactivada seguiría a la vista).
 
 const mockNuevas = jest.fn();
+const mockDestacadas = jest.fn();
 const mockUna = jest.fn();
 const mockAfinidad = jest.fn();
 const mockEstado = jest.fn();
 jest.mock('@/services/publicaciones.service', () => ({
   obtenerNuevasEstaSemana: (...a: unknown[]) => mockNuevas(...a),
+  obtenerDestacadas: (...a: unknown[]) => mockDestacadas(...a),
   obtenerPublicacionPublica: (...a: unknown[]) => mockUna(...a),
   obtenerAfinidad: (...a: unknown[]) => mockAfinidad(...a),
   cambiarEstadoPublicacion: (...a: unknown[]) => mockEstado(...a),
@@ -24,7 +26,7 @@ import { clienteDePrueba } from '@pruebas/consultas';
 
 import { claves } from '@/lib/consultas';
 
-import { useAfinidad, useCambiarEstadoPublicacion, useNuevas, usePublicacion } from '../usePublicaciones';
+import { useAfinidad, useCambiarEstadoPublicacion, useDestacadas, useNuevas, usePublicacion } from '../usePublicaciones';
 
 const envolver = () => {
   const cliente = clienteDePrueba({ queries: { retry: false } });
@@ -33,6 +35,24 @@ const envolver = () => {
 };
 
 beforeEach(() => jest.clearAllMocks());
+
+describe('useDestacadas', () => {
+  it('pide 10 del tipo elegido y devuelve la lista', async () => {
+    mockDestacadas.mockResolvedValue([{ id: 'd1' }]);
+    const { Envoltura } = envolver();
+    const { result } = await renderHook(() => useDestacadas('depa'), { wrapper: Envoltura });
+    await waitFor(() => expect(result.current.datos).toEqual([{ id: 'd1' }]));
+    expect(mockDestacadas).toHaveBeenCalledWith(10, 'depa');
+  });
+
+  it('si falla, simplemente no se pinta (lista vacía), sin lanzar', async () => {
+    mockDestacadas.mockRejectedValue(new Error('sin red'));
+    const { Envoltura } = envolver();
+    const { result } = await renderHook(() => useDestacadas(null), { wrapper: Envoltura });
+    await waitFor(() => expect(result.current.cargando).toBe(false));
+    expect(result.current.datos).toEqual([]);
+  });
+});
 
 describe('useNuevas', () => {
   it('pide 10 del tipo elegido y devuelve la lista', async () => {

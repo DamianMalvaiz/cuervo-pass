@@ -49,6 +49,8 @@ const interactuar = async (fn: () => void) => { await act(async () => { fn(); })
 
 /** Rellena todo el formulario menos lo que cada prueba quiera romper. */
 interface Datos {
+  /** Etiqueta del tipo de cuenta a elegir antes de rellenar; sin ella se queda el valor por omisión («Estudiante»). */
+  tipo?: 'Estudiante' | 'Arrendador' | 'Negocio o servicio';
   email?: string;
   password?: string;
   confirmar?: string;
@@ -56,6 +58,7 @@ interface Datos {
 }
 
 async function rellenar({
+  tipo,
   email = 'ana@utvtol.edu.mx',
   password = 'Contrasena#2026',
   // Se resuelve dentro y no como valor por omisión del parámetro: `confirmar =
@@ -69,9 +72,10 @@ async function rellenar({
   // de que `screen` quede ligado. Sin él, la primera consulta falla con
   // «`render` function has not been called», que suena a que no se llamó.
   await render(<RegistroScreen />);
-  await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Angel Damian'), 'Ana'));
-  await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Malvaiz'), 'Ruiz'));
-  await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('damianml'), 'ana_r'));
+  if (tipo) await interactuar(() => fireEvent.press(screen.getByLabelText(tipo)));
+  await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Tu nombre'), 'Ana'));
+  await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Tu apellido'), 'Ruiz'));
+  await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('tu_usuario'), 'ana_r'));
   await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('tucorreo@ejemplo.mx'), email));
   await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Al menos 10 caracteres'), password));
   await interactuar(() => fireEvent.changeText(screen.getByPlaceholderText('Escríbela otra vez'), confirmacion));
@@ -122,6 +126,86 @@ describe('consentimiento · §29', () => {
   });
 });
 
+// 0082 · arrendadores y negocios entran con el correo que tengan; los estudiantes siguen con el universitario. El servidor lo exige igual
+// (hook de Auth), así que esto es lo que la app dice y manda, no lo que protege.
+describe('tipo de cuenta · 0082', () => {
+  it('por omisión es estudiante y no manda ningún tipo de vendedor', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    await rellenar();
+
+    await waitFor(() => expect(mockRegistrarse).toHaveBeenCalled());
+    expect(mockRegistrarse.mock.calls[0][0].tipoCuenta).toBeUndefined();
+  });
+
+  it('un arrendador puede registrarse con un correo que no es universitario', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    await rellenar({ tipo: 'Arrendador', email: 'duena@gmail.com' });
+
+    await waitFor(() =>
+      expect(mockRegistrarse).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'duena@gmail.com', tipoCuenta: 'arrendador' })
+      )
+    );
+  });
+
+  it('un negocio también, y manda su propio tipo', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    await rellenar({ tipo: 'Negocio o servicio', email: 'tacos@gmail.com' });
+
+    await waitFor(() =>
+      expect(mockRegistrarse).toHaveBeenCalledWith(expect.objectContaining({ tipoCuenta: 'comerciante' }))
+    );
+  });
+
+  it('un estudiante con correo personal sigue rechazado y NO se manda nada', async () => {
+    await rellenar({ tipo: 'Estudiante', email: 'ana@gmail.com' });
+
+    await waitFor(() => expect(screen.getByText(/correo de tu universidad/i)).toBeTruthy());
+    expect(mockRegistrarse).not.toHaveBeenCalled();
+  });
+
+  it('un vendedor sigue necesitando un correo válido', async () => {
+    await rellenar({ tipo: 'Arrendador', email: 'no-es-un-correo' });
+
+    await waitFor(() => expect(screen.getByText(/Correo inválido/i)).toBeTruthy());
+    expect(mockRegistrarse).not.toHaveBeenCalled();
+  });
+
+  it('un vendedor que confirma el código NO pasa por el cuestionario de estudiante', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    mockVerificar.mockResolvedValue({ estado: 'ok', session: { user: { id: 'u1' } } });
+    await rellenar({ tipo: 'Arrendador', email: 'duena@gmail.com' });
+    await waitFor(() => expect(screen.getByText('Revisa tu correo')).toBeTruthy());
+
+    await interactuar(() => fireEvent.changeText(screen.getByLabelText('Código de 6 dígitos'), '123456'));
+    await interactuar(() => fireEvent.press(screen.getByLabelText('Confirmar')));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/panel'));
+    expect(mockReplace).not.toHaveBeenCalledWith('/(auth)/cuestionario-inicial');
+  });
+});
+
+// Validar AL SALIR del campo y no solo al enviar: quien deja el nombre a medias lo sabe al pasar al siguiente campo.
+describe('validación al salir del campo', () => {
+  it('un nombre demasiado corto se dice al salir del campo, SIN enviar', async () => {
+    await render(<RegistroScreen />);
+    const campo = screen.getByPlaceholderText('Tu nombre');
+    await interactuar(() => fireEvent.changeText(campo, 'A'));
+    expect(screen.queryByText('Escribe tu nombre')).toBeNull();
+    await interactuar(() => fireEvent(campo, 'blur'));
+    expect(screen.getByText('Escribe tu nombre')).toBeTruthy();
+    expect(mockRegistrarse).not.toHaveBeenCalled();
+  });
+
+  it('un correo con forma inválida se dice al salir del campo', async () => {
+    await render(<RegistroScreen />);
+    const campo = screen.getByPlaceholderText('tucorreo@ejemplo.mx');
+    await interactuar(() => fireEvent.changeText(campo, 'no-es-un-correo'));
+    await interactuar(() => fireEvent(campo, 'blur'));
+    expect(screen.getByText(/Correo inválido/i)).toBeTruthy();
+  });
+});
+
 describe('contraseñas', () => {
   it('no se crea la cuenta si la confirmación no coincide', async () => {
     await rellenar({ password: 'Contrasena#2026', confirmar: 'Otra#2026Cosa' });
@@ -166,14 +250,31 @@ describe('confirmación de correo', () => {
     );
   });
 
-  it('«Ya confirmé» lleva a entrar', async () => {
+  it('quien ya tiene cuenta con ese correo puede ir a iniciar sesión', async () => {
     mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
     await rellenar();
     await waitFor(() => expect(screen.getByText('Revisa tu correo')).toBeTruthy());
 
-    await interactuar(() => fireEvent.press(screen.getByLabelText('Ya confirmé, entrar')));
+    await interactuar(() => fireEvent.press(screen.getByLabelText('Ya tengo cuenta, iniciar sesión')));
 
     expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
+  });
+
+  it('un correo ya registrado muestra el aviso y NO pasa a «Revisa tu correo»', async () => {
+    mockRegistrarse.mockRejectedValue(new Error('Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.'));
+    await rellenar({ email: 'ana@utvtol.edu.mx' });
+
+    await waitFor(() => expect(screen.getByText(/ya tiene una cuenta/i)).toBeTruthy());
+    expect(screen.queryByText('Revisa tu correo')).toBeNull();
+  });
+
+  it('ya no ofrece «Ya confirmé»: con el código no hace falta', async () => {
+    mockRegistrarse.mockResolvedValue({ requiereConfirmacion: true });
+    await rellenar();
+    await waitFor(() => expect(screen.getByText('Revisa tu correo')).toBeTruthy());
+
+    expect(screen.queryByLabelText('Ya confirmé, entrar')).toBeNull();
+    expect(screen.queryByText(/Ya confirmé/i)).toBeNull();
   });
 
   it('si el reenvío falla lo dice, no finge que salió', async () => {
@@ -211,7 +312,7 @@ describe('confirmación con código', () => {
   };
   const escribirCodigo = (c: string) =>
     interactuar(() => fireEvent.changeText(screen.getByLabelText('Código de 6 dígitos'), c));
-  const confirmar = () => interactuar(() => fireEvent.press(screen.getByLabelText('Confirmar código')));
+  const confirmar = () => interactuar(() => fireEvent.press(screen.getByLabelText('Confirmar')));
 
   it('un código correcto confirma la cuenta y sigue al cuestionario SIN escribir el consentimiento desde la app', async () => {
     mockVerificar.mockResolvedValue({ estado: 'ok', session: { user: { id: 'u1' } } });

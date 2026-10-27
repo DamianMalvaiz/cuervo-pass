@@ -1,4 +1,4 @@
-import { rutasDeDocumentos, validarSolicitud } from '../../supabase/functions/admin/politica';
+import { interpretarSaludIa, rutasDeDocumentos, validarSolicitud } from '../../supabase/functions/admin/politica';
 
 // La Edge Function `admin` ejecuta cosas poderosas con la llave de servicio (ver documentos de identidad, aprobar, ocultar contenido).
 // Lo que se fija aquí es que NADA llegue a esas funciones sin pasar por una validación estricta del cuerpo: acciones cerradas, ids con
@@ -15,7 +15,7 @@ describe('validarSolicitud', () => {
     expect(validarSolicitud({ accion: 'borrar_todo' })).toEqual({ ok: false, codigo: 'accion_invalida' });
   });
 
-  it.each(['resumen', 'verificaciones', 'moderacion', 'errores'])('«%s» no necesita más datos', (accion) => {
+  it.each(['resumen', 'resumen_detalle', 'verificaciones', 'moderacion', 'errores', 'auditoria', 'ingresos', 'salud', 'eventos_pago'])('«%s» no necesita más datos', (accion) => {
     expect(validarSolicitud({ accion })).toEqual({ ok: true, solicitud: { accion } });
   });
 
@@ -129,5 +129,47 @@ describe('rutasDeDocumentos', () => {
   it('con la INE ya borrada no ofrece la INE, pero sí las fotos del lugar', () => {
     const r = rutasDeDocumentos(fila({ ine_borrada_en: '2026-11-17T00:00:00Z' }));
     expect(r.map((x) => x.etiqueta)).toEqual(['Foto 1']);
+  });
+});
+
+// ── Salud del servicio de IA (`GET /salud`, público) ────────────────────────
+// La función `admin` mide el servicio y esta función pura interpreta lo medido. Lo que se protege: «no hay respuesta» y «cargando» no se confunden con «ok», un
+// 200 sin el modelo cargado no cuenta como sano, y el commit solo sale si tiene forma de commit.
+describe('interpretarSaludIa', () => {
+  const ok = { status: 'ok', api_llm_configurada: true, modelo_cargado: true, commit: 'a3b1c2d4e5f60718293a4b5c6d7e8f9012345678' };
+
+  it('sin AI_SERVICE_URL: «sin_configurar», sin tocar nada más', () => {
+    expect(interpretarSaludIa({ configurado: false })).toEqual({ estado: 'sin_configurar', latencia_ms: null, api_llm_configurada: null, commit: null });
+  });
+
+  it('200 con el modelo cargado: «ok», con la latencia y el commit corto', () => {
+    expect(interpretarSaludIa({ configurado: true, status: 200, cuerpo: ok, latenciaMs: 123 })).toEqual({
+      estado: 'ok', latencia_ms: 123, api_llm_configurada: true, commit: 'a3b1c2d',
+    });
+  });
+
+  it('200 pero con la API del LLM sin configurar: sigue «ok» y lo dice', () => {
+    expect(interpretarSaludIa({ configurado: true, status: 200, cuerpo: { ...ok, api_llm_configurada: false }, latenciaMs: 5 }).api_llm_configurada).toBe(false);
+  });
+
+  it('503 «cargando»: «cargando», no «caído» (el modelo tarda en arrancar)', () => {
+    expect(interpretarSaludIa({ configurado: true, status: 503, cuerpo: { status: 'cargando' }, latenciaMs: 9 }).estado).toBe('cargando');
+  });
+
+  it.each([
+    ['fallo de red', { configurado: true as const, fallo: 'red' as const }],
+    ['timeout', { configurado: true as const, fallo: 'timeout' as const }],
+    ['500', { configurado: true as const, status: 500, cuerpo: null, latenciaMs: 1 }],
+    ['502', { configurado: true as const, status: 502, cuerpo: 'Bad Gateway', latenciaMs: 1 }],
+    ['200 sin cuerpo', { configurado: true as const, status: 200, cuerpo: null, latenciaMs: 1 }],
+    ['200 con el modelo sin cargar', { configurado: true as const, status: 200, cuerpo: { ...ok, modelo_cargado: false }, latenciaMs: 1 }],
+    ['200 con un estado que no es ok', { configurado: true as const, status: 200, cuerpo: { ...ok, status: 'raro' }, latenciaMs: 1 }],
+    ['503 con otro cuerpo', { configurado: true as const, status: 503, cuerpo: { status: 'apagado' }, latenciaMs: 1 }],
+  ])('%s → «caido»', (_nombre, medida) => {
+    expect(interpretarSaludIa(medida).estado).toBe('caido');
+  });
+
+  it.each([['no-es-un-commit'], ['<script>'], [''], [42], [null]])('un commit con forma rara (%p) no se muestra', (commit) => {
+    expect(interpretarSaludIa({ configurado: true, status: 200, cuerpo: { ...ok, commit }, latenciaMs: 1 }).commit).toBeNull();
   });
 });

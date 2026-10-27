@@ -33,6 +33,7 @@ export function BurbujaMensaje({ mensaje, esPropio, onReintentar }: Props) {
     : '';
 
   return (
+    // respuesta-ok: la burbuja solo es tocable si el envío falló (reintentar); encogerla siempre diría que se puede tocar
     <Pressable
       style={[styles.fila, esPropio ? styles.filaPropia : styles.filaAjena]}
       onPress={fallido ? () => onReintentar?.(mensaje) : undefined}

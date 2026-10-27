@@ -1,0 +1,18 @@
+{
+  // La web de Cuervo 360 en `cuervo360.com` (explorar sin cuenta; después, la app completa). Se construye con `node --env-file=.env scripts/construir-app-web.mjs` y se publica con
+  // `npx wrangler deploy -c app-web/wrangler.jsonc`. El Worker corre primero en TODA petición: manda `app.cuervo360.com` al dominio principal y reescribe las fichas
+  // (`/departamentos/<id>`, `/servicios/<id>`) a su plantilla (`rutas.mjs`); lo demás son archivos estáticos.
+  "name": "cuervo360-app",
+  "main": "./worker.mjs",
+  "routes": [{ "pattern": "cuervo360.com", "custom_domain": true }, { "pattern": "app.cuervo360.com", "custom_domain": true }],
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  }
+}

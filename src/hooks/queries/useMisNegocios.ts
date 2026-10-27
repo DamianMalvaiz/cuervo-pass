@@ -9,12 +9,14 @@ import type { Turno } from '@/lib/horario';
 import { borrarFotos, subirFotoNegocio, subirFotoProducto } from '@/lib/storage';
 import { parsearPrecio, type ProductoEditable } from '@/lib/menu';
 import {
-  actualizarNegocio, borrarNegocio, crearNegocio, guardarHorario, guardarMenu, listarMisNegocios, obtenerMiNegocio,
+  actualizarNegocio, borrarNegocio, contarMisProductos, crearNegocio, guardarHorario, guardarMenu, listarMisNegocios, obtenerMiNegocio,
   type DatosNegocio,
 } from '@/services/negociosPropios.service';
 
 const claveLista = (usuarioId: string | undefined) => ['misNegocios', usuarioId ?? ''] as const;
 const claveUno = (id: string | undefined) => ['miNegocio', id ?? ''] as const;
+/** Sin id de cuenta a propósito: el conteo se invalida entero al cambiar productos o negocios. */
+const CLAVE_CONTEO_PRODUCTOS = ['misProductosConteo'] as const;
 
 export function useMisNegocios(usuarioId: string | undefined) {
   const q = useQuery({
@@ -29,6 +31,16 @@ export function useMisNegocios(usuarioId: string | undefined) {
     fallo: q.isError,
     reintentar: () => void q.refetch(),
   };
+}
+
+/** Cuántos productos tengo en total (todos mis negocios). `total` es `null` mientras carga o si falló: nunca un cero que parezca un hecho (END-11). */
+export function useMisProductosConteo(usuarioId: string | undefined) {
+  const q = useQuery({
+    queryKey: [...CLAVE_CONTEO_PRODUCTOS, usuarioId ?? ''] as const,
+    queryFn: contarMisProductos,
+    enabled: Boolean(usuarioId),
+  });
+  return { total: q.data ?? null, cargando: q.isPending && Boolean(usuarioId), fallo: q.isError };
 }
 
 export function useMiNegocio(id: string | undefined) {
@@ -66,6 +78,29 @@ export interface EntradaGuardado {
   fotosNuevas: string[];
   /** El horario completo (0070). `undefined` = no se toca; `[]` = se borra. */
   turnos?: Turno[];
+  /** Los productos con que SE PUBLICA un negocio nuevo (el primero es obligatorio). `undefined` = no se toca el menú (al editar, el menú tiene su pantalla). */
+  productos?: ProductoEditable[];
+}
+
+/** Sube las fotos NUEVAS de los productos y manda la lista entera en una sola llamada. Devuelve los renglones guardados (para saber qué fotos siguen en uso). */
+async function guardarProductos(negocioId: string, productos: ProductoEditable[]) {
+  const items = [];
+  for (const p of productos) {
+    // Las guardadas primero (la portada no cambia al agregar), luego las nuevas en el orden en que se eligieron.
+    const subidas: string[] = [];
+    for (const uri of p.fotosNuevas) subidas.push(await subirFotoProducto(negocioId, uri));
+    items.push({
+      id: p.id,
+      nombre: p.nombre.trim(),
+      precio: parsearPrecio(p.precio) as number | null,
+      seccion: p.seccion.trim() || null,
+      descripcion: p.descripcion.trim() || null,
+      fotos: [...p.fotos, ...subidas],
+      estrella: p.estrella,
+    });
+  }
+  await guardarMenu(negocioId, items);
+  return items;
 }
 
 export function useGuardarNegocio(usuarioId: string | undefined) {
@@ -90,6 +125,8 @@ export function useGuardarNegocio(usuarioId: string | undefined) {
         if (esNuevo || e.fotosNuevas.length > 0 || e.fotosQuitadas.length > 0) await actualizarNegocio(id, { fotos });
         // El horario va después de que el negocio EXISTE (los turnos cuelgan de su id); si falla, el negocio ya está guardado y se avisa como cualquier paso posterior.
         if (e.turnos !== undefined) await guardarHorario(id, e.turnos);
+        // El menú también cuelga del id; mismo trato: si falla, el negocio ya está guardado y se completa desde su pantalla.
+        if (e.productos !== undefined) await guardarProductos(id, e.productos);
         // 3. Lo quitado se borra al FINAL: si algo anterior falló, las fotos viejas siguen siendo las de la fila.
         await borrarFotos(e.fotosQuitadas);
       } catch (err) {
@@ -104,6 +141,7 @@ export function useGuardarNegocio(usuarioId: string | undefined) {
       // La lista pública y la ficha de Servicios cambian con esto.
       void cliente.invalidateQueries({ queryKey: ['negocios'] });
       void cliente.invalidateQueries({ queryKey: ['negocio', id] });
+      void cliente.invalidateQueries({ queryKey: CLAVE_CONTEO_PRODUCTOS });
     },
   });
 }
@@ -116,6 +154,7 @@ export function useBorrarNegocio(usuarioId: string | undefined) {
       void cliente.invalidateQueries({ queryKey: claveLista(usuarioId) });
       void cliente.removeQueries({ queryKey: claveUno(id) });
       void cliente.invalidateQueries({ queryKey: ['negocios'] });
+      void cliente.invalidateQueries({ queryKey: CLAVE_CONTEO_PRODUCTOS });
     },
   });
 }
@@ -136,25 +175,14 @@ export function useGuardarMenu(negocioId: string | undefined) {
   return useMutation({
     mutationFn: async ({ productos, fotosAnteriores }: EntradaMenu): Promise<void> => {
       if (!negocioId) throw new Error('sin negocio');
-      const items = [];
-      for (const p of productos) {
-        const foto = p.fotoNueva ? await subirFotoProducto(negocioId, p.fotoNueva) : p.foto;
-        items.push({
-          id: p.id,
-          nombre: p.nombre.trim(),
-          precio: parsearPrecio(p.precio) as number | null,
-          seccion: p.seccion.trim() || null,
-          descripcion: p.descripcion.trim() || null,
-          foto,
-        });
-      }
-      await guardarMenu(negocioId, items);
-      const usadas = new Set(items.map((i) => i.foto).filter(Boolean));
+      const items = await guardarProductos(negocioId, productos);
+      const usadas = new Set(items.flatMap((i) => i.fotos));
       await borrarFotos(fotosAnteriores.filter((f) => !usadas.has(f)));
     },
     onSuccess: () => {
       void cliente.invalidateQueries({ queryKey: claveUno(negocioId) });
       void cliente.invalidateQueries({ queryKey: ['negocio', negocioId] });
+      void cliente.invalidateQueries({ queryKey: CLAVE_CONTEO_PRODUCTOS });
     },
   });
 }

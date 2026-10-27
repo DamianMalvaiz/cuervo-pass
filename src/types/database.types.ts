@@ -69,6 +69,13 @@ export interface PerfilPublico {
    * identidades (§28). Etiquétalo en pantalla como «correo verificado».
    */
   correo_verificado: boolean;
+  /**
+   * Cuenta sin correo universitario (0082): no reporta, no reseña ni abre conversaciones; sí responde en las que ya existen. La fija el
+   * servidor al dar de alta; la dueña no la cambia. La app la usa solo para NO ofrecer lo que la base va a rechazar.
+   */
+  cuenta_restringida: boolean;
+  /** Qué perfil usa la persona ahora (0083): decide la barra de pestañas y la primera vista. Solo cambia con `cambiar_perfil_activo`. */
+  perfil_activo: 'estudiante' | 'vendedor';
 }
 
 export type TipoPublicacion = 'depa' | 'cuarto' | 'casa_compartida';
@@ -386,8 +393,12 @@ export interface NegocioItem {
   orden: number;
   seccion: string | null;
   descripcion: string | null;
-  /** Ruta de Storage de la foto del producto (dentro de la carpeta de su negocio). */
+  /** La PORTADA: la primera de `fotos`. La base las mantiene sincronizadas (0085). */
   foto: string | null;
+  /** Rutas de Storage de las fotos del producto (hasta 5, dentro de la carpeta de su negocio); la primera es la portada. */
+  fotos: string[];
+  /** Producto estrella (0086): el vendedor lo elige y sale primero, en el carrusel «Destacados» de su tienda. */
+  estrella: boolean;
 }
 
 /** Verificación de vendedor · 0049. Privado: solo su dueña lee su fila. */
@@ -463,6 +474,80 @@ type Tabla<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relati
 // resultado se infiere como `{}` y todo lo que lo consume se cae.
 type Vista<Row> = Tabla<Row>;
 
+// Lo que `anon` y `authenticated` leen de las vistas `explorar_*` (0090): datos reducidos, sin dirección exacta, teléfono ni quién publica.
+export interface PublicacionExplorar {
+  [key: string]: unknown;
+  id: string;
+  /** Armado en la base con el tipo y la colonia («Cuarto en Barrio Bajo»): NO es el título que escribió quien publica, que puede llevar la calle o un teléfono (0092). */
+  titulo_publico: string;
+  tipo: 'depa' | 'cuarto' | 'casa_compartida';
+  precio_renta: number;
+  recamaras: number | null;
+  amueblado: boolean | null;
+  permite_mascotas: boolean | null;
+  /** Sí/no: «servicios incluidos» en la renta. No dice cuáles (la base solo guarda el sí/no). */
+  servicios_incluidos: boolean | null;
+  /** La dirección sin su primer tramo (calle y número); `null` si no se puede decir sin enseñar la calle. */
+  zona: string | null;
+  /** Redondeadas a ~1 km: sirven para el mapa, no para llegar a la puerta. */
+  latitud_aprox: number | null;
+  longitud_aprox: number | null;
+  num_fotos: number;
+  destacado: boolean;
+  calificacion: number | null;
+  num_resenas: number | null;
+  creado_en: string;
+}
+
+export interface NegocioExplorar {
+  [key: string]: unknown;
+  id: string;
+  categoria_id: string | null;
+  nombre: string;
+  descripcion: string | null;
+  zona: string | null;
+  latitud_aprox: number | null;
+  longitud_aprox: number | null;
+  horario: unknown;
+  num_fotos: number;
+  destacado: boolean;
+  calificacion: number | null;
+  num_resenas: number | null;
+  abierto_ahora: boolean | null;
+  creado_en: string;
+}
+
+export interface ProductoExplorar {
+  [key: string]: unknown;
+  id: string;
+  negocio_id: string;
+  nombre: string;
+  /** Nulo = «consulta el precio». */
+  precio: number | null;
+  seccion: string | null;
+  descripcion: string | null;
+  num_fotos: number;
+  estrella: boolean;
+  orden: number;
+}
+
+export interface HorarioExplorar {
+  [key: string]: unknown;
+  negocio_id: string;
+  dia: number;
+  abre: string;
+  cierra: string;
+}
+
+export interface CategoriaExplorar {
+  [key: string]: unknown;
+  id: string;
+  nombre: string;
+  icono: string | null;
+  orden: number;
+}
+
+
 export interface Database {
   public: {
     Tables: {
@@ -503,6 +588,11 @@ export interface Database {
       negocio_items_publicos: Vista<NegocioItem>;
       negocio_horarios_publicos: Vista<NegocioHorarioFila>;
       resenas_publicas: Vista<ResenaPublica>;
+      explorar_publicaciones: Vista<PublicacionExplorar>;
+      explorar_negocios: Vista<NegocioExplorar>;
+      explorar_categorias: Vista<CategoriaExplorar>;
+      explorar_productos: Vista<ProductoExplorar>;
+      explorar_horarios: Vista<HorarioExplorar>;
       calificacion_publicaciones: Vista<{ [key: string]: unknown; publicacion_id: string; calificacion: number; num_resenas: number }>;
     };
     Functions: {
@@ -519,6 +609,11 @@ export interface Database {
       };
       // END-32 · El único carrusel. Trae lo que la lista no tiene —lo reciente—
       // en vez de reordenar el mismo conjunto por tercera vez.
+      // Los destacados de Departamentos (0087): arrendadores con el plan que destaca.
+      destacadas_publicaciones: {
+        Args: { p_limite?: number; p_tipo?: TipoPublicacion | null };
+        Returns: PublicacionNueva[];
+      };
       nuevas_esta_semana: {
         Args: { p_limite?: number; p_tipo?: TipoPublicacion | null };
         Returns: PublicacionNueva[];
@@ -537,6 +632,11 @@ export interface Database {
       };
       // Cuántas personas guardaron cada publicación: solo (id, total), nunca quién (migración 0045).
       // Una publicación que no se puede ver no devuelve fila, igual que una inexistente.
+      // Cuántas personas guardaron MIS negocios (0088): solo del dueño; uno ajeno no devuelve fila.
+      favoritos_por_negocio: {
+        Args: { p_ids: string[] };
+        Returns: { negocio_id: string; total: number }[];
+      };
       favoritos_por_publicacion: {
         Args: { p_ids: string[] };
         Returns: { publicacion_id: string; total: number }[];
@@ -554,6 +654,16 @@ export interface Database {
       // Registra que la cuenta aceptó esta versión del aviso de privacidad (migración 0059). 22023 si la versión no tiene forma `vN`.
       aceptar_aviso: {
         Args: { p_version: string };
+        Returns: undefined;
+      };
+      // Inicia la prueba gratis de una función y devuelve hasta cuándo dura. CP018 sin esa función, CP019 si ya se usó o ya hubo un pago (migración 0084).
+      iniciar_prueba: {
+        Args: { p_rol: 'comerciante' | 'arrendador' };
+        Returns: string;
+      };
+      // 'estudiante' siempre; 'vendedor' solo con alguna función de vendedor (CP017 si no). 22023 si el perfil no existe (migración 0083).
+      cambiar_perfil_activo: {
+        Args: { p_perfil: 'estudiante' | 'vendedor' };
         Returns: undefined;
       };
       // Solo comerciante o arrendador, siempre en sin_verificar. admin y estudiante → CP003.

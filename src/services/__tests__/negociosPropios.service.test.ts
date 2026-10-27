@@ -7,7 +7,7 @@ jest.mock('@/lib/supabase', () => ({ supabase: { from: (...a: unknown[]) => mock
 jest.mock('@/lib/storage', () => ({ borrarFotos: (...a: unknown[]) => mockBorrarFotos(...a) }));
 
 import {
-  actualizarNegocio, borrarNegocio, crearNegocio, guardarHorario, guardarMenu, listarMisNegocios, obtenerMiNegocio,
+  actualizarNegocio, borrarNegocio, contarMisProductos, crearNegocio, guardarHorario, guardarMenu, listarMisNegocios, obtenerMiNegocio,
 } from '../negociosPropios.service';
 
 function cadena(resultado: { data?: unknown; error?: unknown }) {
@@ -116,8 +116,8 @@ describe('actualizarNegocio', () => {
 
 describe('guardarMenu', () => {
   const items = [
-    { id: 'a', nombre: 'Taco', precio: 20, seccion: 'Tacos', descripcion: null, foto: null },
-    { nombre: 'Agua', precio: null, seccion: null, descripcion: 'Fresca', foto: 'negocios/n1/p/a.jpg' },
+    { id: 'a', nombre: 'Taco', precio: 20, seccion: 'Tacos', descripcion: null, fotos: [], estrella: false },
+    { nombre: 'Agua', precio: null, seccion: null, descripcion: 'Fresca', fotos: ['negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg'], estrella: true },
   ];
 
   test('manda el menú ENTERO en una sola llamada a la RPC, en orden', async () => {
@@ -147,12 +147,13 @@ describe('guardarMenu', () => {
 
 describe('borrarNegocio', () => {
   test('borra las fotos de la galería Y las de los productos ANTES de la fila', async () => {
-    const items = cadena({ data: [{ foto: 'negocios/n1/p/a.jpg' }, { foto: null }] });
+    const items = cadena({ data: [{ foto: 'negocios/n1/p/a.jpg', fotos: ['negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg'] }, { foto: null, fotos: [] }] });
     const fila = cadena({ error: null });
     const secuencia = [items, fila];
     mockDesde.mockImplementation(() => secuencia.shift());
     await borrarNegocio('n1', ['negocios/n1/a.jpg']);
-    expect(mockBorrarFotos).toHaveBeenCalledWith(['negocios/n1/a.jpg', 'negocios/n1/p/a.jpg']);
+    // Todas las fotos de cada producto, sin repetir la portada (que es la primera de `fotos`).
+    expect(mockBorrarFotos).toHaveBeenCalledWith(['negocios/n1/a.jpg', 'negocios/n1/p/a.jpg', 'negocios/n1/p/b.jpg']);
     expect(mockBorrarFotos.mock.invocationCallOrder[0]).toBeLessThan((fila.delete as jest.Mock).mock.invocationCallOrder[0]);
     expect(fila.eq).toHaveBeenCalledWith('id', 'n1');
   });
@@ -167,5 +168,23 @@ describe('borrarNegocio', () => {
     const secuencia = [items, fila];
     mockDesde.mockImplementation(() => secuencia.shift());
     await expect(borrarNegocio('n1', [])).rejects.toBeTruthy();
+  });
+});
+
+describe('contarMisProductos', () => {
+  test('cuenta con una consulta de solo conteo (sin bajar filas); la política ya limita a los propios', async () => {
+    const c = cadena({ count: 7 } as never);
+    mockDesde.mockReturnValue(c);
+    await expect(contarMisProductos()).resolves.toBe(7);
+    expect(mockDesde).toHaveBeenCalledWith('negocio_items');
+    expect((c.select as jest.Mock)).toHaveBeenCalledWith('id', { count: 'exact', head: true });
+  });
+  test('si falla, LANZA: un fallo no es «cero productos»', async () => {
+    mockDesde.mockReturnValue(cadena({ error: { message: 'sin red' } }));
+    await expect(contarMisProductos()).rejects.toMatchObject({ message: 'sin red' });
+  });
+  test('si la respuesta no trae conteo, LANZA en vez de inventar un cero', async () => {
+    mockDesde.mockReturnValue(cadena({ count: null } as never));
+    await expect(contarMisProductos()).rejects.toThrow();
   });
 });
