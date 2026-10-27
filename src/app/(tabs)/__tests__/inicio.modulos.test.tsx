@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 
 // Cuervo 360 · Inicio reúne los módulos.
 //
@@ -10,8 +11,10 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react-n
 const mockSugerencias = jest.fn();
 const mockNuevas = jest.fn();
 
+const mockRedirect = jest.fn();
 jest.mock('expo-router', () => ({
   router: { push: jest.fn() },
+  Redirect: (props: { href: string }) => { mockRedirect(props.href); return null; },
   useFocusEffect: (cb: () => void) => require('react').useEffect(cb, []),
 }));
 jest.mock('@/hooks/queries/usePublicaciones', () => ({
@@ -113,4 +116,17 @@ describe('la campana ya no comparte fila con el selector', () => {
     expect(within(screen.getByTestId('fila-selector')).queryByText('CAMPANA')).toBeNull();
     expect(screen.getAllByText('CAMPANA')).toHaveLength(1);
   });
+});
+
+// En la web explorar son las páginas de siempre (`/departamentos`...): esta pantalla es la del teléfono y ahí no se usa.
+test('en la web manda a los departamentos en vez de pintar la pantalla del teléfono', async () => {
+  const plataforma = Platform.OS;
+  Platform.OS = 'web';
+  try {
+    await render(<InicioScreen />);
+    expect(mockRedirect).toHaveBeenCalledWith('/departamentos');
+    expect(screen.queryByText('Sugerencias')).toBeNull();
+  } finally {
+    Platform.OS = plataforma;
+  }
 });

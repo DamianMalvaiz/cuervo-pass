@@ -6,7 +6,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { LogoMarca } from '@/components/LogoMarca';
 import { ThemedText } from '@/components/themed-text';
-import { BotonWeb } from '@/components/web/BotonWeb';
+import { CuentaWeb } from '@/components/web/CuentaWeb';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { RutasWeb } from '@/lib/rutasWeb';
@@ -39,8 +39,7 @@ export function BarraFichaWeb({ escritorio, volverA = RutasWeb.departamentos }: 
           {escritorio ? <ThemedText style={Texto.subtitulo}>Cuervo 360</ThemedText> : null}
         </Pulsable>
         <View style={estilos.cuentas}>
-          <BotonWeb compacto={!escritorio} variante="contorno" onPress={() => router.push('/(auth)/login')}>Iniciar sesión</BotonWeb>
-          <BotonWeb compacto={!escritorio} variante="carbon" onPress={() => router.push('/(auth)/registro')}>Crear cuenta</BotonWeb>
+          <CuentaWeb escritorio={escritorio} tono="claro" />
         </View>
       </View>
       <View style={estilos.fila}>

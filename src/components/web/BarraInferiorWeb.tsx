@@ -5,33 +5,57 @@ import { StyleSheet, View, type ViewStyle } from 'react-native';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
 import { Filete, Spacing, Texto } from '@/constants/theme';
-import { RutasWeb } from '@/lib/rutasWeb';
+import { usePerfilActivo } from '@/hooks/queries/usePerfilActivo';
 import { useTheme } from '@/hooks/use-theme';
+import { RutasWeb } from '@/lib/rutasWeb';
+import { useAuthStore } from '@/store/useAuthStore';
 
-export type DestinoInferior = 'inicio' | 'depas' | 'roomies' | 'servicios';
+export type DestinoInferior = 'inicio' | 'depas' | 'roomies' | 'servicios' | 'chats' | 'panel' | 'publicar' | 'cuenta';
 
 // `selected` no se escribe para enlaces en la web: la página actual se anuncia con `aria-current="page"`.
 const ACTUAL = { 'aria-current': 'page' } as object;
 // Fija abajo de la ventana (RN no tiene `position: fixed`; React Native Web sí lo deja pasar al CSS).
 const FIJA = { position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20 } as unknown as ViewStyle;
 
-const ITEMS: { clave: DestinoInferior | 'entrar'; etiqueta: string; visible: string; icono: keyof typeof Ionicons.glyphMap; ruta: string }[] = [
-  { clave: 'inicio', etiqueta: 'Inicio', visible: 'Inicio', icono: 'home-outline', ruta: RutasWeb.inicio },
-  { clave: 'depas', etiqueta: 'Departamentos', visible: 'Lugares', icono: 'bed-outline', ruta: RutasWeb.departamentos },
-  { clave: 'roomies', etiqueta: 'Roomies', visible: 'Roomies', icono: 'people-outline', ruta: RutasWeb.roomies },
-  { clave: 'servicios', etiqueta: 'Servicios', visible: 'Servicios', icono: 'storefront-outline', ruta: RutasWeb.servicios },
-  { clave: 'entrar', etiqueta: 'Iniciar sesión', visible: 'Entrar', icono: 'person-circle-outline', ruta: '/(auth)/login' },
-];
+interface Item {
+  clave: DestinoInferior | 'entrar';
+  etiqueta: string;
+  visible: string;
+  icono: keyof typeof Ionicons.glyphMap;
+  ruta: string;
+}
+
+const INICIO: Item = { clave: 'inicio', etiqueta: 'Inicio', visible: 'Inicio', icono: 'home-outline', ruta: RutasWeb.inicio };
+const DEPAS: Item = { clave: 'depas', etiqueta: 'Departamentos', visible: 'Lugares', icono: 'bed-outline', ruta: RutasWeb.departamentos };
+const ROOMIES: Item = { clave: 'roomies', etiqueta: 'Roomies', visible: 'Roomies', icono: 'people-outline', ruta: RutasWeb.roomies };
+const SERVICIOS: Item = { clave: 'servicios', etiqueta: 'Servicios', visible: 'Servicios', icono: 'storefront-outline', ruta: RutasWeb.servicios };
+const ENTRAR: Item = { clave: 'entrar', etiqueta: 'Iniciar sesión', visible: 'Entrar', icono: 'person-circle-outline', ruta: '/(auth)/login' };
+const CHATS: Item = { clave: 'chats', etiqueta: 'Chats', visible: 'Chats', icono: 'chatbubble-outline', ruta: '/(tabs)/chats' };
+const PANEL: Item = { clave: 'panel', etiqueta: 'Mi panel', visible: 'Panel', icono: 'grid-outline', ruta: '/(tabs)/panel' };
+const PUBLICAR: Item = { clave: 'publicar', etiqueta: 'Publicar', visible: 'Publicar', icono: 'add-circle-outline', ruta: '/(tabs)/publicar' };
+const CUENTA: Item = { clave: 'cuenta', etiqueta: 'Mi cuenta', visible: 'Cuenta', icono: 'person-circle-outline', ruta: '/(tabs)/perfil' };
 
 /**
- * La barra inferior fija del teléfono: Inicio, Lugares, Roomies, Servicios y Entrar. Es la navegación a la mano (las pestañas de arriba solo existen en pantallas anchas). La página actual se
+ * La barra inferior fija del teléfono: Inicio, Lugares, Roomies, Servicios y Entrar (con sesión, Chats y Cuenta en lugar de Inicio y Entrar). Es la navegación a la mano (las pestañas de arriba solo existen en pantallas anchas). La página actual se
  * anuncia con `aria-current` y se tiñe del acento; cada botón mide al menos 44 de alto.
  */
 export function BarraInferiorWeb({ activa }: { activa: DestinoInferior | null }) {
+  const sesion = useAuthStore((s) => s.session);
+  return sesion ? <BarraConSesion usuarioId={sesion.user.id} activa={activa} /> : <Barra items={[INICIO, DEPAS, ROOMIES, SERVICIOS, ENTRAR]} activa={activa} />;
+}
+
+/** Con sesión, lo de siempre cambia por lo de dentro: Chats y Cuenta (Favoritos vive en el menú de la cuenta). Un vendedor ve su panel y no los lugares de quien busca. */
+function BarraConSesion({ usuarioId, activa }: { usuarioId: string; activa: DestinoInferior | null }) {
+  const { perfil } = usePerfilActivo(usuarioId);
+  const items = perfil === 'vendedor' ? [PANEL, PUBLICAR, CHATS, CUENTA] : [DEPAS, ROOMIES, SERVICIOS, CHATS, CUENTA];
+  return <Barra items={items} activa={activa} />;
+}
+
+function Barra({ items, activa }: { items: Item[]; activa: DestinoInferior | null }) {
   const theme = useTheme();
   return (
     <View role="navigation" aria-label="Navegación principal" style={[estilos.barra, FIJA, { backgroundColor: theme.backgroundElement, borderTopColor: theme.filete }]}>
-      {ITEMS.map((i) => {
+      {items.map((i) => {
         const actual = activa === i.clave;
         const color = actual ? theme.acento : theme.textSecondary;
         return (

@@ -1,8 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { FlatList, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ANCHO_FICHA_COMPACTA, FichaCompacta } from '@/components/FichaCompacta';
 import { FilaPublicacion } from '@/components/FilaPublicacion';
@@ -473,6 +473,8 @@ export default function InicioScreen() {
     </View>
   );
   const campana = <CampanaAvisos />;
+  // En la web explorar son las páginas de siempre (`/departamentos`, `/roomies`, `/servicios`); esta pantalla es la del teléfono.
+  if (Platform.OS === 'web') return <Redirect href="/departamentos" />;
   if (modulo === 'roomies') return <VistaRoomies selector={selector} campana={campana} />;
   if (modulo === 'servicios') return <VistaServicios selector={selector} campana={campana} />;
   return <VistaDepas selector={selector} campana={campana} />;

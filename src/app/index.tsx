@@ -143,7 +143,7 @@ export default function Index() {
 
   // 0083: un vendedor entra por su panel y no pasa por el cuestionario de estudiante.
   const perfil = resultado && resultado.usuarioId === usuarioId ? resultado.perfil : null;
-  return <Redirect href={destinoInicial(perfil, estado === 'completo')} />;
+  return <Redirect href={destinoInicial(perfil, estado === 'completo', Platform.OS === 'web')} />;
 }
 
 const styles = StyleSheet.create({

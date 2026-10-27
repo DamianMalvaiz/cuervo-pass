@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { LogoMarca } from '@/components/LogoMarca';
 import { ThemedText } from '@/components/themed-text';
-import { BotonWeb } from '@/components/web/BotonWeb';
+import { CuentaWeb } from '@/components/web/CuentaWeb';
 import { PestanasWeb, type SeccionWeb } from '@/components/web/PestanasWeb';
 import { Colors, Spacing, Texto } from '@/constants/theme';
 import { RutasWeb } from '@/lib/rutasWeb';
@@ -30,8 +30,7 @@ export function BarraWeb({ escritorio, activa = null }: { escritorio: boolean; a
       ) : null}
 
       <View style={estilos.cuentas}>
-        <BotonWeb compacto={!escritorio} variante="contornoClaro" onPress={() => router.push('/(auth)/login')}>Iniciar sesión</BotonWeb>
-        <BotonWeb compacto={!escritorio} onPress={() => router.push('/(auth)/registro')}>Crear cuenta</BotonWeb>
+        <CuentaWeb escritorio={escritorio} tono="oscuro" />
       </View>
     </View>
   );

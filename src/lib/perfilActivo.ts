@@ -16,11 +16,13 @@ export function pestanasVisibles(perfil: PerfilActivo | null, puedePublicar: boo
   return puedePublicar ? ['inicio', 'favoritos', 'publicar', 'chats', 'perfil'] : ['inicio', 'favoritos', 'chats', 'perfil'];
 }
 
-/** Adónde se entra con una sesión válida. El cuestionario es de quien BUSCA: un vendedor no pasa por él. */
+/** Adónde se entra con una sesión válida. El cuestionario es de quien BUSCA: un vendedor no pasa por él. En la web (`web`) el inicio de quien busca son las páginas de explorar. */
 export function destinoInicial(
   perfil: PerfilActivo | null,
-  cuestionarioCompleto: boolean
-): '/(tabs)/inicio' | '/(tabs)/panel' | '/(auth)/cuestionario-inicial' {
+  cuestionarioCompleto: boolean,
+  web = false
+): '/(tabs)/inicio' | '/departamentos' | '/(tabs)/panel' | '/(auth)/cuestionario-inicial' {
   if (perfil === 'vendedor') return '/(tabs)/panel';
-  return cuestionarioCompleto ? '/(tabs)/inicio' : '/(auth)/cuestionario-inicial';
+  if (!cuestionarioCompleto) return '/(auth)/cuestionario-inicial';
+  return web ? '/departamentos' : '/(tabs)/inicio';
 }

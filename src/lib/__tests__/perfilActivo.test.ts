@@ -40,4 +40,12 @@ describe('destinoInicial', () => {
   it('sin perfil conocido, se comporta como estudiante', () => {
     expect(destinoInicial(null, true)).toBe('/(tabs)/inicio');
   });
+
+  // En la web «Inicio» son las páginas de explorar de siempre (`/departamentos`): las pantallas de teléfono de `(tabs)/inicio` no se usan ahí.
+  it('en la web, un estudiante con cuestionario entra a los departamentos; lo demás igual', () => {
+    expect(destinoInicial('estudiante', true, true)).toBe('/departamentos');
+    expect(destinoInicial(null, true, true)).toBe('/departamentos');
+    expect(destinoInicial('estudiante', false, true)).toBe('/(auth)/cuestionario-inicial');
+    expect(destinoInicial('vendedor', true, true)).toBe('/(tabs)/panel');
+  });
 });

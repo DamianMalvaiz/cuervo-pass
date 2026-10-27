@@ -14,6 +14,7 @@ import {
   Spacing,
   Tipografia,
 } from '@/constants/theme';
+import { MarcoSesionWeb } from '@/components/web/MarcoSesionWeb';
 import { useTheme } from '@/hooks/use-theme';
 import { usePerfilActivo } from '@/hooks/queries/usePerfilActivo';
 import { useMisRoles } from '@/hooks/queries/useRoles';
@@ -72,8 +73,10 @@ export default function TabsLayout() {
     if (miId) registrarTokenPush(miId);
   }, [miId]);
 
-  return (
+  const tabs = (
     <Tabs
+      // En la web no hay barra de pestañas de app: el marco de la web (encabezado, y barra inferior en teléfono) ocupa su lugar.
+      tabBar={Platform.OS === 'web' ? () => null : undefined}
       screenOptions={{
         // Sin barra de título: cada pantalla carga el suyo en el cuerpo, a
         // cuerpo grande y bajo el área segura. Es el patrón de la referencia, y
@@ -144,6 +147,7 @@ export default function TabsLayout() {
       />
     </Tabs>
   );
+  return Platform.OS === 'web' ? <MarcoSesionWeb>{tabs}</MarcoSesionWeb> : tabs;
 }
 
 const estilos = StyleSheet.create({

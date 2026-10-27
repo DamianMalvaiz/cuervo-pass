@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { LogoMarca } from '@/components/LogoMarca';
 import { ThemedText } from '@/components/themed-text';
-import { BotonWeb } from '@/components/web/BotonWeb';
+import { CuentaWeb } from '@/components/web/CuentaWeb';
 import { PestanasWeb, type SeccionWeb } from '@/components/web/PestanasWeb';
 import { Filete, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -26,8 +26,7 @@ export function EncabezadoWeb({ activa, escritorio, telefono = false }: { activa
         </Pulsable>
         {escritorio ? <View style={estilos.pestanas}>{pestanas}</View> : null}
         <View style={estilos.cuentas}>
-          <BotonWeb compacto={!escritorio} variante="contorno" onPress={() => router.push('/(auth)/login')}>Iniciar sesión</BotonWeb>
-          {telefono ? null : <BotonWeb compacto={!escritorio} variante="carbon" onPress={() => router.push('/(auth)/registro')}>Crear cuenta</BotonWeb>}
+          <CuentaWeb escritorio={escritorio} telefono={telefono} tono="claro" />
         </View>
       </View>
       {!escritorio && !telefono ? (

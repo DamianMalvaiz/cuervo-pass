@@ -11,7 +11,14 @@ jest.mock('expo-router', () => ({
   },
 }));
 
+import { Platform } from 'react-native';
+
 import { irAlLogin } from '../navegacion';
+
+const plataforma = Platform.OS;
+afterEach(() => {
+  Platform.OS = plataforma;
+});
 
 beforeEach(() => {
   orden.length = 0;
@@ -28,4 +35,12 @@ test('sin historial debajo: solo abre el login (no hay nada que vaciar)', () => 
   mockCanDismiss.mockReturnValue(false);
   irAlLogin();
   expect(orden).toEqual(['replace:/(auth)/login']);
+});
+
+// En la web la persona que sale cae en la portada pública (que se explora sin cuenta), no en un login suelto.
+test('en la web: vacía el historial y vuelve a la portada', () => {
+  Platform.OS = 'web';
+  mockCanDismiss.mockReturnValue(true);
+  irAlLogin();
+  expect(orden).toEqual(['dismissAll', 'replace:/']);
 });
