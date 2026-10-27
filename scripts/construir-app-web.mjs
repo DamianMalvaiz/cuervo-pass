@@ -1,4 +1,4 @@
-// Construye la web de la app (Expo, `expo export --platform web`) en `app-web/dist`, comprueba A QUÉ Supabase apunta el bundle y escribe las cabeceras.
+// Construye la web de Cuervo 360 (cuervo360.com; Expo, `expo export --platform web`) en `app-web/dist`, comprueba A QUÉ Supabase apunta el bundle y escribe las cabeceras.
 //   node --env-file=.env scripts/construir-app-web.mjs
 // Se publica con: npx wrangler deploy -c app-web/wrangler.jsonc
 //
@@ -37,6 +37,11 @@ for (const f of recorrer(SALIDA)) {
 }
 copyFileSync(join(SALIDA, '+not-found.html'), join(SALIDA, '404.html'));
 rmSync(join(SALIDA, '_sitemap.html'), { force: true });
+
+// `cuervo360.com` ya servía el aviso de privacidad y la página a la que llegan los correos (`/privacidad`, `/abrir-app`): están enlazados desde fuera de este repositorio (plantillas de correo,
+// avisos), así que conservan su dirección exacta. Salen de la misma fuente que antes (`construir-web-publica.mjs`, que lee el aviso de la app); no llevan scripts y su CSP cabe dentro de la de la app.
+execFileSync(process.execPath, ['scripts/construir-web-publica.mjs'], { stdio: 'inherit' });
+for (const pagina of ['privacidad.html', 'abrir-app.html']) copyFileSync(join('web-publica/dist', pagina), join(SALIDA, pagina));
 
 const archivos = recorrer(SALIDA);
 const hashes = new Set(archivos.filter((f) => f.endsWith('.html')).flatMap((f) => scriptsEnLinea(readFileSync(f, 'utf8'))).map(hashDeScript));

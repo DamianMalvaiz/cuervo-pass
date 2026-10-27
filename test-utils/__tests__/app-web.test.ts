@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-// La web de la app (app.cuervo360.com): lógica pura de `scripts/app-web-reglas.mjs` y del enrutado del Worker (`app-web/rutas.mjs`). Se ejecutan con Node porque son .mjs.
+// La web de Cuervo 360 (cuervo360.com): lógica pura de `scripts/app-web-reglas.mjs` y del enrutado del Worker (`app-web/rutas.mjs`). Se ejecutan con Node porque son .mjs.
 // Lo que se protege: la CSP sin `unsafe-eval` ni scripts en línea sin hash y con conexiones solo al Supabase de producción; que el build RECHACE un bundle con una llave que no sea la
 // pública (anon); y que el Worker solo sirva plantillas para ids con forma de id.
 
@@ -117,5 +117,19 @@ describe('rutaDePlantilla: qué plantilla sirve el Worker', () => {
   it('las direcciones de antes (`/explorar/...`) ya no se reescriben: la raíz de la sección redirige y las fichas dejaron de existir ahí', () => {
     expect(r(`/explorar/${ID}`)).toBeNull();
     expect(r(`/explorar/negocio/${ID}`)).toBeNull();
+  });
+});
+
+// La web vive en `cuervo360.com`; `app.cuervo360.com` (donde nació) sigue funcionando solo como atajo: manda a la misma dirección en el dominio principal, con ruta y parámetros.
+describe('destinoDeRedireccion: el subdominio viejo manda al dominio principal', () => {
+  const d = (u: string) => JSON.parse(rutas(`console.log(JSON.stringify(m.destinoDeRedireccion(${JSON.stringify(u)})))`));
+
+  it('conserva la ruta y los parámetros', () => {
+    expect(d('https://app.cuervo360.com/departamentos/abc-1?zona=Toluca')).toBe('https://cuervo360.com/departamentos/abc-1?zona=Toluca');
+    expect(d('https://app.cuervo360.com/')).toBe('https://cuervo360.com/');
+  });
+
+  it('el dominio principal y cualquier otro host (localhost en desarrollo) no se redirigen', () => {
+    for (const u of ['https://cuervo360.com/departamentos', 'http://127.0.0.1:8802/', 'https://otra.cuervo360.com/', 'https://app.cuervo360.com.evil.com/']) expect(d(u)).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-// Reglas de la web de la app (app.cuervo360.com). Lógica pura: la usa `construir-app-web.mjs` y la prueba la comprueba (`test-utils/__tests__/app-web.test.ts`).
+// Reglas de la web de Cuervo 360 (cuervo360.com). Lógica pura: la usa `construir-app-web.mjs` y la prueba la comprueba (`test-utils/__tests__/app-web.test.ts`).
 //
 // Como la CSP del panel de admin (`web-admin-csp.mjs`): los scripts son propios y el único en línea (el de hidratación de Expo Router, el mismo en todas las páginas) pasa por su hash,
 // nunca con 'unsafe-inline'; imágenes y conexiones solo hacia el Supabase de producción. La diferencia es `style-src 'unsafe-inline'`: la librería de la app (react-native-web)

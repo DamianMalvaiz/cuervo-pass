@@ -10,3 +10,13 @@ export function rutaDePlantilla(camino) {
   if (NEGOCIO.test(camino)) return '/servicios/_id';
   return null;
 }
+
+const DOMINIO = 'cuervo360.com';
+const SUBDOMINIO_VIEJO = `app.${DOMINIO}`;
+
+/** A dónde mandar una petición hecha al subdominio viejo (`app.`), o `null` si no es de ese host. Solo ese host exacto: nada de coincidencias parciales. */
+export function destinoDeRedireccion(direccion) {
+  const url = new URL(direccion);
+  if (url.hostname !== SUBDOMINIO_VIEJO) return null;
+  return `https://${DOMINIO}${url.pathname}${url.search}`;
+}
