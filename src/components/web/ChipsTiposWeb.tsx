@@ -25,10 +25,10 @@ const CHIPS: Chip[] = [
  * La fila de filtros rápidos bajo el buscador. Los tres TIPOS son excluyentes entre sí (tocar uno lo prende, tocarlo otra vez lo apaga) y los otros tres son interruptores de sí/no.
  * Comparten el estado del buscador: el chip de tipo y el campo «Tipo» del buscador dicen siempre lo mismo.
  */
-export function ChipsTiposWeb({ filtros, onCambiar }: { filtros: FiltrosWeb; onCambiar: (f: FiltrosWeb) => void }) {
+export function ChipsTiposWeb({ filtros, onCambiar, alinear = 'centro' }: { filtros: FiltrosWeb; onCambiar: (f: FiltrosWeb) => void; alinear?: 'centro' | 'inicio' }) {
   const theme = useTheme();
   return (
-    <View style={estilos.fila}>
+    <View style={[estilos.fila, alinear === 'inicio' && estilos.alInicio]}>
       {CHIPS.map((c) => {
         const activo = 'tipo' in c ? filtros.tipo === c.tipo : filtros[c.campo];
         const alTocar = () => {
@@ -39,9 +39,11 @@ export function ChipsTiposWeb({ filtros, onCambiar }: { filtros: FiltrosWeb; onC
           <Pulsable
             key={c.clave}
             onPress={alTocar}
-            accessibilityRole="button"
+            // Un filtro puesto es una casilla marcada: en la web `selected` no se escribe para botones y el lector de pantalla no sabría cuáles están puestos.
+            accessibilityRole="checkbox"
             accessibilityLabel={`Filtrar por ${c.nombre.toLowerCase()}`}
-            accessibilityState={{ selected: activo }}
+            accessibilityState={{ checked: activo }}
+            aria-checked={activo}
             style={[estilos.chip, { borderColor: activo ? theme.sello : theme.filete, backgroundColor: activo ? theme.sello : theme.backgroundElement }]}
           >
             <Ionicons name={c.icono} size={18} color={activo ? theme.selloTexto : theme.bosque} />
@@ -55,5 +57,6 @@ export function ChipsTiposWeb({ filtros, onCambiar }: { filtros: FiltrosWeb; onC
 
 const estilos = StyleSheet.create({
   fila: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: Spacing.two },
+  alInicio: { justifyContent: 'flex-start' },
   chip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 44, paddingHorizontal: Spacing.three, borderRadius: Radios.full, borderWidth: Filete.fino },
 });

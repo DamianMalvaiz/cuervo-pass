@@ -65,6 +65,16 @@ test('negocios y categorías: mismos tres estados', async () => {
   await waitFor(() => expect(c.result.current.fallo).toBe(true));
 });
 
+test('negocios: cada categoría es una consulta distinta', async () => {
+  mockListarNeg.mockResolvedValue([]);
+  const w = envolver();
+  await renderHook(() => useNegociosPublicos({ limite: 20 }), { wrapper: w });
+  await renderHook(() => useNegociosPublicos({ limite: 20, categoriaId: 'c1' }), { wrapper: w });
+  await waitFor(() => expect(mockListarNeg).toHaveBeenCalledTimes(2));
+  expect(mockListarNeg).toHaveBeenCalledWith({ limite: 20 });
+  expect(mockListarNeg).toHaveBeenCalledWith({ limite: 20, categoriaId: 'c1' });
+});
+
 test('fotos: sin id no consulta; con id trae las URL; si falla lo dice', async () => {
   const w = envolver();
   const sin = await renderHook(() => useFotosPublicas('publicacion', undefined, 2), { wrapper: w });

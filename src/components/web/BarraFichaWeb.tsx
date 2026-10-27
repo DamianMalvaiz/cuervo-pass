@@ -9,17 +9,18 @@ import { ThemedText } from '@/components/themed-text';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { RutasWeb } from '@/lib/rutasWeb';
 
 /**
- * La barra de las fichas públicas: el logo (lleva a la portada) y las dos cuentas arriba; abajo, «Volver» y las dos acciones de la ficha.
- * «Volver» regresa si hay a dónde; si la persona llegó por un enlace directo, no hay historial y va a la portada.
+ * La barra de las fichas públicas: el logo (lleva al inicio) y las dos cuentas arriba; abajo, «Volver» y las dos acciones de la ficha.
+ * «Volver» regresa si hay a dónde; si la persona llegó por un enlace directo, no hay historial y va a la lista de su sección (`volverA`: lugares por omisión, negocios en la ficha de un negocio).
  * «Guardar» pide entrar (sin cuenta no se guarda nada); «Compartir» copia el enlace de la ficha (solo en la web, donde hay portapapeles).
  */
-export function BarraFichaWeb({ escritorio }: { escritorio: boolean }) {
+export function BarraFichaWeb({ escritorio, volverA = RutasWeb.departamentos }: { escritorio: boolean; volverA?: string }) {
   const theme = useTheme();
   const [copiado, setCopiado] = useState(false);
 
-  const volver = () => (router.canGoBack() ? router.back() : router.push('/explorar'));
+  const volver = () => (router.canGoBack() ? router.back() : router.push(volverA as never));
   const compartir = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -33,7 +34,7 @@ export function BarraFichaWeb({ escritorio }: { escritorio: boolean }) {
   return (
     <View style={estilos.contenedor}>
       <View style={estilos.fila}>
-        <Pulsable onPress={() => router.push('/explorar')} accessibilityRole="link" accessibilityLabel="Ir a la portada" style={estilos.marca}>
+        <Pulsable onPress={() => router.push(RutasWeb.inicio)} accessibilityRole="link" accessibilityLabel="Ir al inicio" style={estilos.marca}>
           <LogoMarca tamano={40} />
           {escritorio ? <ThemedText style={Texto.subtitulo}>Cuervo 360</ThemedText> : null}
         </Pulsable>

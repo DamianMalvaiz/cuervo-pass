@@ -54,13 +54,10 @@ export async function obtenerPublicacionPublica(id: string): Promise<Publicacion
   return (data as PublicacionExplorar | null) ?? null;
 }
 
-export async function listarNegociosPublicos({ limite }: { limite: number }): Promise<NegocioExplorar[]> {
-  const { data, error } = await supabase
-    .from('explorar_negocios')
-    .select(COLUMNAS_EXPLORAR_NEGOCIO)
-    .order('destacado', { ascending: false })
-    .order('creado_en', { ascending: false })
-    .limit(limite);
+export async function listarNegociosPublicos({ limite, categoriaId }: { limite: number; categoriaId?: string }): Promise<NegocioExplorar[]> {
+  let q = supabase.from('explorar_negocios').select(COLUMNAS_EXPLORAR_NEGOCIO);
+  if (categoriaId) q = q.eq('categoria_id', categoriaId);
+  const { data, error } = await q.order('destacado', { ascending: false }).order('creado_en', { ascending: false }).limit(limite);
   if (error) throw error;
   return (data ?? []) as NegocioExplorar[];
 }

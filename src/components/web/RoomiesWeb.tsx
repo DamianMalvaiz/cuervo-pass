@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -53,9 +52,9 @@ function Tarjeta({ p, estilo }: { p: (typeof PERSONAS)[number]; estilo?: object 
 
 /**
  * La sección de Roomies de la portada: de qué trata y cómo se ve una tarjeta de compatibilidad. Sin cuenta no hay perfiles reales que enseñar, así que las tres personas son ejemplos marcados como tales;
- * «Ver roomies» lleva a entrar. En pantallas angostas se enseña una sola tarjeta, sin giro.
+ * El botón lo decide la página: en el inicio lleva a la página de Roomies; en la de Roomies, a entrar. En pantallas angostas se enseña una sola tarjeta, sin giro.
  */
-export function RoomiesWeb({ escritorio }: { escritorio: boolean }) {
+export function RoomiesWeb({ escritorio, textoBoton, alBoton }: { escritorio: boolean; textoBoton: string; alBoton: () => void }) {
   const theme = useTheme();
   return (
     <View style={[estilos.panel, { backgroundColor: theme.tintedSurface }, escritorio ? estilos.panelAncho : estilos.panelCompacto]}>
@@ -73,7 +72,7 @@ export function RoomiesWeb({ escritorio }: { escritorio: boolean }) {
           ))}
         </View>
         <View style={estilos.boton}>
-          <BotonWeb variante="carbon" onPress={() => router.push('/(auth)/login')}>Ver roomies</BotonWeb>
+          <BotonWeb variante="carbon" onPress={alBoton}>{textoBoton}</BotonWeb>
         </View>
       </View>
 

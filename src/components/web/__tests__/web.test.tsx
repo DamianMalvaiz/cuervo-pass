@@ -22,26 +22,31 @@ beforeEach(() => jest.clearAllMocks());
 
 describe('BarraWeb', () => {
   it('lleva a entrar y a crear cuenta', async () => {
-    await render(<BarraWeb escritorio onIrASeccion={jest.fn()} />);
+    await render(<BarraWeb escritorio />);
     await fireEvent.press(screen.getByLabelText('Iniciar sesión'));
     expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
     await fireEvent.press(screen.getByLabelText('Crear cuenta'));
     expect(mockPush).toHaveBeenCalledWith('/(auth)/registro');
   });
 
-  it('las pestañas avisan a qué sección ir', async () => {
-    const ir = jest.fn();
-    await render(<BarraWeb escritorio onIrASeccion={ir} />);
+  it('las pestañas llevan cada una a SU página', async () => {
+    await render(<BarraWeb escritorio />);
     await fireEvent.press(screen.getByLabelText('Roomies'));
-    expect(ir).toHaveBeenCalledWith('roomies');
+    expect(mockPush).toHaveBeenLastCalledWith('/roomies');
     await fireEvent.press(screen.getByLabelText('Servicios'));
-    expect(ir).toHaveBeenCalledWith('servicios');
+    expect(mockPush).toHaveBeenLastCalledWith('/servicios');
     await fireEvent.press(screen.getByLabelText('Departamentos'));
-    expect(ir).toHaveBeenCalledWith('depas');
+    expect(mockPush).toHaveBeenLastCalledWith('/departamentos');
+  });
+
+  it('el logo lleva al inicio', async () => {
+    await render(<BarraWeb escritorio />);
+    await fireEvent.press(screen.getByLabelText('Ir al inicio'));
+    expect(mockPush).toHaveBeenLastCalledWith('/');
   });
 
   it('en pantalla angosta no hay pestañas (no caben) pero sí las dos cuentas', async () => {
-    await render(<BarraWeb escritorio={false} onIrASeccion={jest.fn()} />);
+    await render(<BarraWeb escritorio={false} />);
     expect(screen.queryByLabelText('Roomies')).toBeNull();
     expect(screen.getByLabelText('Iniciar sesión')).toBeTruthy();
     expect(screen.getByLabelText('Crear cuenta')).toBeTruthy();
@@ -90,7 +95,10 @@ describe('ChipsTiposWeb', () => {
     await fireEvent.press(screen.getByLabelText('Filtrar por departamentos'));
     expect(cambiar).toHaveBeenLastCalledWith({ ...FILTROS_VACIOS, tipo: 'depa' });
     await rerender(<ChipsTiposWeb filtros={{ ...FILTROS_VACIOS, tipo: 'depa' }} onCambiar={cambiar} />);
-    expect(screen.getByLabelText('Filtrar por departamentos').props.accessibilityState).toEqual({ selected: true });
+    // En la web `selected` no se escribe para botones: un filtro puesto es una casilla marcada.
+    expect(screen.getByLabelText('Filtrar por departamentos').props.accessibilityRole).toBe('checkbox');
+    expect(screen.getByLabelText('Filtrar por departamentos').props.accessibilityState).toEqual({ checked: true });
+    // En el navegador, React Native Web ignora `accessibilityState` y escribe `aria-checked` (se pasa también como prop `aria-checked`); eso solo se comprueba en el navegador, no aquí.
     await fireEvent.press(screen.getByLabelText('Filtrar por departamentos'));
     expect(cambiar).toHaveBeenLastCalledWith({ ...FILTROS_VACIOS, tipo: null });
   });
@@ -128,7 +136,7 @@ describe('TarjetaPublicacionWeb', () => {
   it('al tocarla va a su ficha pública; el corazón pide entrar (no guarda nada sin cuenta)', async () => {
     await render(<TarjetaPublicacionWeb p={PUB} />);
     await fireEvent.press(screen.getByLabelText(/Cuarto en Capultitlán, 3,459 pesos al mes/));
-    expect(mockPush).toHaveBeenLastCalledWith('/explorar/p1');
+    expect(mockPush).toHaveBeenLastCalledWith('/departamentos/p1');
     await fireEvent.press(screen.getByLabelText('Guardar: inicia sesión para guardar'));
     expect(mockPush).toHaveBeenLastCalledWith('/(auth)/login');
   });
@@ -140,7 +148,7 @@ describe('TarjetaPublicacionWeb', () => {
 });
 
 describe('HeroWeb', () => {
-  const props = { filtros: FILTROS_VACIOS, onCambiar: jest.fn(), onBuscar: jest.fn(), onIrASeccion: jest.fn(), fotos: [] as string[] };
+  const props = { filtros: FILTROS_VACIOS, onCambiar: jest.fn(), onBuscar: jest.fn(), fotos: [] as string[] };
 
   it('dice qué es y trae el buscador y las dos cuentas', async () => {
     await render(<HeroWeb {...props} escritorio />);

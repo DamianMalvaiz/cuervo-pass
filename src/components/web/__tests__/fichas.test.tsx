@@ -127,6 +127,13 @@ describe('BarraFichaWeb', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
     mockPuedeVolver.valor = false;
     await fireEvent.press(screen.getByLabelText('Volver'));
-    expect(mockPush).toHaveBeenLastCalledWith('/explorar');
+    expect(mockPush).toHaveBeenLastCalledWith('/departamentos');
+  });
+
+  it('en la ficha de un negocio, sin historial, vuelve a SERVICIOS y no a los lugares', async () => {
+    mockPuedeVolver.valor = false;
+    await render(<BarraFichaWeb escritorio volverA="/servicios" />);
+    await fireEvent.press(screen.getByLabelText('Volver'));
+    expect(mockPush).toHaveBeenLastCalledWith('/servicios');
   });
 });

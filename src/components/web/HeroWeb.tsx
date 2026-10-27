@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { FotoLista } from '@/components/FotoLista';
 import { ThemedText } from '@/components/themed-text';
-import { BarraWeb, type SeccionWeb } from '@/components/web/BarraWeb';
+import { BarraWeb } from '@/components/web/BarraWeb';
 import { BuscadorWeb } from '@/components/web/BuscadorWeb';
 import { AnchoMaximoWeb, Colors, Radios, Spacing, Texto } from '@/constants/theme';
 import type { FiltrosWeb } from '@/lib/filtrosWeb';
@@ -34,14 +34,12 @@ export function HeroWeb({
   filtros,
   onCambiar,
   onBuscar,
-  onIrASeccion,
   fotos,
 }: {
   escritorio: boolean;
   filtros: FiltrosWeb;
   onCambiar: (f: FiltrosWeb) => void;
   onBuscar: () => void;
-  onIrASeccion: (s: SeccionWeb) => void;
   /** URL ya firmadas de las primeras fotos, una por hueco del collage; un hueco sin foto queda vacío. */
   fotos: (string | undefined)[];
 }) {
@@ -51,7 +49,7 @@ export function HeroWeb({
         <Image source={require('../../../assets/images/web/topografia.svg')} style={estilos.topografia} contentFit="cover" accessible={false} pointerEvents="none" />
 
         <View style={[estilos.interior, escritorio ? estilos.interiorAncho : estilos.interiorCompacto]}>
-        <BarraWeb escritorio={escritorio} onIrASeccion={onIrASeccion} />
+        <BarraWeb escritorio={escritorio} />
 
         <View style={escritorio ? estilos.cuerpoAncho : estilos.cuerpoCompacto}>
           <View style={escritorio ? estilos.texto : undefined}>

@@ -3,6 +3,14 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 // Ficha pública de un negocio (sin cuenta): descripción, si está abierto, horario día por día y productos con precio. Un menú que no cargó NO es un menú vacío (END-11);
 // «no existe» y «falló» son estados distintos. Escribir al negocio o guardarlo pide cuenta.
 
+const mockHead = jest.fn();
+jest.mock('expo-router/head', () => ({
+  __esModule: true,
+  default: (props: unknown) => {
+    mockHead(props);
+    return null;
+  },
+}));
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
   router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() },
@@ -19,7 +27,7 @@ jest.mock('@/hooks/queries/useExplorar', () => ({
   useFotosPublicas: () => ({ fotos: [], cargando: false, fallo: false }),
 }));
 
-import FichaNegocio from '../explorar/negocio/[id]';
+import FichaNegocio from '../servicios/[id]';
 
 const NEGOCIO = {
   id: 'n1', categoria_id: 'c1', nombre: 'Café Lerma', descripcion: 'Café y pan del día', zona: 'Centro, Lerma', horario: null,
@@ -111,6 +119,15 @@ test('lo que necesita cuenta lleva a entrar', async () => {
   await render(<FichaNegocio />);
   await fireEvent.press(screen.getByLabelText('Iniciar sesión para escribir'));
   expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
+});
+
+describe('la pestaña del navegador', () => {
+  it('lleva el nombre del negocio y el del sitio', async () => {
+    mockHead.mockClear();
+    await render(<FichaNegocio />);
+    const titulos = mockHead.mock.calls.map((c) => (c[0] as { children: { props: { children: string } } }).children.props.children);
+    expect(titulos).toContain('Café Lerma · Cuervo 360');
+  });
 });
 
 describe('el diseño nuevo de la ficha del negocio', () => {

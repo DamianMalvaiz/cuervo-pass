@@ -23,7 +23,7 @@ describe('MosaicoNegociosWeb', () => {
     await render(<MosaicoNegociosWeb negocios={[neg(1), neg(2), neg(3), neg(4), neg(5)]} escritorio ancho={270} />);
     for (let i = 1; i <= 5; i++) expect(screen.getByText(`Negocio ${i}`)).toBeTruthy();
     await fireEvent.press(screen.getByLabelText(/Negocio 3/));
-    expect(mockPush).toHaveBeenCalledWith('/explorar/negocio/n3');
+    expect(mockPush).toHaveBeenCalledWith('/servicios/n3');
   });
 
   it('dice si está abierto o cerrado ahora, y no dice nada si no se sabe', async () => {
@@ -45,22 +45,27 @@ describe('MosaicoNegociosWeb', () => {
 });
 
 describe('RoomiesWeb', () => {
-  it('explica de qué trata y manda a entrar: los perfiles solo se ven con cuenta', async () => {
-    await render(<RoomiesWeb escritorio />);
+  it('explica de qué trata y dice que los perfiles solo se ven con cuenta', async () => {
+    await render(<RoomiesWeb escritorio textoBoton="Ver roomies" alBoton={jest.fn()} />);
     expect(screen.getByText(/Con quién vives importa/)).toBeTruthy();
     expect(screen.getByText(/se ven al iniciar sesión/)).toBeTruthy();
-    await fireEvent.press(screen.getByLabelText('Ver roomies'));
-    expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
+  });
+
+  it('el botón dice y hace lo que la página decida', async () => {
+    const alBoton = jest.fn();
+    await render(<RoomiesWeb escritorio textoBoton="Iniciar sesión para ver roomies" alBoton={alBoton} />);
+    await fireEvent.press(screen.getByLabelText('Iniciar sesión para ver roomies'));
+    expect(alBoton).toHaveBeenCalledTimes(1);
   });
 
   it('las personas de las tarjetas son EJEMPLOS y cada una lo dice (no hay perfiles reales a la vista)', async () => {
-    await render(<RoomiesWeb escritorio />);
+    await render(<RoomiesWeb escritorio textoBoton="Ver roomies" alBoton={jest.fn()} />);
     expect(screen.getAllByText('Ejemplo')).toHaveLength(3);
     expect(screen.getAllByLabelText(/compatible/).length).toBe(3);
   });
 
   it('en pantalla angosta también aparecen (y siguen marcadas como ejemplo)', async () => {
-    await render(<RoomiesWeb escritorio={false} />);
+    await render(<RoomiesWeb escritorio={false} textoBoton="Ver roomies" alBoton={jest.fn()} />);
     expect(screen.getAllByText('Ejemplo').length).toBeGreaterThan(0);
   });
 });

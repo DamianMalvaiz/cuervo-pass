@@ -3,6 +3,14 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 // Ficha pública de un depa (sin cuenta): datos reducidos. Lo que se fija: enseña lo que hay (precio, zona, características, calificación), NO enseña ni pide dirección,
 // teléfono ni quién publica; lo que requiere cuenta (escribir, guardar) lleva a entrar; «no existe» y «falló la lectura» son estados distintos (END-11).
 
+const mockHead = jest.fn();
+jest.mock('expo-router/head', () => ({
+  __esModule: true,
+  default: (props: unknown) => {
+    mockHead(props);
+    return null;
+  },
+}));
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
   router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() },
@@ -16,7 +24,7 @@ jest.mock('@/hooks/queries/useExplorar', () => ({
   useFotosPublicas: () => mockFotos,
 }));
 
-import FichaPublica from '../explorar/[id]';
+import FichaPublica from '../departamentos/[id]';
 
 const DEPA = {
   id: 'p1', titulo_publico: 'Cuarto en Santa María', tipo: 'cuarto', precio_renta: 2900, recamaras: 1, amueblado: true, permite_mascotas: false,
@@ -76,6 +84,15 @@ test('si la lectura falla, ofrece reintentar y NO dice que no existe', async () 
   expect(screen.queryByText(/ya no está disponible/i)).toBeNull();
   await fireEvent.press(screen.getByLabelText('Reintentar'));
   expect(mockPub.reintentar).toHaveBeenCalled();
+});
+
+describe('la pestaña del navegador', () => {
+  it('lleva el nombre del lugar y el del sitio', async () => {
+    mockHead.mockClear();
+    await render(<FichaPublica />);
+    const titulos = mockHead.mock.calls.map((c) => (c[0] as { children: { props: { children: string } } }).children.props.children);
+    expect(titulos).toContain('Cuarto en Santa María · Cuervo 360');
+  });
 });
 
 describe('el diseño nuevo de la ficha', () => {

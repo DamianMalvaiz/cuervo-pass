@@ -1,4 +1,4 @@
-// Worker de la web de la app: solo reescribe `/explorar/<id>` y `/explorar/negocio/<id>` a su plantilla. Todo lo demás lo sirven los archivos estáticos.
+// Worker de la web de la app: solo reescribe las fichas (`/departamentos/<id>` y `/servicios/<id>`) a su plantilla. Todo lo demás lo sirven los archivos estáticos.
 import { rutaDePlantilla } from './rutas.mjs';
 
 export default {

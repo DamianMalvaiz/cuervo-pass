@@ -117,6 +117,22 @@ describe('obtenerPublicacionPublica', () => {
   });
 });
 
+describe('negocios · filtro por categoría (en el SERVIDOR)', () => {
+  it('con categoría, se filtra por ella', async () => {
+    const c = cadena({ data: [] });
+    mockDesde.mockReturnValue(c);
+    await listarNegociosPublicos({ limite: 20, categoriaId: 'c1' });
+    expect(c.eq).toHaveBeenCalledWith('categoria_id', 'c1');
+  });
+
+  it('sin categoría no filtra por ninguna', async () => {
+    const c = cadena({ data: [] });
+    mockDesde.mockReturnValue(c);
+    await listarNegociosPublicos({ limite: 20 });
+    expect(c.eq).not.toHaveBeenCalled();
+  });
+});
+
 describe('negocios y categorías', () => {
   it('lee de explorar_negocios y explorar_categorias', async () => {
     const n = cadena({ data: [{ id: 'n1' }] });

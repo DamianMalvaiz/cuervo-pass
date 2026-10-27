@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
+import Head from 'expo-router/head';
 import { ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
@@ -15,9 +16,10 @@ import { Colors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosPublicas, usePublicacionPublica } from '@/hooks/queries/useExplorar';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { RutasWeb } from '@/lib/rutasWeb';
 import { zonaCorta } from '@/lib/zona';
 
-// Ficha pública de una vivienda · web. Datos REDUCIDOS (migración 0090): la zona y no la dirección, sin teléfono ni quién publica. Escribir, guardar, la dirección exacta y el ajuste piden cuenta.
+// `/departamentos/<id>` · ficha pública de una vivienda. Datos REDUCIDOS (migración 0090): la zona y no la dirección, sin teléfono ni quién publica. Escribir, guardar, la dirección exacta y el ajuste piden cuenta.
 
 const ANCHO_MAXIMO = 1200;
 const NOMBRE_TIPO: Record<string, string> = { depa: 'Departamento', cuarto: 'Cuarto', casa_compartida: 'Casa compartida' };
@@ -56,7 +58,7 @@ export default function FichaPublica() {
     return (
       <ThemedView style={estilos.centro}>
         <BloqueEstado etiqueta="Ya no está disponible" mensaje="Este lugar se retiró o dejó de estar publicado." icono="home-outline" />
-        <BotonWeb variante="contorno" onPress={() => router.push('/explorar')} accessibilityLabel="Ver más lugares">Ver más lugares</BotonWeb>
+        <BotonWeb variante="contorno" onPress={() => router.push(RutasWeb.departamentos)} accessibilityLabel="Ver más lugares">Ver más lugares</BotonWeb>
       </ThemedView>
     );
   }
@@ -73,6 +75,9 @@ export default function FichaPublica() {
 
   return (
     <ThemedView style={estilos.raiz}>
+      <Head>
+        <title>{`${p.titulo_publico} · Cuervo 360`}</title>
+      </Head>
       <ScrollView contentContainerStyle={estilos.scroll}>
         <View style={[estilos.contenido, { paddingHorizontal: margen }]}>
           <BarraFichaWeb escritorio={escritorio} />

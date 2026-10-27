@@ -24,7 +24,7 @@ Sin `--clear`, Metro reusa su caché y puede incrustar las variables de otra cor
 npx wrangler dev -c app-web/wrangler.jsonc --port 8788 --ip 127.0.0.1
 ```
 
-Comprobar: `/`, `/explorar`, `/explorar/<id>`, `/explorar/negocio/<id>`, `/login` responden 200; una ruta inventada y un id de más de 64 caracteres, 404; y que la consola del navegador no muestre violaciones de la CSP.
+Comprobar: `/`, `/departamentos`, `/roomies`, `/servicios`, `/departamentos/<id>`, `/servicios/<id>` y `/login` responden 200 (cada sección es su propia página); una ruta inventada y un id de más de 64 caracteres, 404; y que la consola del navegador no muestre violaciones de la CSP.
 
 ## Publicar
 
@@ -46,4 +46,4 @@ Es independiente de `cuervo360.com`; las migraciones y el aviso v5 no se tocan.
 
 - Las cabeceras (`_headers`) salen de `scripts/app-web-reglas.mjs` y las prueba `test-utils/__tests__/app-web.test.ts`: CSP sin `unsafe-eval`, el único script en línea solo por su hash, conexiones solo al Supabase de producción, `noindex`.
 - La web lleva `X-Robots-Tag: noindex` y `robots.txt` con `Disallow: /`: Google no la indexa hasta que se decida quitarlo (en `scripts/app-web-reglas.mjs` y `scripts/construir-app-web.mjs`).
-- El Worker (`app-web/worker.mjs`) solo reescribe `/explorar/<id>` y `/explorar/negocio/<id>` a su plantilla; lo demás son archivos.
+- El Worker (`app-web/worker.mjs`) solo reescribe las fichas (`/departamentos/<id>` y `/servicios/<id>`) a su plantilla; lo demás son archivos. `/explorar` (la dirección del primer día) redirige a `/departamentos`.

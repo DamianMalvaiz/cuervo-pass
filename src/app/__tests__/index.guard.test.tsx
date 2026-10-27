@@ -44,6 +44,12 @@ jest.mock('@/lib/supabase', () => ({
   supabase: { from: (...a: unknown[]) => mockDesde(...a) },
 }));
 
+jest.mock('@/components/web/PortadaWeb', () => {
+  const { createElement } = require('react');
+  const { Text } = require('react-native');
+  return { PortadaWeb: () => createElement(Text, null, 'portada pública') };
+});
+
 import { VERSION_AVISO } from '@/lib/verificacion';
 
 import Index from '../index';
@@ -371,12 +377,12 @@ describe('sin sesión, según la plataforma', () => {
     Platform.OS = original;
   });
 
-  it('en la web manda a la portada pública', async () => {
+  it('en la web enseña la portada pública EN la raíz (sin redirigir: el inicio vive en «/»)', async () => {
     Platform.OS = 'web';
     mockAuth.session = null;
     await render(<Index />);
-    expect(mockRedirigir).toHaveBeenCalledWith('/explorar');
-    expect(mockRedirigir).not.toHaveBeenCalledWith('/(auth)/login');
+    expect(screen.getByText('portada pública')).toBeTruthy();
+    expect(mockRedirigir).not.toHaveBeenCalled();
   });
 
   it('en el teléfono sigue mandando al login', async () => {
@@ -384,6 +390,6 @@ describe('sin sesión, según la plataforma', () => {
     mockAuth.session = null;
     await render(<Index />);
     expect(mockRedirigir).toHaveBeenCalledWith('/(auth)/login');
-    expect(mockRedirigir).not.toHaveBeenCalledWith('/explorar');
+    expect(screen.queryByText('portada pública')).toBeNull();
   });
 });

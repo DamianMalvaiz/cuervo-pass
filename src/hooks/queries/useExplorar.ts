@@ -31,8 +31,8 @@ export function usePublicacionPublica(id: string | undefined) {
   return { publicacion: q.data ?? null, cargando: q.isPending && Boolean(id), fallo: q.isError, reintentar: () => void q.refetch() };
 }
 
-export function useNegociosPublicos({ limite }: { limite: number }) {
-  const q = useQuery({ queryKey: ['explorarNegocios', limite], queryFn: () => listarNegociosPublicos({ limite }), placeholderData: (previa) => previa });
+export function useNegociosPublicos(filtro: { limite: number; categoriaId?: string }) {
+  const q = useQuery({ queryKey: ['explorarNegocios', filtro], queryFn: () => listarNegociosPublicos(filtro), placeholderData: (previa) => previa });
   return { negocios: q.data ?? [], cargando: q.isPending, fallo: q.isError, reintentar: () => void q.refetch() };
 }
 

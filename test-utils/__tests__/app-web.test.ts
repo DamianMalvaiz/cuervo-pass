@@ -97,20 +97,25 @@ describe('rutaDePlantilla: qué plantilla sirve el Worker', () => {
   const r = (p: string) => JSON.parse(rutas(`console.log(JSON.stringify(m.rutaDePlantilla(${JSON.stringify(p)})))`));
   const ID = '3b241101-e2bb-4255-8caf-4136c566a962';
 
-  it('una vivienda y un negocio caen en su plantilla', () => {
-    expect(r(`/explorar/${ID}`)).toBe('/explorar/_id');
-    expect(r(`/explorar/negocio/${ID}`)).toBe('/explorar/negocio/_id');
+  it('una vivienda y un negocio caen en la plantilla de SU sección', () => {
+    expect(r(`/departamentos/${ID}`)).toBe('/departamentos/_id');
+    expect(r(`/servicios/${ID}`)).toBe('/servicios/_id');
   });
 
   it('con barra final también', () => {
-    expect(r(`/explorar/${ID}/`)).toBe('/explorar/_id');
+    expect(r(`/departamentos/${ID}/`)).toBe('/departamentos/_id');
   });
 
   it('lo que no es un id con forma de id no se sirve (404 normal)', () => {
-    for (const p of ['/explorar/../secreto', '/explorar/a b', `/explorar/${'x'.repeat(80)}`, '/explorar/%2e%2e', '/explorar/negocio/', '/explorar/negocio/a/b']) expect(r(p)).toBeNull();
+    for (const p of ['/departamentos/../secreto', '/departamentos/a b', `/departamentos/${'x'.repeat(80)}`, '/departamentos/%2e%2e', '/servicios/a/b', '/servicios/../x']) expect(r(p)).toBeNull();
   });
 
-  it('las demás rutas no las toca el Worker', () => {
-    for (const p of ['/', '/explorar', '/login', '/_expo/static/js/web/x.js']) expect(r(p)).toBeNull();
+  it('las páginas de cada sección (sin id) y las demás rutas no las toca el Worker', () => {
+    for (const p of ['/', '/departamentos', '/departamentos/', '/servicios', '/roomies', '/login', '/_expo/static/js/web/x.js']) expect(r(p)).toBeNull();
+  });
+
+  it('las direcciones de antes (`/explorar/...`) ya no se reescriben: la raíz de la sección redirige y las fichas dejaron de existir ahí', () => {
+    expect(r(`/explorar/${ID}`)).toBeNull();
+    expect(r(`/explorar/negocio/${ID}`)).toBeNull();
   });
 });

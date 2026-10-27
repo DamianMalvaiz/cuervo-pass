@@ -91,7 +91,7 @@ const estilos = StyleSheet.create({
     // Sombra con desplazamiento y desenfoque: la píldora flota sobre el borde del hero.
     boxShadow: '0px 30px 60px -20px rgba(10, 14, 11, 0.5), 0px 4px 12px rgba(10, 14, 11, 0.12)',
   },
-  cajaCompacta: { flexDirection: 'column', gap: Spacing.one, borderRadius: Radios.tarjeta, padding: Spacing.two },
+  cajaCompacta: { width: '100%', flexDirection: 'column', gap: Spacing.one, borderRadius: Radios.tarjeta, padding: Spacing.two },
   segmento: { paddingVertical: Spacing.two, paddingHorizontal: Spacing.four, borderRadius: Radios.full, gap: Spacing.half, minHeight: 56, justifyContent: 'center' },
   segmentoFlex: { flex: 1 },
   divisor: { borderLeftWidth: Filete.fino, borderLeftColor: L.filete, borderRadius: 0 },

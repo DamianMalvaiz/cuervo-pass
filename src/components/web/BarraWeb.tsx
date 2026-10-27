@@ -1,4 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
@@ -6,44 +5,27 @@ import { Pulsable } from '@/components/ficha/Pulsable';
 import { LogoMarca } from '@/components/LogoMarca';
 import { ThemedText } from '@/components/themed-text';
 import { BotonWeb } from '@/components/web/BotonWeb';
-import { Colors, Radios, Spacing, Texto } from '@/constants/theme';
+import { PestanasWeb, type SeccionWeb } from '@/components/web/PestanasWeb';
+import { Colors, Spacing, Texto } from '@/constants/theme';
+import { RutasWeb } from '@/lib/rutasWeb';
 
 const D = Colors.dark;
 
-export type SeccionWeb = 'depas' | 'roomies' | 'servicios';
-
-const PESTANAS: { seccion: SeccionWeb; nombre: string; icono: keyof typeof Ionicons.glyphMap }[] = [
-  { seccion: 'depas', nombre: 'Departamentos', icono: 'home-outline' },
-  { seccion: 'roomies', nombre: 'Roomies', icono: 'people-outline' },
-  { seccion: 'servicios', nombre: 'Servicios', icono: 'storefront-outline' },
-];
-
 /**
- * La barra de arriba de la web pública, sobre el carbón del hero (siempre oscuro: el hero no cambia con el modo).
- * Las pestañas llevan a una sección de la misma página; Roomies solo enseña de qué trata, sus perfiles piden cuenta.
+ * La barra de arriba del hero, sobre el carbón (siempre oscuro: el hero no cambia con el modo). El logo lleva al inicio, las pestañas a su página y las dos cuentas a entrar y registrarse.
+ * En pantalla angosta no caben las pestañas ni el nombre: quedan el logo y las dos cuentas (la navegación sigue en el menú de cada página).
  */
-export function BarraWeb({ escritorio, onIrASeccion }: { escritorio: boolean; onIrASeccion: (s: SeccionWeb) => void }) {
+export function BarraWeb({ escritorio, activa = null }: { escritorio: boolean; activa?: SeccionWeb | null }) {
   return (
     <View style={estilos.fila}>
-      <View style={estilos.marca}>
+      <Pulsable onPress={() => router.push(RutasWeb.inicio)} accessibilityRole="link" accessibilityLabel="Ir al inicio" style={estilos.marca}>
         <LogoMarca tamano={40} />
         {escritorio ? <ThemedText style={[Texto.subtitulo, { color: D.text }]}>Cuervo 360</ThemedText> : null}
-      </View>
+      </Pulsable>
 
       {escritorio ? (
         <View style={estilos.pestanas}>
-          {PESTANAS.map((p, i) => (
-            <Pulsable
-              key={p.seccion}
-              onPress={() => onIrASeccion(p.seccion)}
-              accessibilityRole="link"
-              accessibilityLabel={p.nombre}
-              style={[estilos.pestana, i === 0 && estilos.pestanaActiva]}
-            >
-              <Ionicons name={p.icono} size={20} color={D.text} />
-              <ThemedText style={[Texto.pequenoFuerte, { color: D.text }]}>{p.nombre}</ThemedText>
-            </Pulsable>
-          ))}
+          <PestanasWeb activa={activa} tono="oscuro" />
         </View>
       ) : null}
 
@@ -57,9 +39,7 @@ export function BarraWeb({ escritorio, onIrASeccion }: { escritorio: boolean; on
 
 const estilos = StyleSheet.create({
   fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, flexWrap: 'wrap' },
-  marca: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  pestanas: { flexDirection: 'row', gap: Spacing.one, marginLeft: Spacing.three },
-  pestana: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 44, paddingHorizontal: Spacing.three, borderRadius: Radios.full },
-  pestanaActiva: { backgroundColor: D.backgroundSelected },
+  marca: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 44 },
+  pestanas: { marginLeft: Spacing.three },
   cuentas: { flexDirection: 'row', gap: Spacing.two, marginLeft: 'auto', alignItems: 'center' },
 });

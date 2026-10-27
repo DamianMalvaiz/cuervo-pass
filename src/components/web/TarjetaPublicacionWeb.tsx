@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosPublicas } from '@/hooks/queries/useExplorar';
 import { useTheme } from '@/hooks/use-theme';
+import { RutasWeb } from '@/lib/rutasWeb';
 import { zonaCorta } from '@/lib/zona';
 import type { PublicacionExplorar } from '@/services/explorar.service';
 
@@ -26,7 +27,7 @@ export function TarjetaPublicacionWeb({ p, ancho }: { p: PublicacionExplorar; an
 
   return (
     <Pulsable
-      onPress={() => router.push(`/explorar/${p.id}`)}
+      onPress={() => router.push(RutasWeb.ficha(p.id))}
       accessibilityRole="button"
       accessibilityLabel={`${p.titulo_publico}, ${precio.format(p.precio_renta)} pesos al mes`}
       style={[estilos.tarjeta, ancho ? { width: ancho } : estilos.flexible]}

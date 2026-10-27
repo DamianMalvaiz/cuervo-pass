@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
+import Head from 'expo-router/head';
 import { ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
@@ -17,10 +18,11 @@ import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosPublicas, useHorarioPublico, useNegocioPublico, useProductosPublicos } from '@/hooks/queries/useExplorar';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { RutasWeb } from '@/lib/rutasWeb';
 import { zonaCorta } from '@/lib/zona';
 import type { ProductoExplorar } from '@/services/explorar.service';
 
-// Ficha pública de un negocio · web. Datos REDUCIDOS (migración 0090): la zona y no la dirección exacta, sin teléfono. Escribir, guardar y la dirección exacta piden cuenta.
+// `/servicios/<id>` · ficha pública de un negocio. Datos REDUCIDOS (migración 0090): la zona y no la dirección exacta, sin teléfono. Escribir, guardar y la dirección exacta piden cuenta.
 
 const ANCHO_MAXIMO = 1200;
 const FIJA = { position: 'sticky', top: Spacing.three } as ViewStyle;
@@ -72,7 +74,7 @@ export default function FichaNegocio() {
     return (
       <ThemedView style={estilos.centro}>
         <BloqueEstado etiqueta="Ya no está disponible" mensaje="Este negocio se retiró o dejó de estar publicado." icono="storefront-outline" />
-        <BotonWeb variante="contorno" onPress={() => router.push('/explorar')} accessibilityLabel="Ver más lugares">Ver más lugares</BotonWeb>
+        <BotonWeb variante="contorno" onPress={() => router.push(RutasWeb.servicios)} accessibilityLabel="Ver más negocios">Ver más negocios</BotonWeb>
       </ThemedView>
     );
   }
@@ -82,9 +84,12 @@ export default function FichaNegocio() {
 
   return (
     <ThemedView style={estilos.raiz}>
+      <Head>
+        <title>{`${n.nombre} · Cuervo 360`}</title>
+      </Head>
       <ScrollView contentContainerStyle={estilos.scroll}>
         <View style={[estilos.contenido, { paddingHorizontal: margen }]}>
-          <BarraFichaWeb escritorio={escritorio} />
+          <BarraFichaWeb escritorio={escritorio} volverA={RutasWeb.servicios} />
           <GaleriaWeb fotos={fotos} titulo={n.nombre} escritorio={escritorio} textoSinFotos="Este negocio todavía no tiene fotos" />
 
           <View style={escritorio ? estilos.fila : estilos.columna}>

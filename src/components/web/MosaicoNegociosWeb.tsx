@@ -9,6 +9,7 @@ import { ScrimWeb } from '@/components/web/ScrimWeb';
 import { Colors, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosPublicas } from '@/hooks/queries/useExplorar';
 import { useTheme } from '@/hooks/use-theme';
+import { RutasWeb } from '@/lib/rutasWeb';
 import type { NegocioExplorar } from '@/services/explorar.service';
 
 const D = Colors.dark;
@@ -20,7 +21,7 @@ function Mosaico({ n, ancho, alto, grande }: { n: NegocioExplorar; ancho: number
   const estado = n.abierto_ahora === null ? null : n.abierto_ahora ? 'Abierto ahora' : 'Cerrado ahora';
   return (
     <Pulsable
-      onPress={() => router.push(`/explorar/negocio/${n.id}`)}
+      onPress={() => router.push(RutasWeb.negocio(n.id))}
       accessibilityRole="button"
       accessibilityLabel={estado ? `${n.nombre}, ${estado}` : n.nombre}
       style={[estilos.mosaico, { width: ancho, height: alto, backgroundColor: theme.backgroundSelected }]}

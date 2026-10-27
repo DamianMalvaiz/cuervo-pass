@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
+import { PortadaWeb } from '@/components/web/PortadaWeb';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -15,7 +16,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 // Documento maestro v5 · §26 — el guard de sesión tiene TRES estados, no dos:
 //
-//   sin sesión                      → login (en la web, la portada pública /explorar)
+//   sin sesión                      → login (en la web, la portada pública, que se queda en `/`)
 //   con sesión, aviso sin aceptar   → aviso (la versión vigente; migración 0059)
 //   con sesión, sin cuestionario    → cuestionario
 //   con sesión y cuestionario       → pestañas
@@ -117,8 +118,8 @@ export default function Index() {
     );
   }
 
-  // La web se explora sin cuenta (migración 0090): quien llega sin sesión ve la portada pública. En el teléfono, el login de siempre.
-  if (!session) return <Redirect href={Platform.OS === 'web' ? '/explorar' : '/(auth)/login'} />;
+  // La web se explora sin cuenta (migración 0090): quien llega sin sesión ve la portada pública EN `/` (no se redirige: la dirección del inicio es la raíz). En el teléfono, el login de siempre.
+  if (!session) return Platform.OS === 'web' ? <PortadaWeb /> : <Redirect href="/(auth)/login" />;
 
   // Un fallo no redirige a ninguna parte: ni al cuestionario ni a las pestañas,
   // porque no se sabe a cuál toca. Se dice y se ofrece reintentar.
