@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
   if (error) return json({ error: 'no se pudo leer' }, 500);
   if (!data) return json({ fotos: [] });
 
-  const entradas = separarFotos((data as Record<string, unknown>)[columna]);
+  const entradas = separarFotos((data as unknown as Record<string, unknown>)[columna]);
   const rutas = entradas.flatMap((e) => (e.tipo === 'ruta' ? [e.ruta] : []));
   const firmadas = new Map<string, string>();
   if (rutas.length > 0) {
