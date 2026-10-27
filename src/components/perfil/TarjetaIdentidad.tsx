@@ -1,18 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
-import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useFotoPerfil } from '@/hooks/use-foto-perfil';
 import { useTheme } from '@/hooks/use-theme';
-import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
-import { subirFotoPerfil } from '@/lib/storage';
-import { toast } from '@/lib/toast';
-import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 
 /**
@@ -25,45 +20,8 @@ import { usePerfilStore } from '@/store/usePerfilStore';
  */
 export function TarjetaIdentidad({ insignia, children }: { insignia?: string; children?: ReactNode }) {
   const theme = useTheme();
-  const session = useAuthStore((s) => s.session);
-  const { perfil, actualizarPerfil } = usePerfilStore();
-  const [subiendoFoto, setSubiendoFoto] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // El bucket es privado (§14): `foto_url` guarda una ruta, y para mostrarla hay que firmarla.
-  const { urls: urlsFirmadas } = useFotosFirmadas([perfil?.foto_url]);
-  const urlFoto = perfil?.foto_url ? urlsFirmadas.get(perfil.foto_url) : null;
-
-  const onCambiarFoto = async () => {
-    if (!session?.user.id) return;
-    setError(null);
-    const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permiso.granted) {
-      // En la ficha Y como aviso: el texto puede estar fuera de la vista si se ha deslizado.
-      setError(avisarPermisoDeFotosDenegado(permiso.canAskAgain));
-      return;
-    }
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 1,
-      aspect: [1, 1],
-      allowsEditing: true,
-    });
-    if (resultado.canceled) return;
-
-    setSubiendoFoto(true);
-    try {
-      const ruta = await subirFotoPerfil(session.user.id, resultado.assets[0].uri);
-      await actualizarPerfil(session.user.id, { foto_url: ruta });
-      toast.exito('Foto actualizada');
-    } catch (e) {
-      const mensaje = e instanceof Error ? e.message : 'No se pudo subir la foto';
-      setError(mensaje);
-      toast.error(mensaje);
-    } finally {
-      setSubiendoFoto(false);
-    }
-  };
+  const { perfil } = usePerfilStore();
+  const { urlFoto, subiendoFoto, error, cambiarFoto: onCambiarFoto } = useFotoPerfil();
 
   return (
     <>

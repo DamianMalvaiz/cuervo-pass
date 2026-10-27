@@ -38,6 +38,18 @@ describe('DireccionConCuentaWeb', () => {
     expect(screen.queryByText(/se muestra al iniciar sesión/)).toBeNull();
   });
 
+  it('«Ver en el mapa» abre el punto exacto de la vivienda', async () => {
+    await render(<DireccionConCuentaWeb id="p1" zona="Centro, Lerma" />);
+    await fireEvent.press(screen.getByLabelText('Ver en el mapa'));
+    expect(abrirUrl).toHaveBeenCalledWith('https://www.google.com/maps/search/?api=1&query=19.28,-99.51');
+  });
+
+  it('sin coordenadas no ofrece un mapa que no sabría a dónde ir', async () => {
+    mockFicha.publicacion = { id: 'p1', direccion: 'Calle Hidalgo 12', latitud: null, longitud: null };
+    await render(<DireccionConCuentaWeb id="p1" zona="Centro, Lerma" />);
+    expect(screen.queryByLabelText('Ver en el mapa')).toBeNull();
+  });
+
   it('un fallo al leer se dice y se puede reintentar: no deja la dirección en blanco', async () => {
     Object.assign(mockFicha, { publicacion: null, fallo: 'x' });
     await render(<DireccionConCuentaWeb id="p1" zona="Centro, Lerma" />);

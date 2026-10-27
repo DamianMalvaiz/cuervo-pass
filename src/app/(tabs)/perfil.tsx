@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
@@ -11,6 +11,7 @@ import { Pulsable } from '@/components/ficha/Pulsable';
 import { EncabezadoPerfil } from '@/components/perfil/EncabezadoPerfil';
 import { PerfilVendedor } from '@/components/perfil/PerfilVendedor';
 import { TarjetaIdentidad } from '@/components/perfil/TarjetaIdentidad';
+import { PerfilWeb } from '@/components/web/PerfilWeb';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
@@ -245,7 +246,9 @@ export default function PerfilScreen() {
     if (session?.user.id) cargarPerfil(session.user.id);
   }, [session?.user.id, cargarPerfil]);
 
-  return perfil === 'vendedor' ? <PerfilVendedor /> : <PerfilEstudiante />;
+  if (perfil === 'vendedor') return <PerfilVendedor />;
+  // En la web, quien busca ve su propio perfil de página (con qué falta para completarlo); en la app, el de siempre.
+  return Platform.OS === 'web' ? <PerfilWeb /> : <PerfilEstudiante />;
 }
 
 const estilos = StyleSheet.create({

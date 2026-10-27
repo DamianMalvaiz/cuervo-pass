@@ -16,12 +16,18 @@ import { usePerfilStore } from '@/store/usePerfilStore';
 
 // Lo que la ficha de una vivienda enseña SOLO con cuenta. Cada pieza lee la publicación completa (la misma consulta, que react-query comparte) y se monta solo con sesión: quien explora sin cuenta no monta consultas.
 
-/** La dirección exacta. Mientras carga enseña la zona que ya se sabe; un fallo se dice (no deja la dirección en blanco). */
+/** La dirección exacta y «Ver en el mapa» (abre su punto; sin coordenadas no se ofrece). Mientras carga enseña la zona que ya se sabe; un fallo se dice (no deja la dirección en blanco). */
 export function DireccionConCuentaWeb({ id, zona }: { id: string; zona: string }) {
   const { publicacion, cargando, fallo, reintentar } = usePublicacion(id);
   if (fallo) return <ErrorDeCarga etiqueta="No pudimos cargar la dirección exacta" onReintentar={() => void reintentar()} />;
   if (cargando || !publicacion) return zona ? <ThemedText style={Texto.subtitulo}>{zona}</ThemedText> : null;
-  return <ThemedText style={Texto.subtitulo}>{publicacion.direccion}</ThemedText>;
+  const conMapa = publicacion.latitud != null && publicacion.longitud != null;
+  return (
+    <View style={estilos.direccion}>
+      <ThemedText style={Texto.subtitulo}>{publicacion.direccion}</ThemedText>
+      {conMapa ? <BotonWeb compacto variante="contorno" icono="map-outline" onPress={() => void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${publicacion.latitud},${publicacion.longitud}`)} accessibilityLabel="Ver en el mapa">Ver en el mapa</BotonWeb> : null}
+    </View>
+  );
 }
 
 /** La descripción de la vivienda, si la hay. Un fallo no se repite aquí: ya lo dice la dirección. */
@@ -102,6 +108,7 @@ export function UbicacionNegocioConCuentaWeb({ id, zona }: { id: string; zona: s
 }
 
 const estilos = StyleSheet.create({
+  direccion: { gap: Spacing.three, alignItems: 'flex-start' },
   ubicacion: { gap: Spacing.three, padding: Spacing.four, borderRadius: Radios.panel - Spacing.one, borderWidth: Filete.fino },
   bloque: { borderTopWidth: Filete.fino, marginTop: Spacing.four, paddingTop: Spacing.four, gap: Spacing.three },
   ajuste: { padding: Spacing.four, gap: Spacing.three, borderRadius: Radios.tarjeta, borderWidth: Filete.fino },
