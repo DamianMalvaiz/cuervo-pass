@@ -35,8 +35,8 @@ export function ComoFuncionaWeb({ escritorio, foto, titulo = 'Cuarto cerca de tu
         {PASOS.map((p, i) => (
           <View key={p.titulo} style={estilos.paso}>
             <View style={estilos.numeroCol}>
-              <View style={estilos.numero}>
-                <Text style={[Texto.subtitulo, { color: D.lima }]}>{i + 1}</Text>
+              <View style={[estilos.numero, { backgroundColor: theme.sello }]}>
+                <Text style={[Texto.subtitulo, { color: theme.selloTexto }]}>{i + 1}</Text>
               </View>
               {i < PASOS.length - 1 ? <View style={[estilos.conector, { backgroundColor: theme.filete }]} /> : null}
             </View>
@@ -88,7 +88,7 @@ const estilos = StyleSheet.create({
   titulo: { marginBottom: Spacing.five },
   paso: { flexDirection: 'row', gap: Spacing.three + Spacing.one },
   numeroCol: { alignItems: 'center' },
-  numero: { width: 52, height: 52, borderRadius: Radios.full, backgroundColor: D.background, alignItems: 'center', justifyContent: 'center' },
+  numero: { width: 52, height: 52, borderRadius: Radios.full, alignItems: 'center', justifyContent: 'center' },
   conector: { width: 2, flex: 1, minHeight: 36, marginVertical: Spacing.one },
   pasoTexto: { flex: 1, paddingBottom: Spacing.four, paddingTop: Spacing.one },
   pasoDetalle: { marginTop: Spacing.one, maxWidth: 420 },

@@ -1,22 +1,29 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 // Las secciones de la portada pública que enseñan lo que viene después de entrar. Lo que se fija: lo ilustrativo se DICE ilustrativo («Ejemplo»), lo que necesita cuenta lleva a entrar,
 // y los textos de confianza afirman solo lo que el aviso de privacidad y la app sostienen.
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(...a) } }));
+const mockModo = { valor: 'light' as 'light' | 'dark' };
+jest.mock('@/hooks/use-color-scheme', () => ({ useColorScheme: () => mockModo.valor }));
 jest.mock('@/hooks/queries/useExplorar', () => ({ useFotosPublicas: () => ({ fotos: [], cargando: false, fallo: false }) }));
 
 import { ComoFuncionaWeb } from '../ComoFuncionaWeb';
 import { ConfianzaWeb } from '../ConfianzaWeb';
 import { MosaicoNegociosWeb } from '../MosaicoNegociosWeb';
 import { RoomiesWeb } from '../RoomiesWeb';
+import { Colors } from '@/constants/theme';
 import type { NegocioExplorar } from '@/services/explorar.service';
 
 const neg = (i: number, extra: Partial<NegocioExplorar> = {}) =>
   ({ id: `n${i}`, nombre: `Negocio ${i}`, zona: 'Centro, Lerma, México, CP 52000', abierto_ahora: true, calificacion: null, num_fotos: 0, destacado: false, ...extra }) as unknown as NegocioExplorar;
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockModo.valor = 'light';
+});
 
 describe('MosaicoNegociosWeb', () => {
   it('cada negocio es un mosaico con su nombre que lleva a su ficha pública', async () => {
@@ -74,6 +81,14 @@ describe('ComoFuncionaWeb', () => {
   it('cuenta los tres pasos', async () => {
     await render(<ComoFuncionaWeb escritorio />);
     for (const t of ['Cuéntanos qué buscas', 'Ordenamos por ajuste', 'Escribe dentro de la app']) expect(screen.getByText(t)).toBeTruthy();
+  });
+
+  // El círculo era siempre carbón y la página oscura también: el número desaparecía (superficie contra superficie).
+  it.each(['light', 'dark'] as const)('el círculo del número se distingue de la página en modo %s', async (modo) => {
+    mockModo.valor = modo;
+    await render(<ComoFuncionaWeb escritorio />);
+    const circulo = StyleSheet.flatten(screen.getByText('1').parent!.props.style) as { backgroundColor: string };
+    expect(circulo.backgroundColor).not.toBe(Colors[modo].background);
   });
 
   it('la tarjeta de ajuste es un EJEMPLO y no inventa cifras concretas (distancias, precios)', async () => {
