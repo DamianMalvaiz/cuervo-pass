@@ -50,6 +50,12 @@ jest.mock('@/components/web/PortadaWeb', () => {
   return { PortadaWeb: () => createElement(Text, null, 'portada pública') };
 });
 
+jest.mock('@/components/web/ParaTiWeb', () => {
+  const { createElement } = require('react');
+  const { Text } = require('react-native');
+  return { ParaTiWeb: () => createElement(Text, null, 'para ti') };
+});
+
 import { VERSION_AVISO } from '@/lib/verificacion';
 
 import Index from '../index';
@@ -391,5 +397,49 @@ describe('sin sesión, según la plataforma', () => {
     await render(<Index />);
     expect(mockRedirigir).toHaveBeenCalledWith('/(auth)/login');
     expect(screen.queryByText('portada pública')).toBeNull();
+  });
+});
+
+// En la web, quien busca y ya hizo todo cae en «Para ti» (la portada de dentro), no en las pantallas de teléfono. Las demás puertas no cambian: el aviso va antes, el cuestionario sigue siendo de quien busca y un
+// vendedor entra por su panel.
+describe('en la web', () => {
+  const plataforma = Platform.OS;
+  beforeEach(() => {
+    Platform.OS = 'web';
+  });
+  afterEach(() => {
+    Platform.OS = plataforma;
+  });
+
+  it('un estudiante con cuestionario completo ve «Para ti» y NO se le redirige', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO, perfil_activo: 'estudiante' } }).cadena);
+    await render(<Index />);
+    expect(await screen.findByText('para ti')).toBeTruthy();
+    expect(mockRedirigir).not.toHaveBeenCalledWith('/(tabs)/inicio');
+  });
+
+  it('sin cuestionario sigue yendo a hacerlo', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: false, version_aviso_aceptada: VERSION_AVISO, perfil_activo: 'estudiante' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(auth)/cuestionario-inicial'));
+    expect(screen.queryByText('para ti')).toBeNull();
+  });
+
+  it('un vendedor sigue entrando por su panel', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: VERSION_AVISO, perfil_activo: 'vendedor' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/(tabs)/panel'));
+    expect(screen.queryByText('para ti')).toBeNull();
+  });
+
+  it('el aviso de privacidad va antes que «Para ti»', async () => {
+    mockAuth.session = SESION;
+    mockDesde.mockReturnValue(consulta({ data: { cuestionario_completo: true, version_aviso_aceptada: 'v0', perfil_activo: 'estudiante' } }).cadena);
+    await render(<Index />);
+    await waitFor(() => expect(mockRedirigir).toHaveBeenCalledWith('/aviso-actualizado'));
+    expect(screen.queryByText('para ti')).toBeNull();
   });
 });

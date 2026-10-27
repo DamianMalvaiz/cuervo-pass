@@ -21,9 +21,9 @@ const precio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 
 /**
  * Una vivienda para quien explora: foto grande 4:5, la etiqueta de destacado, el corazón (pide entrar sin cuenta; con cuenta guarda de verdad), título armado, zona corta y precio.
- * Solo lo que la vista pública enseña: nada de dirección exacta ni de quién publica.
+ * Solo lo que la vista pública enseña: nada de dirección exacta ni de quién publica. Con cuenta puede llevar `etiqueta` (el ajuste en palabras, sobre la foto) y `razon` (lo que lo explica, bajo el precio); sin ellas es la de siempre.
  */
-export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso }: { p: PublicacionExplorar; ancho?: number; compacta?: boolean; paso?: number }) {
+export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso, etiqueta, razon }: { p: PublicacionExplorar; ancho?: number; compacta?: boolean; paso?: number; etiqueta?: string; razon?: string }) {
   const theme = useTheme();
   const { fotos } = useFotosPublicas('publicacion', p.id, p.num_fotos);
   const zona = zonaCorta(p.zona);
@@ -32,7 +32,7 @@ export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso }: { p:
     <Pulsable
       onPress={() => router.push(RutasWeb.ficha(p.id))}
       accessibilityRole="button"
-      accessibilityLabel={`${p.titulo_publico}, ${precio.format(p.precio_renta)} pesos al mes`}
+      accessibilityLabel={`${p.titulo_publico}, ${precio.format(p.precio_renta)} pesos al mes${etiqueta ? `, ${etiqueta}` : ''}`}
       style={[estilos.tarjeta, ancho ? { width: ancho } : estilos.flexible]}
       {...animTarjeta(paso)}
     >
@@ -41,6 +41,11 @@ export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso }: { p:
         {p.destacado ? (
           <View style={[estilos.destacado, compacta && estilos.destacadoCompacto]}>
             <ThemedText style={[compacta ? Texto.etiqueta : Texto.pequenoFuerte, { color: D.limaTexto }]}>Destacado</ThemedText>
+          </View>
+        ) : null}
+        {etiqueta ? (
+          <View style={[estilos.ajuste, compacta && estilos.ajusteCompacto]}>
+            <ThemedText style={[compacta ? Texto.etiqueta : Texto.pequenoFuerte, { color: D.limaTexto }]}>{etiqueta}</ThemedText>
           </View>
         ) : null}
         <CorazonWeb tipo="publicacion" id={p.id} compacta={compacta} />
@@ -79,6 +84,12 @@ export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso }: { p:
           </ThemedText>
         </>
       )}
+      {razon ? (
+        <View style={estilos.razon}>
+          <Ionicons name="checkmark-circle" size={16} color={theme.bosque} />
+          <ThemedText style={[Texto.pequenoFuerte, estilos.razonTexto, { color: theme.acento }]}>{razon}</ThemedText>
+        </View>
+      ) : null}
     </Pulsable>
   );
 }
@@ -91,6 +102,10 @@ const estilos = StyleSheet.create({
   imagen: { width: '100%', height: '100%' },
   destacado: { position: 'absolute', left: Spacing.three, top: Spacing.three, backgroundColor: D.lima, borderRadius: Radios.full, paddingVertical: Spacing.one + Spacing.half, paddingHorizontal: Spacing.three },
   destacadoCompacto: { left: Spacing.two, top: Spacing.two, paddingVertical: Spacing.half, paddingHorizontal: Spacing.two },
+  ajuste: { position: 'absolute', left: Spacing.three, bottom: Spacing.three, backgroundColor: D.lima, borderRadius: Radios.full, paddingVertical: Spacing.one + Spacing.half, paddingHorizontal: Spacing.three },
+  ajusteCompacto: { left: Spacing.two, bottom: Spacing.two, paddingVertical: Spacing.half, paddingHorizontal: Spacing.two },
+  razon: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.one + Spacing.half, marginTop: Spacing.one },
+  razonTexto: { flex: 1 },
   precioFila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap' },
   linea: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.two },
   titulo: { flex: 1 },

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
+import { ParaTiWeb } from '@/components/web/ParaTiWeb';
 import { PortadaWeb } from '@/components/web/PortadaWeb';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
@@ -143,7 +144,9 @@ export default function Index() {
 
   // 0083: un vendedor entra por su panel y no pasa por el cuestionario de estudiante.
   const perfil = resultado && resultado.usuarioId === usuarioId ? resultado.perfil : null;
-  return <Redirect href={destinoInicial(perfil, estado === 'completo', Platform.OS === 'web')} />;
+  // En la web, quien busca y ya hizo todo cae en «Para ti» (la portada de dentro); el vendedor y quien aún no hizo el cuestionario siguen sus caminos.
+  if (Platform.OS === 'web' && perfil !== 'vendedor' && estado === 'completo') return <ParaTiWeb />;
+  return <Redirect href={destinoInicial(perfil, estado === 'completo')} />;
 }
 
 const styles = StyleSheet.create({
