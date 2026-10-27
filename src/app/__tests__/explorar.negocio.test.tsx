@@ -5,7 +5,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
-  router: { push: (...a: unknown[]) => mockPush(...a) },
+  router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() },
   useLocalSearchParams: () => ({ id: 'n1' }),
 }));
 
@@ -67,16 +67,18 @@ test('productos con precio; sin precio dice «Consulta el precio», no inventa u
   expect(screen.getByText(/Consulta el precio/)).toBeTruthy();
 });
 
-test('sin secciones, no repite «Productos» como rótulo de grupo', async () => {
-  Object.assign(mockProd, { productos: [{ ...PRODUCTOS[0], seccion: null }] });
+test('sin secciones ni estrellas no inventa un rótulo de grupo', async () => {
+  Object.assign(mockProd, { productos: [{ ...PRODUCTOS[0], seccion: null, estrella: false }] });
   await render(<FichaNegocio />);
-  expect(screen.getAllByText(/^productos$/i)).toHaveLength(1);
+  expect(screen.queryByText('PRODUCTOS')).toBeNull();
+  expect(screen.getByText('Capuchino')).toBeTruthy();
 });
 
-test('con secciones, cada una lleva su rótulo', async () => {
+test('las estrellas van bajo «Destacados» y el resto, bajo su sección', async () => {
   await render(<FichaNegocio />);
-  expect(screen.getByText('BEBIDAS')).toBeTruthy();
+  expect(screen.getByText('DESTACADOS')).toBeTruthy();
   expect(screen.getByText('PAN')).toBeTruthy();
+  expect(screen.queryByText('BEBIDAS')).toBeNull();
 });
 
 test('si el menú falla, ofrece reintentar y NO dice que no hay productos', async () => {
@@ -109,4 +111,32 @@ test('lo que necesita cuenta lleva a entrar', async () => {
   await render(<FichaNegocio />);
   await fireEvent.press(screen.getByLabelText('Iniciar sesión para escribir'));
   expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
+});
+
+describe('el diseño nuevo de la ficha del negocio', () => {
+  it('trae la barra con «Volver» y el título «Menú»', async () => {
+    await render(<FichaNegocio />);
+    expect(screen.getByLabelText('Volver')).toBeTruthy();
+    expect(screen.getByText('Menú')).toBeTruthy();
+  });
+
+  it('el horario marca un día como hoy', async () => {
+    await render(<FichaNegocio />);
+    expect(screen.getAllByLabelText(/, hoy:/)).toHaveLength(1);
+  });
+
+  it('los productos estrella salen primero bajo «Destacados»', async () => {
+    await render(<FichaNegocio />);
+    expect(screen.getByText('DESTACADOS')).toBeTruthy();
+  });
+
+  it('la invitación a entrar habla de escribirle al negocio y de su dirección exacta', async () => {
+    await render(<FichaNegocio />);
+    expect(screen.getByText(/dirección exacta/i)).toBeTruthy();
+  });
+
+  it('un negocio sin fotos lo dice', async () => {
+    await render(<FichaNegocio />);
+    expect(screen.getByText('Este negocio todavía no tiene fotos')).toBeTruthy();
+  });
 });

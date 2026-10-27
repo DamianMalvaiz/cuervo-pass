@@ -5,7 +5,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
-  router: { push: (...a: unknown[]) => mockPush(...a) },
+  router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() },
   useLocalSearchParams: () => ({ id: 'p1' }),
 }));
 
@@ -43,8 +43,14 @@ test('lo que necesita cuenta lleva a entrar o crearla', async () => {
   await render(<FichaPublica />);
   await fireEvent.press(screen.getByLabelText('Iniciar sesión para escribir'));
   expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
-  await fireEvent.press(screen.getByLabelText('Crear cuenta'));
-  expect(mockPush).toHaveBeenCalledWith('/(auth)/registro');
+  // «Crear cuenta» está en la barra y en la tarjeta: los dos llevan al registro.
+  const crear = screen.getAllByLabelText('Crear cuenta');
+  expect(crear).toHaveLength(2);
+  for (const boton of crear) {
+    mockPush.mockClear();
+    await fireEvent.press(boton);
+    expect(mockPush).toHaveBeenCalledWith('/(auth)/registro');
+  }
 });
 
 test('sin servicios incluidos, no lo dice (ni inventa cuáles)', async () => {
@@ -70,4 +76,47 @@ test('si la lectura falla, ofrece reintentar y NO dice que no existe', async () 
   expect(screen.queryByText(/ya no está disponible/i)).toBeNull();
   await fireEvent.press(screen.getByLabelText('Reintentar'));
   expect(mockPub.reintentar).toHaveBeenCalled();
+});
+
+describe('el diseño nuevo de la ficha', () => {
+  it('con fotos, la galería las enseña todas, cada una con su número', async () => {
+    Object.assign(mockPub, { publicacion: { ...DEPA, num_fotos: 3 } });
+    Object.assign(mockFotos, { fotos: ['https://f/1', 'https://f/2', 'https://f/3'] });
+    await render(<FichaPublica />);
+    expect(screen.getAllByLabelText(/Cuarto en Santa María, foto \d de 3/)).toHaveLength(3);
+    Object.assign(mockFotos, { fotos: [] });
+  });
+
+  it('sin fotos lo dice', async () => {
+    await render(<FichaPublica />);
+    expect(screen.getByText('Este lugar todavía no tiene fotos')).toBeTruthy();
+  });
+
+  it('el ajuste con este lugar está BLOQUEADO y no inventa cifras: pide entrar', async () => {
+    await render(<FichaPublica />);
+    expect(screen.getByText('Por qué podría encajar contigo')).toBeTruthy();
+    expect(screen.getByText(/Entra para ver tu ajuste con este lugar/)).toBeTruthy();
+    expect(screen.queryByText(/\d+ de ajuste/)).toBeNull();
+  });
+
+  it('«Dónde estarás» dice la zona y que la dirección exacta se ve con cuenta', async () => {
+    await render(<FichaPublica />);
+    expect(screen.getByText('Dónde estarás')).toBeTruthy();
+    expect(screen.getAllByText('Santa María, Lerma').length).toBeGreaterThan(0);
+    expect(screen.getByText(/dirección exacta/i)).toBeTruthy();
+  });
+
+  it('las reseñas dicen cuántas son; sin calificación no ponen una', async () => {
+    await render(<FichaPublica />);
+    expect(screen.getByText(/4\.9 · 3 reseñas/)).toBeTruthy();
+    Object.assign(mockPub, { publicacion: { ...DEPA, calificacion: null, num_resenas: null } });
+    const { unmount } = await render(<FichaPublica />);
+    expect(screen.queryByText(/reseñas/)).toBeNull();
+    await unmount();
+  });
+
+  it('trae la barra con «Volver»', async () => {
+    await render(<FichaPublica />);
+    expect(screen.getByLabelText('Volver')).toBeTruthy();
+  });
 });
