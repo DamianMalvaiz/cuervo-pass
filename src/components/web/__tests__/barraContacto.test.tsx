@@ -23,6 +23,9 @@ describe('BarraContactoWeb', () => {
     expect(screen.getByText('Tacos El Cuervo')).toBeTruthy();
     expect(screen.getByText('Abierto ahora')).toBeTruthy();
     expect(screen.queryByText(/\$/)).toBeNull();
+    // Un negocio no recibe mensajes: el botón no promete escribir.
+    expect(screen.queryByLabelText('Iniciar sesión para escribir')).toBeNull();
+    expect(screen.getByLabelText('Entrar para ver la dirección exacta')).toBeTruthy();
   });
 
   it('es la navegación fija de abajo: se anuncia como región con nombre', async () => {

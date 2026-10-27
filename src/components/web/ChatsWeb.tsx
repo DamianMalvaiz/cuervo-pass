@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
@@ -30,7 +30,9 @@ export function ChatsWeb() {
   const miId = useAuthStore((s) => s.session?.user.id);
   const { conversaciones, cargando, fallo, reintentar } = useConversaciones(miId);
   const { urls } = useFotosFirmadas(conversaciones.map((c) => c.otroUsuario.foto_url));
-  const [elegida, setElegida] = useState<string | null>(null);
+  // Llega elegida cuando se abrió una conversación desde una ficha (`/chats?c=<id>`).
+  const { c: abierta } = useLocalSearchParams<{ c?: string }>();
+  const [elegida, setElegida] = useState<string | null>(abierta ?? null);
   const actual = conversaciones.find((c) => c.conversacionId === elegida) ?? null;
 
   const lista = cargando ? (
@@ -82,11 +84,12 @@ function Bandeja({ relleno, lista, actual, foto, elegida }: { relleno: number; l
           <ScrollView>{lista}</ScrollView>
         </View>
         <View style={estilos.derecha}>
-          {actual && elegida ? (
+          {elegida ? (
             <>
               <View style={[estilos.cabeza, estilos.cabezaHilo, { borderBottomColor: theme.filete }]}>
-                <Avatar nombre={actual.otroUsuario.nombre_completo} foto={foto} />
-                <ThemedText style={Texto.subtitulo} numberOfLines={1}>{actual.otroUsuario.nombre_completo}</ThemedText>
+                <Avatar nombre={actual?.otroUsuario.nombre_completo ?? null} foto={foto} />
+                {/* Una conversación recién abierta puede no estar aún en la lista: se dice «Conversación» hasta que llegue. */}
+                <ThemedText style={Texto.subtitulo} numberOfLines={1}>{actual?.otroUsuario.nombre_completo ?? 'Conversación'}</ThemedText>
               </View>
               <ConversacionHilo key={elegida} conversacionId={elegida} />
             </>

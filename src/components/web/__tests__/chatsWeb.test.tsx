@@ -4,7 +4,8 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 // distintos (invariante 2): cargando, FALLÓ la lectura (nunca «sin conversaciones»), vacío y lista.
 
 const mockPush = jest.fn();
-jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(...a) } }));
+const mockParams: { c?: string } = {};
+jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(...a) }, useLocalSearchParams: () => mockParams }));
 jest.mock('expo-router/head', () => ({ __esModule: true, default: () => null }));
 const mockPantalla = { ancho: 1440 };
 jest.mock('@/hooks/use-tamano-pantalla', () => ({ useTamanoPantalla: () => ({ ancho: mockPantalla.ancho, alto: 900, clase: 'amplia' }) }));
@@ -35,6 +36,7 @@ const conv = (id: string, nombre: string, extra: Record<string, unknown> = {}) =
 beforeEach(() => {
   jest.clearAllMocks();
   mockPantalla.ancho = 1440;
+  delete mockParams.c;
   Object.assign(mockChats, { conversaciones: [], cargando: false, fallo: false });
 });
 
@@ -101,5 +103,13 @@ describe('ChatsWeb', () => {
     await render(<ChatsWeb />);
     expect(screen.getByText('Cargando…')).toBeTruthy();
     expect(screen.queryByText('Sin conversaciones')).toBeNull();
+  });
+
+  it('si llega con una conversación elegida (recién abierta desde una ficha) la abre a la derecha, aunque la lista aún no la traiga', async () => {
+    mockParams.c = 'nueva';
+    mockChats.conversaciones = [conv('c1', 'Ana Ruiz')];
+    await render(<ChatsWeb />);
+    expect(screen.getByText('HILO nueva')).toBeTruthy();
+    expect(screen.queryByText('Elige una conversación')).toBeNull();
   });
 });

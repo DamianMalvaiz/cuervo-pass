@@ -115,9 +115,10 @@ test('no existe → «ya no está disponible»; falla → reintentar', async () 
   expect(mockNeg.reintentar).toHaveBeenCalled();
 });
 
-test('lo que necesita cuenta lleva a entrar', async () => {
+test('lo que necesita cuenta lleva a entrar, sin prometer escribirle a un negocio (la app no lo permite)', async () => {
   await render(<FichaNegocio />);
-  await fireEvent.press(screen.getByLabelText('Iniciar sesión para escribir'));
+  expect(screen.queryByLabelText('Iniciar sesión para escribir')).toBeNull();
+  await fireEvent.press(screen.getByLabelText('Entrar para ver la dirección exacta'));
   expect(mockPush).toHaveBeenCalledWith('/(auth)/login');
 });
 
@@ -147,9 +148,10 @@ describe('el diseño nuevo de la ficha del negocio', () => {
     expect(screen.getByText('DESTACADOS')).toBeTruthy();
   });
 
-  it('la invitación a entrar habla de escribirle al negocio y de su dirección exacta', async () => {
+  it('la invitación a entrar habla de guardarlo y de su dirección exacta, no de escribirle', async () => {
     await render(<FichaNegocio />);
-    expect(screen.getByText(/dirección exacta/i)).toBeTruthy();
+    expect(screen.getByText('Entra para guardarlo y ver su dirección exacta.')).toBeTruthy();
+    expect(screen.queryByText(/escribirle/i)).toBeNull();
   });
 
   it('un negocio sin fotos lo dice', async () => {

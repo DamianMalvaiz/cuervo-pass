@@ -11,9 +11,9 @@ const D = Colors.dark;
 const precioFormato = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 
 /**
- * La tarjeta que invita a entrar, al lado de una ficha: el precio (si lo hay), lo que se gana con una cuenta y los dos botones. Sin cuenta no se escribe, no se ve la dirección exacta ni el ajuste con el lugar.
+ * La tarjeta que invita a entrar, al lado de una ficha: el precio (si lo hay), lo que se gana con una cuenta y los dos botones. `accion` es lo que dice el botón: por omisión «escribir» (viviendas); un negocio no recibe mensajes, así que no lo promete. Sin cuenta no se escribe, no se ve la dirección exacta ni el ajuste con el lugar.
  */
-export function TarjetaEntrarWeb({ precio, mensaje, garantia }: { precio?: number; mensaje: string; garantia?: string }) {
+export function TarjetaEntrarWeb({ precio, mensaje, garantia, accion = 'Iniciar sesión para escribir' }: { precio?: number; mensaje: string; garantia?: string; accion?: string }) {
   const theme = useTheme();
   return (
     <View style={[estilos.tarjeta, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
@@ -29,7 +29,7 @@ export function TarjetaEntrarWeb({ precio, mensaje, garantia }: { precio?: numbe
         </View>
         <ThemedText style={[Texto.pequenoFuerte, estilos.mensaje]}>{mensaje}</ThemedText>
       </View>
-      <BotonWeb grande onPress={() => router.push('/(auth)/login')} accessibilityLabel="Iniciar sesión para escribir">Iniciar sesión para escribir</BotonWeb>
+      <BotonWeb grande onPress={() => router.push('/(auth)/login')} accessibilityLabel={accion}>{accion}</BotonWeb>
       <BotonWeb grande variante="contorno" onPress={() => router.push('/(auth)/registro')}>Crear cuenta</BotonWeb>
       {garantia ? (
         <View style={estilos.garantia}>

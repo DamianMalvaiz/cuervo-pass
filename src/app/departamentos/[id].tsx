@@ -9,6 +9,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BarraFichaWeb } from '@/components/web/BarraFichaWeb';
 import { ALTO_BARRA_CONTACTO, BarraContactoWeb } from '@/components/web/BarraContactoWeb';
+import { ContactoWeb } from '@/components/web/ContactoWeb';
+import { AjusteConCuentaWeb, DescripcionConCuentaWeb, DireccionConCuentaWeb } from '@/components/web/FichaConCuentaWeb';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { GaleriaWeb } from '@/components/web/GaleriaWeb';
 import { PieWeb } from '@/components/web/PieWeb';
@@ -19,6 +21,7 @@ import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { RutasWeb } from '@/lib/rutasWeb';
 import { zonaCorta } from '@/lib/zona';
+import { useAuthStore } from '@/store/useAuthStore';
 
 // `/departamentos/<id>` · ficha pública de una vivienda. Datos REDUCIDOS (migración 0090): la zona y no la dirección, sin teléfono ni quién publica. Escribir, guardar, la dirección exacta y el ajuste piden cuenta.
 
@@ -38,6 +41,7 @@ export default function FichaPublica() {
   const { ancho } = useTamanoPantalla();
   const escritorio = ancho >= 1000;
   const telefono = ancho < 700;
+  const hayCuenta = useAuthStore((s) => Boolean(s.session));
   const margen = ancho >= 700 ? Spacing.four : Spacing.three;
   const { publicacion: p, cargando, fallo, reintentar } = usePublicacionPublica(id);
   const { fotos } = useFotosPublicas('publicacion', id, p?.num_fotos ?? 0);
@@ -82,7 +86,7 @@ export default function FichaPublica() {
       </Head>
       <ScrollView contentContainerStyle={[estilos.scroll, telefono && { paddingBottom: ALTO_BARRA_CONTACTO }]}>
         <View style={[estilos.contenido, { paddingHorizontal: margen }]}>
-          <BarraFichaWeb escritorio={escritorio} />
+          <BarraFichaWeb escritorio={escritorio} guardar={{ tipo: 'publicacion', id: p.id }} />
           <GaleriaWeb fotos={fotos} titulo={p.titulo_publico} escritorio={escritorio} />
 
           <View style={escritorio ? estilos.fila : estilos.columna}>
@@ -119,6 +123,9 @@ export default function FichaPublica() {
                 </View>
               ) : null}
 
+              {hayCuenta ? <DescripcionConCuentaWeb id={p.id} /> : null}
+
+              {hayCuenta ? <AjusteConCuentaWeb id={p.id} precio={p.precio_renta} permiteMascotas={p.permite_mascotas === true} /> : (
               <View style={[estilos.bloque, { borderTopColor: theme.filete }]}>
                 <ThemedText accessibilityRole="header" style={Texto.titulo}>Por qué podría encajar contigo</ThemedText>
                 <View style={[estilos.ajuste, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
@@ -132,14 +139,19 @@ export default function FichaPublica() {
                   <ThemedText style={Texto.pequenoFuerte}>Entra para ver tu ajuste con este lugar</ThemedText>
                 </View>
               </View>
+              )}
 
               <View style={[estilos.bloque, { borderTopColor: theme.filete }]}>
                 <ThemedText accessibilityRole="header" style={Texto.titulo}>Dónde estarás</ThemedText>
                 <View style={[estilos.zona, { backgroundColor: theme.tintedSurface }]}>
                   <Ionicons name="location-outline" size={28} color={theme.bosque} />
                   <View style={estilos.zonaTexto}>
-                    {zona ? <ThemedText style={Texto.subtitulo}>{zona}</ThemedText> : null}
-                    <ThemedText style={Texto.pequeno} themeColor="textSecondary">La dirección exacta se muestra al iniciar sesión.</ThemedText>
+                    {hayCuenta ? <DireccionConCuentaWeb id={p.id} zona={zona ?? ''} /> : (
+                      <>
+                        {zona ? <ThemedText style={Texto.subtitulo}>{zona}</ThemedText> : null}
+                        <ThemedText style={Texto.pequeno} themeColor="textSecondary">La dirección exacta se muestra al iniciar sesión.</ThemedText>
+                      </>
+                    )}
                   </View>
                 </View>
               </View>
@@ -147,7 +159,11 @@ export default function FichaPublica() {
 
             {telefono ? null : (
               <View style={escritorio ? [estilos.derecha, FIJA] : undefined}>
-                <TarjetaEntrarWeb precio={p.precio_renta} mensaje="Entra para escribir a quien publica y ver cómo encajas." garantia="La conversación se queda en la app: nadie recibe tu teléfono antes de tiempo." />
+                {hayCuenta ? (
+                  <ContactoWeb publicacionId={p.id} titulo={p.titulo_publico} precio={p.precio_renta} />
+                ) : (
+                  <TarjetaEntrarWeb precio={p.precio_renta} mensaje="Entra para escribir a quien publica y ver cómo encajas." garantia="La conversación se queda en la app: nadie recibe tu teléfono antes de tiempo." />
+                )}
               </View>
             )}
           </View>
@@ -155,7 +171,7 @@ export default function FichaPublica() {
         </View>
         <PieWeb />
       </ScrollView>
-      {telefono ? <BarraContactoWeb precio={p.precio_renta} /> : null}
+      {telefono ? <BarraContactoWeb precio={p.precio_renta} publicacionId={p.id} titulo={p.titulo_publico} /> : null}
     </ThemedView>
   );
 }

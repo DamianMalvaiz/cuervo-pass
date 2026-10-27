@@ -7,6 +7,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
 import { sello } from '@/lib/tacto';
+import { urlWhatsapp } from '@/lib/whatsapp';
 import { Pulsable } from '@/components/ficha/Pulsable';
 
 interface Props {
@@ -43,12 +44,7 @@ export function BotonVerContacto({ publicacionId, titulo, score, onRevelar, onEr
       // Vibrar al tocar habría confirmado el toque, no el hecho — y si la
       // llamada falla, habría confirmado algo que no pasó.
       sello();
-      const mensaje = encodeURIComponent(
-        `Hola, vi tu publicación "${titulo}" en Cuervo 360 y me interesa.`
-      );
-      // AUD-17: el prefijo 52 fija México. Es una decisión de alcance declarada
-      // en el README y en docs/modelo-amenazas.md, no un descuido.
-      await Linking.openURL(`https://wa.me/52${whatsapp.replace(/\D/g, '')}?text=${mensaje}`);
+      await Linking.openURL(urlWhatsapp(whatsapp, titulo));
     } catch (e) {
       // END-27 · Por CÓDIGO y no por subcadena. `includes('cuota')` dependía
       // del texto del error, que cambia por versión y por locale — y además

@@ -11,6 +11,7 @@ import { BarraFichaWeb } from '@/components/web/BarraFichaWeb';
 import { ALTO_BARRA_CONTACTO, BarraContactoWeb } from '@/components/web/BarraContactoWeb';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { FilaProductoWeb } from '@/components/web/FilaProductoWeb';
+import { UbicacionNegocioConCuentaWeb } from '@/components/web/FichaConCuentaWeb';
 import { GaleriaWeb } from '@/components/web/GaleriaWeb';
 import { HorarioWeb } from '@/components/web/HorarioWeb';
 import { PieWeb } from '@/components/web/PieWeb';
@@ -21,6 +22,7 @@ import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { RutasWeb } from '@/lib/rutasWeb';
 import { zonaCorta } from '@/lib/zona';
+import { useAuthStore } from '@/store/useAuthStore';
 import type { ProductoExplorar } from '@/services/explorar.service';
 
 // `/servicios/<id>` · ficha pública de un negocio. Datos REDUCIDOS (migración 0090): la zona y no la dirección exacta, sin teléfono. Escribir, guardar y la dirección exacta piden cuenta.
@@ -50,6 +52,7 @@ export default function FichaNegocio() {
   const { ancho } = useTamanoPantalla();
   const escritorio = ancho >= 1000;
   const telefono = ancho < 700;
+  const hayCuenta = useAuthStore((s) => Boolean(s.session));
   const margen = ancho >= 700 ? Spacing.four : Spacing.three;
   const { negocio: n, cargando, fallo, reintentar } = useNegocioPublico(id);
   const productos = useProductosPublicos(id);
@@ -89,9 +92,9 @@ export default function FichaNegocio() {
       <Head>
         <title>{`${n.nombre} · Cuervo 360`}</title>
       </Head>
-      <ScrollView contentContainerStyle={[estilos.scroll, telefono && { paddingBottom: ALTO_BARRA_CONTACTO }]}>
+      <ScrollView contentContainerStyle={[estilos.scroll, telefono && !hayCuenta && { paddingBottom: ALTO_BARRA_CONTACTO }]}>
         <View style={[estilos.contenido, { paddingHorizontal: margen }]}>
-          <BarraFichaWeb escritorio={escritorio} volverA={RutasWeb.servicios} />
+          <BarraFichaWeb escritorio={escritorio} volverA={RutasWeb.servicios} guardar={{ tipo: 'negocio', id: n.id }} />
           <GaleriaWeb fotos={fotos} titulo={n.nombre} escritorio={escritorio} textoSinFotos="Este negocio todavía no tiene fotos" />
 
           <View style={escritorio ? estilos.fila : estilos.columna}>
@@ -144,14 +147,14 @@ export default function FichaNegocio() {
                   <HorarioWeb horario={horario.horario} hoy={hoy} />
                 )}
               </View>
-              {telefono ? null : <TarjetaEntrarWeb mensaje="Entra para escribirle al negocio y ver su dirección exacta." />}
+              {hayCuenta ? <UbicacionNegocioConCuentaWeb id={n.id} zona={zona ?? ''} /> : telefono ? null : <TarjetaEntrarWeb mensaje="Entra para guardarlo y ver su dirección exacta." accion="Entrar para ver la dirección exacta" />}
             </View>
           </View>
 
         </View>
         <PieWeb />
       </ScrollView>
-      {telefono ? <BarraContactoWeb nombre={n.nombre} detalle={estado ?? zona ?? undefined} /> : null}
+      {telefono && !hayCuenta ? <BarraContactoWeb nombre={n.nombre} detalle={estado ?? zona ?? undefined} /> : null}
     </ThemedView>
   );
 }

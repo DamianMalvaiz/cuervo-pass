@@ -8,15 +8,17 @@ import { LogoMarca } from '@/components/LogoMarca';
 import { ThemedText } from '@/components/themed-text';
 import { CuentaWeb } from '@/components/web/CuentaWeb';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { useGuardado } from '@/hooks/use-guardado';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuthStore } from '@/store/useAuthStore';
 import { RutasWeb } from '@/lib/rutasWeb';
 
 /**
  * La barra de las fichas públicas: el logo (lleva al inicio) y las dos cuentas arriba; abajo, «Volver» y las dos acciones de la ficha.
  * «Volver» regresa si hay a dónde; si la persona llegó por un enlace directo, no hay historial y va a la lista de su sección (`volverA`: lugares por omisión, negocios en la ficha de un negocio).
- * «Guardar» pide entrar (sin cuenta no se guarda nada); «Compartir» copia el enlace de la ficha (solo en la web, donde hay portapapeles).
+ * «Guardar» pide entrar sin cuenta; con cuenta guarda o quita de verdad (`guardar` dice qué ficha es); «Compartir» copia el enlace de la ficha (solo en la web, donde hay portapapeles).
  */
-export function BarraFichaWeb({ escritorio, volverA = RutasWeb.departamentos }: { escritorio: boolean; volverA?: string }) {
+export function BarraFichaWeb({ escritorio, volverA = RutasWeb.departamentos, guardar }: { escritorio: boolean; volverA?: string; guardar?: { tipo: 'publicacion' | 'negocio'; id: string } }) {
   const theme = useTheme();
   const [copiado, setCopiado] = useState(false);
 
@@ -54,13 +56,39 @@ export function BarraFichaWeb({ escritorio, volverA = RutasWeb.departamentos }: 
               <ThemedText style={Texto.pequenoFuerte}>{copiado ? 'Enlace copiado' : 'Compartir'}</ThemedText>
             </Pulsable>
           ) : null}
-          <Pulsable onPress={() => router.push('/(auth)/login')} accessibilityRole="button" accessibilityLabel="Guardar: inicia sesión para guardar" style={[estilos.accion, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
-            <Ionicons name="heart-outline" size={18} color={theme.text} />
-            <ThemedText style={Texto.pequenoFuerte}>Guardar</ThemedText>
-          </Pulsable>
+          <Guardar guardar={guardar} />
         </View>
       </View>
     </View>
+  );
+}
+
+/** Sin cuenta (o sin saber qué ficha es) pide entrar; con cuenta se monta aparte para que quien explora no monte consultas que no necesita. */
+function Guardar({ guardar }: { guardar?: { tipo: 'publicacion' | 'negocio'; id: string } }) {
+  const hayCuenta = useAuthStore((s) => Boolean(s.session));
+  if (!hayCuenta || !guardar) return <BotonGuardar guardado={false} cargando={false} etiqueta="Guardar: inicia sesión para guardar" onPress={() => router.push('/(auth)/login')} />;
+  return <GuardarConCuenta guardar={guardar} />;
+}
+
+function GuardarConCuenta({ guardar }: { guardar: { tipo: 'publicacion' | 'negocio'; id: string } }) {
+  const { guardado, cargando, alternar } = useGuardado(guardar.tipo, guardar.id);
+  return <BotonGuardar guardado={guardado} cargando={cargando} etiqueta={guardado ? 'Quitar de favoritos' : 'Guardar en favoritos'} onPress={alternar} />;
+}
+
+function BotonGuardar({ guardado, cargando, etiqueta, onPress }: { guardado: boolean; cargando: boolean; etiqueta: string; onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <Pulsable
+      onPress={() => {
+        if (!cargando) onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={etiqueta}
+      style={[estilos.accion, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
+    >
+      <Ionicons name={guardado ? 'heart' : 'heart-outline'} size={18} color={guardado ? theme.bosque : theme.text} />
+      <ThemedText style={Texto.pequenoFuerte}>{guardado ? 'Guardado' : 'Guardar'}</ThemedText>
+    </Pulsable>
   );
 }
 
