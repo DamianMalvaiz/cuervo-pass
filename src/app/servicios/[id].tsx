@@ -8,6 +8,7 @@ import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BarraFichaWeb } from '@/components/web/BarraFichaWeb';
+import { ALTO_BARRA_CONTACTO, BarraContactoWeb } from '@/components/web/BarraContactoWeb';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { FilaProductoWeb } from '@/components/web/FilaProductoWeb';
 import { GaleriaWeb } from '@/components/web/GaleriaWeb';
@@ -25,7 +26,7 @@ import type { ProductoExplorar } from '@/services/explorar.service';
 // `/servicios/<id>` · ficha pública de un negocio. Datos REDUCIDOS (migración 0090): la zona y no la dirección exacta, sin teléfono. Escribir, guardar y la dirección exacta piden cuenta.
 
 const ANCHO_MAXIMO = 1200;
-const FIJA = { position: 'sticky', top: Spacing.three } as ViewStyle;
+const FIJA = { position: 'sticky', top: Spacing.three } as unknown as ViewStyle;
 const DESTACADOS = 'Destacados';
 
 /** Las estrellas van primero, bajo «Destacados»; el resto, por sección en el orden en que llegan. Los que no tienen sección no llevan rótulo. */
@@ -48,6 +49,7 @@ export default function FichaNegocio() {
   const theme = useTheme();
   const { ancho } = useTamanoPantalla();
   const escritorio = ancho >= 1000;
+  const telefono = ancho < 700;
   const margen = ancho >= 700 ? Spacing.four : Spacing.three;
   const { negocio: n, cargando, fallo, reintentar } = useNegocioPublico(id);
   const productos = useProductosPublicos(id);
@@ -87,7 +89,7 @@ export default function FichaNegocio() {
       <Head>
         <title>{`${n.nombre} · Cuervo 360`}</title>
       </Head>
-      <ScrollView contentContainerStyle={estilos.scroll}>
+      <ScrollView contentContainerStyle={[estilos.scroll, telefono && { paddingBottom: ALTO_BARRA_CONTACTO }]}>
         <View style={[estilos.contenido, { paddingHorizontal: margen }]}>
           <BarraFichaWeb escritorio={escritorio} volverA={RutasWeb.servicios} />
           <GaleriaWeb fotos={fotos} titulo={n.nombre} escritorio={escritorio} textoSinFotos="Este negocio todavía no tiene fotos" />
@@ -142,13 +144,14 @@ export default function FichaNegocio() {
                   <HorarioWeb horario={horario.horario} hoy={hoy} />
                 )}
               </View>
-              <TarjetaEntrarWeb mensaje="Entra para escribirle al negocio y ver su dirección exacta." />
+              {telefono ? null : <TarjetaEntrarWeb mensaje="Entra para escribirle al negocio y ver su dirección exacta." />}
             </View>
           </View>
 
         </View>
         <PieWeb />
       </ScrollView>
+      {telefono ? <BarraContactoWeb nombre={n.nombre} detalle={estado ?? zona ?? undefined} /> : null}
     </ThemedView>
   );
 }

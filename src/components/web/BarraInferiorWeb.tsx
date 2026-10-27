@@ -13,7 +13,7 @@ export type DestinoInferior = 'inicio' | 'depas' | 'roomies' | 'servicios';
 // `selected` no se escribe para enlaces en la web: la página actual se anuncia con `aria-current="page"`.
 const ACTUAL = { 'aria-current': 'page' } as object;
 // Fija abajo de la ventana (RN no tiene `position: fixed`; React Native Web sí lo deja pasar al CSS).
-const FIJA = { position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20 } as ViewStyle;
+const FIJA = { position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20 } as unknown as ViewStyle;
 
 const ITEMS: { clave: DestinoInferior | 'entrar'; etiqueta: string; visible: string; icono: keyof typeof Ionicons.glyphMap; ruta: string }[] = [
   { clave: 'inicio', etiqueta: 'Inicio', visible: 'Inicio', icono: 'home-outline', ruta: RutasWeb.inicio },

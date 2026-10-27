@@ -8,6 +8,7 @@ import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BarraFichaWeb } from '@/components/web/BarraFichaWeb';
+import { ALTO_BARRA_CONTACTO, BarraContactoWeb } from '@/components/web/BarraContactoWeb';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { GaleriaWeb } from '@/components/web/GaleriaWeb';
 import { PieWeb } from '@/components/web/PieWeb';
@@ -24,7 +25,7 @@ import { zonaCorta } from '@/lib/zona';
 const ANCHO_MAXIMO = 1200;
 const NOMBRE_TIPO: Record<string, string> = { depa: 'Departamento', cuarto: 'Cuarto', casa_compartida: 'Casa compartida' };
 const CRITERIOS = ['Presupuesto', 'Distancia a tu universidad', 'Mascotas', 'Ruido'];
-const FIJA = { position: 'sticky', top: Spacing.three } as ViewStyle;
+const FIJA = { position: 'sticky', top: Spacing.three } as unknown as ViewStyle;
 
 interface Incluye {
   icono: keyof typeof Ionicons.glyphMap;
@@ -36,6 +37,7 @@ export default function FichaPublica() {
   const theme = useTheme();
   const { ancho } = useTamanoPantalla();
   const escritorio = ancho >= 1000;
+  const telefono = ancho < 700;
   const margen = ancho >= 700 ? Spacing.four : Spacing.three;
   const { publicacion: p, cargando, fallo, reintentar } = usePublicacionPublica(id);
   const { fotos } = useFotosPublicas('publicacion', id, p?.num_fotos ?? 0);
@@ -78,7 +80,7 @@ export default function FichaPublica() {
       <Head>
         <title>{`${p.titulo_publico} · Cuervo 360`}</title>
       </Head>
-      <ScrollView contentContainerStyle={estilos.scroll}>
+      <ScrollView contentContainerStyle={[estilos.scroll, telefono && { paddingBottom: ALTO_BARRA_CONTACTO }]}>
         <View style={[estilos.contenido, { paddingHorizontal: margen }]}>
           <BarraFichaWeb escritorio={escritorio} />
           <GaleriaWeb fotos={fotos} titulo={p.titulo_publico} escritorio={escritorio} />
@@ -143,14 +145,17 @@ export default function FichaPublica() {
               </View>
             </View>
 
-            <View style={escritorio ? [estilos.derecha, FIJA] : undefined}>
-              <TarjetaEntrarWeb precio={p.precio_renta} mensaje="Entra para escribir a quien publica y ver cómo encajas." garantia="La conversación se queda en la app: nadie recibe tu teléfono antes de tiempo." />
-            </View>
+            {telefono ? null : (
+              <View style={escritorio ? [estilos.derecha, FIJA] : undefined}>
+                <TarjetaEntrarWeb precio={p.precio_renta} mensaje="Entra para escribir a quien publica y ver cómo encajas." garantia="La conversación se queda en la app: nadie recibe tu teléfono antes de tiempo." />
+              </View>
+            )}
           </View>
 
         </View>
         <PieWeb />
       </ScrollView>
+      {telefono ? <BarraContactoWeb precio={p.precio_renta} /> : null}
     </ThemedView>
   );
 }
