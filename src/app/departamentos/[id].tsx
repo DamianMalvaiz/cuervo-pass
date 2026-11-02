@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import Head from 'expo-router/head';
+import { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
@@ -21,6 +22,7 @@ import { useFotosPublicas, usePublicacionPublica } from '@/hooks/queries/useExpl
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { RutasWeb } from '@/lib/rutasWeb';
+import { registrarVisto } from '@/lib/vistos';
 import { zonaCorta } from '@/lib/zona';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -46,6 +48,11 @@ export default function FichaPublica() {
   const margen = ancho >= 700 ? Spacing.four : Spacing.three;
   const { publicacion: p, cargando, fallo, reintentar } = usePublicacionPublica(id);
   const { fotos } = useFotosPublicas('publicacion', id, p?.num_fotos ?? 0);
+  // Solo una ficha que SÍ cargó cuenta como vista (no un enlace roto ni un fallo).
+  const idVisto = p?.id;
+  useEffect(() => {
+    if (idVisto) registrarVisto(idVisto);
+  }, [idVisto]);
 
   if (fallo) {
     return (

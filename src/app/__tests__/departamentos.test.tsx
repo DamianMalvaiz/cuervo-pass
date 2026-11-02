@@ -21,6 +21,8 @@ jest.mock('@/hooks/queries/useExplorar', () => ({
     return mockPub;
   },
   useFotosPublicas: () => ({ fotos: [], cargando: false, fallo: false }),
+  // «Vistos recientemente»: aquí no hay vistos, así que no hay nada que leer.
+  usePublicacionesPorIds: () => ({ publicaciones: [], cargando: false, fallo: false, reintentar: jest.fn() }),
 }));
 
 import Departamentos from '../departamentos';

@@ -24,6 +24,9 @@ jest.mock('@/hooks/queries/useExplorar', () => ({
   useFotosPublicas: () => mockFotos,
 }));
 
+const mockRegistrar = jest.fn();
+jest.mock('@/lib/vistos', () => ({ registrarVisto: (...a: unknown[]) => mockRegistrar(...a) }));
+
 import FichaPublica from '../departamentos/[id]';
 
 const DEPA = {
@@ -84,6 +87,20 @@ test('si la lectura falla, ofrece reintentar y NO dice que no existe', async () 
   expect(screen.queryByText(/ya no está disponible/i)).toBeNull();
   await fireEvent.press(screen.getByLabelText('Reintentar'));
   expect(mockPub.reintentar).toHaveBeenCalled();
+});
+
+describe('vistos recientemente', () => {
+  it('una ficha que cargó queda registrada como vista', async () => {
+    await render(<FichaPublica />);
+    expect(mockRegistrar).toHaveBeenCalledWith('p1');
+  });
+  it('una que no existe o falló NO se registra', async () => {
+    Object.assign(mockPub, { publicacion: null });
+    await render(<FichaPublica />);
+    Object.assign(mockPub, { publicacion: null, fallo: true });
+    await render(<FichaPublica />);
+    expect(mockRegistrar).not.toHaveBeenCalled();
+  });
 });
 
 describe('la pestaña del navegador', () => {

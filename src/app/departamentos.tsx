@@ -10,6 +10,7 @@ import { BuscadorWeb } from '@/components/web/BuscadorWeb';
 import { PildoraBusquedaWeb } from '@/components/web/PildoraBusquedaWeb';
 import { ChipsTiposWeb } from '@/components/web/ChipsTiposWeb';
 import { PaginaWeb } from '@/components/web/PaginaWeb';
+import { VistosRecientesWeb } from '@/components/web/VistosRecientesWeb';
 import { TarjetaPublicacionWeb } from '@/components/web/TarjetaPublicacionWeb';
 import { Spacing, Texto } from '@/constants/theme';
 import { usePublicacionesPublicas } from '@/hooks/queries/useExplorar';
@@ -121,6 +122,7 @@ export default function Departamentos() {
           </>
         )}
       </View>
+      {filtrando ? null : <VistosRecientesWeb columnas={columnas} anchoTarjeta={anchoTarjeta} compacta={telefono} />}
     </PaginaWeb>
   );
 }
