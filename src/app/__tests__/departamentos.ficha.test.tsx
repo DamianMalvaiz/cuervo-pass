@@ -118,7 +118,7 @@ describe('el diseño nuevo de la ficha', () => {
 
   it('«Dónde estarás» dice la zona y que la dirección exacta se ve con cuenta', async () => {
     await render(<FichaPublica />);
-    expect(screen.getByText('Dónde estarás')).toBeTruthy();
+    expect(screen.getAllByText('Dónde estarás').length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('Santa María, Lerma').length).toBeGreaterThan(0);
     expect(screen.getByText(/dirección exacta/i)).toBeTruthy();
   });

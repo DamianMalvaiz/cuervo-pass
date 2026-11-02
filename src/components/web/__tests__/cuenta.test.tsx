@@ -68,7 +68,7 @@ describe('CuentaWeb con sesión', () => {
     await render(<CuentaWeb escritorio tono="claro" />);
     expect(screen.queryByText('Cerrar sesión')).toBeNull();
     await fireEvent.press(screen.getByLabelText('Menú de la cuenta'));
-    for (const t of ['Perfil', 'Configuración', 'Cerrar sesión']) expect(screen.getByText(t)).toBeTruthy();
+    for (const t of ['Perfil', 'Notificaciones', 'Configuración', 'Cerrar sesión']) expect(screen.getByText(t)).toBeTruthy();
   });
 
   it('los accesos llevan a su página', async () => {
@@ -89,6 +89,22 @@ describe('CuentaWeb con sesión', () => {
     await fireEvent.press(screen.getByLabelText('Menú de la cuenta'));
     await fireEvent.press(screen.getByText('Cerrar sesión'));
     expect(mockCerrar).toHaveBeenCalledTimes(1);
+  });
+
+  it('«Plan y pagos» es de quien publica: un estudiante no lo ve', async () => {
+    conSesion();
+    await render(<CuentaWeb escritorio tono="claro" />);
+    await fireEvent.press(screen.getByLabelText('Menú de la cuenta'));
+    expect(screen.queryByText('Plan y pagos')).toBeNull();
+  });
+
+  it('un vendedor ve Plan y pagos y llega a /pagos', async () => {
+    conSesion();
+    mockPerfil.valor = 'vendedor';
+    await render(<CuentaWeb escritorio tono="claro" />);
+    await fireEvent.press(screen.getByLabelText('Menú de la cuenta'));
+    await fireEvent.press(screen.getByText('Plan y pagos'));
+    expect(mockPush).toHaveBeenLastCalledWith('/pagos');
   });
 
   it('un vendedor ve su panel y no los favoritos de un estudiante', async () => {

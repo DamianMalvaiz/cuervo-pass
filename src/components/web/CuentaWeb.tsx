@@ -20,7 +20,7 @@ const D = Colors.dark;
 const CAPA = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 } as unknown as ViewStyle;
 const MENU = { 'aria-haspopup': 'menu' } as object;
 
-type Ruta = '/(tabs)/favoritos' | '/(tabs)/chats' | '/(tabs)/perfil' | '/(tabs)/panel' | '/(tabs)/publicar' | '/configuracion';
+type Ruta = '/(tabs)/favoritos' | '/(tabs)/chats' | '/(tabs)/perfil' | '/(tabs)/panel' | '/(tabs)/publicar' | '/notificaciones' | '/pagos' | '/configuracion';
 
 /**
  * El grupo de cuenta de los encabezados de la web. Sin sesión: «Iniciar sesión» y «Crear cuenta» (en el teléfono, solo la primera). Con sesión: Favoritos y Chats a la mano (solo en pantalla ancha: en el
@@ -78,6 +78,9 @@ function CuentaConSesion({ usuarioId, nombre, escritorio, telefono, tono }: { us
     ...(!escritorio && visibles.includes('favoritos') ? [{ ruta: '/(tabs)/favoritos' as const, texto: 'Favoritos', icono: 'heart-outline' as const }] : []),
     ...(visibles.includes('panel') ? [{ ruta: '/(tabs)/panel' as const, texto: 'Mi panel', icono: 'grid-outline' as const }] : []),
     ...(visibles.includes('publicar') ? [{ ruta: '/(tabs)/publicar' as const, texto: 'Publicar', icono: 'add-circle-outline' as const }] : []),
+    { ruta: '/notificaciones', texto: 'Notificaciones', icono: 'notifications-outline' },
+    // Plan y pagos son de quien publica (el mismo criterio que Publicar y Mi panel).
+    ...(visibles.includes('panel') || visibles.includes('publicar') ? [{ ruta: '/pagos' as const, texto: 'Plan y pagos', icono: 'card-outline' as const }] : []),
     { ruta: '/configuracion', texto: 'Configuración', icono: 'settings-outline' },
   ];
 

@@ -13,6 +13,7 @@ import { ContactoWeb } from '@/components/web/ContactoWeb';
 import { AjusteConCuentaWeb, DescripcionConCuentaWeb, DireccionConCuentaWeb } from '@/components/web/FichaConCuentaWeb';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { GaleriaWeb } from '@/components/web/GaleriaWeb';
+import { MARGEN_ANCLA, SubnavFichaWeb, type AnclaFicha } from '@/components/web/SubnavFichaWeb';
 import { PieWeb } from '@/components/web/PieWeb';
 import { TarjetaEntrarWeb } from '@/components/web/TarjetaEntrarWeb';
 import { Colors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
@@ -28,7 +29,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 const ANCHO_MAXIMO = 1200;
 const NOMBRE_TIPO: Record<string, string> = { depa: 'Departamento', cuarto: 'Cuarto', casa_compartida: 'Casa compartida' };
 const CRITERIOS = ['Presupuesto', 'Distancia a tu universidad', 'Mascotas', 'Ruido'];
-const FIJA = { position: 'sticky', top: Spacing.three } as unknown as ViewStyle;
+const FIJA = { position: 'sticky', top: 76 } as unknown as ViewStyle;
 
 interface Incluye {
   icono: keyof typeof Ionicons.glyphMap;
@@ -78,6 +79,12 @@ export default function FichaPublica() {
     p.servicios_incluidos ? { icono: 'flash-outline', texto: 'Servicios incluidos' } : null,
   ];
   const incluye = candidatos.filter((x): x is Incluye => x !== null);
+  const anclas: AnclaFicha[] = [
+    { id: 'ficha-fotos', etiqueta: 'Fotos' },
+    ...(incluye.length > 0 ? [{ id: 'ficha-incluye', etiqueta: 'Lo que incluye' }] : []),
+    { id: 'ficha-ajuste', etiqueta: hayCuenta ? 'Tu ajuste' : 'Por qué encaja' },
+    { id: 'ficha-zona', etiqueta: 'Dónde estarás' },
+  ];
 
   return (
     <ThemedView style={estilos.raiz}>
@@ -87,7 +94,10 @@ export default function FichaPublica() {
       <ScrollView contentContainerStyle={[estilos.scroll, telefono && { paddingBottom: ALTO_BARRA_CONTACTO }]}>
         <View style={[estilos.contenido, { paddingHorizontal: margen }]}>
           <BarraFichaWeb escritorio={escritorio} guardar={{ tipo: 'publicacion', id: p.id }} />
-          <GaleriaWeb fotos={fotos} titulo={p.titulo_publico} escritorio={escritorio} />
+          <View nativeID="ficha-fotos" style={MARGEN_ANCLA}>
+            <GaleriaWeb fotos={fotos} titulo={p.titulo_publico} escritorio={escritorio} />
+          </View>
+          <SubnavFichaWeb anclas={anclas} />
 
           <View style={escritorio ? estilos.fila : estilos.columna}>
             <View style={escritorio ? estilos.izquierda : undefined}>
@@ -108,7 +118,7 @@ export default function FichaPublica() {
               </View>
 
               {incluye.length > 0 ? (
-                <View style={[estilos.bloque, { borderTopColor: theme.filete }]}>
+                <View nativeID="ficha-incluye" style={[estilos.bloque, MARGEN_ANCLA, { borderTopColor: theme.filete }]}>
                   <ThemedText accessibilityRole="header" style={Texto.titulo}>Lo que incluye</ThemedText>
                   <View style={estilos.incluye}>
                     {incluye.map((i) => (
@@ -125,6 +135,7 @@ export default function FichaPublica() {
 
               {hayCuenta ? <DescripcionConCuentaWeb id={p.id} /> : null}
 
+              <View nativeID="ficha-ajuste" style={MARGEN_ANCLA}>
               {hayCuenta ? <AjusteConCuentaWeb id={p.id} precio={p.precio_renta} permiteMascotas={p.permite_mascotas === true} /> : (
               <View style={[estilos.bloque, { borderTopColor: theme.filete }]}>
                 <ThemedText accessibilityRole="header" style={Texto.titulo}>Por qué podría encajar contigo</ThemedText>
@@ -140,8 +151,9 @@ export default function FichaPublica() {
                 </View>
               </View>
               )}
+              </View>
 
-              <View style={[estilos.bloque, { borderTopColor: theme.filete }]}>
+              <View nativeID="ficha-zona" style={[estilos.bloque, MARGEN_ANCLA, { borderTopColor: theme.filete }]}>
                 <ThemedText accessibilityRole="header" style={Texto.titulo}>Dónde estarás</ThemedText>
                 <View style={[estilos.zona, { backgroundColor: theme.tintedSurface }]}>
                   <Ionicons name="location-outline" size={28} color={theme.bosque} />
