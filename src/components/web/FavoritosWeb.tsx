@@ -7,7 +7,6 @@ import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
 import { EsqueletoTarjetasWeb } from '@/components/web/EsqueletoWeb';
 import { BotonWeb } from '@/components/web/BotonWeb';
-import { PaginaSesionWeb } from '@/components/web/PaginaSesionWeb';
 import { TarjetaNegocioWeb } from '@/components/web/TarjetaNegocioWeb';
 import { TarjetaPublicacionWeb } from '@/components/web/TarjetaPublicacionWeb';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
@@ -23,7 +22,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 type Segmento = 'publicaciones' | 'negocios';
 
 /**
- * Favoritos en la web: lo que la cuenta guardó, en la misma rejilla de tarjetas que `/departamentos` y `/servicios`. Dos pestañas (lugares y negocios) con su cuenta, y cuatro estados distintos en cada una
+ * Favoritos en la web (el CONTENIDO de la pestaña «Favoritos» de `GuardadosWeb`; la página y las otras pestañas viven allí): lo que la cuenta guardó, en la misma rejilla de tarjetas que `/departamentos` y `/servicios`. Dos pestañas (lugares y negocios) con su cuenta, y cuatro estados distintos en cada una
  * (END-11): cargando, FALLÓ la lectura (nunca «no guardaste nada»), nada guardado y lista. Lo guardado que ya no es visible se DICE: la fila del favorito se conserva y, si vuelve a ser visible, vuelve a salir.
  */
 export function FavoritosWeb() {
@@ -87,7 +86,7 @@ export function FavoritosWeb() {
   }
 
   return (
-    <PaginaSesionWeb titulo="Favoritos" subtitulo="Lo que guardaste, para decidir con calma.">
+    <>
       <View style={estilos.fila} accessibilityRole="radiogroup" accessibilityLabel="Qué guardaste">
         {opciones.map((o) => {
           const activa = segmento === o.valor;
@@ -107,7 +106,7 @@ export function FavoritosWeb() {
         })}
       </View>
       <View style={estilos.resultados}>{cuerpo}</View>
-    </PaginaSesionWeb>
+    </>
   );
 }
 

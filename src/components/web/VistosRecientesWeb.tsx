@@ -1,4 +1,3 @@
-import { useMemo, useSyncExternalStore } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
@@ -7,17 +6,16 @@ import { ThemedText } from '@/components/themed-text';
 import { TarjetaPublicacionWeb } from '@/components/web/TarjetaPublicacionWeb';
 import { Spacing, Texto } from '@/constants/theme';
 import { usePublicacionesPorIds } from '@/hooks/queries/useExplorar';
+import { useVistos } from '@/hooks/use-vistos';
 import { HUECO_WEB } from '@/lib/medidasWeb';
-import { borrarVistos, leerVistos, suscribirVistos, vistosCrudos } from '@/lib/vistos';
+import { borrarVistos } from '@/lib/vistos';
 
 /**
  * «Vistos recientemente»: las fichas que esta persona abrió en este navegador, la más reciente primero. No pide cuenta y no sale del navegador. Sin nada visto no ocupa lugar. Una vista que ya no es visible simplemente no sale (la lista
  * se lee del servidor); si la lectura FALLA se dice, no se esconde (END-11).
  */
 export function VistosRecientesWeb({ columnas, anchoTarjeta, compacta }: { columnas: number; anchoTarjeta: number; compacta: boolean }) {
-  // La página se genera sin navegador: ahí (y en la primera pintura) no hay vistos; el almacenamiento solo existe en el navegador.
-  const crudo = useSyncExternalStore(suscribirVistos, vistosCrudos, () => '');
-  const ids = useMemo(() => leerVistos(crudo), [crudo]);
+  const ids = useVistos();
   const { publicaciones, cargando, fallo, reintentar } = usePublicacionesPorIds(ids);
 
   if (ids.length === 0) return null;
