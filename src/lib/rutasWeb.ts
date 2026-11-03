@@ -10,6 +10,7 @@ export const RutasWeb = {
   roomies: '/roomies',
   servicios: '/servicios',
   comparar: '/comparar',
+  cerca: '/cerca',
   ficha: (id: string) => `/departamentos/${id}` as const,
   negocio: (id: string) => `/servicios/${id}` as const,
 } as const;

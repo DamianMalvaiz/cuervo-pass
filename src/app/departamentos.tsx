@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -17,7 +17,7 @@ import { usePublicacionesPublicas } from '@/hooks/queries/useExplorar';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { FILTROS_VACIOS, aFiltroPublicaciones, hayFiltros, resumenBusqueda, type FiltrosWeb } from '@/lib/filtrosWeb';
 import { HUECO_WEB, medidasWeb } from '@/lib/medidasWeb';
-import { deParametros } from '@/lib/rutasWeb';
+import { RutasWeb, deParametros } from '@/lib/rutasWeb';
 
 // `/departamentos` · la página de los lugares. Se ve SIN cuenta, con datos reducidos (migración 0090): zona y no dirección, sin teléfono. La búsqueda puede venir en la URL (`?tipo=cuarto&zona=Lerma`),
 // así que un enlace abre la búsqueda ya hecha.
@@ -54,6 +54,9 @@ export default function Departamentos() {
         <ThemedText accessibilityRole="header" style={escritorio ? Texto.titularWebCompacto : Texto.seccionWebCompacto}>Departamentos y cuartos</ThemedText>
         {/* En el teléfono el subtítulo sobra: gasta espacio antes del contenido. */}
         {telefono ? null : <ThemedText style={Texto.cuerpo} themeColor="textSecondary">Cuartos, departamentos y casas compartidas cerca de tu universidad.</ThemedText>}
+        <View style={estilos.cerca}>
+          <BotonWeb variante="contorno" compacto={!escritorio} onPress={() => router.push(RutasWeb.cerca as never)} accessibilityLabel="Ver lugares cerca de tu universidad">Ver los más cercanos a tu universidad</BotonWeb>
+        </View>
       </View>
 
       <View style={estilos.filtros}>
@@ -129,6 +132,7 @@ export default function Departamentos() {
 
 const estilos = StyleSheet.create({
   cabecera: { gap: Spacing.two },
+  cerca: { alignItems: 'flex-start', marginTop: Spacing.one },
   filtros: { gap: Spacing.three, alignItems: 'stretch' },
   buscadorAncho: { alignItems: 'flex-start' },
   resultados: { gap: Spacing.three },

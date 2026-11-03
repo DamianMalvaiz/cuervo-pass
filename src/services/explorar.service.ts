@@ -47,6 +47,21 @@ export async function listarPublicacionesPublicas({ limite, precioMax, tipo, zon
   return (data ?? []) as PublicacionExplorar[];
 }
 
+/** Las viviendas visibles dentro de una caja de coordenadas (aproximadas), filtradas en el servidor. Si trae `limite`, es posible que haya más: quien llama lo dice, no lo calla. */
+export async function listarPublicacionesEnCaja(caja: { latMin: number; latMax: number; lngMin: number; lngMax: number }, limite: number): Promise<PublicacionExplorar[]> {
+  const { data, error } = await supabase
+    .from('explorar_publicaciones')
+    .select(COLUMNAS_EXPLORAR_PUBLICACION)
+    .gte('latitud_aprox', caja.latMin)
+    .lte('latitud_aprox', caja.latMax)
+    .gte('longitud_aprox', caja.lngMin)
+    .lte('longitud_aprox', caja.lngMax)
+    .order('creado_en', { ascending: false })
+    .limit(limite);
+  if (error) throw error;
+  return (data ?? []) as PublicacionExplorar[];
+}
+
 /** `null` solo si no existe o no es visible; un fallo lanza. */
 export async function obtenerPublicacionPublica(id: string): Promise<PublicacionExplorar | null> {
   const { data, error } = await supabase.from('explorar_publicaciones').select(COLUMNAS_EXPLORAR_PUBLICACION).eq('id', id).maybeSingle();

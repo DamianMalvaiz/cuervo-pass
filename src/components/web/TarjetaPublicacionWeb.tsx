@@ -21,9 +21,9 @@ const precio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 
 /**
  * Una vivienda para quien explora: foto grande 4:5, la etiqueta de destacado, el corazón (pide entrar sin cuenta; con cuenta guarda de verdad), título armado, zona corta y precio.
- * Solo lo que la vista pública enseña: nada de dirección exacta ni de quién publica. Con cuenta puede llevar `etiqueta` (el ajuste en palabras, sobre la foto) y `razon` (lo que lo explica, bajo el precio); sin ellas es la de siempre.
+ * Solo lo que la vista pública enseña: nada de dirección exacta ni de quién publica. Con cuenta puede llevar `etiqueta` (el ajuste en palabras, sobre la foto) y `razon` (lo que lo explica, bajo el precio, con `iconoRazon`: la palomita significa «encaja»; para un dato que no es de ajuste, como la cercanía, se pone otro); sin ellas es la de siempre.
  */
-export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso, etiqueta, razon }: { p: PublicacionExplorar; ancho?: number; compacta?: boolean; paso?: number; etiqueta?: string; razon?: string }) {
+export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso, etiqueta, razon, iconoRazon = 'checkmark-circle' }: { p: PublicacionExplorar; ancho?: number; compacta?: boolean; paso?: number; etiqueta?: string; razon?: string; iconoRazon?: keyof typeof Ionicons.glyphMap }) {
   const theme = useTheme();
   const { fotos } = useFotosPublicas('publicacion', p.id, p.num_fotos);
   const zona = zonaCorta(p.zona);
@@ -86,7 +86,7 @@ export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso, etique
       )}
       {razon ? (
         <View style={estilos.razon}>
-          <Ionicons name="checkmark-circle" size={16} color={theme.bosque} />
+          <Ionicons name={iconoRazon} size={16} color={theme.bosque} />
           <ThemedText style={[Texto.pequenoFuerte, estilos.razonTexto, { color: theme.acento }]}>{razon}</ThemedText>
         </View>
       ) : null}

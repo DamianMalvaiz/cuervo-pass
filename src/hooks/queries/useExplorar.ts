@@ -11,6 +11,7 @@ import {
   listarHorarioPublico,
   listarNegociosPorIds,
   listarNegociosPublicos,
+  listarPublicacionesEnCaja,
   listarPublicacionesPorIds,
   listarProductosPublicos,
   listarPublicacionesPublicas,
@@ -82,4 +83,10 @@ export function usePublicacionesPorIds(ids: string[]) {
 export function useNegociosPorIds(ids: string[]) {
   const q = useQuery({ queryKey: ['explorarPorIds', 'negocios', ids.join(',')], queryFn: () => listarNegociosPorIds(ids), enabled: ids.length > 0, placeholderData: (previa) => previa });
   return { negocios: q.data ?? [], cargando: q.isPending && ids.length > 0, fallo: q.isError, reintentar: () => void q.refetch() };
+}
+
+/** Las viviendas dentro de una caja de coordenadas (la de «Cerca de aquí»). La clave lleva la caja: otro radio u otro punto es otra consulta. */
+export function usePublicacionesEnCaja(caja: { latMin: number; latMax: number; lngMin: number; lngMax: number }, limite: number) {
+  const q = useQuery({ queryKey: ['explorarEnCaja', caja, limite], queryFn: () => listarPublicacionesEnCaja(caja, limite), placeholderData: (previa) => previa });
+  return { publicaciones: q.data ?? [], cargando: q.isPending, fallo: q.isError, reintentar: () => void q.refetch() };
 }

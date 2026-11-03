@@ -1,0 +1,98 @@
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+
+import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
+import { Pulsable } from '@/components/ficha/Pulsable';
+import { ThemedText } from '@/components/themed-text';
+import { EsqueletoTarjetasWeb } from '@/components/web/EsqueletoWeb';
+import { PaginaWeb } from '@/components/web/PaginaWeb';
+import { TarjetaPublicacionWeb } from '@/components/web/TarjetaPublicacionWeb';
+import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { usePublicacionesEnCaja } from '@/hooks/queries/useExplorar';
+import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
+import { useTheme } from '@/hooks/use-theme';
+import { RADIOS_KM, cajaDe, ordenarPorCercania, textoDeCercania } from '@/lib/cerca';
+import { HUECO_WEB, medidasWeb } from '@/lib/medidasWeb';
+import { UNIVERSIDADES } from '@/lib/universidades';
+import { usePerfilStore } from '@/store/usePerfilStore';
+
+// Tantos como caben en la caja; si la consulta llega a este tope puede haber más y se dice.
+const LIMITE = 150;
+
+/**
+ * `/cerca`: los lugares publicados cerca de una universidad, del más cercano al más lejano. El punto es la universidad de la cuenta (si la tiene y entró) o, si no, la primera de la lista de Cuervo 360, y la página dice cuál es:
+ * nunca se inventa un punto. Las coordenadas públicas están redondeadas (~1 km): la distancia es aproximada y el tiempo, en línea recta. Cuatro estados distintos (END-11): cargando, FALLÓ, nada en ese radio y la lista.
+ */
+export function CercaWeb() {
+  const theme = useTheme();
+  const { ancho } = useTamanoPantalla();
+  const { telefono, columnas, anchoTarjeta } = medidasWeb(ancho);
+  const perfil = usePerfilStore((s) => s.perfil);
+  const [radio, setRadio] = useState<number>(3);
+
+  const propio = perfil?.latitud_universidad != null && perfil?.longitud_universidad != null;
+  const base = UNIVERSIDADES[0];
+  const punto = propio
+    ? { nombre: perfil.universidad?.trim() || 'tu universidad', lat: perfil.latitud_universidad as number, lng: perfil.longitud_universidad as number }
+    : { nombre: base.nombre, lat: base.lat, lng: base.lng };
+
+  const { publicaciones, cargando, fallo, reintentar } = usePublicacionesEnCaja(cajaDe(punto.lat, punto.lng, radio), LIMITE);
+  const lista = ordenarPorCercania(publicaciones, punto.lat, punto.lng, radio);
+  const posiblementeMas = publicaciones.length >= LIMITE;
+
+  let cuerpo;
+  if (fallo) cuerpo = <ErrorDeCarga etiqueta="No pudimos cargar los lugares cercanos" onReintentar={reintentar} />;
+  else if (cargando) cuerpo = <EsqueletoTarjetasWeb cuantas={columnas} ancho={anchoTarjeta} />;
+  else if (lista.length === 0) {
+    cuerpo = <ThemedText style={Texto.cuerpo} themeColor="textSecondary">{`No hay lugares publicados a menos de ${radio} km. Prueba con un radio mayor.`}</ThemedText>;
+  } else {
+    cuerpo = (
+      <>
+        <ThemedText style={Texto.pequeno} themeColor="textSecondary">
+          {`${lista.length} ${lista.length === 1 ? 'lugar' : 'lugares'} a menos de ${radio} km, del más cercano al más lejano.`}
+          {posiblementeMas ? ' Hay más lugares en la zona de los que se pueden ordenar aquí: baja el radio para ver los más cercanos con seguridad.' : ''}
+        </ThemedText>
+        <View style={estilos.cuadricula}>
+          {lista.map(({ item, km }, i) => <TarjetaPublicacionWeb key={item.id} p={item} ancho={anchoTarjeta} compacta={telefono} paso={i % columnas} razon={textoDeCercania(km)} iconoRazon="location-outline" />)}
+        </View>
+      </>
+    );
+  }
+
+  return (
+    <PaginaWeb activa="depas" titulo="Cerca de tu universidad">
+      <View style={estilos.cuerpo}>
+        <ThemedText accessibilityRole="header" style={Texto.seccionWebCompacto}>Cerca de tu universidad</ThemedText>
+        <ThemedText style={Texto.cuerpo} themeColor="textSecondary">
+          {`Distancia a ${punto.nombre}. Es aproximada (las ubicaciones públicas se redondean) y los tiempos son estimaciones en línea recta, sin calles ni tráfico.`}
+        </ThemedText>
+        <View style={estilos.fila} accessibilityRole="radiogroup" accessibilityLabel="Radio de búsqueda">
+          {RADIOS_KM.map((r) => {
+            const activo = r === radio;
+            return (
+              <Pulsable
+                key={r}
+                onPress={() => setRadio(r)}
+                accessibilityRole="radio"
+                accessibilityLabel={`A menos de ${r} km`}
+                accessibilityState={{ checked: activo }}
+                aria-checked={activo}
+                style={[estilos.chip, { borderColor: activo ? theme.sello : theme.filete, backgroundColor: activo ? theme.sello : theme.backgroundElement }]}
+              >
+                <ThemedText style={[Texto.pequenoFuerte, { color: activo ? theme.selloTexto : theme.text }]}>{`${r} km`}</ThemedText>
+              </Pulsable>
+            );
+          })}
+        </View>
+        {cuerpo}
+      </View>
+    </PaginaWeb>
+  );
+}
+
+const estilos = StyleSheet.create({
+  cuerpo: { gap: Spacing.three },
+  fila: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  chip: { minHeight: 44, paddingHorizontal: Spacing.four, borderRadius: Radios.full, borderWidth: Filete.fino, alignItems: 'center', justifyContent: 'center' },
+  cuadricula: { flexDirection: 'row', flexWrap: 'wrap', gap: HUECO_WEB },
+});
