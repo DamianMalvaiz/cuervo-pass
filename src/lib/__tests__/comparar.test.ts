@@ -50,3 +50,24 @@ describe('lectura y escritura', () => {
     baja();
   });
 });
+
+describe('otra pestaña', () => {
+  it('un cambio hecho en otra pestaña (evento storage) avisa a quien escucha, y deja de avisar al darse de baja', () => {
+    type Oyente = (e: Event) => void;
+    let oyentes: Oyente[] = [];
+    const gl = globalThis as unknown as { addEventListener?: unknown; removeEventListener?: unknown };
+    gl.addEventListener = (t: string, f: Oyente) => t === 'storage' && oyentes.push(f);
+    gl.removeEventListener = (t: string, f: Oyente) => {
+      if (t === 'storage') oyentes = oyentes.filter((x) => x !== f);
+    };
+    const f = jest.fn();
+    const baja = suscribirComparar(f);
+    oyentes.forEach((o) => o({ key: 'cuervo360.comparar' } as unknown as Event));
+    expect(f).toHaveBeenCalledTimes(1);
+    baja();
+    oyentes.forEach((o) => o({ key: 'cuervo360.comparar' } as unknown as Event));
+    expect(f).toHaveBeenCalledTimes(1);
+    delete gl.addEventListener;
+    delete gl.removeEventListener;
+  });
+});

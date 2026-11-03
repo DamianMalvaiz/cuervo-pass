@@ -16,9 +16,23 @@ export interface AnclaFicha {
 const PEGADA = { position: 'sticky', top: 0, zIndex: 10 } as unknown as ViewStyle;
 export const MARGEN_ANCLA = { scrollMarginTop: 72 } as unknown as ViewStyle;
 
+const LINEA_LECTURA = 140;
+
 /**
- * La barra de anclas de una ficha larga: se queda pegada arriba al bajar y lleva a cada sección. La sección que se está viendo queda marcada (IntersectionObserver; si el navegador no lo tiene, simplemente
- * no marca ninguna y los saltos siguen funcionando). Con «reducir movimiento» el salto es directo, sin desplazamiento suave.
+ * Qué sección está «en lectura»: la última cuyo borde de arriba ya pasó la línea de lectura (bajo la barra pegada); y si la última se ve ENTERA en la ventana (el final de la página no deja subirla más), esa.
+ * Sin esa segunda regla, una sección final corta nunca llegaría a la línea y la barra marcaría la anterior aunque ya se esté viendo la última. Las secciones vienen en el orden de la página.
+ */
+export function anclaActiva(secciones: { id: string; top: number; bottom: number }[], altoVentana: number): string | null {
+  if (secciones.length === 0) return null;
+  const ultima = secciones[secciones.length - 1];
+  if (secciones.length > 1 && ultima.top >= 0 && ultima.bottom <= altoVentana) return ultima.id;
+  const pasadas = secciones.filter((s) => s.top <= LINEA_LECTURA);
+  return (pasadas.length > 0 ? pasadas[pasadas.length - 1] : secciones[0]).id;
+}
+
+/**
+ * La barra de anclas de una ficha larga: se queda pegada arriba al bajar y lleva a cada sección. La sección que se está leyendo queda marcada (`anclaActiva`, medida con IntersectionObserver; si el navegador no lo tiene,
+ * simplemente no marca ninguna y los saltos siguen funcionando). Con «reducir movimiento» el salto es directo, sin desplazamiento suave.
  */
 export function SubnavFichaWeb({ anclas }: { anclas: AnclaFicha[] }) {
   const theme = useTheme();
@@ -27,22 +41,21 @@ export function SubnavFichaWeb({ anclas }: { anclas: AnclaFicha[] }) {
 
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') return;
-    const visibles = new Set<string>();
     const orden = clave.split('|');
-    const obs = new IntersectionObserver(
-      (entradas) => {
-        for (const e of entradas) {
-          if (e.isIntersecting) visibles.add(e.target.id);
-          else visibles.delete(e.target.id);
-        }
-        setActiva(orden.find((id) => visibles.has(id)) ?? null);
-      },
-      { rootMargin: '-80px 0px -55% 0px' }
-    );
+    const medir = () => {
+      const rects = orden.map((id) => {
+        const r = document.getElementById(id)?.getBoundingClientRect();
+        return r ? { id, top: r.top, bottom: r.bottom } : null;
+      });
+      setActiva(anclaActiva(rects.filter((r): r is { id: string; top: number; bottom: number } => r !== null), window.innerHeight));
+    };
+    // Se vuelve a medir cada vez que una sección entra, sale o termina de verse entera.
+    const obs = new IntersectionObserver(medir, { threshold: [0, 1] });
     for (const id of orden) {
       const el = document.getElementById(id);
       if (el) obs.observe(el);
     }
+    medir();
     return () => obs.disconnect();
   }, [clave]);
 

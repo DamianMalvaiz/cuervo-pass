@@ -1,3 +1,5 @@
+import { alCambiarEnOtraPestana } from '@/lib/otraPestana';
+
 // «Vistos recientemente» de la web: los ids de las fichas que esta persona abrió, guardados SOLO en su navegador (localStorage). No viajan al servidor ni se ligan a una cuenta.
 // Lo guardado es texto de cualquiera (otra pestaña, otra versión, a mano): se valida al leer y lo que no sea un id se descarta. Sin almacenamiento disponible (modo privado, bloqueado) no pasa nada: no hay vistos.
 
@@ -13,10 +15,15 @@ export function conVisto(actuales: string[], id: string): string[] {
 
 const oyentes = new Set<() => void>();
 const avisar = () => oyentes.forEach((f) => f());
-/** Para `useSyncExternalStore`: avisa cuando esta pestaña registra o borra. */
+/** Para `useSyncExternalStore`: avisa cuando esta pestaña (o, por `storage`, otra) registra o borra. */
 export function suscribirVistos(f: () => void) {
   oyentes.add(f);
-  return () => void oyentes.delete(f);
+  // Lo que cambie OTRA pestaña también llega (el evento `storage` no se dispara en la que escribe).
+  const bajaOtra = alCambiarEnOtraPestana(CLAVE_VISTOS, f);
+  return () => {
+    oyentes.delete(f);
+    bajaOtra();
+  };
 }
 /** Lo guardado tal cual (texto): una instantánea estable para comparar. `''` si no hay o no hay almacenamiento. */
 export function vistosCrudos(): string {

@@ -1,3 +1,4 @@
+import { alCambiarEnOtraPestana } from '@/lib/otraPestana';
 import { ES_ID } from '@/lib/vistos';
 
 // «Comparar» de la web: hasta tres viviendas puestas lado a lado. Los ids se guardan SOLO en el navegador (localStorage), igual que «Vistos recientemente»; se validan al leer porque lo guardado es texto de cualquiera.
@@ -14,10 +15,15 @@ export function conComparado(actuales: string[], id: string): string[] {
 
 const oyentes = new Set<() => void>();
 const avisar = () => oyentes.forEach((f) => f());
-/** Para `useSyncExternalStore`: avisa cuando esta pestaña cambia la lista. */
+/** Para `useSyncExternalStore`: avisa cuando esta pestaña (o, por `storage`, otra) cambia la lista. */
 export function suscribirComparar(f: () => void) {
   oyentes.add(f);
-  return () => void oyentes.delete(f);
+  // Lo que cambie OTRA pestaña también llega (el evento `storage` no se dispara en la que escribe).
+  const bajaOtra = alCambiarEnOtraPestana(CLAVE_COMPARAR, f);
+  return () => {
+    oyentes.delete(f);
+    bajaOtra();
+  };
 }
 /** Lo guardado tal cual (texto): una instantánea estable para comparar. `''` si no hay o no hay almacenamiento. */
 export function compararCrudo(): string {
