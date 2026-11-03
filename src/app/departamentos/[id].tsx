@@ -100,7 +100,7 @@ export default function FichaPublica() {
       </Head>
       <ScrollView contentContainerStyle={[estilos.scroll, telefono && { paddingBottom: ALTO_BARRA_CONTACTO }]}>
         <View style={[estilos.contenido, { paddingHorizontal: margen }]}>
-          <BarraFichaWeb escritorio={escritorio} guardar={{ tipo: 'publicacion', id: p.id }} />
+          <BarraFichaWeb escritorio={escritorio} guardar={{ tipo: 'publicacion', id: p.id }} comparar={p.id} />
           <View nativeID="ficha-fotos" style={MARGEN_ANCLA}>
             <GaleriaWeb fotos={fotos} titulo={p.titulo_publico} escritorio={escritorio} />
           </View>

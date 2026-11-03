@@ -8,6 +8,7 @@ import { LogoMarca } from '@/components/LogoMarca';
 import { ThemedText } from '@/components/themed-text';
 import { CuentaWeb } from '@/components/web/CuentaWeb';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { useComparar } from '@/hooks/use-comparar';
 import { useGuardado } from '@/hooks/use-guardado';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -19,7 +20,7 @@ import { RutasWeb } from '@/lib/rutasWeb';
  * «Volver» regresa si hay a dónde; si la persona llegó por un enlace directo, no hay historial y va a la lista de su sección (`volverA`: lugares por omisión, negocios en la ficha de un negocio).
  * «Guardar» pide entrar sin cuenta; con cuenta guarda o quita de verdad (`guardar` dice qué ficha es); «Compartir» copia el enlace de la ficha (solo en la web, donde hay portapapeles).
  */
-export function BarraFichaWeb({ escritorio, volverA = RutasWeb.departamentos, guardar }: { escritorio: boolean; volverA?: string; guardar?: { tipo: 'publicacion' | 'negocio'; id: string } }) {
+export function BarraFichaWeb({ escritorio, volverA = RutasWeb.departamentos, guardar, comparar }: { escritorio: boolean; volverA?: string; guardar?: { tipo: 'publicacion' | 'negocio'; id: string }; comparar?: string }) {
   const theme = useTheme();
   const [copiado, setCopiado] = useState(false);
 
@@ -57,10 +58,41 @@ export function BarraFichaWeb({ escritorio, volverA = RutasWeb.departamentos, gu
               <ThemedText style={Texto.pequenoFuerte}>{copiado ? 'Enlace copiado' : 'Compartir'}</ThemedText>
             </Pulsable>
           ) : null}
+          {comparar ? <BotonComparar id={comparar} /> : null}
           <Guardar guardar={guardar} />
         </View>
       </View>
     </View>
+  );
+}
+
+/** «Comparar» pone esta vivienda en la lista de comparar de este navegador (hasta tres); con la lista llena avisa en vez de callar, y con dos o más ofrece ir a verla. */
+function BotonComparar({ id }: { id: string }) {
+  const theme = useTheme();
+  const { ids, lleno, alternar } = useComparar();
+  const dentro = ids.includes(id);
+  const bloqueado = lleno && !dentro;
+  return (
+    <>
+      <Pulsable
+        onPress={() => {
+          if (!bloqueado) alternar(id);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={dentro ? 'Quitar de la comparación' : bloqueado ? 'La comparación está llena' : 'Agregar a la comparación'}
+        accessibilityState={{ disabled: bloqueado }}
+        aria-disabled={bloqueado}
+        style={[estilos.accion, { borderColor: dentro ? theme.sello : theme.filete, backgroundColor: theme.backgroundElement, opacity: bloqueado ? 0.6 : 1 }]}
+      >
+        <Ionicons name={dentro ? 'checkmark' : 'git-compare-outline'} size={18} color={theme.text} />
+        <ThemedText style={Texto.pequenoFuerte}>{dentro ? 'En la comparación' : bloqueado ? 'Comparación llena (3)' : 'Comparar'}</ThemedText>
+      </Pulsable>
+      {ids.length >= 2 ? (
+        <Pulsable onPress={() => router.push(RutasWeb.comparar as never)} accessibilityRole="link" accessibilityLabel={`Ver la comparación de ${ids.length} lugares`} style={[estilos.accion, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+          <ThemedText style={Texto.pequenoFuerte}>{`Ver comparación (${ids.length})`}</ThemedText>
+        </Pulsable>
+      ) : null}
+    </>
   );
 }
 

@@ -3,7 +3,7 @@
 
 export const CLAVE_VISTOS = 'cuervo360.vistos';
 export const MAX_VISTOS = 12;
-const ES_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const ES_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Agrega `id` al frente (sin repetirlo) y recorta a `MAX_VISTOS`. Pura. */
 export function conVisto(actuales: string[], id: string): string[] {

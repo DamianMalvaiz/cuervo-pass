@@ -9,6 +9,7 @@ export const RutasWeb = {
   departamentos: '/departamentos',
   roomies: '/roomies',
   servicios: '/servicios',
+  comparar: '/comparar',
   ficha: (id: string) => `/departamentos/${id}` as const,
   negocio: (id: string) => `/servicios/${id}` as const,
 } as const;
