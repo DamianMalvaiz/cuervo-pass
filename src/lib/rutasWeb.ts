@@ -11,6 +11,10 @@ export const RutasWeb = {
   servicios: '/servicios',
   comparar: '/comparar',
   cerca: '/cerca',
+  ayuda: '/ayuda',
+  guiaDeVisita: '/guia-de-visita',
+  contrato: '/contrato',
+  acuerdos: '/acuerdos',
   ficha: (id: string) => `/departamentos/${id}` as const,
   negocio: (id: string) => `/servicios/${id}` as const,
 } as const;

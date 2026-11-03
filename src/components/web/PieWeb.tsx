@@ -5,8 +5,17 @@ import { Pulsable } from '@/components/ficha/Pulsable';
 import { LogoMarca } from '@/components/LogoMarca';
 import { ThemedText } from '@/components/themed-text';
 import { AnchoMaximoWeb, Colors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
+import { RutasWeb } from '@/lib/rutasWeb';
 
 const D = Colors.dark;
+
+// Las páginas informativas (contenido fijo): el pie las enseña siempre, con o sin cuenta.
+const AYUDA = [
+  { ruta: RutasWeb.ayuda, nombre: 'Ayuda y contacto' },
+  { ruta: RutasWeb.guiaDeVisita, nombre: 'Guía para visitar un lugar' },
+  { ruta: RutasWeb.contrato, nombre: 'Entiende tu contrato' },
+  { ruta: RutasWeb.acuerdos, nombre: 'Acuerdos de convivencia' },
+] as const;
 
 /** El pie de la web pública, sobre carbón: quién es Cuervo 360 y los dos documentos que explican cómo se tratan los datos. */
 export function PieWeb() {
@@ -20,6 +29,14 @@ export function PieWeb() {
             <ThemedText style={[Texto.subtitulo, { color: D.text }]}>Cuervo 360</ThemedText>
           </View>
           <ThemedText style={[Texto.cuerpo, estilos.frase, { color: D.textSecondary }]}>Departamentos, roomies y servicios cerca de tu universidad.</ThemedText>
+        </View>
+        <View style={estilos.columna}>
+          <ThemedText style={[Texto.pequenoFuerte, { color: D.lima }]}>Ayuda</ThemedText>
+          {AYUDA.map((a) => (
+            <Pulsable key={a.ruta} onPress={() => router.push(a.ruta as never)} accessibilityRole="link" accessibilityLabel={a.nombre} style={estilos.enlace}>
+              <ThemedText style={[Texto.cuerpo, { color: D.text }]}>{a.nombre}</ThemedText>
+            </Pulsable>
+          ))}
         </View>
         <View style={estilos.columna}>
           <ThemedText style={[Texto.pequenoFuerte, { color: D.lima }]}>Legal</ThemedText>
