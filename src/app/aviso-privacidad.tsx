@@ -1,5 +1,6 @@
 import { DocumentoLegal } from '@/components/DocumentoLegal';
 import { AVISO_ACTUALIZACION, AVISO_INTRO, SECCIONES } from '@/lib/avisoPrivacidad';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 
 // Documento maestro v5 · §29 — el aviso, dentro de la app.
 //
@@ -15,5 +16,13 @@ const ESENCIAL = [
 ];
 
 export default function AvisoPrivacidadScreen() {
+  return (
+    <EnMarcoWeb titulo="Aviso de privacidad" ancho="completo">
+      <AvisoPrivacidadScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function AvisoPrivacidadScreenPantalla() {
   return <DocumentoLegal actualizacion={AVISO_ACTUALIZACION} intro={AVISO_INTRO} esencial={ESENCIAL} secciones={SECCIONES} />;
 }

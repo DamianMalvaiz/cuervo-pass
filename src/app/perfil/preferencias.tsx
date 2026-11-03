@@ -23,6 +23,7 @@ import { avisoVector, campoVector, resolverPerfilVector } from '@/lib/perfilVect
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import { aviso } from '@/lib/registro';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 
 // Documento maestro v5 · §25 — el cuestionario es editable, no una pregunta de
 // una sola vez. Cambiar de presupuesto, de universidad o de consentimiento para
@@ -32,6 +33,14 @@ import { aviso } from '@/lib/registro';
 // en dos lugares, tarde o temprano divergen y solo uno de los dos coincide con
 // los CHECK de la tabla.
 export default function PreferenciasScreen() {
+  return (
+    <EnMarcoWeb titulo="Mis preferencias">
+      <PreferenciasScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function PreferenciasScreenPantalla() {
   const theme = useTheme();
   const formulario = useRef<ControlCuestionario>(null);
   const [guardando, setGuardando] = useState(false);

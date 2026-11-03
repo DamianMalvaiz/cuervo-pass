@@ -15,6 +15,7 @@ import { useNegocio } from '@/hooks/queries/useServicios';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 });
 
@@ -26,6 +27,14 @@ const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits
  * distintos (END-11): cargando, falló, ya no existe y lo que se enseña. Sin precio dice «Consultar precio»; nunca se inventa uno ni un cero.
  */
 export default function ProductoScreen() {
+  return (
+    <EnMarcoWeb>
+      <ProductoScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function ProductoScreenPantalla() {
   const theme = useTheme();
   const { id, negocio: negocioId } = useLocalSearchParams<{ id: string; negocio: string }>();
   const { anchoLista } = useTamanoPantalla();

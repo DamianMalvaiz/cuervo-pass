@@ -1,4 +1,4 @@
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 
 import { MaxContentWidth } from '@/constants/theme';
 
@@ -60,7 +60,8 @@ export function medidasDe(width: number, height: number): TamanoPantalla {
     clase,
     ancho: width,
     alto: height,
-    anchoContenido: clase === 'amplia' ? 480 : width,
+    // En la web, con una ventana de escritorio, 480 se leía como «vista de teléfono» centrada en una pantalla enorme: un poco más ancho (sigue siendo una columna de formulario, no una página entera).
+    anchoContenido: clase === 'amplia' ? (Platform.OS === 'web' ? 560 : 480) : width,
     anchoLista: Math.min(width, MaxContentWidth),
     altoApretado,
     // Un título de 26 px en un teléfono de 320 px de ancho se come dos

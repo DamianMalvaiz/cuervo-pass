@@ -15,6 +15,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 
 type Vendedor = 'arrendador' | 'comerciante';
 
@@ -36,6 +37,14 @@ const OPCIONES: { valor: Vendedor; etiqueta: string; descripcion: string; icono:
  * Pedir la función no da acceso: nace sin verificar; la verificación (INE y fotos) es el paso siguiente, desde el panel.
  */
 export default function CrearVendedorScreen() {
+  return (
+    <EnMarcoWeb titulo="Perfil de vendedor">
+      <CrearVendedorScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function CrearVendedorScreenPantalla() {
   const theme = useTheme();
   const { anchoContenido, clase } = useTamanoPantalla();
   const miId = useAuthStore((s) => s.session?.user.id);

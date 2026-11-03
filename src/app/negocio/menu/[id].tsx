@@ -7,12 +7,21 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useMiNegocio } from '@/hooks/queries/useMisNegocios';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 
 /**
  * El menú de un negocio propio. Tres estados y no dos (END-11): cargando, falló, y «no existe o no es tuyo». El editor solo
  * se monta cuando YA está el menú cargado, para que arranque con los productos reales y no en blanco (y no pise lo guardado).
  */
 export default function MenuNegocioScreen() {
+  return (
+    <EnMarcoWeb titulo="Menú de mi negocio">
+      <MenuNegocioScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function MenuNegocioScreenPantalla() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { negocio, items, cargando, fallo, reintentar } = useMiNegocio(id);
 

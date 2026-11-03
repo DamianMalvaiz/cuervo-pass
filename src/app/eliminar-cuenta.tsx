@@ -14,6 +14,7 @@ import { irAlLogin } from '@/lib/navegacion';
 import { supabase } from '@/lib/supabase';
 import { eliminarMiCuenta } from '@/services/usuarios.service';
 import { useAuthStore } from '@/store/useAuthStore';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 
 const SE_PIERDE = [
   'Tu perfil y tus preferencias',
@@ -30,6 +31,14 @@ const SE_PIERDE = [
  * esta llamada falló de verdad en producción.
  */
 export default function EliminarCuentaScreen() {
+  return (
+    <EnMarcoWeb titulo="Eliminar mi cuenta">
+      <EliminarCuentaScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function EliminarCuentaScreenPantalla() {
   const theme = useTheme();
   const { anchoContenido, clase } = useTamanoPantalla();
   const email = useAuthStore((s) => s.session?.user.email);

@@ -118,7 +118,8 @@ export function ParaTiWeb() {
       <View style={estilos.bento}>
         {ordenadas[0] ? tarjeta(ordenadas[0], 0, { ancho: celda * 2 + HUECO_WEB, alto: ALTO_BENTO * 2 + HUECO_WEB, grande: true }) : null}
         <View style={[estilos.bentoChicas, { width: celda * 2 + HUECO_WEB }]}>
-          {ordenadas.slice(1).map((p, i) => tarjeta(p, i + 1, { ancho: celda, alto: ALTO_BENTO }))}
+          {/* Con un número impar de chicas, la última ocupa todo el ancho del bloque: sin hueco al final. */}
+          {ordenadas.slice(1).map((p, i, chicas) => tarjeta(p, i + 1, { ancho: i === chicas.length - 1 && chicas.length % 2 === 1 ? celda * 2 + HUECO_WEB : celda, alto: ALTO_BENTO }))}
         </View>
       </View>
     ) : (

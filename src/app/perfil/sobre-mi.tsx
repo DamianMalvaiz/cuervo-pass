@@ -12,6 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 
 /**
  * «Sobre mí»: la biografía, en su propia pantalla. Antes era un bloque del perfil, donde competía con la ficha de búsqueda, las funciones y los accesos.
@@ -20,6 +21,14 @@ import { usePerfilStore } from '@/store/usePerfilStore';
  * que uno necesita saber. Y un fallo se dice, sin dar también el aviso de éxito.
  */
 export default function SobreMiScreen() {
+  return (
+    <EnMarcoWeb titulo="Sobre mí">
+      <SobreMiScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function SobreMiScreenPantalla() {
   const theme = useTheme();
   const { anchoContenido, clase } = useTamanoPantalla();
   const session = useAuthStore((s) => s.session);

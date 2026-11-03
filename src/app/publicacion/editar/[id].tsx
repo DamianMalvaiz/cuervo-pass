@@ -20,8 +20,17 @@ import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
 import { aviso } from '@/lib/registro';
 import { toast } from '@/lib/toast';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 
 export default function EditarPublicacionScreen() {
+  return (
+    <EnMarcoWeb>
+      <EditarPublicacionScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function EditarPublicacionScreenPantalla() {
   const formulario = useRef<ControlPublicacion>(null);
   const [guardando, setGuardando] = useState(false);
   const theme = useTheme();

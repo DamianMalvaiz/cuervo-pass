@@ -10,6 +10,7 @@ import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { irAlLogin } from '@/lib/navegacion';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 
 /**
  * Configuración · Cuervo 360 (diseño D1 del 24/10/2026).
@@ -23,6 +24,14 @@ import { usePerfilStore } from '@/store/usePerfilStore';
  *  · Nueva: «Cambiar contraseña», dentro de la app (antes solo existía «Olvidé mi contraseña»).
  */
 export default function ConfiguracionScreen() {
+  return (
+    <EnMarcoWeb titulo="Configuración">
+      <ConfiguracionScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function ConfiguracionScreenPantalla() {
   const { anchoContenido, clase } = useTamanoPantalla();
   const cerrarSesion = useAuthStore((s) => s.cerrarSesion);
   const { perfil } = usePerfilStore();

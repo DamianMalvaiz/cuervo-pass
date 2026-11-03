@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 
 /**
  * Cambiar contraseña, dentro de la app (antes solo existía «Olvidé mi contraseña», que manda un código al correo).
@@ -25,6 +26,14 @@ import { usePerfilStore } from '@/store/usePerfilStore';
  * las OTRAS sesiones (`signOut({ scope: 'others' })`): es lo que la pantalla promete, y si esa parte falla, la contraseña igual ya cambió y se sigue.
  */
 export default function CambiarContrasenaScreen() {
+  return (
+    <EnMarcoWeb titulo="Cambiar contraseña">
+      <CambiarContrasenaScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function CambiarContrasenaScreenPantalla() {
   const theme = useTheme();
   const { anchoContenido, clase } = useTamanoPantalla();
   const email = useAuthStore((s) => s.session?.user.email);

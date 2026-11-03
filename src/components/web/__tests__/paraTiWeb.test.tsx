@@ -29,7 +29,13 @@ jest.mock('@/hooks/queries/useFavoritos', () => ({ useMisFavoritosIds: () => moc
 
 jest.mock('../PaginaWeb', () => ({ PaginaWeb: ({ children }: { children: React.ReactNode }) => children }));
 jest.mock('../BuscadorWeb', () => ({ BuscadorWeb: ({ onBuscar }: { onBuscar: () => void }) => require('react').createElement(require('react-native').Pressable, { onPress: onBuscar, accessibilityLabel: 'Buscar' }) }));
-jest.mock('../TarjetaPublicacionWeb', () => ({ TarjetaPublicacionWeb: ({ p, etiqueta, razon }: { p: { titulo_publico: string }; etiqueta?: string; razon?: string }) => require('react').createElement(require('react-native').Text, null, `VIV ${p.titulo_publico} | ${etiqueta ?? '-'} | ${razon ?? '-'}`) }));
+const mockBento: { id: string; bento?: { ancho: number; alto: number; grande?: boolean } }[] = [];
+jest.mock('../TarjetaPublicacionWeb', () => ({
+  TarjetaPublicacionWeb: ({ p, etiqueta, razon, bento }: { p: { id: string; titulo_publico: string }; etiqueta?: string; razon?: string; bento?: { ancho: number; alto: number; grande?: boolean } }) => {
+    mockBento.push({ id: p.id, bento });
+    return require('react').createElement(require('react-native').Text, null, `VIV ${p.titulo_publico} | ${etiqueta ?? '-'} | ${razon ?? '-'}`);
+  },
+}));
 jest.mock('../TarjetaRoomieWeb', () => ({ TarjetaRoomieWeb: ({ r }: { r: { nombre_completo: string } }) => require('react').createElement(require('react-native').Text, null, `ROOMIE ${r.nombre_completo}`) }));
 
 import { ParaTiWeb } from '../ParaTiWeb';
@@ -40,6 +46,7 @@ const conv = (id: string, nombre: string, noLeidos: number) => ({ conversacionId
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockBento.length = 0;
   jest.useFakeTimers({ now: new Date('2026-10-27T15:00:00') });
   mockPantalla.ancho = 1440;
   mockSesion.user.user_metadata = { nombre_completo: 'Ana Ruiz López' };
@@ -232,5 +239,46 @@ describe('el diseño nuevo: atajos, destacado, cercanía y vistos', () => {
     await render(<ParaTiWeb />);
     await fireEvent.press(screen.getByLabelText('Editar mis preferencias'));
     expect(mockPush).toHaveBeenLastCalledWith('/perfil/preferencias');
+  });
+});
+
+describe('el destacado grande (bento)', () => {
+  const cargar = (ids: string[]) => {
+    mockSug.datos = ids.map((id) => sug(id));
+    mockViv.publicaciones = ids.map(viv);
+  };
+  const ultimas = () => new Map(mockBento.map((t) => [t.id, t.bento]));
+
+  it('el primero es el grande (2×2) y los demás, chicos', async () => {
+    cargar(['a', 'b', 'c', 'd', 'e']);
+    await render(<ParaTiWeb />);
+    const t = ultimas();
+    expect(t.get('a')?.grande).toBe(true);
+    expect(t.get('a')!.ancho).toBeGreaterThan(t.get('b')!.ancho);
+    expect(t.get('a')!.alto).toBeGreaterThan(t.get('b')!.alto);
+    expect(t.get('b')?.grande).toBeUndefined();
+  });
+
+  it('con un número impar de chicas, la última ocupa todo el ancho del bloque (sin hueco)', async () => {
+    cargar(['a', 'b', 'c', 'd']);
+    await render(<ParaTiWeb />);
+    const t = ultimas();
+    expect(t.get('d')!.ancho).toBeGreaterThan(t.get('b')!.ancho);
+    // El bloque de chicas mide lo mismo que el grande: dos celdas y su hueco.
+    expect(t.get('d')!.ancho).toBe(t.get('a')!.ancho);
+  });
+
+  it('con un número par, las cuatro son iguales', async () => {
+    cargar(['a', 'b', 'c', 'd', 'e']);
+    await render(<ParaTiWeb />);
+    const t = ultimas();
+    expect(new Set(['b', 'c', 'd', 'e'].map((id) => t.get(id)!.ancho)).size).toBe(1);
+  });
+
+  it('en tableta no hay bento: cuadrícula normal', async () => {
+    mockPantalla.ancho = 800;
+    cargar(['a', 'b', 'c']);
+    await render(<ParaTiWeb />);
+    expect(mockBento.every((t) => t.bento === undefined)).toBe(true);
   });
 });

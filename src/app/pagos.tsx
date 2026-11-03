@@ -83,7 +83,7 @@ function TarjetaPlan({ rol, titulo, s }: { rol: Rol; titulo: string; s: MiSuscri
 
 export default function PagosScreen() {
   return (
-    <EnMarcoWeb>
+    <EnMarcoWeb titulo="Mi plan y pagos">
       <PagosScreenPantalla />
     </EnMarcoWeb>
   );

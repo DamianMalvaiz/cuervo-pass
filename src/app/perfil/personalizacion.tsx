@@ -17,6 +17,7 @@ import { aviso } from '@/lib/registro';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 
 /**
  * «Personalización»: el consentimiento a que se use tu descripción para ordenar lo que ves (antes «Sugerencias con IA», una fila de Privacidad que llevaba
@@ -28,6 +29,14 @@ import { usePerfilStore } from '@/store/usePerfilStore';
  *  · Si el servicio de análisis falla al recalcular, NO se borra el vector anterior («no pudimos» no es «bórralo») y se dice que quedó atrás.
  */
 export default function PersonalizacionScreen() {
+  return (
+    <EnMarcoWeb titulo="Personalización">
+      <PersonalizacionScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function PersonalizacionScreenPantalla() {
   const theme = useTheme();
   const { anchoContenido, clase } = useTamanoPantalla();
   const session = useAuthStore((s) => s.session);
