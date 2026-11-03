@@ -2,11 +2,14 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { Calificacion } from '@/components/ficha/Calificacion';
 import { CampoFicha } from '@/components/ficha/CampoFicha';
+import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
+import { MarcoSesionWeb } from '@/components/web/MarcoSesionWeb';
+import { PerfilRoomieWeb } from '@/components/web/PerfilRoomieWeb';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Seccion } from '@/components/ficha/Seccion';
@@ -62,11 +65,25 @@ const ETIQUETA_HORARIO: Record<string, string> = {
 // escribirle a alguien era la única sin el dato por el que esa persona salió en
 // la lista — el mismo defecto que END-21 cerró para publicaciones.
 export default function PerfilRoomieScreen() {
+  // En la web, su propia página con el marco de la web; la cabecera de la app se apaga en el layout.
+  return Platform.OS === 'web' ? (
+    <MarcoSesionWeb>
+      <PerfilRoomieWeb />
+    </MarcoSesionWeb>
+  ) : (
+    <PerfilRoomieApp />
+  );
+}
+
+function PerfilRoomieApp() {
   const theme = useTheme();
   const { usuarioId } = useLocalSearchParams<{ usuarioId: string }>();
   const session = useAuthStore((s) => s.session);
   const [usuario, setUsuario] = useState<PerfilPublico | null>(null);
   const [cargando, setCargando] = useState(true);
+  // «Falló la lectura» NO es «no existe» (invariante 2): son dos pantallas distintas. `intento` repite la lectura.
+  const [fallo, setFallo] = useState(false);
+  const [intento, setIntento] = useState(0);
   const [abriendoChat, setAbriendoChat] = useState(false);
   const [afinidad, setAfinidad] = useState<{ similitud: number | null; nivel: 1 | 2 } | null>(null);
   const { anchoLista } = useTamanoPantalla();
@@ -74,11 +91,24 @@ export default function PerfilRoomieScreen() {
 
   useEffect(() => {
     if (!usuarioId) return;
+    let vivo = true;
     obtenerPerfilPublico(usuarioId)
-      .then(setUsuario)
-      .catch(() => setUsuario(null))
-      .finally(() => setCargando(false));
-  }, [usuarioId]);
+      .then((u) => {
+        if (!vivo) return;
+        setUsuario(u);
+        setFallo(false);
+      })
+      .catch((e) => {
+        aviso('obtenerPerfilPublico falló', undefined, e);
+        if (vivo) setFallo(true);
+      })
+      .finally(() => {
+        if (vivo) setCargando(false);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [usuarioId, intento]);
 
   // La afinidad va en SU PROPIA petición y su propio estado. Colgarla del mismo
   // `then` haría que un fallo al calcularla dejara la pantalla entera sin
@@ -155,6 +185,20 @@ export default function PerfilRoomieScreen() {
         <ScrollView contentContainerStyle={[estilos.hoja, estilos.contenido, estilos.columna, { maxWidth: anchoLista }]}>
           <ListaEsqueleto variante="hoja" filas={1} conFoto={false} etiquetas={['Afinidad', 'CONVIVENCIA']} />
         </ScrollView>
+      </ThemedView>
+    );
+  }
+
+  if (fallo) {
+    return (
+      <ThemedView style={estilos.centrado}>
+        <ErrorDeCarga
+          etiqueta="No pudimos cargar este perfil"
+          onReintentar={() => {
+            setCargando(true);
+            setIntento((n) => n + 1);
+          }}
+        />
       </ThemedView>
     );
   }

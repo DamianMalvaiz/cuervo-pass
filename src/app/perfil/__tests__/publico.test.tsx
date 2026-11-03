@@ -146,10 +146,12 @@ test('si la afinidad falla, el perfil se pinta igual', async () => {
 
 // Y al contrario: si el perfil falla, no se pinta una ficha a medias con la
 // afinidad de alguien que no se pudo cargar.
-test('si el perfil falla, se dice que no se encontró', async () => {
+// (Antes esta prueba afirmaba que un fallo de red decía «No se encontró»: fijaba el defecto, no el comportamiento correcto. «Falló» ≠ «no existe», invariante 2.)
+test('si el perfil falla, se dice que falló (no que no existe) y no se pinta una ficha a medias', async () => {
   mockPerfilPublico.mockRejectedValue(new Error('sin red'));
   await pintar();
-  expect(await screen.findByText('No se encontró este perfil.')).toBeTruthy();
+  expect(await screen.findByText('No pudimos cargar este perfil')).toBeTruthy();
+  expect(screen.queryByText('No se encontró este perfil.')).toBeNull();
 });
 
 test('un perfil inexistente también lo dice', async () => {

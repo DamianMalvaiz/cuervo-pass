@@ -135,7 +135,8 @@ export default function RootLayout() {
         <Stack.Screen name="negocio/menu/[id]" options={{ ...encabezado, title: 'Menú' }} />
         <Stack.Screen name="negocio/[id]" options={{ ...encabezado, title: 'Negocio' }} />
         <Stack.Screen name="negocio/producto/[id]" options={{ ...encabezado, title: 'Producto' }} />
-        <Stack.Screen name="perfil/[usuarioId]" options={{ ...encabezado, title: 'Perfil' }} />
+        {/* En la web el perfil de una persona trae su propio encabezado (MarcoSesionWeb). */}
+        <Stack.Screen name="perfil/[usuarioId]" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Perfil' }} />
         {/* Hoja modal, no empujada: editar tus preferencias es una tarea
             autocontenida de la que se sale cancelando, y el gesto de arrastrar
             hacia abajo para cerrar ya lo conoce cualquiera. */}
