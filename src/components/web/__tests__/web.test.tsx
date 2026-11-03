@@ -119,10 +119,17 @@ describe('TarjetaPublicacionWeb', () => {
   it('enseña el título armado, la zona corta, el precio y la calificación; nunca el CP ni la dirección', async () => {
     await render(<TarjetaPublicacionWeb p={PUB} />);
     expect(screen.getByText('Cuarto en Capultitlán')).toBeTruthy();
-    expect(screen.getByText('Capultitlán, Toluca')).toBeTruthy();
+    // El título ya dice la colonia: debajo va el municipio, sin repetirla.
+    expect(screen.getByText('Toluca')).toBeTruthy();
+    expect(screen.queryByText('Capultitlán, Toluca')).toBeNull();
     expect(screen.getByText(/3,459/)).toBeTruthy();
     expect(screen.getByLabelText('Calificación 4.9 de 5')).toBeTruthy();
     expect(screen.queryByText(/50296/)).toBeNull();
+  });
+
+  it('debajo del título dice recámaras y si está amueblado, junto al municipio', async () => {
+    await render(<TarjetaPublicacionWeb p={{ ...PUB, recamaras: 2, amueblado: true }} />);
+    expect(screen.getByText('Toluca · 2 recámaras · Amueblado')).toBeTruthy();
   });
 
   it('un destacado lo dice', async () => {

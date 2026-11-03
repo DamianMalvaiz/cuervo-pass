@@ -51,7 +51,9 @@ describe('la página', () => {
   it('enseña los lugares con precio y zona corta, nunca la dirección ni el CP', async () => {
     await render(<Departamentos />);
     expect(screen.getByLabelText(/Cuarto en Santa María, 2,900 pesos al mes/)).toBeTruthy();
-    expect(screen.getByText('Santa María, Lerma')).toBeTruthy();
+    // El título ya dice la colonia: la línea de abajo dice el municipio, no la repite.
+    expect(screen.getByText('Lerma')).toBeTruthy();
+    expect(screen.queryByText('Santa María, Lerma')).toBeNull();
     expect(screen.queryByText(/CP 52000/)).toBeNull();
   });
 

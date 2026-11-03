@@ -11,7 +11,7 @@ import { useFotosPublicas } from '@/hooks/queries/useExplorar';
 import { useTheme } from '@/hooks/use-theme';
 import { animTarjeta } from '@/lib/movimientoWeb';
 import { RutasWeb } from '@/lib/rutasWeb';
-import { zonaCorta } from '@/lib/zona';
+import { subtituloTarjeta } from '@/lib/zona';
 import type { PublicacionExplorar } from '@/services/explorar.service';
 
 const D = Colors.dark;
@@ -26,7 +26,7 @@ const precio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso, etiqueta, razon, iconoRazon = 'checkmark-circle' }: { p: PublicacionExplorar; ancho?: number; compacta?: boolean; paso?: number; etiqueta?: string; razon?: string; iconoRazon?: keyof typeof Ionicons.glyphMap }) {
   const theme = useTheme();
   const { fotos } = useFotosPublicas('publicacion', p.id, p.num_fotos, true);
-  const zona = zonaCorta(p.zona);
+  const subtitulo = subtituloTarjeta(p);
 
   return (
     <Pulsable
@@ -54,7 +54,7 @@ export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso, etique
       {compacta ? (
         <>
           <ThemedText style={Texto.pequenoFuerte} numberOfLines={2}>{p.titulo_publico}</ThemedText>
-          {zona ? <ThemedText style={Texto.pequeno} themeColor="textSecondary" numberOfLines={1}>{zona}</ThemedText> : null}
+          {subtitulo ? <ThemedText style={Texto.pequeno} themeColor="textSecondary" numberOfLines={1}>{subtitulo}</ThemedText> : null}
           <View style={estilos.precioFila}>
             <ThemedText style={Texto.pequeno}>
               <ThemedText style={Texto.pequenoFuerte}>${precio.format(p.precio_renta)}</ThemedText> al mes
@@ -78,7 +78,7 @@ export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso, etique
               </View>
             ) : null}
           </View>
-          {zona ? <ThemedText style={Texto.pequeno} themeColor="textSecondary" numberOfLines={1}>{zona}</ThemedText> : null}
+          {subtitulo ? <ThemedText style={Texto.pequeno} themeColor="textSecondary" numberOfLines={1}>{subtitulo}</ThemedText> : null}
           <ThemedText style={Texto.pequeno}>
             <ThemedText style={Texto.precioWeb}>${precio.format(p.precio_renta)}</ThemedText> al mes
           </ThemedText>

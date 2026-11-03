@@ -76,7 +76,7 @@ describe('TarjetaPublicacionWeb compacta', () => {
   it('conserva lo importante: título (hasta dos renglones), zona corta, precio y calificación', async () => {
     await render(<TarjetaPublicacionWeb p={PUB} ancho={164} compacta />);
     expect(screen.getByText('Casa compartida en Santa María Atarasquillo').props.numberOfLines).toBe(2);
-    expect(screen.getByText('Santa María Atarasquillo, Lerma')).toBeTruthy();
+    expect(screen.getByText('Lerma')).toBeTruthy();
     expect(screen.getByText(/2,200/)).toBeTruthy();
     expect(screen.getByLabelText('Calificación 4.9 de 5')).toBeTruthy();
     expect(screen.queryByText(/52044/)).toBeNull();
