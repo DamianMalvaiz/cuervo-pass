@@ -8,6 +8,8 @@ const mockListarPub = jest.fn();
 const mockListarNeg = jest.fn();
 const mockCategorias = jest.fn();
 const mockFotos = jest.fn();
+const mockPrimera = jest.fn();
+jest.mock('@/lib/loteFotos', () => ({ primeraFoto: (...a: unknown[]) => mockPrimera(...a) }));
 jest.mock('@/services/explorar.service', () => ({
   listarPublicacionesPublicas: (...a: unknown[]) => mockListarPub(...a),
   obtenerPublicacionPublica: jest.fn(),
@@ -94,4 +96,23 @@ test('fotos: si la vista dice que no hay ninguna (num_fotos = 0), ni se pide a l
   const { result } = await renderHook(() => useFotosPublicas('negocio', 'n9', 0), { wrapper: envolver() });
   expect(result.current.fotos).toEqual([]);
   expect(mockFotos).not.toHaveBeenCalled();
+});
+
+test('fotos de tarjeta (soloPrimera): salen del lote, no de una llamada por tarjeta; las de ficha, no', async () => {
+  mockPrimera.mockResolvedValue(['https://f/primera']);
+  const tarjeta = await renderHook(() => useFotosPublicas('publicacion', 'p7', 3, true), { wrapper: envolver() });
+  await waitFor(() => expect(tarjeta.result.current.fotos).toEqual(['https://f/primera']));
+  expect(mockPrimera).toHaveBeenCalledWith('publicacion', 'p7');
+  expect(mockFotos).not.toHaveBeenCalled();
+
+  mockFotos.mockResolvedValueOnce(['https://f/1', 'https://f/2']);
+  const ficha = await renderHook(() => useFotosPublicas('publicacion', 'p7', 3), { wrapper: envolver() });
+  await waitFor(() => expect(ficha.result.current.fotos).toHaveLength(2));
+  expect(mockPrimera).toHaveBeenCalledTimes(1);
+});
+
+test('fotos de tarjeta: si el lote falla, la tarjeta lo sabe (no es «sin foto»)', async () => {
+  mockPrimera.mockRejectedValueOnce(new Error('500'));
+  const { result } = await renderHook(() => useFotosPublicas('negocio', 'n2', 1, true), { wrapper: envolver() });
+  await waitFor(() => expect(result.current.fallo).toBe(true));
 });

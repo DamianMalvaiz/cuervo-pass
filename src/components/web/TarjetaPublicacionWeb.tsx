@@ -25,7 +25,7 @@ const precio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
  */
 export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso, etiqueta, razon, iconoRazon = 'checkmark-circle' }: { p: PublicacionExplorar; ancho?: number; compacta?: boolean; paso?: number; etiqueta?: string; razon?: string; iconoRazon?: keyof typeof Ionicons.glyphMap }) {
   const theme = useTheme();
-  const { fotos } = useFotosPublicas('publicacion', p.id, p.num_fotos);
+  const { fotos } = useFotosPublicas('publicacion', p.id, p.num_fotos, true);
   const zona = zonaCorta(p.zona);
 
   return (

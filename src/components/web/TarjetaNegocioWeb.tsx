@@ -19,7 +19,7 @@ const FOTOZOOM = { dataSet: { fotozoom: '1' } } as object;
 /** Un negocio: la foto redondeada con su corazón (pide entrar sin cuenta; con cuenta guarda), el nombre debajo, la zona corta y si está abierto (solo si se sabe), como las tarjetas de un carrusel. */
 export function TarjetaNegocioWeb({ n, ancho, paso }: { n: NegocioExplorar; ancho: number; paso?: number }) {
   const theme = useTheme();
-  const { fotos } = useFotosPublicas('negocio', n.id, n.num_fotos);
+  const { fotos } = useFotosPublicas('negocio', n.id, n.num_fotos, true);
   const zona = zonaCorta(n.zona);
   const estado = n.abierto_ahora === null ? null : n.abierto_ahora ? 'Abierto ahora' : 'Cerrado ahora';
   return (

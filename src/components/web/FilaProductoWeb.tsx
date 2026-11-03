@@ -12,7 +12,7 @@ const precioFormato = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 
 /** Un producto del menú: su foto (si tiene), nombre, descripción (si la hay) y precio; sin precio dice «Consulta el precio» y nunca inventa uno. */
 export function FilaProductoWeb({ p }: { p: ProductoExplorar }) {
   const theme = useTheme();
-  const { fotos } = useFotosPublicas('producto', p.id, p.num_fotos);
+  const { fotos } = useFotosPublicas('producto', p.id, p.num_fotos, true);
   return (
     <View style={[estilos.fila, { borderBottomColor: theme.filete }]}>
       {p.num_fotos > 0 ? (

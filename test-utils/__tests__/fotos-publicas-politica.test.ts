@@ -1,4 +1,4 @@
-import { armarRespuesta, fuenteDe, separarFotos, validarSolicitudFotos, MAX_FOTOS } from '../../supabase/functions/fotos-publicas/politica';
+import { armarRespuesta, fuenteDe, separarFotos, validarSolicitudFotos, validarSolicitudLote, MAX_FOTOS, MAX_LOTE } from '../../supabase/functions/fotos-publicas/politica';
 
 // `fotos-publicas`: las fotos para quien NO tiene cuenta. El almacenamiento es privado y `anon` no firma nada, así que esta función, con la llave de servicio, firma SOLO las
 // fotos de lo que las vistas de explorar (0090) ya enseñan. Lo que se prueba aquí es lo que decide qué se firma: el cuerpo solo dice QUÉ cosa (tipo e id), nunca una ruta,
@@ -84,5 +84,38 @@ describe('armarRespuesta', () => {
     const salida = armarRespuesta(entradas, new Map());
     expect(JSON.stringify(salida)).not.toContain('00000000-0000-0000-0000-0000000000b2');
     expect(salida).toEqual([]);
+  });
+});
+
+describe('validarSolicitudLote (una llamada para toda una página de tarjetas)', () => {
+  const OTRO = '0f9d1c0e-5a7b-4c1d-8e2f-123456789abc';
+
+  it('acepta un lote de ids y junta los repetidos', () => {
+    expect(validarSolicitudLote({ tipo: 'publicacion', ids: [ID, OTRO, ID] })).toEqual({ ok: true, tipo: 'publicacion', ids: [ID, OTRO], primera: false });
+  });
+
+  it('`primera` solo vale si es exactamente true', () => {
+    expect(validarSolicitudLote({ tipo: 'negocio', ids: [ID], primera: true })).toMatchObject({ ok: true, primera: true });
+    for (const primera of ['true', 1, null, undefined]) expect(validarSolicitudLote({ tipo: 'negocio', ids: [ID], primera })).toMatchObject({ primera: false });
+  });
+
+  it('rechaza un tipo que no existe, igual que una sola', () => {
+    expect(validarSolicitudLote({ tipo: 'perfil', ids: [ID] })).toEqual({ ok: false, error: 'tipo inválido' });
+  });
+
+  it('rechaza ids vacíos, que no son lista, o con UN solo elemento que no es uuid (nada de colarse entre buenos)', () => {
+    expect(validarSolicitudLote({ tipo: 'negocio', ids: [] })).toEqual({ ok: false, error: 'ids inválidos' });
+    expect(validarSolicitudLote({ tipo: 'negocio', ids: ID })).toEqual({ ok: false, error: 'ids inválidos' });
+    for (const malo of ['../x', "x' or 1=1 --", 7, null]) expect(validarSolicitudLote({ tipo: 'negocio', ids: [ID, malo] })).toEqual({ ok: false, error: 'id inválido' });
+  });
+
+  it(`no pasa de ${MAX_LOTE} ids`, () => {
+    const muchos = Array.from({ length: MAX_LOTE + 1 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`);
+    expect(validarSolicitudLote({ tipo: 'publicacion', ids: muchos })).toEqual({ ok: false, error: 'demasiados ids' });
+    expect(validarSolicitudLote({ tipo: 'publicacion', ids: muchos.slice(0, MAX_LOTE) })).toMatchObject({ ok: true });
+  });
+
+  it('rechaza lo que no es un objeto', () => {
+    for (const crudo of [null, 'x', 3, [], [ID]]) expect(validarSolicitudLote(crudo)).toEqual({ ok: false, error: 'cuerpo inválido' });
   });
 });

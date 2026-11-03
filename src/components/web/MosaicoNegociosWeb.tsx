@@ -17,7 +17,7 @@ const HUECO = Spacing.three;
 
 function Mosaico({ n, ancho, alto, grande }: { n: NegocioExplorar; ancho: number; alto: number; grande?: boolean }) {
   const theme = useTheme();
-  const { fotos } = useFotosPublicas('negocio', n.id, n.num_fotos);
+  const { fotos } = useFotosPublicas('negocio', n.id, n.num_fotos, true);
   const estado = n.abierto_ahora === null ? null : n.abierto_ahora ? 'Abierto ahora' : 'Cerrado ahora';
   return (
     <Pulsable

@@ -5,6 +5,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { INTERVALO_REFIRMA_MS } from '@/hooks/use-fotos-firmadas';
+import { primeraFoto } from '@/lib/loteFotos';
 import {
   fotosPublicas,
   listarCategoriasPublicas,
@@ -62,11 +63,12 @@ export function useCategoriasPublicas() {
 /**
  * Las fotos de algo visible. `numFotos` viene de la vista: si dice 0 no se molesta a la función. Las URL duran una hora; se vuelven a pedir antes (END-24).
  */
-export function useFotosPublicas(tipo: 'publicacion' | 'negocio' | 'producto', id: string | undefined, numFotos: number) {
+export function useFotosPublicas(tipo: 'publicacion' | 'negocio' | 'producto', id: string | undefined, numFotos: number, soloPrimera = false) {
   const activo = Boolean(id) && numFotos > 0;
   const q = useQuery({
-    queryKey: ['explorarFotos', tipo, id ?? ''],
-    queryFn: () => fotosPublicas(tipo, id as string),
+    // `soloPrimera` (las tarjetas): la primera foto, pedida junto con las de las demás tarjetas en UNA llamada. Sin ella (las fichas): todas las fotos, una cosa a la vez. Son consultas distintas.
+    queryKey: ['explorarFotos', tipo, id ?? '', soloPrimera],
+    queryFn: () => (soloPrimera ? primeraFoto(tipo, id as string) : fotosPublicas(tipo, id as string)),
     enabled: activo,
     staleTime: INTERVALO_REFIRMA_MS,
     refetchInterval: INTERVALO_REFIRMA_MS,

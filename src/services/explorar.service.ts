@@ -130,3 +130,21 @@ export async function fotosPublicas(tipo: 'publicacion' | 'negocio' | 'producto'
   if (!Array.isArray(fotos)) throw new Error('Respuesta inesperada de fotos-publicas');
   return fotos.filter((f): f is string => typeof f === 'string');
 }
+
+/**
+ * Las PRIMERAS fotos de varias cosas con UNA llamada (lo que enseña una página de tarjetas). `{ [id]: urls }`; lo no visible no trae clave. Lanza `ErrorLoteNoSoportado` si la función aún no conoce los lotes
+ * (responde 400): quien llama puede volver a pedir de una en una. Cualquier otro fallo lanza el error tal cual (END-11).
+ */
+export class ErrorLoteNoSoportado extends Error {}
+export async function fotosPublicasLote(tipo: 'publicacion' | 'negocio' | 'producto', ids: string[]): Promise<Record<string, string[]>> {
+  const { data, error } = await supabase.functions.invoke('fotos-publicas', { body: { tipo, ids, primera: true } });
+  if (error) {
+    if ((error as { context?: { status?: number } }).context?.status === 400) throw new ErrorLoteNoSoportado();
+    throw error;
+  }
+  const lote = (data as { lote?: unknown } | null)?.lote;
+  if (typeof lote !== 'object' || lote === null || Array.isArray(lote)) throw new Error('Respuesta inesperada de fotos-publicas');
+  const salida: Record<string, string[]> = {};
+  for (const [id, fotos] of Object.entries(lote)) if (Array.isArray(fotos)) salida[id] = fotos.filter((f): f is string => typeof f === 'string');
+  return salida;
+}

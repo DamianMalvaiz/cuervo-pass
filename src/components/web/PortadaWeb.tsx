@@ -38,9 +38,9 @@ export function PortadaWeb() {
 
   // Las tres fotos del collage del hero: una por cada lugar más reciente (siempre tres llamadas, para no cambiar el orden de los hooks).
   const [a, b, c] = [0, 1, 2].map((i) => lugares.publicaciones[i]);
-  const fa = useFotosPublicas('publicacion', a?.id, a?.num_fotos ?? 0).fotos[0];
-  const fb = useFotosPublicas('publicacion', b?.id, b?.num_fotos ?? 0).fotos[0];
-  const fc = useFotosPublicas('publicacion', c?.id, c?.num_fotos ?? 0).fotos[0];
+  const fa = useFotosPublicas('publicacion', a?.id, a?.num_fotos ?? 0, true).fotos[0];
+  const fb = useFotosPublicas('publicacion', b?.id, b?.num_fotos ?? 0, true).fotos[0];
+  const fc = useFotosPublicas('publicacion', c?.id, c?.num_fotos ?? 0, true).fotos[0];
 
   // En el teléfono el inicio es otro diseño (de app, con carruseles y barra inferior); los hooks de arriba se ejecutan igual en los dos.
   if (telefono) {
