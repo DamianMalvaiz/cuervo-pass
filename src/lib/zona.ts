@@ -16,3 +16,14 @@ export function subtituloTarjeta(p: { titulo_publico: string; zona: string | nul
   const partes = [lugar, ...detalles].filter((x): x is string => Boolean(x));
   return partes.length > 0 ? partes.join(' · ') : null;
 }
+
+/**
+ * Espejo en JS de `zona_aproximada()` de la base (0090): lo que queda de una dirección sin su primer tramo (calle y número). Una dirección sin comas no tiene zona que decir: no se enseña la calle.
+ * Sirve para la vista previa de lo que verá quien explora sin cuenta; la verdad es la de la base.
+ */
+export function zonaAproximadaDe(direccion: string | null | undefined): string | null {
+  const d = direccion ?? '';
+  if (!d.includes(',')) return null;
+  const resto = d.replace(/^[^,]*,/, '').trim();
+  return resto === '' || resto === ',' ? null : resto;
+}

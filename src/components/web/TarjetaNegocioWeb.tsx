@@ -16,17 +16,17 @@ import type { NegocioExplorar } from '@/services/explorar.service';
 // Al pasar el cursor por la tarjeta, la imagen se acerca y gana sombra (CSS global).
 const FOTOZOOM = { dataSet: { fotozoom: '1' } } as object;
 
-/** Un negocio: la foto redondeada con su corazón (pide entrar sin cuenta; con cuenta guarda), el nombre debajo, la zona corta y si está abierto (solo si se sabe), como las tarjetas de un carrusel. */
-export function TarjetaNegocioWeb({ n, ancho, paso }: { n: NegocioExplorar; ancho: number; paso?: number }) {
+/** Un negocio: la foto redondeada con su corazón (pide entrar sin cuenta; con cuenta guarda), el nombre debajo, la zona corta y si está abierto (solo si se sabe), como las tarjetas de un carrusel. Con `previa` (quien publica ve cómo quedará) no es un negocio real: no lleva a ninguna ficha, no se puede guardar y la foto es la que se eligió. */
+export function TarjetaNegocioWeb({ n, ancho, paso, previa }: { n: NegocioExplorar; ancho: number; paso?: number; previa?: { fotoUri?: string } }) {
   const theme = useTheme();
   const { fotos } = useFotosPublicas('negocio', n.id, n.num_fotos, true);
   const zona = zonaCorta(n.zona);
   const estado = n.abierto_ahora === null ? null : n.abierto_ahora ? 'Abierto ahora' : 'Cerrado ahora';
   return (
-    <Pulsable onPress={() => router.push(RutasWeb.negocio(n.id))} accessibilityRole="button" accessibilityLabel={estado ? `${n.nombre}, ${estado}` : n.nombre} style={[estilos.tarjeta, { width: ancho }]} {...animTarjeta(paso)}>
+    <Pulsable onPress={previa ? undefined : () => router.push(RutasWeb.negocio(n.id))} accessibilityRole={previa ? 'image' : 'button'} accessibilityLabel={estado ? `${n.nombre}, ${estado}` : n.nombre} style={[estilos.tarjeta, { width: ancho }]} {...animTarjeta(paso)}>
       <View style={[estilos.foto, { backgroundColor: theme.backgroundSelected }]} {...FOTOZOOM}>
-        <FotoLista completa={fotos[0]} style={estilos.imagen} accessibilityLabel={n.nombre} />
-        <CorazonWeb tipo="negocio" id={n.id} compacta />
+        <FotoLista completa={previa ? previa.fotoUri : fotos[0]} style={estilos.imagen} accessibilityLabel={n.nombre} />
+        {previa ? null : <CorazonWeb tipo="negocio" id={n.id} compacta />}
       </View>
       <ThemedText style={Texto.pequenoFuerte} numberOfLines={2}>{n.nombre}</ThemedText>
       {zona ? <ThemedText style={Texto.pequeno} themeColor="textSecondary" numberOfLines={1}>{zona}</ThemedText> : null}

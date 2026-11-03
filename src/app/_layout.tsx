@@ -131,8 +131,9 @@ export default function RootLayout() {
         {/* En la web «Nueva publicación» trae su propio encabezado (MarcoSesionWeb) y una vista previa al lado. */}
         <Stack.Screen name="publicacion/nueva" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Nueva publicación' }} />
         <Stack.Screen name="publicacion/editar/[id]" options={{ ...encabezado, title: 'Editar publicación' }} />
-        <Stack.Screen name="negocio/nuevo" options={{ ...encabezado, title: 'Publicar negocio' }} />
-        <Stack.Screen name="negocio/editar/[id]" options={{ ...encabezado, title: 'Editar negocio' }} />
+        {/* En la web, publicar y editar un negocio traen su propio encabezado (MarcoNegocioWeb) y una vista previa al lado. */}
+        <Stack.Screen name="negocio/nuevo" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Publicar negocio' }} />
+        <Stack.Screen name="negocio/editar/[id]" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Editar negocio' }} />
         <Stack.Screen name="negocio/menu/[id]" options={{ ...encabezado, title: 'Menú' }} />
         <Stack.Screen name="negocio/[id]" options={{ ...encabezado, title: 'Negocio' }} />
         <Stack.Screen name="negocio/producto/[id]" options={{ ...encabezado, title: 'Producto' }} />

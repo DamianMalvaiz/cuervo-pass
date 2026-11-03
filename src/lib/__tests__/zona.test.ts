@@ -1,4 +1,4 @@
-import { subtituloTarjeta, zonaCorta } from '../zona';
+import { subtituloTarjeta, zonaAproximadaDe, zonaCorta } from '../zona';
 
 // La zona que llega de la base («colonia, municipio, estado, CP») es larga para una tarjeta: se enseña colonia y municipio. Nunca se inventa: lo que no hay no se muestra.
 
@@ -46,5 +46,21 @@ describe('subtituloTarjeta', () => {
   });
   it('recámaras 0 o amueblado false no se dicen', () => {
     expect(subtituloTarjeta({ ...base, recamaras: 0, amueblado: false })).toBe('Lerma');
+  });
+});
+
+describe('zonaAproximadaDe (espejo de zona_aproximada de la base)', () => {
+  it('quita la calle y número: lo que queda sin el primer tramo', () => {
+    expect(zonaAproximadaDe('Calle Hidalgo 12, Centro, Lerma, México')).toBe('Centro, Lerma, México');
+  });
+  it('una dirección sin comas no tiene zona que decir (no enseña la calle)', () => {
+    expect(zonaAproximadaDe('Calle Hidalgo 12')).toBeNull();
+    expect(zonaAproximadaDe('')).toBeNull();
+    expect(zonaAproximadaDe(null)).toBeNull();
+  });
+  it('si tras la coma no hay nada, tampoco', () => {
+    expect(zonaAproximadaDe('Calle Hidalgo 12,')).toBeNull();
+    expect(zonaAproximadaDe('Calle Hidalgo 12,   ')).toBeNull();
+    expect(zonaAproximadaDe('Calle Hidalgo 12, ,')).toBeNull(); // la base también descarta una zona que sea solo «,»
   });
 });

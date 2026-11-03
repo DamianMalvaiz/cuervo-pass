@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
@@ -30,6 +30,13 @@ import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { NegocioItem, NegocioPropio } from '@/types/database.types';
 
+/** Lo que la vista previa (en la web) necesita para dibujar cómo quedará el negocio: nombre, dirección y la foto de portada (la primera) si ya se puede enseñar. */
+export interface VistaPreviaNegocio {
+  nombre: string;
+  direccion: string;
+  fotoUri?: string;
+}
+
 /** `ruta` presente = ya está en Storage; ausente = es una foto nueva y `uri` es local. */
 type FotoEnForm = { clave: string; ruta: string | null; uri: string };
 
@@ -40,7 +47,7 @@ type FotoEnForm = { clave: string; ruta: string | null; uri: string };
  * medias (ver `useGuardarNegocio`). La dirección se geocodifica al guardar solo si cambió; si no se puede ubicar, el
  * negocio se guarda igual y no tendrá «Cómo llegar». `destacado` NO se elige aquí: lo decidirá el plan.
  */
-export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPropio; items: NegocioItem[]; turnos?: Turno[] } }) {
+export function FormularioNegocio({ inicial, onVistaPrevia }: { inicial?: { negocio: NegocioPropio; items: NegocioItem[]; turnos?: Turno[] }; onVistaPrevia?: (v: VistaPreviaNegocio) => void }) {
   const theme = useTheme();
   const { anchoContenido, clase } = useTamanoPantalla();
   const miId = useAuthStore((s) => s.session?.user.id);
@@ -79,6 +86,13 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
 
   const rutasIniciales = n?.fotos ?? [];
   const { urls } = useFotosFirmadas(rutasIniciales);
+
+  // La vista previa de la web: se manda afuera con valores simples (no objetos) para que el efecto solo corra cuando algo cambió. La portada es la primera foto: la de este dispositivo, o la ya guardada si ya está firmada.
+  const portada = fotos[0];
+  const fotoPrevia = portada ? (portada.ruta ? urls.get(portada.ruta) : portada.uri) || undefined : undefined;
+  useEffect(() => {
+    onVistaPrevia?.({ nombre, direccion, fotoUri: fotoPrevia });
+  }, [onVistaPrevia, nombre, direccion, fotoPrevia]);
 
   const agregarFoto = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
