@@ -154,9 +154,10 @@ export default function RootLayout() {
         <Stack.Screen name="chat/[conversacionId]" options={{ ...encabezado, title: 'Chat' }} />
         {/* §29 — se abre desde el registro ANTES de aceptar, y desde Mi perfil
             después. Con cabecera para que haya "atrás" sin gestos. */}
-        <Stack.Screen name="verificacion/[rol]" options={{ ...encabezado, title: 'Verificación' }} />
-        <Stack.Screen name="planes/[rol]" options={{ ...encabezado, title: 'Planes' }} />
-        <Stack.Screen name="pagos" options={{ ...encabezado, title: 'Mi plan y pagos' }} />
+        {/* En la web, verificación, planes y pagos van dentro del marco de la web (EnMarcoWeb): sin la cabecera de la app. */}
+        <Stack.Screen name="verificacion/[rol]" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Verificación' }} />
+        <Stack.Screen name="planes/[rol]" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Planes' }} />
+        <Stack.Screen name="pagos" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Mi plan y pagos' }} />
         {/* En la web la página trae su propio encabezado (MarcoSesionWeb): la cabecera de la app sobraría. */}
         <Stack.Screen name="notificaciones" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Avisos' }} />
         <Stack.Screen name="configuracion" options={{ ...encabezado, title: 'Configuración' }} />

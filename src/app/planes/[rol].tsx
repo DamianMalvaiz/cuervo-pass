@@ -1,9 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Sello } from '@/components/ficha/Sello';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
@@ -29,6 +30,14 @@ import type { PlanDePago } from '@/types/database.types';
  *  · lo demás → los planes de pago, que se pagan con Mercado Pago (abre su página; el plan se activa cuando llega el aviso del pago, fuera de la app).
  */
 export default function PlanesScreen() {
+  return (
+    <EnMarcoWeb>
+      <PlanesScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function PlanesScreenPantalla() {
   const theme = useTheme();
   const { rol: rolParam } = useLocalSearchParams<{ rol: string }>();
   const { anchoContenido, clase } = useTamanoPantalla();
@@ -127,26 +136,39 @@ export default function PlanesScreen() {
     });
   };
 
+  // Crea la orden y lleva a Mercado Pago. `ventana` es la pestaña que la web ya abrió (en el gesto de quien confirmó); sin ella (la app, o un navegador que la bloqueó) se abre la URL de la forma de siempre.
+  const continuarPago = (plan: PlanDePago, ventana: { location: { href: string }; close: () => void } | null) =>
+    crear.mutate(
+      { planId: plan.id },
+      {
+        onSuccess: ({ url }) => {
+          // `crearPago` ya comprobó que es una URL de Mercado Pago. Si el sistema no puede abrirla, se dice como fallo.
+          if (ventana) ventana.location.href = url;
+          else Linking.openURL(url).catch(() => toast.error('No pudimos abrir Mercado Pago. Inténtalo de nuevo.'));
+          toast.info('Termina el pago en Mercado Pago y vuelve aquí: se confirma en unos segundos.');
+          refrescarOrden();
+        },
+        onError: (err) => {
+          ventana?.close();
+          toast.error(mensajeDeErrorPago(err instanceof ErrorPago ? err.tipo : 'desconocido'));
+        },
+      }
+    );
+
   const pagar = (plan: PlanDePago) => {
     if (crear.isPending) return;
-    Alert.alert(`Pagar el plan ${plan.nombre} con Mercado Pago`, textoConfirmarPago(precioDe(plan.precio_centavos)), [
+    const titulo = `Pagar el plan ${plan.nombre} con Mercado Pago`;
+    const texto = textoConfirmarPago(precioDe(plan.precio_centavos));
+    if (Platform.OS === 'web') {
+      // En la web `Alert.alert` no hace nada (el botón parecería muerto): se confirma con el diálogo del navegador. Y la pestaña de Mercado Pago se abre AQUÍ, dentro del gesto: si se abriera después de esperar a la
+      // red, el navegador la bloquearía. Se llena con la URL cuando llega, o se cierra si la orden falla.
+      if (!window.confirm(`${titulo}\n\n${texto}`)) return;
+      continuarPago(plan, window.open('', '_blank'));
+      return;
+    }
+    Alert.alert(titulo, texto, [
       { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Continuar',
-        onPress: () =>
-          crear.mutate(
-            { planId: plan.id },
-            {
-              onSuccess: ({ url }) => {
-                // `crearPago` ya comprobó que es una URL de Mercado Pago. Si el sistema no puede abrirla, se dice como fallo.
-                Linking.openURL(url).catch(() => toast.error('No pudimos abrir Mercado Pago. Inténtalo de nuevo.'));
-                toast.info('Termina el pago en Mercado Pago y vuelve aquí: se confirma en unos segundos.');
-                refrescarOrden();
-              },
-              onError: (err) => toast.error(mensajeDeErrorPago(err instanceof ErrorPago ? err.tipo : 'desconocido')),
-            }
-          ),
-      },
+      { text: 'Continuar', onPress: () => continuarPago(plan, null) },
     ]);
   };
 

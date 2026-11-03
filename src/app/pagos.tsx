@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
@@ -81,6 +82,14 @@ function TarjetaPlan({ rol, titulo, s }: { rol: Rol; titulo: string; s: MiSuscri
 }
 
 export default function PagosScreen() {
+  return (
+    <EnMarcoWeb>
+      <PagosScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function PagosScreenPantalla() {
   const theme = useTheme();
   const { anchoContenido, clase } = useTamanoPantalla();
   const miId = useAuthStore((s) => s.session?.user.id);

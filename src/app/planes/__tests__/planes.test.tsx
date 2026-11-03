@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Alert, Linking } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 
 // Planes y suscripciones. Lo que se fija: dice la verdad sobre en qué plan estás, ofrece «Empezar prueba gratis» SOLO cuando la prueba está disponible
 // (y sin diálogos ni palabras de «demostración»), confirma antes de pagar con Mercado Pago, y cada fallo se dice por su código sin inventar éxitos.
@@ -26,6 +26,8 @@ jest.mock('@/hooks/queries/usePlanes', () => ({
   useMiUltimaOrden: (...a: unknown[]) => mockOrden(...a),
   useRefrescarTrasPago: () => mockRefrescarTodo,
 }));
+// El marco de la web se prueba aparte (enMarcoWeb.test): aquí la pantalla va sola.
+jest.mock('@/components/web/EnMarcoWeb', () => ({ EnMarcoWeb: ({ children }: { children: React.ReactNode }) => children }));
 jest.mock('@/hooks/use-al-volver', () => ({ useAlVolverAPrimerPlano: (fn: () => void) => { mockAlVolver.fn = fn; } }));
 jest.mock('@/store/useAuthStore', () => ({
   useAuthStore: (sel: (s: unknown) => unknown) => sel({ session: { user: { id: 'u1' } } }),
@@ -371,5 +373,79 @@ describe('al volver de Mercado Pago', () => {
     mockOrden.mockReturnValue(orden('pagada'));
     await render(<PlanesScreen />);
     expect(mockRefrescarTodo).not.toHaveBeenCalled();
+  });
+});
+
+// En la web `Alert.alert` NO hace nada (react-native-web no trae diálogos): el botón «Pagar» parecía muerto y el pago no se podía ni empezar. Ahí la confirmación es la del navegador,
+// y la pestaña de Mercado Pago se abre EN EL GESTO de quien confirma (si se abriera después de esperar a la red, el navegador la bloquearía).
+describe('pagar con Mercado Pago · en la web', () => {
+  const URL_MP = 'https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=1';
+  const g = globalThis as unknown as { window?: unknown };
+  const ventana = { location: { href: '' }, close: jest.fn() };
+  const nav = { confirm: jest.fn(), open: jest.fn() };
+
+  beforeEach(() => {
+    jest.replaceProperty(Platform, 'OS', 'web');
+    ventana.location.href = '';
+    ventana.close.mockClear();
+    nav.confirm.mockReset().mockReturnValue(true);
+    nav.open.mockReset().mockReturnValue(ventana);
+    g.window = nav;
+  });
+  afterEach(() => {
+    delete g.window;
+    jest.restoreAllMocks();
+  });
+
+  it('confirma con el diálogo del navegador (no con Alert, que ahí no hace nada), con el mismo texto', async () => {
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await render(<PlanesScreen />);
+    await pulsar('Pagar el plan Destacado con Mercado Pago');
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(nav.confirm).toHaveBeenCalledTimes(1);
+    const texto = nav.confirm.mock.calls[0][0] as string;
+    expect(texto).toMatch(/Pagar el plan Destacado con Mercado Pago/);
+    expect(texto).toMatch(/\$199/);
+    expect(texto).toMatch(/OXXO/);
+  });
+
+  it('si cancelas no pasa nada: ni orden ni pestaña', async () => {
+    nav.confirm.mockReturnValue(false);
+    await render(<PlanesScreen />);
+    await pulsar('Pagar el plan Destacado con Mercado Pago');
+    expect(mockCrear).not.toHaveBeenCalled();
+    expect(nav.open).not.toHaveBeenCalled();
+  });
+
+  it('al confirmar abre la pestaña EN EL MOMENTO, pide la orden solo con el plan y, con la URL, la lleva allí', async () => {
+    let alTerminar: ((r: { url: string }) => void) | null = null;
+    mockCrear.mockImplementation((_e, { onSuccess }) => { alTerminar = onSuccess; });
+    await render(<PlanesScreen />);
+    await pulsar('Pagar el plan Destacado con Mercado Pago');
+    // Antes de que responda la red, la pestaña ya está abierta (dentro del gesto).
+    expect(nav.open).toHaveBeenCalledWith('', '_blank');
+    expect(mockCrear.mock.calls[0][0]).toEqual({ planId: 'comerciante_destacado' });
+    expect(ventana.location.href).toBe('');
+    await act(async () => { alTerminar!({ url: URL_MP }); });
+    expect(ventana.location.href).toBe(URL_MP);
+    expect(Linking.openURL).not.toHaveBeenCalled();
+    expect(String(mockInfo.mock.calls[0][0])).toMatch(/vuelve aquí/);
+  });
+
+  it('si la orden falla, cierra la pestaña vacía y lo dice (nunca un éxito)', async () => {
+    mockCrear.mockImplementation((_e, { onError }) => onError(new ErrorPago('desconocido')));
+    await render(<PlanesScreen />);
+    await pulsar('Pagar el plan Destacado con Mercado Pago');
+    expect(ventana.close).toHaveBeenCalled();
+    expect(mockError).toHaveBeenCalled();
+    expect(mockExito).not.toHaveBeenCalled();
+  });
+
+  it('si el navegador bloquea la pestaña, abre Mercado Pago de la forma de siempre al tener la URL', async () => {
+    nav.open.mockReturnValue(null);
+    mockCrear.mockImplementation((_e, { onSuccess }) => onSuccess({ ordenId: 'o-1', url: URL_MP }));
+    await render(<PlanesScreen />);
+    await pulsar('Pagar el plan Destacado con Mercado Pago');
+    expect(Linking.openURL).toHaveBeenCalledWith(URL_MP);
   });
 });

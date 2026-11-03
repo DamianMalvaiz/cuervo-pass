@@ -10,6 +10,7 @@ import { Casilla } from '@/components/Casilla';
 import { SeccionRostro } from '@/components/SeccionRostro';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
@@ -92,6 +93,14 @@ function SelectorFoto({
  * cuando se puede enviar.
  */
 export default function VerificacionScreen() {
+  return (
+    <EnMarcoWeb>
+      <VerificacionScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function VerificacionScreenPantalla() {
   const theme = useTheme();
   const { rol: rolParam } = useLocalSearchParams<{ rol: string }>();
   const { anchoContenido, clase } = useTamanoPantalla();
