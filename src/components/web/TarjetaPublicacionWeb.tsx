@@ -23,21 +23,23 @@ const precio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
  * Una vivienda para quien explora: foto grande 4:5, la etiqueta de destacado, el corazón (pide entrar sin cuenta; con cuenta guarda de verdad), título armado, zona corta y precio.
  * Solo lo que la vista pública enseña: nada de dirección exacta ni de quién publica. Con cuenta puede llevar `etiqueta` (el ajuste en palabras, sobre la foto) y `razon` (lo que lo explica, bajo el precio, con `iconoRazon`: la palomita significa «encaja»; para un dato que no es de ajuste, como la cercanía, se pone otro); sin ellas es la de siempre.
  */
-export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso, etiqueta, razon, iconoRazon = 'checkmark-circle' }: { p: PublicacionExplorar; ancho?: number; compacta?: boolean; paso?: number; etiqueta?: string; razon?: string; iconoRazon?: keyof typeof Ionicons.glyphMap }) {
+export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso, etiqueta, razon, iconoRazon = 'checkmark-circle', previa }: { p: PublicacionExplorar; ancho?: number; compacta?: boolean; paso?: number; etiqueta?: string; razon?: string; iconoRazon?: keyof typeof Ionicons.glyphMap; previa?: { fotoUri?: string } }) {
   const theme = useTheme();
   const { fotos } = useFotosPublicas('publicacion', p.id, p.num_fotos, true);
   const subtitulo = subtituloTarjeta(p);
+  // Vista previa (quien publica ve cómo quedará): no es una vivienda real, así que no lleva a ninguna ficha ni se puede guardar, y sin precio lo dice en vez de enseñar «$0».
+  const sinPrecio = Boolean(previa) && !(p.precio_renta > 0);
 
   return (
     <Pulsable
-      onPress={() => router.push(RutasWeb.ficha(p.id))}
-      accessibilityRole="button"
+      onPress={previa ? undefined : () => router.push(RutasWeb.ficha(p.id))}
+      accessibilityRole={previa ? 'image' : 'button'}
       accessibilityLabel={`${p.titulo_publico}, ${precio.format(p.precio_renta)} pesos al mes${etiqueta ? `, ${etiqueta}` : ''}`}
       style={[estilos.tarjeta, ancho ? { width: ancho } : estilos.flexible]}
       {...animTarjeta(paso)}
     >
       <View style={[estilos.foto, compacta && estilos.fotoCompacta, { backgroundColor: theme.backgroundSelected }]} {...FOTOZOOM}>
-        <FotoLista completa={fotos[0]} style={estilos.imagen} accessibilityLabel={p.titulo_publico} />
+        <FotoLista completa={previa ? previa.fotoUri : fotos[0]} style={estilos.imagen} accessibilityLabel={p.titulo_publico} />
         {p.destacado ? (
           <View style={[estilos.destacado, compacta && estilos.destacadoCompacto]}>
             <ThemedText style={[compacta ? Texto.etiqueta : Texto.pequenoFuerte, { color: D.limaTexto }]}>Destacado</ThemedText>
@@ -48,7 +50,7 @@ export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso, etique
             <ThemedText style={[compacta ? Texto.etiqueta : Texto.pequenoFuerte, { color: D.limaTexto }]}>{etiqueta}</ThemedText>
           </View>
         ) : null}
-        <CorazonWeb tipo="publicacion" id={p.id} compacta={compacta} />
+        {previa ? null : <CorazonWeb tipo="publicacion" id={p.id} compacta={compacta} />}
       </View>
 
       {compacta ? (
@@ -79,9 +81,13 @@ export function TarjetaPublicacionWeb({ p, ancho, compacta = false, paso, etique
             ) : null}
           </View>
           {subtitulo ? <ThemedText style={Texto.pequeno} themeColor="textSecondary" numberOfLines={1}>{subtitulo}</ThemedText> : null}
-          <ThemedText style={Texto.pequeno}>
-            <ThemedText style={Texto.precioWeb}>${precio.format(p.precio_renta)}</ThemedText> al mes
-          </ThemedText>
+          {sinPrecio ? (
+            <ThemedText style={Texto.pequeno} themeColor="textSecondary">Falta el precio</ThemedText>
+          ) : (
+            <ThemedText style={Texto.pequeno}>
+              <ThemedText style={Texto.precioWeb}>${precio.format(p.precio_renta)}</ThemedText> al mes
+            </ThemedText>
+          )}
         </>
       )}
       {razon ? (

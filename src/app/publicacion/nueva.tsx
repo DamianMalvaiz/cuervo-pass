@@ -5,7 +5,10 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import {
   FormularioPublicacion,
   type ControlPublicacion,
+  type VistaPreviaPublicacion,
 } from '@/components/FormularioPublicacion';
+import { MarcoSesionWeb } from '@/components/web/MarcoSesionWeb';
+import { VistaPreviaPublicacionWeb } from '@/components/web/VistaPreviaPublicacionWeb';
 import { PieFijo } from '@/components/ficha/PieFijo';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
@@ -21,10 +24,14 @@ import { GuardaPublicar } from '@/components/GuardaPublicar';
 import { useAuthStore } from '@/store/useAuthStore';
 
 function NuevaPublicacion() {
+  const web = Platform.OS === 'web';
+  const [previa, setPrevia] = useState<VistaPreviaPublicacion | null>(null);
   const formulario = useRef<ControlPublicacion>(null);
   const [guardando, setGuardando] = useState(false);
   const theme = useTheme();
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  // La vista previa necesita sitio al lado del formulario: en una ventana angosta se omite (el formulario es lo que importa).
+  const conPrevia = web && ancho >= 1000;
   // Scroll al primer error: el ScrollView es de ESTA pantalla y el formulario no
   // puede moverlo. Con un pie fijo y un formulario largo, un error puede quedar a
   // varias pantallas de donde se tocó el botón.
@@ -32,7 +39,7 @@ function NuevaPublicacion() {
   const session = useAuthStore((s) => s.session);
 
   return (
-    <ThemedView style={{ flex: 1 }}>
+    <ThemedView style={[{ flex: 1 }, conPrevia && styles.conPrevia]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           ref={registrarScroll}
@@ -58,6 +65,7 @@ function NuevaPublicacion() {
               botonEnPie
               onEstadoEnvio={setGuardando}
               desplazador={desplazador}
+              onVistaPrevia={web ? setPrevia : undefined}
             textoBoton="Publicar"
             onGuardar={async (datos) => {
               if (!session?.user.id) return;
@@ -102,20 +110,29 @@ function NuevaPublicacion() {
           </Sello>
         </PieFijo>
       </KeyboardAvoidingView>
+      {conPrevia ? (
+        <View style={styles.previa}>
+          <VistaPreviaPublicacionWeb v={previa} />
+        </View>
+      ) : null}
     </ThemedView>
   );
 }
 
 /** Crear una publicación exige una función de vendedor aprobada (ver GuardaPublicar). */
 export default function NuevaPublicacionScreen() {
-  return (
+  const pantalla = (
     <GuardaPublicar>
       <NuevaPublicacion />
     </GuardaPublicar>
   );
+  // En la web, con el marco de la web (encabezado y barra inferior); la cabecera de la app se apaga en el layout.
+  return Platform.OS === 'web' ? <MarcoSesionWeb>{pantalla}</MarcoSesionWeb> : pantalla;
 }
 
 const styles = StyleSheet.create({
+  conPrevia: { flexDirection: 'row' },
+  previa: { width: 360, padding: Spacing.four, paddingTop: Spacing.five },
   container: { padding: Spacing.three, paddingBottom: Spacing.six },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.four },

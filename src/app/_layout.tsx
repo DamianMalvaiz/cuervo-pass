@@ -128,7 +128,8 @@ export default function RootLayout() {
         <Stack.Screen name="aviso-actualizado" options={{ gestureEnabled: false }} />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="publicacion/[id]" options={{ ...encabezado, title: 'Ficha' }} />
-        <Stack.Screen name="publicacion/nueva" options={{ ...encabezado, title: 'Nueva publicación' }} />
+        {/* En la web «Nueva publicación» trae su propio encabezado (MarcoSesionWeb) y una vista previa al lado. */}
+        <Stack.Screen name="publicacion/nueva" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Nueva publicación' }} />
         <Stack.Screen name="publicacion/editar/[id]" options={{ ...encabezado, title: 'Editar publicación' }} />
         <Stack.Screen name="negocio/nuevo" options={{ ...encabezado, title: 'Publicar negocio' }} />
         <Stack.Screen name="negocio/editar/[id]" options={{ ...encabezado, title: 'Editar negocio' }} />

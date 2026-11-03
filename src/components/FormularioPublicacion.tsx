@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Controller, useForm, type FieldErrors } from 'react-hook-form';
+import { Controller, useForm, useWatch, type FieldErrors } from 'react-hook-form';
 import { ActivityIndicator, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
@@ -112,6 +112,18 @@ export interface ValoresFormularioPublicacion {
   whatsapp: string;
 }
 
+/** Lo que la vista previa (en la web) necesita para dibujar cómo quedará la publicación: lo que se va escribiendo y la primera foto que se eligió en este dispositivo. */
+export interface VistaPreviaPublicacion {
+  tipo: TipoPublicacion;
+  colonia: string;
+  municipio: string;
+  precioRenta: string;
+  recamaras: string;
+  amueblado: boolean;
+  /** La primera foto elegida en este dispositivo (una ya guardada necesita firmarse y no se enseña). */
+  fotoUri?: string;
+}
+
 export interface DatosGuardarPublicacion extends ValoresFormularioPublicacion {
   fotos: FotoEntrada[];
 }
@@ -133,6 +145,8 @@ interface Props {
    * formulario no puede moverlo. Opcional: sin él, un envío inválido solo avisa.
    */
   desplazador?: Desplazador;
+  /** Se llama con lo que se va escribiendo, para pintar una vista previa. Debe ser estable (un `setState`): si cambia de identidad se vuelve a llamar. */
+  onVistaPrevia?: (v: VistaPreviaPublicacion) => void;
   onGuardar: (datos: DatosGuardarPublicacion) => Promise<void>;
 }
 
@@ -334,7 +348,7 @@ function MensajeError({ ancla, mensaje }: { ancla: (nodo: View | null) => void; 
 }
 
 export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(function FormularioPublicacion(
-  { valoresIniciales, fotosIniciales = [], textoBoton, botonEnPie, onEstadoEnvio, desplazador, onGuardar },
+  { valoresIniciales, fotosIniciales = [], textoBoton, botonEnPie, onEstadoEnvio, desplazador, onVistaPrevia, onGuardar },
   ref
 ) {
   const theme = useTheme();
@@ -397,6 +411,14 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
       whatsapp: valoresIniciales?.whatsapp,
     },
   });
+
+  // La vista previa: lo que se escribe se manda afuera con valores simples (no objetos), para que el efecto solo corra cuando algo cambió de verdad.
+  const [vTipo, vColonia, vMunicipio, vPrecio, vRecamaras, vAmueblado] = useWatch({ control, name: ['tipo', 'colonia', 'municipio', 'precioRenta', 'recamaras', 'amueblado'] });
+  const primeraFoto = fotos[0];
+  const fotoPrevia = primeraFoto && primeraFoto.esNueva ? primeraFoto.uri : undefined;
+  useEffect(() => {
+    onVistaPrevia?.({ tipo: vTipo, colonia: vColonia ?? '', municipio: vMunicipio ?? '', precioRenta: vPrecio ?? '', recamaras: vRecamaras ?? '', amueblado: Boolean(vAmueblado), fotoUri: fotoPrevia });
+  }, [onVistaPrevia, vTipo, vColonia, vMunicipio, vPrecio, vRecamaras, vAmueblado, fotoPrevia]);
 
   useEffect(() => {
     return () => {
