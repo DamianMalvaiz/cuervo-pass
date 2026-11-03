@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, Platform, StyleSheet, View } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
@@ -12,38 +12,32 @@ import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useAvisos, useMarcarAvisos } from '@/hooks/queries/useNotificaciones';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { MarcoSesionWeb } from '@/components/web/MarcoSesionWeb';
+import { NotificacionesWeb } from '@/components/web/NotificacionesWeb';
+import { cuandoFue, ICONOS_AVISO } from '@/lib/avisosVista';
 import { rutaDeDestino } from '@/lib/destinoNotificacion';
 import type { AvisoDelCentro } from '@/services/notificaciones.service';
 import { useAuthStore } from '@/store/useAuthStore';
 
-const ICONOS: Record<AvisoDelCentro['tipo'], keyof typeof Ionicons.glyphMap> = {
-  nuevo_mensaje: 'chatbubble-outline',
-  nuevo_contacto: 'person-add-outline',
-  publicacion_oculta: 'eye-off-outline',
-  cuenta_suspendida: 'alert-circle-outline',
-  verificacion_resuelta: 'shield-checkmark-outline',
-  resena_nueva: 'star-outline',
-  resena_respondida: 'chatbox-ellipses-outline',
-};
-
-const MINUTO = 60_000;
-/** «hace 5 min», «hace 3 h», «hace 2 d» y, pasada una semana, la fecha. Sin dependencias: es una línea de apoyo, no el dato. */
-export function cuandoFue(iso: string, ahora = Date.now()): string {
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return '';
-  const dif = Math.max(0, ahora - t);
-  if (dif < MINUTO) return 'ahora';
-  if (dif < 60 * MINUTO) return `hace ${Math.floor(dif / MINUTO)} min`;
-  if (dif < 24 * 60 * MINUTO) return `hace ${Math.floor(dif / (60 * MINUTO))} h`;
-  if (dif < 7 * 24 * 60 * MINUTO) return `hace ${Math.floor(dif / (24 * 60 * MINUTO))} d`;
-  return new Date(t).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-}
+// Se reexporta: la prueba de esta pantalla (y quien la importe) lo sigue encontrando aquí.
+export { cuandoFue };
 
 /**
  * Centro de avisos · 0072. Tres estados y no dos: cargando, falló y «no hay avisos» se pintan distinto (invariante 2). Tocar un aviso lo marca
  * como leído y, si su destino es una clase conocida, lleva allí. Lo no leído se distingue por el PESO del texto y un punto, no solo por color.
  */
 export default function NotificacionesScreen() {
+  // En la web, su propia página con el marco de la web (encabezado y barra inferior); la cabecera de la app se apaga en el layout.
+  return Platform.OS === 'web' ? (
+    <MarcoSesionWeb>
+      <NotificacionesWeb />
+    </MarcoSesionWeb>
+  ) : (
+    <NotificacionesApp />
+  );
+}
+
+function NotificacionesApp() {
   const theme = useTheme();
   const { anchoLista } = useTamanoPantalla();
   const uid = useAuthStore((s) => s.session?.user.id);
@@ -93,7 +87,7 @@ export default function NotificacionesScreen() {
             accessibilityLabel={`${item.leida ? '' : 'Sin leer. '}${item.contenido ?? ''}. ${cuandoFue(item.creado_en)}`}
             style={[estilos.fila, { backgroundColor: item.leida ? 'transparent' : theme.backgroundElement, borderColor: theme.filete }]}
           >
-            <Ionicons name={ICONOS[item.tipo] ?? 'notifications-outline'} size={22} color={theme.bosque} />
+            <Ionicons name={ICONOS_AVISO[item.tipo] ?? 'notifications-outline'} size={22} color={theme.bosque} />
             <View style={estilos.textos}>
               <ThemedText style={item.leida ? undefined : Texto.pesoFuerte}>{item.contenido ?? ''}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">{cuandoFue(item.creado_en)}</ThemedText>

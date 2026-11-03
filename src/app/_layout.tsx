@@ -11,7 +11,7 @@ import { Stack, ThemeProvider, type Theme } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { Sello } from '@/components/ficha/Sello';
@@ -154,7 +154,8 @@ export default function RootLayout() {
         <Stack.Screen name="verificacion/[rol]" options={{ ...encabezado, title: 'Verificación' }} />
         <Stack.Screen name="planes/[rol]" options={{ ...encabezado, title: 'Planes' }} />
         <Stack.Screen name="pagos" options={{ ...encabezado, title: 'Mi plan y pagos' }} />
-        <Stack.Screen name="notificaciones" options={{ ...encabezado, title: 'Avisos' }} />
+        {/* En la web la página trae su propio encabezado (MarcoSesionWeb): la cabecera de la app sobraría. */}
+        <Stack.Screen name="notificaciones" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Avisos' }} />
         <Stack.Screen name="configuracion" options={{ ...encabezado, title: 'Configuración' }} />
         <Stack.Screen name="aviso-privacidad" options={{ ...encabezado, title: 'Aviso de privacidad' }} />
         <Stack.Screen name="terminos" options={{ ...encabezado, title: 'Términos y condiciones' }} />
