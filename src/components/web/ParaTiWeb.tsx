@@ -6,23 +6,27 @@ import { StyleSheet, Text, View } from 'react-native';
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
+import { AtajosParaTiWeb } from '@/components/web/AtajosParaTiWeb';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { BuscadorWeb } from '@/components/web/BuscadorWeb';
 import { EsqueletoFilasWeb, EsqueletoTarjetasWeb } from '@/components/web/EsqueletoWeb';
 import { PaginaWeb } from '@/components/web/PaginaWeb';
 import { TarjetaPublicacionWeb } from '@/components/web/TarjetaPublicacionWeb';
 import { TarjetaRoomieWeb } from '@/components/web/TarjetaRoomieWeb';
+import { VistosRecientesWeb } from '@/components/web/VistosRecientesWeb';
 import { Colors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useConversaciones } from '@/hooks/queries/useChat';
 import { usePublicacionesPorIds } from '@/hooks/queries/useExplorar';
 import { useMisFavoritosIds } from '@/hooks/queries/useFavoritos';
 import { useSugerencias } from '@/hooks/queries/usePublicaciones';
 import { useRoomiesSugeridos } from '@/hooks/queries/useRoomies';
+import { useCercania } from '@/hooks/use-cercania';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { rutaDeConversacion } from '@/lib/abrirChat';
 import { FILTROS_VACIOS, type FiltrosWeb } from '@/lib/filtrosWeb';
+import { textoDeCercania } from '@/lib/cerca';
 import { formateadorHora } from '@/lib/formatoHora';
 import { HUECO_WEB, medidasWeb } from '@/lib/medidasWeb';
 import { anim } from '@/lib/movimientoWeb';
@@ -36,6 +40,9 @@ const D = Colors.dark;
 const precio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 const MAX_ROOMIES = 3;
 const MAX_MENSAJES = 3;
+// El destacado ocupa dos columnas por dos filas y a su lado van cuatro más: cinco lugares en total.
+const ALTO_BENTO = 236;
+const RADIO_CERCA_KM = 3;
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
@@ -47,7 +54,10 @@ const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno
 export function ParaTiWeb() {
   const theme = useTheme();
   const { ancho } = useTamanoPantalla();
-  const { escritorio, telefono, columnas, anchoTarjeta } = medidasWeb(ancho);
+  const { escritorio, telefono, columnas, anchoTarjeta, interior } = medidasWeb(ancho);
+  // El «bento» (un destacado grande y cuatro chicos) solo cabe de verdad en pantalla ancha; en tableta y teléfono se queda la cuadrícula.
+  const bento = escritorio;
+  const celda = Math.floor((interior - HUECO_WEB * 3) / 4);
   // El panel de saludo es siempre de carbón; en modo oscuro la página también lo es, así que sube un tono para que se distinga.
   const fondoHola = theme.background === D.background ? D.backgroundElement : D.background;
   const sesion = useAuthStore((s) => s.session);
@@ -62,11 +72,12 @@ export function ParaTiWeb() {
   }, [miId, cargarPerfil]);
 
   const sugerencias = useSugerencias(null);
-  const cuantos = columnas;
+  const cuantos = bento ? 5 : columnas;
   const mejores = sugerencias.datos.slice(0, cuantos);
   const ids = mejores.map((s) => s.id);
   const viviendas = usePublicacionesPorIds(ids);
   const roomies = useRoomiesSugeridos(true);
+  const cerca = useCercania(RADIO_CERCA_KM);
   const chats = useConversaciones(miId);
   const guardados = useMisFavoritosIds(miId);
   const { urls } = useFotosFirmadas(roomies.roomies.slice(0, MAX_ROOMIES).map((r) => r.foto_url));
@@ -96,15 +107,34 @@ export function ParaTiWeb() {
       </View>
     );
   } else {
-    lugares = (
+    const tarjeta = (p: (typeof ordenadas)[number], i: number, bentoProps?: { ancho: number; alto: number; grande?: boolean }) => {
+      const s = mejores.find((m) => m.id === p.id);
+      const razon = s
+        ? razonesDeAjuste({ precio: s.precio_renta, presupuestoMax: perfil?.presupuesto_max, distanciaKm: s.distancia, distanciaMaxKm: perfil?.distancia_max_km, permiteMascotas: s.permite_mascotas, tengoMascotas: Boolean(perfil?.mascotas) })[0]
+        : undefined;
+      return <TarjetaPublicacionWeb key={p.id} p={p} ancho={anchoTarjeta} compacta={telefono} paso={i} etiqueta={etiquetaDeAjuste(s?.score_final) ?? undefined} razon={razon} bento={bentoProps} />;
+    };
+    lugares = bento ? (
+      <View style={estilos.bento}>
+        {ordenadas[0] ? tarjeta(ordenadas[0], 0, { ancho: celda * 2 + HUECO_WEB, alto: ALTO_BENTO * 2 + HUECO_WEB, grande: true }) : null}
+        <View style={[estilos.bentoChicas, { width: celda * 2 + HUECO_WEB }]}>
+          {ordenadas.slice(1).map((p, i) => tarjeta(p, i + 1, { ancho: celda, alto: ALTO_BENTO }))}
+        </View>
+      </View>
+    ) : (
+      <View style={estilos.cuadricula}>{ordenadas.map((p, i) => tarjeta(p, i))}</View>
+    );
+  }
+
+  const cercanas = cerca.lista.slice(0, Math.min(4, columnas));
+  let franjaCerca;
+  if (cerca.fallo) franjaCerca = <ErrorDeCarga etiqueta="No pudimos cargar los lugares cercanos" onReintentar={cerca.reintentar} />;
+  else if (cerca.cargando) franjaCerca = <EsqueletoTarjetasWeb cuantas={Math.min(4, columnas)} ancho={anchoTarjeta} />;
+  else if (cercanas.length === 0) franjaCerca = <ThemedText style={Texto.cuerpo} themeColor="textSecondary">{`Todavía no hay lugares publicados a menos de ${RADIO_CERCA_KM} km de ${cerca.punto.nombre}.`}</ThemedText>;
+  else {
+    franjaCerca = (
       <View style={estilos.cuadricula}>
-        {ordenadas.map((p, i) => {
-          const s = mejores.find((m) => m.id === p.id);
-          const razon = s
-            ? razonesDeAjuste({ precio: s.precio_renta, presupuestoMax: perfil?.presupuesto_max, distanciaKm: s.distancia, distanciaMaxKm: perfil?.distancia_max_km, permiteMascotas: s.permite_mascotas, tengoMascotas: Boolean(perfil?.mascotas) })[0]
-            : undefined;
-          return <TarjetaPublicacionWeb key={p.id} p={p} ancho={anchoTarjeta} compacta={telefono} paso={i} etiqueta={etiquetaDeAjuste(s?.score_final) ?? undefined} razon={razon} />;
-        })}
+        {cercanas.map(({ item, km }, i) => <TarjetaPublicacionWeb key={item.id} p={item} ancho={anchoTarjeta} compacta={telefono} paso={i} razon={textoDeCercania(km)} iconoRazon="location-outline" />)}
       </View>
     );
   }
@@ -137,6 +167,9 @@ export function ParaTiWeb() {
             {perfil.distancia_max_km != null ? <Fila k="Distancia" v={`${perfil.distancia_max_km} km`} /> : null}
             {perfil.universidad ? <Fila k="Universidad" v={perfil.universidad} /> : null}
             <Fila k="Mascotas" v={perfil.mascotas ? 'Tengo' : 'No tengo'} />
+            <View style={estilos.editar}>
+              <BotonWeb compacto variante="contorno" onPress={() => router.push('/perfil/preferencias')} accessibilityLabel="Editar mis preferencias">Editar mis preferencias</BotonWeb>
+            </View>
           </View>
         ) : (
           <ThemedText style={Texto.pequeno} themeColor="textSecondary">{perfilCargando ? 'Cargando…' : 'Todavía no hay preferencias guardadas.'}</ThemedText>
@@ -208,6 +241,8 @@ export function ParaTiWeb() {
         </View>
       </View>
 
+      <AtajosParaTiWeb guardados={guardados.cargando || guardados.fallo ? null : guardados.ids.size} sinLeer={chats.cargando || chats.fallo ? null : sinLeer} columnas={columnas} />
+
       <View style={estilos.seccion}>
         <View style={estilos.cabecera}>
           <View style={estilos.cabeceraTexto}>
@@ -232,6 +267,19 @@ export function ParaTiWeb() {
         </View>
         {lado}
       </View>
+
+      <View style={estilos.seccion}>
+        <View style={estilos.cabecera}>
+          <View style={estilos.cabeceraTexto}>
+            <ThemedText accessibilityRole="header" style={escritorio ? Texto.seccionWeb : Texto.seccionWebCompacto}>Cerca de tu universidad</ThemedText>
+            {telefono ? null : <ThemedText style={Texto.cuerpo} themeColor="textSecondary">Del más cercano al más lejano. Distancia aproximada, en línea recta.</ThemedText>}
+          </View>
+          <BotonWeb compacto variante="contorno" onPress={() => router.push(RutasWeb.cerca as never)} accessibilityLabel="Ver todos los lugares cercanos">Ver todos</BotonWeb>
+        </View>
+        {franjaCerca}
+      </View>
+
+      <VistosRecientesWeb columnas={columnas} anchoTarjeta={anchoTarjeta} compacta={telefono} />
     </PaginaWeb>
   );
 }
@@ -259,6 +307,9 @@ const estilos = StyleSheet.create({
   cabecera: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: Spacing.three, flexWrap: 'wrap' },
   cabeceraTexto: { gap: Spacing.one, flexShrink: 1 },
   cuadricula: { flexDirection: 'row', flexWrap: 'wrap', gap: HUECO_WEB },
+  bento: { flexDirection: 'row', gap: HUECO_WEB },
+  bentoChicas: { flexDirection: 'row', flexWrap: 'wrap', gap: HUECO_WEB },
+  editar: { alignItems: 'flex-start', paddingTop: Spacing.three },
   vacio: { gap: Spacing.three, alignItems: 'flex-start' },
   dos: { flexDirection: 'row', gap: Spacing.five, alignItems: 'flex-start' },
   uno: { gap: Spacing.five },

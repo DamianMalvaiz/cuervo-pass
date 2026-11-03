@@ -18,7 +18,8 @@ const reintentar = jest.fn();
 const mockSug = { datos: [] as Record<string, unknown>[], cargando: false, fallo: null as string | null, refrescar: reintentar };
 jest.mock('@/hooks/queries/usePublicaciones', () => ({ useSugerencias: () => mockSug }));
 const mockViv = { publicaciones: [] as { id: string; titulo_publico: string }[], cargando: false, fallo: false, reintentar };
-jest.mock('@/hooks/queries/useExplorar', () => ({ usePublicacionesPorIds: () => mockViv }));
+const mockCaja = { publicaciones: [] as Record<string, unknown>[], cargando: false, fallo: false, reintentar };
+jest.mock('@/hooks/queries/useExplorar', () => ({ usePublicacionesPorIds: () => mockViv, usePublicacionesEnCaja: () => mockCaja }));
 const mockRoom = { roomies: [] as { id: string; nombre_completo: string; foto_url: null }[], cargando: false, fallo: null as string | null, reintentar };
 jest.mock('@/hooks/queries/useRoomies', () => ({ useRoomiesSugeridos: () => mockRoom }));
 const mockChats = { conversaciones: [] as Record<string, unknown>[], cargando: false, fallo: null as string | null, reintentar };
@@ -48,6 +49,7 @@ beforeEach(() => {
   Object.assign(mockRoom, { roomies: [], cargando: false, fallo: null });
   Object.assign(mockChats, { conversaciones: [], cargando: false, fallo: null });
   Object.assign(mockFav, { ids: new Set(), cargando: false, fallo: false });
+  Object.assign(mockCaja, { publicaciones: [], cargando: false, fallo: false });
 });
 afterEach(() => jest.useRealTimers());
 
@@ -101,7 +103,7 @@ describe('lo que mejor encaja', () => {
     mockSug.fallo = 'x';
     await render(<ParaTiWeb />);
     expect(screen.getByText('No pudimos cargar lo que encaja contigo')).toBeTruthy();
-    expect(screen.queryByText(/Todavía no hay lugares/)).toBeNull();
+    expect(screen.queryByText(/Todavía no hay lugares que encajen/)).toBeNull();
     await fireEvent.press(screen.getByLabelText('Reintentar'));
     expect(reintentar).toHaveBeenCalled();
   });
@@ -117,7 +119,7 @@ describe('lo que mejor encaja', () => {
     mockSug.cargando = true;
     await render(<ParaTiWeb />);
     expect(screen.getByLabelText('Cargando')).toBeTruthy();
-    expect(screen.queryByText(/Todavía no hay lugares/)).toBeNull();
+    expect(screen.queryByText(/Todavía no hay lugares que encajen/)).toBeNull();
   });
 });
 
@@ -178,5 +180,57 @@ describe('buscar', () => {
     await render(<ParaTiWeb />);
     await fireEvent.press(screen.getByLabelText('Buscar'));
     expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/departamentos' }));
+  });
+});
+
+describe('el diseño nuevo: atajos, destacado, cercanía y vistos', () => {
+  it('los atajos llevan a su sitio y dicen lo que de verdad hay (guardados y mensajes)', async () => {
+    mockChats.conversaciones = [conv('c1', 'Valeria', 2)];
+    mockFav.ids = new Set(['x', 'y']);
+    await render(<ParaTiWeb />);
+    expect(screen.getByLabelText('Tus guardados: 2')).toBeTruthy();
+    expect(screen.getByLabelText('Tus mensajes: 2')).toBeTruthy();
+    expect(screen.getByLabelText('Comparar: 0')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Cerca de tu universidad'));
+    expect(mockPush).toHaveBeenLastCalledWith('/cerca');
+    await fireEvent.press(screen.getByLabelText('Tus guardados: 2'));
+    expect(mockPush).toHaveBeenLastCalledWith('/(tabs)/favoritos');
+    await fireEvent.press(screen.getByLabelText('Comparar: 0'));
+    expect(mockPush).toHaveBeenLastCalledWith('/comparar');
+    await fireEvent.press(screen.getByLabelText('Tus mensajes: 2'));
+    expect(mockPush).toHaveBeenLastCalledWith('/(tabs)/chats');
+  });
+
+  it('un atajo cuya cifra no se pudo leer dice «sin dato» (nunca un 0 que mienta)', async () => {
+    mockChats.fallo = 'x';
+    mockFav.fallo = true;
+    await render(<ParaTiWeb />);
+    expect(screen.getByLabelText('Tus guardados: sin dato')).toBeTruthy();
+    expect(screen.getByLabelText('Tus mensajes: sin dato')).toBeTruthy();
+  });
+
+  it('en pantalla ancha pide CINCO lugares al motor (un destacado y cuatro) y en tableta, los de una fila', async () => {
+    mockSug.datos = ['a', 'b', 'c', 'd', 'e', 'f'].map((id) => sug(id));
+    mockViv.publicaciones = ['a', 'b', 'c', 'd', 'e', 'f'].map(viv);
+    await render(<ParaTiWeb />);
+    expect(screen.getAllByText(/^VIV Lugar /)).toHaveLength(5);
+  });
+
+  it('«Cerca de tu universidad»: del más cercano, con la distancia dicha como aproximada; sin lugares lo dice con el radio', async () => {
+    await render(<ParaTiWeb />);
+    expect(screen.getByText(/Todavía no hay lugares publicados a menos de 3 km de/)).toBeTruthy();
+  });
+
+  it('si falla la franja de cercanía se dice aparte, sin tumbar el resto', async () => {
+    mockCaja.fallo = true;
+    await render(<ParaTiWeb />);
+    expect(screen.getByText('No pudimos cargar los lugares cercanos')).toBeTruthy();
+    expect(screen.getByText('Roomies que podrían encajar')).toBeTruthy();
+  });
+
+  it('«Editar mis preferencias» lleva a las preferencias', async () => {
+    await render(<ParaTiWeb />);
+    await fireEvent.press(screen.getByLabelText('Editar mis preferencias'));
+    expect(mockPush).toHaveBeenLastCalledWith('/perfil/preferencias');
   });
 });
