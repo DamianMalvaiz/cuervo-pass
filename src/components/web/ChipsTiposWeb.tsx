@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Pulsable } from '@/components/ficha/Pulsable';
@@ -22,13 +23,28 @@ const CHIPS: Chip[] = [
 ];
 
 /**
- * La fila de filtros rápidos bajo el buscador. Los tres TIPOS son excluyentes entre sí (tocar uno lo prende, tocarlo otra vez lo apaga) y los otros tres son interruptores de sí/no.
- * Comparten el estado del buscador: el chip de tipo y el campo «Tipo» del buscador dicen siempre lo mismo.
+ * Un chip que LLEVA a otra página (no es un filtro: no se «prende»). Se distingue de los filtros por el relleno lima suave y la flecha: un filtro es una casilla; esto, un camino.
  */
-export function ChipsTiposWeb({ filtros, onCambiar, alinear = 'centro' }: { filtros: FiltrosWeb; onCambiar: (f: FiltrosWeb) => void; alinear?: 'centro' | 'inicio' | 'deslizar' }) {
+export function ChipEnlaceWeb({ nombre, icono, onPress, etiqueta }: { nombre: string; icono: keyof typeof Ionicons.glyphMap; onPress: () => void; etiqueta: string }) {
+  const theme = useTheme();
+  return (
+    <Pulsable onPress={onPress} accessibilityRole="link" accessibilityLabel={etiqueta} style={[estilos.chip, { borderColor: theme.bosque, backgroundColor: theme.tintedSurface }]}>
+      <Ionicons name={icono} size={18} color={theme.bosque} />
+      <ThemedText style={[Texto.pequenoFuerte, { color: theme.text }]}>{nombre}</ThemedText>
+      <Ionicons name="arrow-forward" size={16} color={theme.bosque} />
+    </Pulsable>
+  );
+}
+
+/**
+ * La fila de filtros rápidos bajo el buscador. Los tres TIPOS son excluyentes entre sí (tocar uno lo prende, tocarlo otra vez lo apaga) y los otros tres son interruptores de sí/no.
+ * Comparten el estado del buscador: el chip de tipo y el campo «Tipo» del buscador dicen siempre lo mismo. `inicio` pone algo antes de los filtros (un `ChipEnlaceWeb`: lleva a otra página, no filtra).
+ */
+export function ChipsTiposWeb({ filtros, onCambiar, alinear = 'centro', inicio }: { filtros: FiltrosWeb; onCambiar: (f: FiltrosWeb) => void; alinear?: 'centro' | 'inicio' | 'deslizar'; inicio?: ReactNode }) {
   const theme = useTheme();
   const chips = (
     <>
+      {inicio}
       {CHIPS.map((c) => {
         const activo = 'tipo' in c ? filtros.tipo === c.tipo : filtros[c.campo];
         const alTocar = () => {

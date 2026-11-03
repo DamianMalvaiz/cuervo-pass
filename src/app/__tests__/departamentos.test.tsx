@@ -218,3 +218,14 @@ test('en el teléfono el subtítulo no gasta espacio; en escritorio sí está', 
   await render(<Departamentos />);
   expect(screen.getByText(/Cuartos, departamentos y casas compartidas/)).toBeTruthy();
 });
+
+describe('cerca de tu universidad', () => {
+  it('es un chip-enlace junto a los filtros: lleva a /cerca y no cambia ningún filtro', async () => {
+    mockFiltros.length = 0;
+    await render(<Departamentos />);
+    const antes = mockFiltros.length;
+    await fireEvent.press(screen.getByLabelText('Ver lugares cerca de tu universidad'));
+    expect(mockPush).toHaveBeenLastCalledWith('/cerca');
+    expect(mockFiltros).toHaveLength(antes);
+  });
+});

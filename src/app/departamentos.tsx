@@ -8,7 +8,7 @@ import { EsqueletoTarjetasWeb } from '@/components/web/EsqueletoWeb';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { BuscadorWeb } from '@/components/web/BuscadorWeb';
 import { PildoraBusquedaWeb } from '@/components/web/PildoraBusquedaWeb';
-import { ChipsTiposWeb } from '@/components/web/ChipsTiposWeb';
+import { ChipEnlaceWeb, ChipsTiposWeb } from '@/components/web/ChipsTiposWeb';
 import { PaginaWeb } from '@/components/web/PaginaWeb';
 import { VistosRecientesWeb } from '@/components/web/VistosRecientesWeb';
 import { TarjetaPublicacionWeb } from '@/components/web/TarjetaPublicacionWeb';
@@ -54,9 +54,6 @@ export default function Departamentos() {
         <ThemedText accessibilityRole="header" style={escritorio ? Texto.titularWebCompacto : Texto.seccionWebCompacto}>Departamentos y cuartos</ThemedText>
         {/* En el teléfono el subtítulo sobra: gasta espacio antes del contenido. */}
         {telefono ? null : <ThemedText style={Texto.cuerpo} themeColor="textSecondary">Cuartos, departamentos y casas compartidas cerca de tu universidad.</ThemedText>}
-        <View style={estilos.cerca}>
-          <BotonWeb variante="contorno" compacto={!escritorio} onPress={() => router.push(RutasWeb.cerca as never)} accessibilityLabel="Ver lugares cerca de tu universidad">Ver los más cercanos a tu universidad</BotonWeb>
-        </View>
       </View>
 
       <View style={estilos.filtros}>
@@ -82,6 +79,7 @@ export default function Departamentos() {
         )}
         <ChipsTiposWeb
           alinear={telefono ? 'deslizar' : 'inicio'}
+          inicio={<ChipEnlaceWeb nombre="Cerca de tu universidad" icono="location-outline" etiqueta="Ver lugares cerca de tu universidad" onPress={() => router.push(RutasWeb.cerca as never)} />}
           filtros={filtros}
           onCambiar={(f) => {
             setFiltros(f);
@@ -132,7 +130,6 @@ export default function Departamentos() {
 
 const estilos = StyleSheet.create({
   cabecera: { gap: Spacing.two },
-  cerca: { alignItems: 'flex-start', marginTop: Spacing.one },
   filtros: { gap: Spacing.three, alignItems: 'stretch' },
   buscadorAncho: { alignItems: 'flex-start' },
   resultados: { gap: Spacing.three },
