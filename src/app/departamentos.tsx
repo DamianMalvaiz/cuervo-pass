@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { EsqueletoTarjetasWeb } from '@/components/web/EsqueletoWeb';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { BuscadorWeb } from '@/components/web/BuscadorWeb';
+import { BusquedasGuardadasWeb } from '@/components/web/BusquedasGuardadasWeb';
 import { PildoraBusquedaWeb } from '@/components/web/PildoraBusquedaWeb';
 import { ChipEnlaceWeb, ChipsTiposWeb } from '@/components/web/ChipsTiposWeb';
 import { PaginaWeb } from '@/components/web/PaginaWeb';
@@ -82,6 +83,13 @@ export default function Departamentos() {
           inicio={<ChipEnlaceWeb nombre="Cerca de tu universidad" icono="location-outline" etiqueta="Ver lugares cerca de tu universidad" onPress={() => router.push(RutasWeb.cerca as never)} />}
           filtros={filtros}
           onCambiar={(f) => {
+            setFiltros(f);
+            aplicar(f);
+          }}
+        />
+        <BusquedasGuardadasWeb
+          aplicados={aplicados}
+          onAplicar={(f) => {
             setFiltros(f);
             aplicar(f);
           }}

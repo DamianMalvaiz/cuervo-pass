@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap;
-select plan(824);
+select plan(844);
 
 -- ════════════════ utilidades ════════════════
 create or replace function actuar_como(p_uid uuid) returns void
@@ -2968,7 +2968,7 @@ select is(has_table_privilege('authenticated', 'public.perfiles_publicos', 'upda
 select actuar_como('00000000-0000-0000-0000-0000000000f7');
 select is(
   (select array_agg(k order by k) from jsonb_object_keys(exportar_mis_datos()) k),
-  array['contactos','favoritos','favoritos_negocios','funciones','generado_en','mensajes','menu','negocios','pagos','perfil','publicaciones','resenas','roomie','suscripciones','verificaciones'],
+  array['busquedas_guardadas','contactos','favoritos','favoritos_negocios','funciones','generado_en','mensajes','menu','negocios','pagos','perfil','publicaciones','resenas','roomie','suscripciones','verificaciones'],
   'exportar: trae todas las secciones, también las nuevas' );
 select is(jsonb_array_length(exportar_mis_datos()->'funciones'), (select count(*)::int from roles_usuario where usuario_id = '00000000-0000-0000-0000-0000000000f7'),
   'exportar: las funciones son las propias' );
@@ -4053,6 +4053,51 @@ select actuar_como_anon();
 select is((select e.titulo_publico from explorar_publicaciones e join ids92 i on i.id = e.id), 'Cuarto en Barrio Bajo', '0092: sin cuenta el título sale armado con el tipo y la colonia');
 select ok(not exists (select 1 from explorar_publicaciones where titulo_publico ~ '[0-9]' or titulo_publico ilike '%secreta%'), '0092: ningún título público lleva números ni la calle de nadie');
 select throws_ok($$select titulo from explorar_publicaciones$$, '42703', null, '0092: el título libre ya no existe en la vista');
+select actuar_como_servicio();
+
+-- ════════════════ 0093 · búsquedas guardadas ════════════════
+-- Privadas de la cuenta; solo seis claves de filtro y de tamaño acotado; tope de 20; entran en la exportación (derecho de acceso).
+select actuar_como_servicio();
+select is((select relrowsecurity from pg_class where oid = 'public.busquedas_guardadas'::regclass), true, '0093: busquedas_guardadas tiene RLS activo');
+select is(has_table_privilege('anon', 'public.busquedas_guardadas', 'select'), false, '0093: anon no lee búsquedas guardadas');
+select is((select bool_or(has_table_privilege('authenticated', 'public.busquedas_guardadas', p)) from unnest(array['update', 'truncate']) p), false,
+  '0093: authenticated no puede actualizar ni truncar búsquedas guardadas');
+select is(has_function_privilege('authenticated', 'public.limitar_busquedas_guardadas()', 'execute'), false, '0093: el tope no es una función del cliente');
+
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select lives_ok($$insert into busquedas_guardadas (usuario_id, nombre, filtros) values ('00000000-0000-0000-0000-0000000000a1', 'Lerma · Cuarto', '{"zona":"Lerma","tipo":"cuarto","presupuesto":"4000"}')$$,
+  '0093: se guarda una búsqueda con filtros conocidos');
+select is((select count(*)::int from busquedas_guardadas), 1, '0093: y la cuenta la ve');
+select throws_ok($$insert into busquedas_guardadas (usuario_id, nombre, filtros) values ('00000000-0000-0000-0000-0000000000a1', 'x', '{"zona":"Lerma","admin":"1"}')$$,
+  '23514', null, '0093: una clave de filtro que no existe se rechaza');
+select throws_ok($$insert into busquedas_guardadas (usuario_id, nombre, filtros) values ('00000000-0000-0000-0000-0000000000a1', 'x', '["zona"]')$$,
+  '23514', null, '0093: filtros que no son un objeto se rechazan');
+select throws_ok($$insert into busquedas_guardadas (usuario_id, nombre, filtros) values ('00000000-0000-0000-0000-0000000000a1', 'x', jsonb_build_object('zona', repeat('a', 2000)))$$,
+  '23514', null, '0093: filtros demasiado grandes se rechazan');
+select throws_ok($$insert into busquedas_guardadas (usuario_id, nombre, filtros) values ('00000000-0000-0000-0000-0000000000a1', '', '{}')$$,
+  '23514', null, '0093: sin nombre se rechaza');
+select throws_ok($$insert into busquedas_guardadas (usuario_id, nombre, filtros) values ('00000000-0000-0000-0000-0000000000a1', repeat('n', 81), '{}')$$,
+  '23514', null, '0093: un nombre de más de 80 caracteres se rechaza');
+select ok((exportar_mis_datos() ? 'busquedas_guardadas') and jsonb_array_length(exportar_mis_datos()->'busquedas_guardadas') = 1, '0093: la exportación trae mis búsquedas guardadas');
+
+select actuar_como('00000000-0000-0000-0000-0000000000b2');
+select is((select count(*)::int from busquedas_guardadas), 0, '0093: otra cuenta NO ve las búsquedas de a1');
+select throws_ok($$insert into busquedas_guardadas (usuario_id, nombre, filtros) values ('00000000-0000-0000-0000-0000000000a1', 'a nombre de otra', '{}')$$,
+  '42501', null, '0093: no se puede guardar a nombre de otra cuenta');
+select lives_ok($$delete from busquedas_guardadas where usuario_id = '00000000-0000-0000-0000-0000000000a1'$$, '0093: borrar las de otra cuenta no falla...');
+select is(jsonb_array_length(exportar_mis_datos()->'busquedas_guardadas'), 0, '0093: la exportación de otra cuenta no trae las de a1');
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select is((select count(*)::int from busquedas_guardadas), 1, '0093: ...pero no borró nada');
+
+-- Tope: con 19 más (20 en total) la siguiente es CP004.
+select actuar_como_servicio();
+insert into busquedas_guardadas (usuario_id, nombre, filtros)
+  select '00000000-0000-0000-0000-0000000000a1', 'b' || g, '{}' from generate_series(1, 19) g;
+select actuar_como('00000000-0000-0000-0000-0000000000a1');
+select throws_ok($$insert into busquedas_guardadas (usuario_id, nombre, filtros) values ('00000000-0000-0000-0000-0000000000a1', 'una más', '{}')$$,
+  'CP004', null, '0093: la número 21 se rechaza con CP004');
+select lives_ok($$delete from busquedas_guardadas where nombre = 'una más' or nombre like 'b%'$$, '0093: se puede borrar las propias');
+select is((select count(*)::int from busquedas_guardadas), 1, '0093: quedó la primera');
 select actuar_como_servicio();
 
 select * from finish();
