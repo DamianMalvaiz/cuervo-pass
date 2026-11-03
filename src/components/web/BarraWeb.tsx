@@ -37,7 +37,8 @@ export function BarraWeb({ escritorio, activa = null }: { escritorio: boolean; a
 }
 
 const estilos = StyleSheet.create({
-  fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, flexWrap: 'wrap' },
+  // Por encima del hero que le sigue: de aquí cuelga el menú de la cuenta (ver EncabezadoWeb).
+  fila: { zIndex: 20, flexDirection: 'row', alignItems: 'center', gap: Spacing.three, flexWrap: 'wrap' },
   marca: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 44 },
   pestanas: { marginLeft: Spacing.three },
   cuentas: { flexDirection: 'row', gap: Spacing.two, marginLeft: 'auto', alignItems: 'center' },

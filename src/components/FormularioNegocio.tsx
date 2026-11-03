@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
 import { EditorHorario } from '@/components/EditorHorario';
@@ -25,6 +25,7 @@ import { geocodificarDireccion } from '@/lib/geocoding';
 import { parsearHorarioTexto, resumenAcotado, validarHorarioCompleto, type DiaIso, type Turno } from '@/lib/horario';
 import { MAX_PRODUCTOS_TECNICO, productoVacio, seccionesDe, type ProductoEditable } from '@/lib/menu';
 import { MAX_FOTOS_NEGOCIO, validarNegocio, type ErroresNegocio } from '@/lib/negocio';
+import { dialogo } from '@/lib/dialogo';
 import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -175,7 +176,7 @@ export function FormularioNegocio({ inicial, onVistaPrevia }: { inicial?: { nego
 
   const onBorrar = () => {
     if (!n) return;
-    Alert.alert(
+    dialogo(
       'Borrar mi negocio',
       'Se borran el negocio, su menú y sus fotos. No se puede deshacer.',
       [

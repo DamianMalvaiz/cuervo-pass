@@ -132,7 +132,8 @@ function BotonGuardar({ guardado, cargando, etiqueta, onPress }: { guardado: boo
 }
 
 const estilos = StyleSheet.create({
-  contenedor: { gap: Spacing.three },
+  // Por encima de la galería que le sigue: de aquí cuelga el menú de la cuenta (ver EncabezadoWeb).
+  contenedor: { zIndex: 20, gap: Spacing.three },
   fila: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.three, flexWrap: 'wrap' },
   marca: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 44 },
   cuentas: { flexDirection: 'row', gap: Spacing.two },

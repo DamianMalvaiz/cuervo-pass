@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import {
   FormularioCuestionario,
@@ -16,6 +16,7 @@ import { useDesplazador } from '@/hooks/use-desplazador';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { parsearPerfil } from '@/lib/aiService';
+import { dialogo } from '@/lib/dialogo';
 import { geocodificarDireccion } from '@/lib/geocoding';
 import { construirTextoPerfil } from '@/lib/perfilTexto';
 import { avisoVector, campoVector, resolverPerfilVector } from '@/lib/perfilVector';
@@ -98,7 +99,7 @@ export default function PreferenciasScreen() {
 
     const avisoDeVector = avisoVector(resultadoVector, teniaVector);
     if (avisoDeVector) {
-      Alert.alert(avisoDeVector.titulo, avisoDeVector.cuerpo, [{ text: 'Entendido', onPress: () => router.back() }]);
+      dialogo(avisoDeVector.titulo, avisoDeVector.cuerpo, [{ text: 'Entendido', onPress: () => router.back() }]);
       return;
     }
     router.back();

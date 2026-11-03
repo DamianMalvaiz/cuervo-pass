@@ -32,6 +32,7 @@ export function MarcoSesionWeb({ children }: { children: ReactNode }) {
 
 const estilos = StyleSheet.create({
   raiz: { flex: 1 },
-  encabezado: { width: '100%', maxWidth: AnchoMaximoWeb, alignSelf: 'center', paddingTop: Spacing.three },
+  // Por encima del contenido: de la barra cuelga el menú de la cuenta (ver EncabezadoWeb).
+  encabezado: { zIndex: 20, width: '100%', maxWidth: AnchoMaximoWeb, alignSelf: 'center', paddingTop: Spacing.three },
   contenido: { flex: 1, width: '100%', maxWidth: AnchoMaximoWeb, alignSelf: 'center' },
 });

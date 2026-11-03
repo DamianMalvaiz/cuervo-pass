@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 // Mi negocio · el formulario. Lo que se fija: valida antes de tocar la red, manda al hook exactamente lo que se puede
 // escribir (nunca destacado/origen), geocodifica solo cuando la dirección cambió, y los fallos se dicen como fallos.
@@ -571,5 +571,36 @@ describe('cuando FALLA la lectura de las categorías se dice, no queda una lista
   it('con las categorías cargadas no hay aviso', async () => {
     await render(<FormularioNegocio />);
     expect(screen.queryByText('No pudimos cargar las categorías')).toBeNull();
+  });
+});
+
+// En la web `Alert.alert` no hace nada: «Borrar mi negocio» parecía un botón roto. Ahí la confirmación es la del navegador.
+describe('borrar · en la web', () => {
+  const g = globalThis as unknown as { window?: unknown };
+  const nav = { confirm: jest.fn(), alert: jest.fn() };
+  beforeEach(() => {
+    jest.replaceProperty(Platform, 'OS', 'web');
+    nav.confirm.mockReset();
+    g.window = nav;
+  });
+  afterEach(() => {
+    delete g.window;
+  });
+
+  it('confirma con el diálogo del navegador y, al aceptar, borra', async () => {
+    nav.confirm.mockReturnValue(true);
+    await render(<FormularioNegocio inicial={{ negocio: NEGOCIO as never, items: ITEMS as never }} />);
+    await pulsar('Borrar mi negocio');
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(nav.confirm).toHaveBeenCalledTimes(1);
+    expect(nav.confirm.mock.calls[0][0]).toMatch(/Borrar mi negocio/);
+    expect(mockBorrarMutate.mock.calls[0][0]).toEqual({ id: 'n1', fotos: ['negocios/n1/a.jpg', 'negocios/n1/b.jpg'] });
+  });
+
+  it('si cancela, NO borra nada', async () => {
+    nav.confirm.mockReturnValue(false);
+    await render(<FormularioNegocio inicial={{ negocio: NEGOCIO as never, items: ITEMS as never }} />);
+    await pulsar('Borrar mi negocio');
+    expect(mockBorrarMutate).not.toHaveBeenCalled();
   });
 });

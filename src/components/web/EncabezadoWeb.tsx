@@ -39,7 +39,8 @@ export function EncabezadoWeb({ activa, escritorio, telefono = false }: { activa
 }
 
 const estilos = StyleSheet.create({
-  barra: { gap: Spacing.two, paddingBottom: Spacing.three, borderBottomWidth: Filete.fino },
+  // El menú de la cuenta cuelga de esta barra: sin `zIndex` la barra queda al nivel del contenido (en react-native-web cada View ya es su propio contexto de apilamiento, z-index 0) y el contenido, que viene DESPUÉS, se pinta encima del menú y se queda con sus clics.
+  barra: { zIndex: 20, gap: Spacing.two, paddingBottom: Spacing.three, borderBottomWidth: Filete.fino },
   fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   marca: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: 44 },
   pestanas: { marginLeft: Spacing.three },

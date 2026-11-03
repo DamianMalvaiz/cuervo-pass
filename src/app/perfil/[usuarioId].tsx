@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { Calificacion } from '@/components/ficha/Calificacion';
@@ -20,6 +20,7 @@ import { Filete, Spacing } from '@/constants/theme';
 import { useMovimientoReducido } from '@/hooks/use-movimiento-reducido';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { dialogo } from '@/lib/dialogo';
 import { folioDe } from '@/lib/folio';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useCuentaRestringida } from '@/hooks/queries/useCuentaRestringida';
@@ -154,7 +155,7 @@ function PerfilRoomieApp() {
         // Se dice QUÉ pasa, no solo «gracias». Hasta la migración 0023 este
         // acuse era falso: el trigger salía sin hacer nada para los reportes
         // de personas, así que la app agradecía por algo que no ocurría.
-        Alert.alert(
+        dialogo(
           'Reporte registrado',
           'Al tercer reporte de cuentas distintas, el perfil se suspende y deja de aparecer en la app. Si corres peligro, no uses solo esta app: avisa a alguien de confianza.'
         );
@@ -169,7 +170,7 @@ function PerfilRoomieApp() {
         );
       }
     };
-    Alert.alert('Reportar usuario', '¿Por qué lo reportas?', [
+    dialogo('Reportar usuario', '¿Por qué lo reportas?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Comportamiento sospechoso', onPress: () => enviar('comportamiento sospechoso') },
       { text: 'Información falsa', onPress: () => enviar('información falsa') },

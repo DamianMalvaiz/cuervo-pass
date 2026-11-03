@@ -3,7 +3,6 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   View,
@@ -31,6 +30,7 @@ import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { dialogo } from '@/lib/dialogo';
 import { calcularDistanciaKm } from '@/lib/distancia';
 import { ATRIBUCION_MAPA } from '@/lib/geocoding';
 import {
@@ -128,7 +128,7 @@ export default function DetallePublicacionScreen() {
         );
       }
     };
-    Alert.alert('Reportar publicación', '¿Por qué la reportas?', [
+    dialogo('Reportar publicación', '¿Por qué la reportas?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Contenido sospechoso', onPress: () => enviar('contenido sospechoso') },
       { text: 'Información falsa', onPress: () => enviar('información falsa') },

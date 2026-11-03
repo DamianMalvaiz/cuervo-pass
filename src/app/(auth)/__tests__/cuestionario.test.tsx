@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 // V.8 · El cuestionario inicial, y en concreto §29 · AUD-23: el camino SIN IA.
 //
@@ -159,6 +159,30 @@ describe('con consentimiento', () => {
     expect(guardado()).toMatchObject({ consiente_analisis_ia: true });
     expect(guardado()).not.toHaveProperty('perfil_vector');
     expect(Alert.alert).toHaveBeenCalled();
+  });
+});
+
+// En la web `Alert.alert` no hace nada, y «Entendido» era el botón que sacaba del cuestionario: si el microservicio se caía, el alta se quedaba pegada en esta pantalla.
+describe('con consentimiento · en la web', () => {
+  const g = globalThis as unknown as { window?: unknown };
+  const nav = { alert: jest.fn(), confirm: jest.fn() };
+  beforeEach(() => {
+    mockRespuestas = { ...RESPUESTAS, consienteIa: true };
+    jest.replaceProperty(Platform, 'OS', 'web');
+    nav.alert.mockReset();
+    g.window = nav;
+  });
+  afterEach(() => {
+    delete g.window;
+  });
+
+  it('si el microservicio se cae, avisa con el diálogo del navegador Y sigue a las pestañas (no se queda pegado)', async () => {
+    mockGenerarEmbedding.mockRejectedValue(new Error('sin conexión'));
+    await completar();
+    await waitFor(() => expect(mockActualizarPerfil).toHaveBeenCalled());
+    await waitFor(() => expect(nav.alert).toHaveBeenCalledTimes(1));
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/inicio');
   });
 });
 

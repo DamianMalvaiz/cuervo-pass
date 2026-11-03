@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 // Reseñas · la sección de una ficha. Lo que se fija: quien es dueño responde pero no reseña; quien no, reseña UNA y reporta las
 // ajenas; todo se valida antes de tocar la red; cada fallo se dice por su código; y «sin reseñas» no se pinta como un cero.
@@ -348,5 +348,32 @@ describe('cuenta restringida · 0082', () => {
     await montar();
     expect(screen.getByLabelText('Escribir mi reseña')).toBeTruthy();
     expect(screen.getByLabelText(/Reportar la reseña/)).toBeTruthy();
+  });
+});
+
+// En la web `Alert.alert` no hace nada: borrar o reportar una reseña parecían botones rotos. Ahí la confirmación es la del navegador.
+describe('confirmaciones · en la web', () => {
+  const g = globalThis as unknown as { window?: unknown };
+  const nav = { confirm: jest.fn(), alert: jest.fn() };
+  beforeEach(() => {
+    jest.replaceProperty(Platform, 'OS', 'web');
+    nav.confirm.mockReset();
+    g.window = nav;
+  });
+  afterEach(() => {
+    delete g.window;
+  });
+
+  it('borrar mi reseña: confirma en el navegador y, al aceptar, borra; al cancelar, no', async () => {
+    mockMia.mockReturnValue({ miResena: resena({ id: 'rm', es_mia: true, texto: 'Muy bueno' }), cargando: false, fallo: false, reintentar: jest.fn() });
+    mockBorrar.mockImplementation((_id, { onSuccess }) => onSuccess());
+    nav.confirm.mockReturnValueOnce(false);
+    await montar();
+    await pulsar('Borrar mi reseña');
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(mockBorrar).not.toHaveBeenCalled();
+    nav.confirm.mockReturnValueOnce(true);
+    await pulsar('Borrar mi reseña');
+    expect(mockBorrar).toHaveBeenCalledTimes(1);
   });
 });

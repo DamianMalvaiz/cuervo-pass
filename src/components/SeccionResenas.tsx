@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
 import { Estrellas } from '@/components/ficha/Estrellas';
@@ -18,6 +18,7 @@ import { SQL, esCodigo } from '@/lib/erroresPostgres';
 import {
   MAX_RESPUESTA, MAX_TEXTO_RESENA, estrellasDe, validarRespuesta, validarResena, type Objetivo, type ResenaPublica,
 } from '@/lib/resenas';
+import { dialogo } from '@/lib/dialogo';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -103,7 +104,7 @@ export function SeccionResenas({
 
   const onBorrar = () => {
     if (!miResena) return;
-    Alert.alert('Borrar mi reseña', 'Se quita tu reseña y cambia el promedio. No se puede deshacer.', [
+    dialogo('Borrar mi reseña', 'Se quita tu reseña y cambia el promedio. No se puede deshacer.', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Borrar',
@@ -118,7 +119,7 @@ export function SeccionResenas({
   };
 
   const onReportar = (r: ResenaPublica) => {
-    Alert.alert('Reportar reseña', 'Si tres personas la reportan, deja de mostrarse. ¿Reportarla por contenido inapropiado?', [
+    dialogo('Reportar reseña', 'Si tres personas la reportan, deja de mostrarse. ¿Reportarla por contenido inapropiado?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Reportar',
