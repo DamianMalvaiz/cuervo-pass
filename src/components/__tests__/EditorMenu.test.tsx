@@ -380,3 +380,24 @@ describe('el límite de productos del plan', () => {
     expect(String(mockError.mock.calls[0][0])).toMatch(/hasta 2 productos.*Quita 1/);
   });
 });
+
+// La vista previa de la web: el editor cuenta afuera lo que tiene AHORA (aún sin guardar) y las fotos firmadas; sin la prop no pasa nada.
+describe('vista previa', () => {
+  it('manda los productos al abrir y se actualiza con cada cambio local (sin guardar)', async () => {
+    const previa = jest.fn();
+    await render(<EditorMenu negocioId="n1" nombreNegocio="Tacos La Esquina" items={ITEMS as never} onVistaPrevia={previa} />);
+    const primera = previa.mock.calls.at(-1)![0];
+    expect(primera.productos.map((p: { nombre: string }) => p.nombre)).toEqual(['Taco al pastor', 'Agua de horchata', 'Revisión']);
+    expect(primera.urls.get('negocios/n1/p/a.jpg')).toBe('https://f.test/a');
+    await pulsar('Editar Agua de horchata');
+    await escribir('Nombre del producto', 'Agua de jamaica');
+    await pulsar('Guardar producto');
+    expect(previa.mock.calls.at(-1)![0].productos.map((p: { nombre: string }) => p.nombre)).toContain('Agua de jamaica');
+    expect(mockMutate).not.toHaveBeenCalled();
+  });
+
+  it('sin la prop, el editor funciona igual', async () => {
+    await montar();
+    expect(screen.getByText('3 de 250 productos')).toBeTruthy();
+  });
+});

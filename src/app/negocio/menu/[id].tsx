@@ -1,13 +1,14 @@
 import { useLocalSearchParams } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
-import { EditorMenu } from '@/components/EditorMenu';
+import { EditorMenu, type VistaPreviaMenu } from '@/components/EditorMenu';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useMiNegocio } from '@/hooks/queries/useMisNegocios';
 import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
+import { MarcoMenuWeb } from '@/components/web/MarcoMenuWeb';
 
 /**
  * El menú de un negocio propio. Tres estados y no dos (END-11): cargando, falló, y «no existe o no es tuyo». El editor solo
@@ -22,6 +23,12 @@ export default function MenuNegocioScreen() {
 }
 
 function MenuNegocioScreenPantalla() {
+  // En la web, el editor lleva al lado la vista previa del menú; en la app, solo el editor.
+  if (Platform.OS === 'web') return <MarcoMenuWeb>{(alVistaPrevia) => <MenuNegocio alVistaPrevia={alVistaPrevia} />}</MarcoMenuWeb>;
+  return <MenuNegocio />;
+}
+
+function MenuNegocio({ alVistaPrevia }: { alVistaPrevia?: (v: VistaPreviaMenu) => void }) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { negocio, items, cargando, fallo, reintentar } = useMiNegocio(id);
 
@@ -47,7 +54,7 @@ function MenuNegocioScreenPantalla() {
       </ThemedView>
     );
   }
-  return <EditorMenu negocioId={negocio.id} nombreNegocio={negocio.nombre} items={items} />;
+  return <EditorMenu negocioId={negocio.id} nombreNegocio={negocio.nombre} items={items} onVistaPrevia={alVistaPrevia} />;
 }
 
 const estilos = StyleSheet.create({

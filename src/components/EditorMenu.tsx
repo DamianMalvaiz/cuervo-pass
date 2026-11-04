@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SectionList, StyleSheet, TextInput, View } from 'react-native';
 
 import { EditorProducto } from '@/components/EditorProducto';
@@ -25,6 +25,12 @@ import type { NegocioItem } from '@/types/database.types';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 });
 
+/** Lo que la vista previa (en la web) necesita del menú que se está editando: los productos tal como están AHORA (aún sin guardar) y las URL firmadas de las fotos ya guardadas. */
+export interface VistaPreviaMenu {
+  productos: ProductoEditable[];
+  urls: ReadonlyMap<string, string>;
+}
+
 const desdeItem = (i: NegocioItem): ProductoEditable => ({
   clave: i.id,
   id: i.id,
@@ -45,7 +51,7 @@ const desdeItem = (i: NegocioItem): ProductoEditable => ({
  * trabajo es LOCAL hasta tocar «Guardar menú», que manda la lista entera en una sola llamada y una sola transacción: si algo
  * falla, el menú guardado no cambia. El orden de la lista es el orden del menú.
  */
-export function EditorMenu({ negocioId, nombreNegocio, items }: { negocioId: string; nombreNegocio: string; items: NegocioItem[] }) {
+export function EditorMenu({ negocioId, nombreNegocio, items, onVistaPrevia }: { negocioId: string; nombreNegocio: string; items: NegocioItem[]; onVistaPrevia?: (v: VistaPreviaMenu) => void }) {
   const theme = useTheme();
   const guardar = useGuardarMenu(negocioId);
   const miId = useAuthStore((s) => s.session?.user.id);
@@ -59,6 +65,10 @@ export function EditorMenu({ negocioId, nombreNegocio, items }: { negocioId: str
   // Las fotos con que se CARGÓ el menú: sirven para saber cuáles ya no se usan al guardar.
   const fotosAnteriores = useMemo(() => items.flatMap((i) => desdeItem(i).fotos), [items]);
   const { urls } = useFotosFirmadas(productos.flatMap((p) => p.fotos));
+  // La vista previa de la web: cada cambio local (aún sin guardar) se cuenta afuera. `onVistaPrevia` debe ser estable (un `setState`).
+  useEffect(() => {
+    onVistaPrevia?.({ productos, urls });
+  }, [onVistaPrevia, productos, urls]);
 
   const visibles = buscarEnMenu(productos, busqueda);
   const secciones = agruparPorSeccion(visibles).map((g) => ({
