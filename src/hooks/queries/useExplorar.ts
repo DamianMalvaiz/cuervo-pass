@@ -12,12 +12,14 @@ import {
   listarHorarioPublico,
   listarNegociosPorIds,
   listarNegociosPublicos,
+  listarPreciosPublicados,
   listarPublicacionesEnCaja,
   listarPublicacionesPorIds,
   listarProductosPublicos,
   listarPublicacionesPublicas,
   obtenerNegocioPublico,
   obtenerPublicacionPublica,
+  TOPE_PRECIOS,
   type FiltroPublicaciones,
 } from '@/services/explorar.service';
 
@@ -91,4 +93,11 @@ export function useNegociosPorIds(ids: string[]) {
 export function usePublicacionesEnCaja(caja: { latMin: number; latMax: number; lngMin: number; lngMax: number }, limite: number) {
   const q = useQuery({ queryKey: ['explorarEnCaja', caja, limite], queryFn: () => listarPublicacionesEnCaja(caja, limite), placeholderData: (previa) => previa });
   return { publicaciones: q.data ?? [], cargando: q.isPending, fallo: q.isError, reintentar: () => void q.refetch() };
+}
+
+/** Las rentas de todo lo visible, para «¿Qué alcanza con tu presupuesto?». `truncado`: llegó el tope de filas y puede haber más (se dice, no se calla). */
+export function usePreciosPublicados() {
+  const q = useQuery({ queryKey: ['explorarPrecios'], queryFn: listarPreciosPublicados });
+  const precios = q.data ?? [];
+  return { precios, truncado: precios.length >= TOPE_PRECIOS, cargando: q.isPending, fallo: q.isError, reintentar: () => void q.refetch() };
 }

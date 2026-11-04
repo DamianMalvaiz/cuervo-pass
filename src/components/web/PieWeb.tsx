@@ -15,6 +15,7 @@ const AYUDA = [
   { ruta: RutasWeb.guiaDeVisita, nombre: 'Guía para visitar un lugar' },
   { ruta: RutasWeb.contrato, nombre: 'Entiende tu contrato' },
   { ruta: RutasWeb.acuerdos, nombre: 'Acuerdos de convivencia' },
+  { ruta: RutasWeb.presupuesto, nombre: '¿Qué alcanza con tu presupuesto?' },
 ] as const;
 
 /** El pie de la web pública, sobre carbón: quién es Cuervo 360 y los dos documentos que explican cómo se tratan los datos. */

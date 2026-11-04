@@ -17,6 +17,7 @@ export const PAGINAS_INFO = [
   { ruta: RutasWeb.guiaDeVisita, nombre: 'Guía para visitar un lugar' },
   { ruta: RutasWeb.contrato, nombre: 'Entiende tu contrato' },
   { ruta: RutasWeb.acuerdos, nombre: 'Acuerdos de convivencia' },
+  { ruta: RutasWeb.presupuesto, nombre: '¿Qué alcanza con tu presupuesto?' },
 ] as const;
 
 export function PaginaInfoWeb({ titulo, subtitulo, actual, children }: { titulo: string; subtitulo: string; actual: string; children: ReactNode }) {
@@ -63,7 +64,7 @@ export function NotaInfoWeb({ children }: { children: string }) {
 
 export const estilosInfo = StyleSheet.create({
   rejilla: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three, alignItems: 'flex-start' },
-  mitad: { flexGrow: 1, flexBasis: 320, minWidth: 0 },
+  mitad: { flexGrow: 1, flexBasis: 320, flexShrink: 1, maxWidth: '100%', minWidth: 0 },
 });
 
 const estilos = StyleSheet.create({

@@ -153,7 +153,7 @@ const estilos = StyleSheet.create({
   cifras: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
   cifra: { flexGrow: 1, flexBasis: 200, borderWidth: Filete.fino, borderRadius: Radios.tarjeta, padding: Spacing.four, gap: Spacing.one },
   columnas: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three, alignItems: 'flex-start' },
-  columna: { flexGrow: 1, flexBasis: 320, minWidth: 0 },
+  columna: { flexGrow: 1, flexBasis: 320, flexShrink: 1, maxWidth: '100%', minWidth: 0 },
   cabecera: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   insignia: { borderRadius: Radios.full, paddingHorizontal: Spacing.three, paddingVertical: Spacing.half },
   acciones: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.two },

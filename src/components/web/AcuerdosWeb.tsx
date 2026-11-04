@@ -93,8 +93,8 @@ export function AcuerdosWeb() {
 
 const estilos = StyleSheet.create({
   columnas: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three, alignItems: 'flex-start' },
-  temas: { flexGrow: 2, flexBasis: 420, minWidth: 0, gap: Spacing.three },
-  resumen: { flexGrow: 1, flexBasis: 300, minWidth: 0 },
+  temas: { flexGrow: 2, flexBasis: 420, flexShrink: 1, maxWidth: '100%', minWidth: 0, gap: Spacing.three },
+  resumen: { flexGrow: 1, flexBasis: 300, flexShrink: 1, maxWidth: '100%', minWidth: 0 },
   opciones: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   opcion: { minHeight: 44, paddingHorizontal: Spacing.four, borderRadius: Radios.full, borderWidth: Filete.fino, justifyContent: 'center' },
 });

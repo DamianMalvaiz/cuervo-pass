@@ -129,7 +129,7 @@ const estilos = StyleSheet.create({
   datos: { flex: 1, minWidth: 220, gap: Spacing.one },
   insignia: { alignSelf: 'flex-start', borderRadius: Radios.full, paddingVertical: Spacing.one, paddingHorizontal: Spacing.three, marginTop: Spacing.one },
   rejilla: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
-  tarjeta: { flexGrow: 1, flexBasis: 300, minWidth: 0, borderWidth: Filete.fino, borderRadius: Radios.tarjeta, padding: Spacing.four, gap: Spacing.two },
+  tarjeta: { flexGrow: 1, flexBasis: 300, flexShrink: 1, maxWidth: '100%', minWidth: 0, borderWidth: Filete.fino, borderRadius: Radios.tarjeta, padding: Spacing.four, gap: Spacing.two },
   icono: { width: 48, height: 48, borderRadius: Radios.control, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.one },
   texto: { flexGrow: 1 },
   accion: { alignItems: 'flex-start', marginTop: Spacing.two },

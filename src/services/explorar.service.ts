@@ -62,6 +62,16 @@ export async function listarPublicacionesEnCaja(caja: { latMin: number; latMax: 
   return (data ?? []) as PublicacionExplorar[];
 }
 
+/** El tope de filas que PostgREST entrega por consulta: si llegan tantas, puede haber más y quien llama lo dice. */
+export const TOPE_PRECIOS = 1000;
+
+/** La renta y el tipo de TODAS las viviendas visibles (solo esas dos columnas: lo justo para contar qué alcanza con un monto). Un fallo LANZA (END-11). */
+export async function listarPreciosPublicados(): Promise<{ precio_renta: number; tipo: TipoVivienda }[]> {
+  const { data, error } = await supabase.from('explorar_publicaciones').select('precio_renta, tipo').limit(TOPE_PRECIOS);
+  if (error) throw error;
+  return (data ?? []) as { precio_renta: number; tipo: TipoVivienda }[];
+}
+
 /** `null` solo si no existe o no es visible; un fallo lanza. */
 export async function obtenerPublicacionPublica(id: string): Promise<PublicacionExplorar | null> {
   const { data, error } = await supabase.from('explorar_publicaciones').select(COLUMNAS_EXPLORAR_PUBLICACION).eq('id', id).maybeSingle();
