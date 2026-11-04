@@ -136,6 +136,11 @@ export interface ControlPublicacion {
 interface Props {
   valoresIniciales?: Partial<ValoresFormularioPublicacion>;
   fotosIniciales?: string[];
+  /**
+   * Las URL FIRMADAS de las fotos ya guardadas, por su ruta de Storage. Al editar, `fotosIniciales` trae RUTAS (el bucket es privado): sin firma no hay nada que mostrar. Es solo para PINTAR: lo que se guarda sigue siendo la ruta, que es la identidad de la foto
+   * (la URL caduca). Una foto que ya es una URL `https` (las de ejemplo) se muestra tal cual.
+   */
+  urlsDeFotos?: ReadonlyMap<string, string>;
   textoBoton: string;
   /** Oculta el botón interno: la pantalla lo pone en un PieFijo. */
   botonEnPie?: boolean;
@@ -348,7 +353,7 @@ function MensajeError({ ancla, mensaje }: { ancla: (nodo: View | null) => void; 
 }
 
 export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(function FormularioPublicacion(
-  { valoresIniciales, fotosIniciales = [], textoBoton, botonEnPie, onEstadoEnvio, desplazador, onVistaPrevia, onGuardar },
+  { valoresIniciales, fotosIniciales = [], urlsDeFotos, textoBoton, botonEnPie, onEstadoEnvio, desplazador, onVistaPrevia, onGuardar },
   ref
 ) {
   const theme = useTheme();
@@ -412,10 +417,13 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
     },
   });
 
+  // Qué imagen enseñar de una foto: la de este dispositivo, la URL firmada de una ya guardada, o la propia URL si ya lo es. Una RUTA de Storage sin firma NO se pinta como imagen (saldría rota): queda el hueco.
+  const verFoto = (foto: FotoEntrada): string | undefined => (foto.esNueva ? foto.uri : (urlsDeFotos?.get(foto.url) ?? (/^https:\/\//.test(foto.url) ? foto.url : undefined)));
+
   // La vista previa: lo que se escribe se manda afuera con valores simples (no objetos), para que el efecto solo corra cuando algo cambió de verdad.
   const [vTipo, vColonia, vMunicipio, vPrecio, vRecamaras, vAmueblado] = useWatch({ control, name: ['tipo', 'colonia', 'municipio', 'precioRenta', 'recamaras', 'amueblado'] });
   const primeraFoto = fotos[0];
-  const fotoPrevia = primeraFoto && primeraFoto.esNueva ? primeraFoto.uri : undefined;
+  const fotoPrevia = primeraFoto ? verFoto(primeraFoto) : undefined;
   useEffect(() => {
     onVistaPrevia?.({ tipo: vTipo, colonia: vColonia ?? '', municipio: vMunicipio ?? '', precioRenta: vPrecio ?? '', recamaras: vRecamaras ?? '', amueblado: Boolean(vAmueblado), fotoUri: fotoPrevia });
   }, [onVistaPrevia, vTipo, vColonia, vMunicipio, vPrecio, vRecamaras, vAmueblado, fotoPrevia]);
@@ -476,6 +484,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
   };
 
   const uriDeFoto = (foto: FotoEntrada) => (foto.esNueva ? foto.uri : foto.url);
+
 
   const onAgregarFotos = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -917,7 +926,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
       <View style={styles.fotosFila}>
         {fotos.map((foto, indice) => (
           <View key={uriDeFoto(foto)} style={styles.fotoMiniContenedor}>
-            <Image source={{ uri: uriDeFoto(foto) }} style={styles.fotoMini} contentFit="cover" />
+            <Image source={verFoto(foto) ? { uri: verFoto(foto) } : undefined} accessibilityLabel={`Foto ${indice + 1}`} style={styles.fotoMini} contentFit="cover" />
             <Pulsable
               onPress={() => onQuitarFoto(foto)}
               style={[styles.fotoMiniQuitar, { backgroundColor: theme.error }]}
