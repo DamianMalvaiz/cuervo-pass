@@ -24,6 +24,9 @@ export const PREGUNTAS: { p: string; r: string }[] = [
   { p: '¿Cómo borro mi cuenta?', r: 'En Configuración, «Eliminar mi cuenta». Se borra todo y no se puede deshacer.' },
 ];
 
+// El campo vive dentro de la píldora: el anillo de foco lo dibuja la píldora (redondeada), no un rectángulo suelto dentro de ella. Ver global.css.
+const EMBEBIDO = { dataSet: { campoEmbebido: '1' } } as object;
+
 /** Sin acentos ni mayúsculas: «direccion» encuentra «dirección». */
 const plano = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -53,6 +56,7 @@ export function AyudaWeb() {
           placeholderTextColor={theme.textSecondary}
           accessibilityLabel="Busca una pregunta"
           style={[Texto.cuerpo, estilos.campo, { color: theme.text }]}
+          {...EMBEBIDO}
         />
       </View>
       <View style={estilos.columnas}>

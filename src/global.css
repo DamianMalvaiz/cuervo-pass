@@ -60,6 +60,15 @@ select:focus-visible,
   outline: 2px solid var(--foco);
   outline-offset: 3px;
 }
+/* Un campo de texto que vive DENTRO de una píldora o una celda (el buscador, la búsqueda de ayuda) no dibuja su propio anillo: salía un rectángulo suelto de esquinas vivas dentro de una forma redonda. El anillo
+   lo dibuja el contenedor, que sí es redondeado, y sigue siendo visible (mismo color, grosor y contraste de siempre). Los campos que son su propia caja (formularios, textarea) conservan el suyo. */
+[data-campo-embebido]:focus-visible {
+  outline: none;
+}
+:has(> [data-campo-embebido]:focus-visible) {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
 [role='heading'],
 h1,
 h2,

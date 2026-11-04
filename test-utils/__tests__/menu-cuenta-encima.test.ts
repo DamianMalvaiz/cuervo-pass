@@ -23,3 +23,15 @@ describe('las barras que llevan el menú de la cuenta van por encima del conteni
     expect(readFileSync(join(DIR, 'MarcoSesionWeb.tsx'), 'utf8')).toMatch(/zIndex:\s*\d+/);
   });
 });
+
+// El anillo de foco de un campo que vive DENTRO de una píldora lo dibuja la píldora: sin esto salía un rectángulo suelto de esquinas vivas dentro de una forma redonda (el buscador, la búsqueda de ayuda).
+describe('los campos embebidos no dibujan su propio anillo de foco', () => {
+  const css = readFileSync(join(__dirname, '..', '..', 'src', 'global.css'), 'utf8');
+  it('global.css apaga el anillo del campo embebido y lo pasa al contenedor', () => {
+    expect(css).toMatch(/\[data-campo-embebido\]:focus-visible\s*\{\s*outline:\s*none/);
+    expect(css).toMatch(/:has\(>\s*\[data-campo-embebido\]:focus-visible\)\s*\{\s*outline:\s*2px solid var\(--foco\)/);
+  });
+  it.each(['BuscadorWeb.tsx', 'AyudaWeb.tsx'])('%s marca su campo como embebido', (archivo) => {
+    expect(readFileSync(join(DIR, archivo), 'utf8')).toContain("campoEmbebido: '1'");
+  });
+});

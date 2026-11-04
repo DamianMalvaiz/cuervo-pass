@@ -11,6 +11,7 @@ import { Pulsable } from '@/components/ficha/Pulsable';
 import { EncabezadoPerfil } from '@/components/perfil/EncabezadoPerfil';
 import { PerfilVendedor } from '@/components/perfil/PerfilVendedor';
 import { TarjetaIdentidad } from '@/components/perfil/TarjetaIdentidad';
+import { PerfilVendedorWeb } from '@/components/web/PerfilVendedorWeb';
 import { PerfilWeb } from '@/components/web/PerfilWeb';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -246,7 +247,8 @@ export default function PerfilScreen() {
     if (session?.user.id) cargarPerfil(session.user.id);
   }, [session?.user.id, cargarPerfil]);
 
-  if (perfil === 'vendedor') return <PerfilVendedor />;
+  // El vendedor, igual que quien busca, tiene en la web su propia página ancha; en la app, la de siempre.
+  if (perfil === 'vendedor') return Platform.OS === 'web' ? <PerfilVendedorWeb /> : <PerfilVendedor />;
   // En la web, quien busca ve su propio perfil de página (con qué falta para completarlo); en la app, el de siempre.
   return Platform.OS === 'web' ? <PerfilWeb /> : <PerfilEstudiante />;
 }

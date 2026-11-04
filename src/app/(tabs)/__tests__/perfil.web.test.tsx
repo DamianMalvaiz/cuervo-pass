@@ -10,6 +10,7 @@ jest.mock('@/store/usePerfilStore', () => ({ usePerfilStore: () => ({ cargarPerf
 const texto = (t: string) => jest.requireActual('react').createElement(jest.requireActual('react-native').Text, null, t);
 jest.mock('@/components/web/PerfilWeb', () => ({ PerfilWeb: () => texto('PERFIL WEB') }));
 jest.mock('@/components/perfil/PerfilVendedor', () => ({ PerfilVendedor: () => texto('PERFIL VENDEDOR') }));
+jest.mock('@/components/web/PerfilVendedorWeb', () => ({ PerfilVendedorWeb: () => texto('PERFIL VENDEDOR WEB') }));
 jest.mock('@/components/perfil/TarjetaIdentidad', () => ({ TarjetaIdentidad: () => texto('IDENTIDAD APP') }));
 jest.mock('@/components/perfil/EncabezadoPerfil', () => ({ EncabezadoPerfil: () => null }));
 jest.mock('@/hooks/queries/useRoomies', () => ({ useMiRoomie: () => ({ miRoomie: null }) }));
@@ -32,11 +33,12 @@ test('en la web, quien busca ve el perfil de página', async () => {
   expect(screen.queryByText('IDENTIDAD APP')).toBeNull();
 });
 
-test('en la web, un vendedor sigue con el suyo', async () => {
+test('en la web, un vendedor ve el SUYO de página (no el de quien busca ni el del teléfono)', async () => {
   Platform.OS = 'web';
   mockPerfilActivo.valor = 'vendedor';
   await render(<PerfilScreen />);
-  expect(screen.getByText('PERFIL VENDEDOR')).toBeTruthy();
+  expect(screen.getByText('PERFIL VENDEDOR WEB')).toBeTruthy();
+  expect(screen.queryByText('PERFIL VENDEDOR')).toBeNull();
   expect(screen.queryByText('PERFIL WEB')).toBeNull();
 });
 
@@ -45,4 +47,12 @@ test('en la app el perfil de siempre', async () => {
   await render(<PerfilScreen />);
   expect(screen.queryByText('PERFIL WEB')).toBeNull();
   expect(screen.getByText('IDENTIDAD APP')).toBeTruthy();
+});
+
+test('en la app, un vendedor sigue con el perfil de teléfono', async () => {
+  Platform.OS = 'ios';
+  mockPerfilActivo.valor = 'vendedor';
+  await render(<PerfilScreen />);
+  expect(screen.getByText('PERFIL VENDEDOR')).toBeTruthy();
+  expect(screen.queryByText('PERFIL VENDEDOR WEB')).toBeNull();
 });

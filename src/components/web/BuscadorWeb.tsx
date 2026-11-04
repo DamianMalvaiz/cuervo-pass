@@ -7,6 +7,9 @@ import { BotonWeb } from '@/components/web/BotonWeb';
 import { Colors, Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { etiquetaDeTipo, siguienteTipo, type FiltrosWeb } from '@/lib/filtrosWeb';
 
+// El campo vive DENTRO de una celda con su propio estado de foco: se marca para que el anillo de foco lo dibuje la celda (redondeada) y no el campo (un rectángulo suelto dentro de la píldora). Ver global.css.
+const EMBEBIDO = { dataSet: { campoEmbebido: '1' } } as object;
+
 const L = Colors.light;
 
 /**
@@ -43,6 +46,7 @@ export function BuscadorWeb({
           placeholder="Colonia o municipio"
           placeholderTextColor={L.textSecondary}
           style={estilos.campo}
+          {...EMBEBIDO}
         />
       </View>
 
@@ -60,6 +64,7 @@ export function BuscadorWeb({
           placeholder="Sin tope, al mes"
           placeholderTextColor={L.textSecondary}
           style={estilos.campo}
+          {...EMBEBIDO}
         />
       </View>
 

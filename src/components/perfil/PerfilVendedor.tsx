@@ -1,5 +1,4 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
@@ -8,16 +7,11 @@ import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { useMiSuscripcion } from '@/hooks/queries/usePlanes';
-import { usePerfilActivo } from '@/hooks/queries/usePerfilActivo';
-import { useMisRoles } from '@/hooks/queries/useRoles';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
+import { usePerfilVendedor } from '@/hooks/use-perfil-vendedor';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
-import { pasoDeVerificacion, tituloDeLoPropio, type PasoVerificacion } from '@/lib/panelVendedor';
+import { tituloDeLoPropio, type PasoVerificacion } from '@/lib/panelVendedor';
 import { describirSuscripcion } from '@/lib/planes';
-import { toast } from '@/lib/toast';
-import { useAuthStore } from '@/store/useAuthStore';
-import { usePerfilStore } from '@/store/usePerfilStore';
 
 import { EncabezadoPerfil } from './EncabezadoPerfil';
 import { TarjetaIdentidad } from './TarjetaIdentidad';
@@ -28,14 +22,14 @@ import { TarjetaIdentidad } from './TarjetaIdentidad';
  */
 
 /** La insignia dice el estado REAL de la verificación; sin funciones de vendedor no hay insignia (no se inventa una). */
-function insigniaDe(paso: PasoVerificacion | null): string | undefined {
+export function insigniaDe(paso: PasoVerificacion | null): string | undefined {
   if (!paso) return undefined;
   // «Heredada» (0043) NO pasó por una revisión: una insignia que no se ganó, rotulada como ganada, es el defecto que la 0026 evitó con el correo.
   if (paso.tipo === 'listo' && paso.heredada) return 'Función heredada, sin revisión';
   return { empezar: 'Sin verificar', reenviar: 'Verificación rechazada', esperar: 'Identidad en revisión', listo: 'Identidad verificada' }[paso.tipo];
 }
 
-const descripcionDe = (paso: PasoVerificacion | null): string => {
+export const descripcionDe = (paso: PasoVerificacion | null): string => {
   if (!paso) return '';
   if (paso.tipo === 'listo' && paso.heredada) return 'Heredada: no pasó por una revisión.';
   return {
@@ -49,30 +43,7 @@ const descripcionDe = (paso: PasoVerificacion | null): string => {
 export function PerfilVendedor() {
   const margenSuperior = useMargenSuperior();
   const { anchoContenido, clase } = useTamanoPantalla();
-  const miId = useAuthStore((s) => s.session?.user.id);
-  const { perfil, error: errorPerfil, cargarPerfil } = usePerfilStore();
-  const { roles, fallo: falloRoles, reintentar: reintentarRoles } = useMisRoles(miId);
-  const { cambiar } = usePerfilActivo(miId);
-  const [cambiando, setCambiando] = useState(false);
-
-  const paso = pasoDeVerificacion(roles);
-  const primerRol = (roles.find((r) => r.rol === 'arrendador' || r.rol === 'comerciante')?.rol ?? 'arrendador') as 'arrendador' | 'comerciante';
-  const rolDeVerificacion = paso?.rol ?? primerRol;
-  const { suscripcion } = useMiSuscripcion(miId, primerRol);
-
-  const aEstudiante = async () => {
-    if (cambiando) return;
-    setCambiando(true);
-    try {
-      await cambiar('estudiante');
-      // Un vendedor no hizo el cuestionario de búsqueda: sin universidad, primero se llena.
-      router.replace(perfil?.universidad ? '/(tabs)/inicio' : '/perfil/preferencias');
-    } catch {
-      toast.error('No pudimos cambiar de perfil. Revisa tu conexión e intenta de nuevo.');
-    } finally {
-      setCambiando(false);
-    }
-  };
+  const { miId, perfil, errorPerfil, cargarPerfil, roles, falloRoles, reintentarRoles, paso, rolDeVerificacion, suscripcion, aEstudiante, cambiando } = usePerfilVendedor();
 
   return (
     <ThemedView style={estilos.pantalla}>
