@@ -5,8 +5,16 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 // acepta tiene una salida (cerrar sesión), no un callejón.
 
 const mockReplace = jest.fn();
+const mockDismissAll = jest.fn();
 const mockPush = jest.fn();
-jest.mock('expo-router', () => ({ router: { replace: (...a: unknown[]) => mockReplace(...a), push: (...a: unknown[]) => mockPush(...a) } }));
+jest.mock('expo-router', () => ({
+  router: {
+    replace: (...a: unknown[]) => mockReplace(...a),
+    push: (...a: unknown[]) => mockPush(...a),
+    canDismiss: () => true,
+    dismissAll: (...a: unknown[]) => mockDismissAll(...a),
+  },
+}));
 const mockAceptar = jest.fn();
 jest.mock('@/services/aviso.service', () => ({ aceptarAviso: (...a: unknown[]) => mockAceptar(...a) }));
 const mockCerrar = jest.fn();
@@ -33,6 +41,19 @@ test('explica qué cambió, sobre todo lo de quien vende', async () => {
   await render(<Pantalla />);
   expect(screen.getByText(/Actualizamos el aviso de privacidad/)).toBeTruthy();
   expect(screen.getByText(/INE/)).toBeTruthy();
+});
+
+// La lista de cambios es lo que se lee ANTES de aceptar: tiene que decir lo que el aviso vigente dice (v5), no lo de una versión anterior.
+test('dice lo nuevo de la v5: la web se explora sin cuenta, con datos reducidos', async () => {
+  await render(<Pantalla />);
+  expect(screen.getByText(/sin cuenta/)).toBeTruthy();
+  expect(screen.getByText(/dirección exacta/)).toBeTruthy();
+});
+
+test('no dice que los cobros son simulados (desde la v4 van por Mercado Pago, en modo de pruebas)', async () => {
+  await render(<Pantalla />);
+  expect(screen.queryByText(/simulad/i)).toBeNull();
+  expect(screen.getByText(/Mercado Pago/)).toBeTruthy();
 });
 
 test('la casilla nunca viene marcada', async () => {
@@ -73,5 +94,6 @@ test('quien no acepta puede cerrar sesión', async () => {
   await fireEvent.press(screen.getByLabelText('No acepto, cerrar sesión'));
   await waitFor(() => expect(mockCerrar).toHaveBeenCalled());
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/login'));
+  expect(mockDismissAll).toHaveBeenCalled();
   expect(mockAceptar).not.toHaveBeenCalled();
 });

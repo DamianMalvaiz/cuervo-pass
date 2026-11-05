@@ -1,43 +1,57 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Sello } from '@/components/ficha/Sello';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
+import { medidasWeb } from '@/lib/medidasWeb';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
-import { useContratarPlan, useCrearPago, useMiSuscripcion, useMiUltimaOrden, usePlanes, useRefrescarTrasPago } from '@/hooks/queries/usePlanes';
+import { useCrearPago, useIniciarPrueba, useMiSuscripcion, useMiUltimaOrden, usePlanes, useRefrescarTrasPago } from '@/hooks/queries/usePlanes';
 import { useAlVolverAPrimerPlano } from '@/hooks/use-al-volver';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
-import { AVISO_PAGOS, ErrorPago, describirOrden, mensajeDeErrorPago, textoConfirmarPago } from '@/lib/pagoMp';
-import { describirSuscripcion, fechaLarga, incluyeDe, precioDe } from '@/lib/planes';
+import { ErrorPago, describirOrden, mensajeDeErrorPago, textoConfirmarPago } from '@/lib/pagoMp';
+import { describirSuscripcion, fechaLarga, incluyeDe, precioDe, textoDePrueba } from '@/lib/planes';
 import { toast } from '@/lib/toast';
 import { esRolVendedor, type RolVendedor } from '@/lib/verificacion';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { PlanDePago } from '@/types/database.types';
 
 /**
- * Planes y suscripciones · Cuervo 360 (migración 0053).
+ * Planes y suscripciones · Cuervo 360 (migraciones 0053 y 0084).
  *
- * Dice en qué plan está esta cuenta (prueba gratis, plan vigente o sin plan), qué incluye cada plan y permite contratarlo, con Mercado Pago
- * (abre su página de pago; el plan se activa cuando llega el aviso del pago, fuera de la app) o con el pago de demostración, que queda de respaldo.
- * Mientras la app esté en pruebas la pantalla lo dice siempre: no se cobra dinero real. Tres estados en cada lectura (END-11): cargando, falló y
- * vacío se pintan distinto.
+ * Tres vistas, según lo que la base dice de esta cuenta (END-11: cargando, falló y vacío se pintan distinto):
+ *  · sin la función → «Primero crea tu perfil de vendedor».
+ *  · prueba disponible (no la ha usado ni ha pagado) → «Empieza gratis»: UNA tarjeta y UN botón, «Empezar prueba gratis». Sin alertas y sin la palabra
+ *    «demostración»; es gratis y no compromete nada.
+ *  · lo demás → los planes de pago, que se pagan con Mercado Pago (abre su página; el plan se activa cuando llega el aviso del pago, fuera de la app).
  */
 export default function PlanesScreen() {
+  return (
+    <EnMarcoWeb>
+      <PlanesScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function PlanesScreenPantalla() {
   const theme = useTheme();
   const { rol: rolParam } = useLocalSearchParams<{ rol: string }>();
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  // En la web ancha la pantalla ocupa todo el ancho del sitio: las tarjetas de plan van en fila y lo que es de una sola tarjeta no se estira.
+  const ancha = Platform.OS === 'web' && medidasWeb(ancho).escritorio;
+  const tope = ancha ? estilos.tope : null;
   const miId = useAuthStore((s) => s.session?.user.id);
 
   const rolValido = esRolVendedor(rolParam);
   const rol = (rolValido ? rolParam : 'comerciante') as RolVendedor;
   const { suscripcion, cargando: cargandoSus, fallo: falloSus, reintentar: reintentarSus } = useMiSuscripcion(miId, rol);
   const { planes, cargando: cargandoPlanes, fallo: falloPlanes, reintentar: reintentarPlanes } = usePlanes(rol);
-  const contratar = useContratarPlan(miId);
+  const iniciar = useIniciarPrueba(miId);
   const crear = useCrearPago();
   const { orden, fallo: falloOrden, refrescar: refrescarOrden } = useMiUltimaOrden(miId, rol);
   const refrescarTodo = useRefrescarTrasPago(miId, rol);
@@ -57,10 +71,10 @@ export default function PlanesScreen() {
   const envoltura = (hijos: React.ReactNode) => (
     <ThemedView style={estilos.pantalla}>
       <ScrollView
-        contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]}
+        contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio, ancha && estilos.anchoWeb]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[estilos.columna, { maxWidth: anchoContenido }]}>{hijos}</View>
+        <View style={[estilos.columna, ancha ? null : { maxWidth: anchoContenido }]}>{hijos}</View>
       </ScrollView>
     </ThemedView>
   );
@@ -95,83 +109,109 @@ export default function PlanesScreen() {
 
   const titulo = rol === 'comerciante' ? 'Planes de comerciante' : 'Planes de arrendador';
 
-  // Sin la función aprobada no hay plan que mostrar ni que contratar.
+  // Sin la función no hay plan que mostrar ni que contratar.
   if (!suscripcion) {
     return envoltura(
       <>
         <ThemedText type="subtitle">{titulo}</ThemedText>
         <ThemedText themeColor="textSecondary">
-          Primero agrega esta función y verifica tu identidad desde tu perfil, en «Tus funciones».
+          Primero crea tu perfil de vendedor. Verificar tu identidad viene después, y puedes empezar tu prueba gratis antes.
         </ThemedText>
+        <Sello onPress={() => router.push('/perfil/crear-vendedor')} accessibilityLabel="Crear mi perfil de vendedor">
+          Crear mi perfil de vendedor
+        </Sello>
       </>
     );
   }
 
-  const pedir = (plan: PlanDePago) => {
-    if (contratar.isPending) return;
-    Alert.alert(
-      `Contratar el plan ${plan.nombre}`,
-      `Es un pago de DEMOSTRACIÓN: no se cobra nada. El plan queda vigente 30 días y cuesta ${precioDe(plan.precio_centavos)} al mes en la versión real.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Contratar',
-          onPress: () =>
-            contratar.mutate(
-              { planId: plan.id, rol },
-              {
-                onSuccess: (hasta) => toast.exito(`Plan ${plan.nombre} activo hasta el ${fechaLarga(hasta)}`),
-                onError: (err) =>
-                  toast.error(
-                    esCodigo(err, CP.DEMO_APAGADO)
-                      ? 'Los pagos de demostración no están activos por ahora.'
-                      : esCodigo(err, CP.PLAN_NO_DISPONIBLE)
-                        ? 'Ese plan no está disponible para tu cuenta. Verifica tu identidad primero.'
-                        : 'No pudimos contratar el plan. Revisa tu conexión e intenta de nuevo.'
-                  ),
-              }
-            ),
-        },
-      ]
-    );
+  // Es GRATIS y no compromete nada: sin alerta de confirmación. El fallo se dice por su código (END-27) y ninguno se cuenta como éxito.
+  const empezarPrueba = () => {
+    if (iniciar.isPending) return;
+    iniciar.mutate(rol, {
+      onSuccess: (hasta) => toast.exito(`Prueba gratis activa hasta el ${fechaLarga(hasta)}`),
+      onError: (err) =>
+        toast.error(
+          esCodigo(err, CP.PRUEBA_YA_USADA)
+            ? 'Ya usaste tu prueba gratis.'
+            : esCodigo(err, CP.SIN_ESA_FUNCION)
+              ? 'Primero crea tu perfil de vendedor.'
+              : 'No pudimos empezar tu prueba. Revisa tu conexión e intenta de nuevo.'
+        ),
+    });
   };
+
+  // Crea la orden y lleva a Mercado Pago. `ventana` es la pestaña que la web ya abrió (en el gesto de quien confirmó); sin ella (la app, o un navegador que la bloqueó) se abre la URL de la forma de siempre.
+  const continuarPago = (plan: PlanDePago, ventana: { location: { href: string }; close: () => void } | null) =>
+    crear.mutate(
+      { planId: plan.id },
+      {
+        onSuccess: ({ url }) => {
+          // `crearPago` ya comprobó que es una URL de Mercado Pago. Si el sistema no puede abrirla, se dice como fallo.
+          if (ventana) ventana.location.href = url;
+          else Linking.openURL(url).catch(() => toast.error('No pudimos abrir Mercado Pago. Inténtalo de nuevo.'));
+          toast.info('Termina el pago en Mercado Pago y vuelve aquí: se confirma en unos segundos.');
+          refrescarOrden();
+        },
+        onError: (err) => {
+          ventana?.close();
+          toast.error(mensajeDeErrorPago(err instanceof ErrorPago ? err.tipo : 'desconocido'));
+        },
+      }
+    );
 
   const pagar = (plan: PlanDePago) => {
     if (crear.isPending) return;
-    Alert.alert(`Pagar el plan ${plan.nombre} con Mercado Pago`, textoConfirmarPago(precioDe(plan.precio_centavos)), [
+    const titulo = `Pagar el plan ${plan.nombre} con Mercado Pago`;
+    const texto = textoConfirmarPago(precioDe(plan.precio_centavos));
+    if (Platform.OS === 'web') {
+      // En la web `Alert.alert` no hace nada (el botón parecería muerto): se confirma con el diálogo del navegador. Y la pestaña de Mercado Pago se abre AQUÍ, dentro del gesto: si se abriera después de esperar a la
+      // red, el navegador la bloquearía. Se llena con la URL cuando llega, o se cierra si la orden falla.
+      if (!window.confirm(`${titulo}\n\n${texto}`)) return;
+      continuarPago(plan, window.open('', '_blank'));
+      return;
+    }
+    Alert.alert(titulo, texto, [
       { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Continuar',
-        onPress: () =>
-          crear.mutate(
-            { planId: plan.id },
-            {
-              onSuccess: ({ url }) => {
-                // `crearPago` ya comprobó que es una URL de Mercado Pago. Si el sistema no puede abrirla, se dice como fallo.
-                Linking.openURL(url).catch(() => toast.error('No pudimos abrir Mercado Pago. Inténtalo de nuevo.'));
-                toast.info('Termina el pago en Mercado Pago y vuelve aquí: se confirma en unos segundos.');
-                refrescarOrden();
-              },
-              onError: (err) => toast.error(mensajeDeErrorPago(err instanceof ErrorPago ? err.tipo : 'desconocido')),
-            }
-          ),
-      },
+      { text: 'Continuar', onPress: () => continuarPago(plan, null) },
     ]);
   };
 
   const textoOrden = orden ? describirOrden(orden.estado, orden.creada_en) : null;
-  const ocupado = crear.isPending || contratar.isPending;
+  const ocupado = crear.isPending || iniciar.isPending;
+
+  // La prueba gratis, si está disponible: UNA tarjeta y UN botón. Es la del plan de prueba de ESTA función (no siempre el «Básico»: la del arrendador es «Plus»).
+  if (suscripcion.estado === 'gratis' && suscripcion.prueba_disponible) {
+    const plan = planes.find((p) => p.es_prueba) ?? planes[0];
+    return envoltura(
+      <>
+        <ThemedText style={Texto.tituloHoja}>Empieza gratis</ThemedText>
+        {plan ? <ThemedText themeColor="textSecondary">{textoDePrueba(plan.nombre)}</ThemedText> : null}
+        {plan ? (
+          <View style={[estilos.tarjeta, tope, { borderColor: theme.text, borderWidth: Filete.grueso, backgroundColor: theme.backgroundElement }]}>
+            <View style={estilos.cabeceraPlan}>
+              <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>{`Plan ${plan.nombre}`}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">{`Después, ${precioDe(plan.precio_centavos)} al mes`}</ThemedText>
+            </View>
+            {incluyeDe(plan, rol).map((f) => (
+              <View key={f} style={estilos.fila}>
+                <Ionicons name="checkmark-circle-outline" size={18} color={theme.bosque} />
+                <ThemedText>{f}</ThemedText>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        <View style={tope}>
+          <Sello onPress={empezarPrueba} cargando={iniciar.isPending} accessibilityLabel="Empezar prueba gratis">
+            Empezar prueba gratis
+          </Sello>
+        </View>
+      </>
+    );
+  }
 
   return envoltura(
     <>
       <ThemedText type="subtitle">{titulo}</ThemedText>
-
-      <View style={[estilos.aviso, { borderColor: theme.filete, backgroundColor: theme.backgroundSelected }]}>
-        <Ionicons name="information-circle-outline" size={20} color={theme.text} />
-        <ThemedText type="small" style={estilos.crece}>
-          {AVISO_PAGOS}
-        </ThemedText>
-      </View>
 
       {falloOrden ? (
         <ThemedText type="small" themeColor="textSecondary">
@@ -179,14 +219,14 @@ export default function PlanesScreen() {
         </ThemedText>
       ) : null}
       {textoOrden ? (
-        <View style={[estilos.aviso, { borderColor: theme.filete, backgroundColor: theme.backgroundSelected }]}>
+        <View style={[estilos.aviso, tope, { borderColor: theme.filete, backgroundColor: theme.backgroundSelected }]}>
           <Ionicons name="time-outline" size={20} color={theme.text} />
           <ThemedText type="small" style={estilos.crece}>{textoOrden}</ThemedText>
           <Sello variante="contorno" onPress={refrescarTodo} accessibilityLabel="Actualizar el estado del pago">Actualizar</Sello>
         </View>
       ) : null}
 
-      <View style={[estilos.tarjeta, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+      <View style={[estilos.tarjeta, tope, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
         <ThemedText type="smallBold" themeColor="textSecondary">Tu plan actual</ThemedText>
         <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>{suscripcion.plan_nombre}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">{describirSuscripcion(suscripcion)}</ThemedText>
@@ -202,10 +242,11 @@ export default function PlanesScreen() {
       {planes.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">Por ahora no hay planes de pago para esta función.</ThemedText>
       ) : (
-        planes.map((p) => {
+        <View style={ancha ? estilos.fila_planes : estilos.columna}>
+        {planes.map((p) => {
           const esElActual = suscripcion.estado === 'vigente' && suscripcion.plan_id === p.id;
           return (
-            <View key={p.id} style={[estilos.tarjeta, { borderColor: esElActual ? theme.bosque : theme.filete, backgroundColor: theme.backgroundElement }]}>
+            <View key={p.id} style={[estilos.tarjeta, ancha && estilos.tarjetaPlan, { borderColor: esElActual ? theme.bosque : theme.filete, backgroundColor: theme.backgroundElement }]}>
               <View style={estilos.cabeceraPlan}>
                 <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>{p.nombre}</ThemedText>
                 {esElActual ? (
@@ -229,18 +270,10 @@ export default function PlanesScreen() {
               >
                 {esElActual ? 'Renovar 30 días con Mercado Pago' : 'Pagar con Mercado Pago'}
               </Sello>
-              <Sello
-                variante="contorno"
-                onPress={() => pedir(p)}
-                cargando={contratar.isPending}
-                deshabilitado={ocupado}
-                accessibilityLabel={`Probar el plan ${p.nombre} sin pagar (demostración)`}
-              >
-                Probar sin pagar (demostración)
-              </Sello>
             </View>
           );
-        })
+        })}
+        </View>
       )}
     </>
   );
@@ -252,6 +285,10 @@ const estilos = StyleSheet.create({
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
   crece: { flex: 1 },
+  anchoWeb: { paddingHorizontal: Spacing.five },
+  tope: { maxWidth: 560, width: '100%' },
+  fila_planes: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'stretch', gap: Spacing.three },
+  tarjetaPlan: { flexBasis: 300, flexGrow: 1, flexShrink: 1, maxWidth: 480 },
   aviso: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, padding: Spacing.three, borderWidth: Filete.fino, borderRadius: Radios.tarjeta },
   tarjeta: { padding: Spacing.three, gap: Spacing.two, borderWidth: Filete.fino, borderRadius: Radios.tarjeta },
   fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },

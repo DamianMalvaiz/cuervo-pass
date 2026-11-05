@@ -5,20 +5,20 @@ import type { ReactNode } from 'react';
 const mockPlanes = jest.fn();
 const mockSus = jest.fn();
 const mockPagos = jest.fn();
-const mockPagar = jest.fn();
+const mockIniciar = jest.fn();
 const mockCrearPago = jest.fn();
 const mockOrden = jest.fn();
 jest.mock('@/services/planes.service', () => ({
   listarPlanes: (...a: unknown[]) => mockPlanes(...a),
   obtenerMiSuscripcion: (...a: unknown[]) => mockSus(...a),
   listarMisPagos: (...a: unknown[]) => mockPagos(...a),
-  simularPago: (...a: unknown[]) => mockPagar(...a),
+  iniciarPrueba: (...a: unknown[]) => mockIniciar(...a),
   crearPago: (...a: unknown[]) => mockCrearPago(...a),
   obtenerMiUltimaOrden: (...a: unknown[]) => mockOrden(...a),
 }));
 
 import { clienteDePrueba } from '@pruebas/consultas';
-import { useContratarPlan, useCrearPago, useMisPagos, useMiSuscripcion, useMiUltimaOrden, usePlanes, useRefrescarTrasPago } from '../usePlanes';
+import { useIniciarPrueba, useCrearPago, useMisPagos, useMiSuscripcion, useMiUltimaOrden, usePlanes, useRefrescarTrasPago } from '../usePlanes';
 
 const envolver = () => {
   const cliente = clienteDePrueba({ queries: { retry: false } });
@@ -75,39 +75,38 @@ describe('lecturas', () => {
   });
 });
 
-describe('useContratarPlan', () => {
-  it('paga con el plan elegido', async () => {
-    mockPagar.mockResolvedValue('2026-11-17T00:00:00Z');
+describe('useIniciarPrueba', () => {
+  it('inicia la prueba de la función elegida', async () => {
+    mockIniciar.mockResolvedValue('2026-11-08T00:00:00Z');
     const { Envoltura } = envolver();
-    const { result } = await renderHook(() => useContratarPlan('u1'), { wrapper: Envoltura });
-    await act(async () => { await result.current.mutateAsync({ planId: 'comerciante_destacado', rol: 'comerciante' }); });
-    expect(mockPagar).toHaveBeenCalledWith('comerciante_destacado');
+    const { result } = await renderHook(() => useIniciarPrueba('u1'), { wrapper: Envoltura });
+    await act(async () => { await result.current.mutateAsync('comerciante'); });
+    expect(mockIniciar).toHaveBeenCalledWith('comerciante');
   });
 
   it('al terminar vuelve a pedir plan, pagos, negocios propios, roles y la oferta pública', async () => {
-    mockPagar.mockResolvedValue('x');
+    mockIniciar.mockResolvedValue('x');
     const { Envoltura, cliente } = envolver();
     const espia = jest.spyOn(cliente, 'invalidateQueries');
-    const { result } = await renderHook(() => useContratarPlan('u1'), { wrapper: Envoltura });
-    await act(async () => { await result.current.mutateAsync({ planId: 'p', rol: 'comerciante' }); });
+    const { result } = await renderHook(() => useIniciarPrueba('u1'), { wrapper: Envoltura });
+    await act(async () => { await result.current.mutateAsync('comerciante'); });
     const claves = espia.mock.calls.map((c) => JSON.stringify((c[0] as { queryKey: unknown }).queryKey));
     expect(claves).toEqual(expect.arrayContaining([
-      JSON.stringify(['miSuscripcion', 'u1', 'comerciante']), JSON.stringify(['misPagos', 'u1']),
-      JSON.stringify(['misNegocios', 'u1']), JSON.stringify(['misRoles', 'u1']),
-      JSON.stringify(['negocios']), JSON.stringify(['negocio']),
+      JSON.stringify(['miSuscripcion', 'u1', 'comerciante']), JSON.stringify(['misNegocios', 'u1']),
+      JSON.stringify(['misRoles', 'u1']), JSON.stringify(['negocios']), JSON.stringify(['negocio']),
     ]));
   });
 
-  it('si el pago falla NO vuelve a pedir nada y el error llega con su código', async () => {
-    mockPagar.mockRejectedValue({ code: 'CP010' });
+  it('si falla NO vuelve a pedir nada y el error llega con su código', async () => {
+    mockIniciar.mockRejectedValue({ code: 'CP019' });
     const { Envoltura, cliente } = envolver();
     const espia = jest.spyOn(cliente, 'invalidateQueries');
-    const { result } = await renderHook(() => useContratarPlan('u1'), { wrapper: Envoltura });
+    const { result } = await renderHook(() => useIniciarPrueba('u1'), { wrapper: Envoltura });
     let error: unknown;
     await act(async () => {
-      try { await result.current.mutateAsync({ planId: 'p', rol: 'comerciante' }); } catch (e) { error = e; }
+      try { await result.current.mutateAsync('comerciante'); } catch (e) { error = e; }
     });
-    expect(error).toMatchObject({ code: 'CP010' });
+    expect(error).toMatchObject({ code: 'CP019' });
     expect(espia).not.toHaveBeenCalled();
   });
 });

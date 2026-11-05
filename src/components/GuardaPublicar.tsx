@@ -9,6 +9,7 @@ import { Spacing } from '@/constants/theme';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useMisRoles } from '@/hooks/queries/useRoles';
 import { puedePublicar } from '@/lib/funciones';
+import { pasoDeVerificacion } from '@/lib/panelVendedor';
 import { useAuthStore } from '@/store/useAuthStore';
 
 /**
@@ -47,6 +48,40 @@ export function GuardaPublicar({ children }: { children: ReactNode }) {
   }
 
   if (!puedePublicar(roles)) {
+    // Tiene una función de vendedor pero la verificación no está hecha: se dice en qué paso va y se le lleva a él. Sin verificar NO se publica.
+    const paso = pasoDeVerificacion(roles);
+    if (paso && paso.tipo !== 'listo') {
+      const alVerificar = () => router.push({ pathname: '/verificacion/[rol]', params: { rol: paso.rol } });
+      return (
+        <ThemedView style={[estilos.pantalla, { paddingTop: margenSuperior }]}>
+          {paso.tipo === 'esperar' ? (
+            <BloqueEstado
+              icono="time-outline"
+              etiqueta="Tu verificación está en revisión"
+              mensaje="Cuando termine la revisión podrás publicar. Mientras tanto, lo tuyo no aparece para los estudiantes."
+            />
+          ) : (
+            <>
+              <BloqueEstado
+                icono="shield-checkmark-outline"
+                etiqueta={paso.tipo === 'reenviar' ? 'Tu verificación no pasó' : 'Verifica tu identidad para publicar'}
+                mensaje={
+                  paso.tipo === 'reenviar'
+                    ? 'Revisa el motivo y vuelve a enviarla. Sin verificar no se puede publicar.'
+                    : 'Necesitamos tu INE y unas fotos. Solo las ve el equipo que verifica. Sin verificar no se puede publicar.'
+                }
+              />
+              <Sello
+                onPress={alVerificar}
+                accessibilityLabel={paso.tipo === 'reenviar' ? 'Volver a enviar mi verificación' : 'Verificar mi identidad'}
+              >
+                {paso.tipo === 'reenviar' ? 'Volver a enviar' : 'Verificar mi identidad'}
+              </Sello>
+            </>
+          )}
+        </ThemedView>
+      );
+    }
     return (
       <ThemedView style={[estilos.pantalla, { paddingTop: margenSuperior }]}>
         <BloqueEstado

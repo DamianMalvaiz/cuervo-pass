@@ -296,7 +296,7 @@ async function revisarFunciones() {
 
   try {
     const alta = await admin.auth.admin.createUser({
-      email: correo, password: clave, email_confirm: true,
+      email: correo, password: clave, email_confirm: true, app_metadata: { sin_restriccion: true },
       user_metadata: { nombre_usuario: `verif${Date.now()}`, nombre_completo: 'Verificacion Temporal' },
     });
     if (alta.error) throw alta.error;

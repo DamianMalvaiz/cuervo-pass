@@ -1,10 +1,13 @@
 import { useLocalSearchParams } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
-import { FormularioNegocio } from '@/components/FormularioNegocio';
+import { FormularioNegocio, type VistaPreviaNegocio } from '@/components/FormularioNegocio';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ConVistaPreviaApp } from '@/components/ConVistaPreviaApp';
+import { MarcoNegocioWeb } from '@/components/web/MarcoNegocioWeb';
+import { VistaPreviaNegocioWeb } from '@/components/web/VistaPreviaNegocioWeb';
 import { Spacing } from '@/constants/theme';
 import { useMiNegocio } from '@/hooks/queries/useMisNegocios';
 
@@ -13,6 +16,11 @@ import { useMiNegocio } from '@/hooks/queries/useMisNegocios';
  * El formulario solo se monta cuando ya están el negocio y su menú, para que arranque con los datos reales y no en blanco.
  */
 export default function EditarNegocioScreen() {
+  // En la web, con el marco de la web y una vista previa al lado; sin marco (app), el formulario lleva su propia barra de vista previa.
+  return Platform.OS === 'web' ? <MarcoNegocioWeb>{(alVistaPrevia) => <EditarNegocio alVistaPrevia={alVistaPrevia} />}</MarcoNegocioWeb> : <EditarNegocio />;
+}
+
+function EditarNegocio({ alVistaPrevia }: { alVistaPrevia?: (v: VistaPreviaNegocio) => void }) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { negocio, items, turnos, cargando, fallo, reintentar } = useMiNegocio(id);
 
@@ -38,7 +46,16 @@ export default function EditarNegocioScreen() {
       </ThemedView>
     );
   }
-  return <FormularioNegocio inicial={{ negocio, items, turnos }} />;
+  const formulario = (alVista?: (v: VistaPreviaNegocio) => void) => <FormularioNegocio inicial={{ negocio, items, turnos }} onVistaPrevia={alVista} />;
+  // En la app (y solo con el negocio ya cargado) una barra fija ofrece la vista previa en una hoja.
+  if (Platform.OS !== 'web') {
+    return (
+      <ConVistaPreviaApp<VistaPreviaNegocio> boton="Ver cómo se verá" titulo="Así se verá en Servicios" vista={(v) => <VistaPreviaNegocioWeb v={v} />}>
+        {(alVista) => formulario(alVista)}
+      </ConVistaPreviaApp>
+    );
+  }
+  return formulario(alVistaPrevia);
 }
 
 const estilos = StyleSheet.create({

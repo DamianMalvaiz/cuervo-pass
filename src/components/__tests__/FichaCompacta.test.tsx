@@ -36,3 +36,14 @@ test('sigue mostrando el precio formateado', async () => {
   await render(<FichaCompacta titulo="Depa" precio={2800} score={0.9} />);
   expect(await screen.findByText('$2,800', {}, { timeout: 5000 })).toBeTruthy();
 });
+
+test('una destacada lleva su insignia y lo dice a quien usa lector de pantalla', async () => {
+  await render(<FichaCompacta titulo="Depa" precio={2800} destacada onPress={() => {}} />);
+  expect(await screen.findByText('Destacado')).toBeTruthy();
+  expect(screen.getByLabelText(/^Destacado\. /)).toBeTruthy();
+});
+
+test('una que no es destacada no lleva insignia', async () => {
+  await render(<FichaCompacta titulo="Depa" precio={2800} onPress={() => {}} />);
+  expect(screen.queryByText('Destacado')).toBeNull();
+});

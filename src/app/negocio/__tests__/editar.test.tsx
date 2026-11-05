@@ -11,7 +11,6 @@ jest.mock('@/components/FormularioNegocio', () => ({
 }));
 
 import EditarNegocioScreen from '../editar/[id]';
-import NuevoNegocioScreen from '../nuevo';
 
 const estado = (extra: Record<string, unknown> = {}) => ({
   negocio: { id: 'n1', nombre: 'Tacos' }, items: [], cargando: false, fallo: false, reintentar: jest.fn(), ...extra,
@@ -50,7 +49,15 @@ test('un negocio que no existe o no es tuyo lo dice', async () => {
   expect(screen.getByText(/no existe o no es tuyo/)).toBeTruthy();
 });
 
-test('la pantalla de negocio nuevo monta el formulario', async () => {
-  await render(<NuevoNegocioScreen />);
-  expect(screen.getByText('FORMULARIO:NUEVO')).toBeTruthy();
+test('con el negocio cargado ofrece la vista previa; mientras carga o si falla no (no hay nada que previsualizar)', async () => {
+  const { unmount } = await render(<EditarNegocioScreen />);
+  expect(screen.getByLabelText('Ver cómo se verá')).toBeTruthy();
+  unmount();
+  mockMiNegocio.mockReturnValue(estado({ negocio: null, cargando: true }));
+  const otra = await render(<EditarNegocioScreen />);
+  expect(screen.queryByLabelText('Ver cómo se verá')).toBeNull();
+  otra.unmount();
+  mockMiNegocio.mockReturnValue(estado({ negocio: null, fallo: true }));
+  await render(<EditarNegocioScreen />);
+  expect(screen.queryByLabelText('Ver cómo se verá')).toBeNull();
 });

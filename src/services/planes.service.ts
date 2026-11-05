@@ -1,8 +1,7 @@
 // Planes y pagos · Cuervo 360 · migración 0053.
 //
-// El cliente LEE el catálogo de planes, su suscripción y sus pagos; nada de esto se escribe desde aquí. Contratar pasa por
-// `simular_pago`, que decide en el servidor (y solo funciona con el modo demostración activo). Toda lectura que falla LANZA
-// (END-11): «falló» no es «no tienes pagos».
+// El cliente LEE el catálogo de planes, su suscripción y sus pagos; nada de esto se escribe desde aquí. La prueba gratis la inicia `iniciar_prueba` y el pago
+// pasa por Mercado Pago; las dos cosas las decide el servidor. Toda lectura que falla LANZA (END-11): «falló» no es «no tienes pagos».
 
 import { ErrorPago, esUrlDePago, tipoDeErrorPago } from '@/lib/pagoMp';
 import type { MiSuscripcion } from '@/lib/planes';
@@ -45,11 +44,11 @@ export async function listarMisPagos(usuarioId: string): Promise<PagoRegistrado[
 }
 
 /**
- * Contrata un plan con un pago de DEMOSTRACIÓN y devuelve hasta cuándo queda vigente. El error conserva su `code`: CP010 si
- * el modo demostración está apagado, CP011 si el plan no aplica a esta cuenta.
+ * Inicia la prueba gratis de una función y devuelve hasta cuándo dura. UNA sola vez por función y nunca después de pagar. El error conserva su `code`:
+ * CP018 si la cuenta no tiene esa función, CP019 si la prueba ya se usó (o ya hubo un pago).
  */
-export async function simularPago(planId: string): Promise<string> {
-  const { data, error } = await supabase.rpc('simular_pago', { p_plan: planId });
+export async function iniciarPrueba(rol: Rol): Promise<string> {
+  const { data, error } = await supabase.rpc('iniciar_prueba', { p_rol: rol });
   if (error) throw error;
   return data as string;
 }

@@ -57,3 +57,14 @@ test('cada opción mide al menos 44 pt de alto', async () => {
     expect(estilo.minHeight).toBeGreaterThanOrEqual(44);
   }
 });
+
+// Probado en un teléfono real el 24/10/2026: con la campana en la misma fila, «Roomies» se partía en «Roomi / es» y «Servicios» en «Servici / os».
+// Jest no mide el diseño, así que se fija lo que lo causaba: una etiqueta que PUEDE ocupar dos renglones. Una sola línea, que se encoge antes de partirse.
+test('ninguna etiqueta puede partirse en dos renglones', async () => {
+  await render(<SelectorModulo valor="depas" onCambiar={() => {}} />);
+  for (const nombre of ['Depas', 'Roomies', 'Servicios']) {
+    const texto = screen.getByText(nombre);
+    expect(texto.props.numberOfLines).toBe(1);
+    expect(texto.props.adjustsFontSizeToFit).toBe(true);
+  }
+});

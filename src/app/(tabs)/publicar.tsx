@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 
 import { FichaPublicacion } from '@/components/FichaPublicacion';
 import { GuardaPublicar } from '@/components/GuardaPublicar';
@@ -28,6 +28,7 @@ import { tieneFuncionAprobada } from '@/lib/funciones';
 import { useCambiarEstadoPublicacion, useContactosRecibidos, useMisPublicaciones } from '@/hooks/queries/usePublicaciones';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
 import { toast } from '@/lib/toast';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 // Documento maestro v5 · §25 y §27.
 function MisPublicaciones({ extra }: { extra?: React.ReactNode }) {
@@ -48,47 +49,32 @@ function MisPublicaciones({ extra }: { extra?: React.ReactNode }) {
   const { urls: urlsFirmadas } = useFotosFirmadas(publicaciones.map((p) => p.fotos?.[0]));
   const miniaturas = useMiniaturas(publicaciones.map((p) => p.fotos?.[0]), ANCHOS.ancha);
 
-  const onCambiarEstado = (publicacion: Publicacion) => {
-    const activar = !publicacion.activa;
-    Alert.alert(
-      activar ? 'Reactivar publicación' : 'Desactivar publicación',
-      activar
-        ? '¿Volver a mostrarla a otros usuarios?'
-        : '¿Seguro que quieres desactivarla? Dejará de verse para otros usuarios (puedes reactivarla después).',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: activar ? 'Reactivar' : 'Desactivar',
-          style: activar ? 'default' : 'destructive',
-          onPress: async () => {
-            try {
-              // La mutación invalida las consultas afectadas por sí sola: sin
-              // eso, la publicación desactivada seguiría en la lista hasta que
-              // venciera el staleTime.
-              await cambiarEstado.mutateAsync({ id: publicacion.id, activa: activar });
-              // Antes un cambio exitoso no decía nada: la publicación solo cambiaba
-              // de aspecto en la lista. Dentro del `try`, para que un fallo no dé
-              // también el aviso de éxito.
-              toast.exito(activar ? 'Publicación reactivada' : 'Publicación desactivada');
-            } catch (e) {
-              // AUD-26: el límite de 15 activas por cuenta se aplica al
-              // reactivar igual que al crear.
-              // Es un resultado, no una pregunta: va como aviso. El Alert que SÍ se
-              // queda es el de arriba, el que pide confirmar.
-              toast.error(
-                // END-27 · Por código. Con la subcadena, un servidor con
-                // locale distinto nunca entraba en esta rama y la persona leía
-                // «intenta de nuevo» ante un límite que no se mueve solo.
-                esCodigo(e, CP.LIMITE_PUBLICACIONES)
-                  ? 'No se pudo cambiar el estado. Ya tienes 15 publicaciones activas. Desactiva alguna primero.'
-                  : 'No se pudo cambiar el estado. Intenta de nuevo en un momento.'
-              );
-            }
-          },
-        },
-      ]
-    );
+  /**
+   * Activar y desactivar son REVERSIBLES, así que actúan al instante y avisan con «Deshacer»: pedir confirmación en todo enseña a pulsar «Aceptar» sin
+   * leer, y entonces la confirmación de lo que de verdad es irreversible (borrar una reseña, eliminar la cuenta) ya no protege a nadie.
+   * Deshacer una desactivación es reactivar, y reactivar puede chocar con el límite de 15: el fallo se dice, no se traga.
+   */
+  const aplicarEstado = async (id: string, activar: boolean, esDeshacer = false) => {
+    try {
+      // La mutación invalida las consultas afectadas por sí sola: sin eso, la publicación desactivada seguiría en la lista hasta que venciera el staleTime.
+      await cambiarEstado.mutateAsync({ id, activa: activar });
+      // Dentro del `try`, para que un fallo no dé también el aviso de éxito. Deshacer no ofrece «Deshacer» otra vez: sería un bucle.
+      toast.exito(
+        activar ? 'Publicación reactivada' : 'Publicación desactivada',
+        esDeshacer ? undefined : { accion: { etiqueta: 'Deshacer', onPress: () => void aplicarEstado(id, !activar, true) } }
+      );
+    } catch (e) {
+      // AUD-26: el límite de 15 activas por cuenta se aplica al reactivar igual que al crear.
+      toast.error(
+        // END-27 · Por código. Con la subcadena, un servidor con locale distinto nunca entraba en esta rama y la persona leía «intenta de nuevo»
+        // ante un límite que no se mueve solo.
+        esCodigo(e, CP.LIMITE_PUBLICACIONES)
+          ? 'No se pudo cambiar el estado. Ya tienes 15 publicaciones activas. Desactiva alguna primero.'
+          : 'No se pudo cambiar el estado. Intenta de nuevo en un momento.'
+      );
+    }
   };
+  const onCambiarEstado = (publicacion: Publicacion) => void aplicarEstado(publicacion.id, !publicacion.activa);
 
   return (
     <ThemedView style={estilos.pantalla}>
@@ -184,7 +170,7 @@ function MisPublicaciones({ extra }: { extra?: React.ReactNode }) {
                   <FileteHoja />
 
                   <View style={estilos.acciones}>
-                    <Pressable
+                    <Pulsable
                       onPress={() => router.push(`/publicacion/editar/${item.id}`)}
                       style={estilos.accion}
                       accessibilityRole="button"
@@ -194,9 +180,9 @@ function MisPublicaciones({ extra }: { extra?: React.ReactNode }) {
                       <ThemedText type="small" themeColor="acento">
                         Editar
                       </ThemedText>
-                    </Pressable>
+                    </Pulsable>
 
-                    <Pressable
+                    <Pulsable
                       onPress={() => onCambiarEstado(item)}
                       style={estilos.accion}
                       accessibilityRole="button"
@@ -210,7 +196,7 @@ function MisPublicaciones({ extra }: { extra?: React.ReactNode }) {
                       <ThemedText type="small" themeColor={item.activa ? 'error' : 'exito'}>
                         {item.activa ? 'Desactivar' : 'Reactivar'}
                       </ThemedText>
-                    </Pressable>
+                    </Pulsable>
                   </View>
                 </View>
               </View>

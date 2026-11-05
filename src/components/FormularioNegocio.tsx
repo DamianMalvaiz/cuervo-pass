@@ -2,11 +2,13 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
 import { EditorHorario } from '@/components/EditorHorario';
+import { EditorProducto } from '@/components/EditorProducto';
+import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
@@ -20,19 +22,21 @@ import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
 import { geocodificarDireccion } from '@/lib/geocoding';
-import { parsearHorarioTexto, resumenAcotado, validarTurnos, type Turno } from '@/lib/horario';
+import { parsearHorarioTexto, resumenAcotado, validarHorarioCompleto, type DiaIso, type Turno } from '@/lib/horario';
+import { MAX_PRODUCTOS_TECNICO, productoVacio, seccionesDe, type ProductoEditable } from '@/lib/menu';
 import { MAX_FOTOS_NEGOCIO, validarNegocio, type ErroresNegocio } from '@/lib/negocio';
+import { dialogo } from '@/lib/dialogo';
 import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { NegocioItem, NegocioPropio } from '@/types/database.types';
 
-const RANGOS: { valor: number | null; etiqueta: string }[] = [
-  { valor: 1, etiqueta: '$' },
-  { valor: 2, etiqueta: '$$' },
-  { valor: 3, etiqueta: '$$$' },
-  { valor: null, etiqueta: 'Sin dato' },
-];
+/** Lo que la vista previa (en la web) necesita para dibujar cómo quedará el negocio: nombre, dirección y la foto de portada (la primera) si ya se puede enseñar. */
+export interface VistaPreviaNegocio {
+  nombre: string;
+  direccion: string;
+  fotoUri?: string;
+}
 
 /** `ruta` presente = ya está en Storage; ausente = es una foto nueva y `uri` es local. */
 type FotoEnForm = { clave: string; ruta: string | null; uri: string };
@@ -44,11 +48,11 @@ type FotoEnForm = { clave: string; ruta: string | null; uri: string };
  * medias (ver `useGuardarNegocio`). La dirección se geocodifica al guardar solo si cambió; si no se puede ubicar, el
  * negocio se guarda igual y no tendrá «Cómo llegar». `destacado` NO se elige aquí: lo decidirá el plan.
  */
-export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPropio; items: NegocioItem[]; turnos?: Turno[] } }) {
+export function FormularioNegocio({ inicial, onVistaPrevia }: { inicial?: { negocio: NegocioPropio; items: NegocioItem[]; turnos?: Turno[] }; onVistaPrevia?: (v: VistaPreviaNegocio) => void }) {
   const theme = useTheme();
   const { anchoContenido, clase } = useTamanoPantalla();
   const miId = useAuthStore((s) => s.session?.user.id);
-  const { categorias } = useCategoriasServicio();
+  const { categorias, fallo: falloCategorias, reintentar: reintentarCategorias } = useCategoriasServicio();
   const guardar = useGuardarNegocio(miId);
   const borrar = useBorrarNegocio(miId);
   // El límite REAL del plan; mientras no se sepa, rige la cota técnica y la base hace cumplir el plan (CP012).
@@ -60,15 +64,20 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
   const [nombre, setNombre] = useState(n?.nombre ?? '');
   const [descripcion, setDescripcion] = useState(n?.descripcion ?? '');
   const [direccion, setDireccion] = useState(n?.direccion ?? '');
-  const [rangoPrecio, setRangoPrecio] = useState<number | null>(n?.rango_precio ?? null);
+  // Los productos con que se PUBLICA un negocio nuevo (el primero es obligatorio). Un negocio que ya existe edita su menú en su propia pantalla.
+  const [productos, setProductos] = useState<ProductoEditable[]>([]);
+  const [editando, setEditando] = useState<ProductoEditable | null>(null);
+  const maxProductos = Math.min(suscripcion?.max_productos ?? MAX_PRODUCTOS_TECNICO, MAX_PRODUCTOS_TECNICO);
   // Turnos: los guardados; si el negocio solo tiene el texto de siempre y es regular, se propone su equivalente (se guarda al confirmar).
   const turnosIniciales = inicial?.turnos ?? [];
   const propuestos = turnosIniciales.length === 0 ? parsearHorarioTexto(n?.horario) ?? [] : [];
   const [turnos, setTurnos] = useState<Turno[]>(turnosIniciales.length > 0 ? turnosIniciales : propuestos);
-  const [turnosTocados, setTurnosTocados] = useState(propuestos.length > 0);
+  // Con un horario ya definido, los días que no abre están cerrados; sin él, ningún día está decidido (el horario es obligatorio).
+  const [cerrados, setCerrados] = useState<DiaIso[]>(() =>
+    turnos.length === 0 ? [] : ([1, 2, 3, 4, 5, 6, 7] as DiaIso[]).filter((d) => !turnos.some((t) => t.dia === d))
+  );
   const [errorHorario, setErrorHorario] = useState<string | undefined>(undefined);
-  // Sin turnos tocados, el texto original no se modifica; con turnos, el texto es su resumen.
-  const horario = turnosTocados ? resumenAcotado(turnos, 120) : (n?.horario ?? '');
+  const horario = resumenAcotado(turnos, 120);
   const [activo, setActivo] = useState(n?.activo ?? true);
   const [fotos, setFotos] = useState<FotoEnForm[]>(
     (n?.fotos ?? []).map((ruta) => ({ clave: ruta, ruta, uri: '' }))
@@ -78,6 +87,13 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
 
   const rutasIniciales = n?.fotos ?? [];
   const { urls } = useFotosFirmadas(rutasIniciales);
+
+  // La vista previa de la web: se manda afuera con valores simples (no objetos) para que el efecto solo corra cuando algo cambió. La portada es la primera foto: la de este dispositivo, o la ya guardada si ya está firmada.
+  const portada = fotos[0];
+  const fotoPrevia = portada ? (portada.ruta ? urls.get(portada.ruta) : portada.uri) || undefined : undefined;
+  useEffect(() => {
+    onVistaPrevia?.({ nombre, direccion, fotoUri: fotoPrevia });
+  }, [onVistaPrevia, nombre, direccion, fotoPrevia]);
 
   const agregarFoto = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -92,10 +108,11 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
 
   const onGuardar = async () => {
     const e = validarNegocio({
-      categoriaId, nombre, descripcion, direccion, rangoPrecio, horario, fotos: fotos.map((f) => f.clave),
+      categoriaId, nombre, descripcion, direccion, horario, fotos: fotos.map((f) => f.clave),
+      totalProductos: n ? (inicial?.items.length ?? 0) : productos.length, activo,
     }, maxFotos);
     setErrores(e);
-    const problemaHorario = turnosTocados ? validarTurnos(turnos) : null;
+    const problemaHorario = validarHorarioCompleto(turnos, cerrados);
     setErrorHorario(problemaHorario ?? undefined);
     if (Object.keys(e).length > 0 || problemaHorario || !categoriaId) return;
 
@@ -122,14 +139,14 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
             direccion: direccion.trim(),
             latitud,
             longitud,
-            rango_precio: rangoPrecio,
             horario: horario.trim() || null,
             activo,
           },
           fotosConservadas: conservadas,
           fotosQuitadas: rutasIniciales.filter((r) => !conservadas.includes(r)),
           fotosNuevas: fotos.filter((f) => !f.ruta).map((f) => f.uri),
-          turnos: turnosTocados ? turnos : undefined,
+          turnos,
+          productos: n ? undefined : productos,
         },
         {
           onSuccess: () => {
@@ -159,7 +176,7 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
 
   const onBorrar = () => {
     if (!n) return;
-    Alert.alert(
+    dialogo(
       'Borrar mi negocio',
       'Se borran el negocio, su menú y sus fotos. No se puede deshacer.',
       [
@@ -197,6 +214,10 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
 
           <View style={estilos.bloque}>
             <ThemedText type="smallBold" themeColor="textSecondary">Categoría</ThemedText>
+            {falloCategorias && categorias.length === 0 ? (
+              // Sin categorías no se puede publicar: se dice por qué (no una lista vacía) y se puede reintentar.
+              <ErrorDeCarga etiqueta="No pudimos cargar las categorías" onReintentar={reintentarCategorias} />
+            ) : null}
             <View style={estilos.chips}>
               {categorias.map((c) => {
                 const activa = c.id === categoriaId;
@@ -229,38 +250,18 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
           <Campo etiqueta="Dirección" value={direccion} onChangeText={setDireccion} error={errores.direccion} maxLength={200} />
           <EditorHorario
             turnos={turnos}
-            onChange={(t) => {
-              setTurnos(t);
-              setTurnosTocados(true);
+            cerrados={cerrados}
+            onChange={(e) => {
+              setTurnos(e.turnos);
+              setCerrados(e.cerrados);
             }}
             error={errorHorario ?? errores.horario}
           />
-          {!turnosTocados && n?.horario ? (
+          {turnos.length === 0 && n?.horario ? (
             <ThemedText type="small" themeColor="textSecondary">
-              Horario actual: {n.horario}. Defínelo arriba para que tu negocio pueda aparecer en «Abierto ahora».
+              Horario actual: {n.horario}. Defínelo arriba, día por día, para que tu negocio pueda aparecer en «Abierto ahora».
             </ThemedText>
           ) : null}
-
-          <View style={estilos.bloque}>
-            <ThemedText type="smallBold" themeColor="textSecondary">Rango de precio</ThemedText>
-            <View style={estilos.chips}>
-              {RANGOS.map((r) => {
-                const activo = r.valor === rangoPrecio;
-                return (
-                  <Pulsable
-                    key={r.etiqueta}
-                    onPress={() => setRangoPrecio(r.valor)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Rango de precio ${r.etiqueta}`}
-                    accessibilityState={{ selected: activo }}
-                    style={[estilos.chip, { backgroundColor: activo ? theme.lima : theme.backgroundElement, borderColor: activo ? theme.lima : theme.filete }]}
-                  >
-                    <ThemedText type="small" style={[Texto.pesoFuerte, activo && { color: theme.limaTexto }]}>{r.etiqueta}</ThemedText>
-                  </Pulsable>
-                );
-              })}
-            </View>
-          </View>
 
           <View style={estilos.bloque}>
             <ThemedText type="smallBold" themeColor="textSecondary">
@@ -328,10 +329,64 @@ export function FormularioNegocio({ inicial }: { inicial?: { negocio: NegocioPro
               <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
             </Pulsable>
           ) : (
-            <ThemedText type="small" themeColor="textSecondary">
-              Cuando publiques tu negocio podrás agregar su menú, con secciones, precios y fotos.
-            </ThemedText>
+            <View style={estilos.bloque}>
+              <ThemedText type="smallBold" themeColor="textSecondary">Lo que vendes</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Agrega al menos un producto o servicio. Después podrás completar el menú, con secciones, precios y fotos.
+              </ThemedText>
+              {productos.map((p) => (
+                <View key={p.clave} style={[estilos.fila, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+                  <Pulsable
+                    onPress={() => setEditando(p)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Editar ${p.nombre}`}
+                    style={estilos.crece}
+                  >
+                    <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>{p.nombre}</ThemedText>
+                    {p.seccion.trim() ? <ThemedText type="small" themeColor="textSecondary">{p.seccion.trim()}</ThemedText> : null}
+                  </Pulsable>
+                  <ThemedText style={Texto.pesoFuerte}>{p.precio.trim() ? `$${p.precio.trim()}` : 'Consultar precio'}</ThemedText>
+                  <Pulsable
+                    onPress={() => setProductos((xs) => xs.filter((x) => x.clave !== p.clave))}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Quitar ${p.nombre}`}
+                    style={estilos.quitar}
+                  >
+                    <Ionicons name="close-circle-outline" size={24} color={theme.textSecondary} />
+                  </Pulsable>
+                </View>
+              ))}
+              {productos.length < maxProductos ? (
+                <Pulsable
+                  onPress={() => setEditando(productoVacio())}
+                  accessibilityRole="button"
+                  accessibilityLabel="Agregar un producto"
+                  style={[estilos.agregar, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
+                >
+                  <Ionicons name="add" size={20} color={theme.bosque} />
+                  <ThemedText style={Texto.pesoFuerte}>Agregar producto</ThemedText>
+                </Pulsable>
+              ) : null}
+            </View>
           )}
+          {errores.productos ? <ThemedText type="small" style={{ color: theme.error }}>{errores.productos}</ThemedText> : null}
+          {editando ? (
+            <EditorProducto
+              producto={editando}
+              esNuevo={!productos.some((x) => x.clave === editando.clave)}
+              secciones={seccionesDe(productos)}
+              estrellasEnOtros={productos.filter((x) => x.clave !== editando.clave && x.estrella).length}
+              onGuardar={(p) => {
+                setProductos((xs) => (xs.some((x) => x.clave === p.clave) ? xs.map((x) => (x.clave === p.clave ? p : x)) : [...xs, p]));
+                setEditando(null);
+              }}
+              onQuitar={() => {
+                setProductos((xs) => xs.filter((x) => x.clave !== editando.clave));
+                setEditando(null);
+              }}
+              onCerrar={() => setEditando(null)}
+            />
+          ) : null}
 
           <View style={[estilos.fila, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
             <View style={estilos.crece}>

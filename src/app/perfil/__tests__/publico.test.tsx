@@ -146,10 +146,12 @@ test('si la afinidad falla, el perfil se pinta igual', async () => {
 
 // Y al contrario: si el perfil falla, no se pinta una ficha a medias con la
 // afinidad de alguien que no se pudo cargar.
-test('si el perfil falla, se dice que no se encontró', async () => {
+// (Antes esta prueba afirmaba que un fallo de red decía «No se encontró»: fijaba el defecto, no el comportamiento correcto. «Falló» ≠ «no existe», invariante 2.)
+test('si el perfil falla, se dice que falló (no que no existe) y no se pinta una ficha a medias', async () => {
   mockPerfilPublico.mockRejectedValue(new Error('sin red'));
   await pintar();
-  expect(await screen.findByText('No se encontró este perfil.')).toBeTruthy();
+  expect(await screen.findByText('No pudimos cargar este perfil')).toBeTruthy();
+  expect(screen.queryByText('No se encontró este perfil.')).toBeNull();
 });
 
 test('un perfil inexistente también lo dice', async () => {
@@ -392,4 +394,16 @@ test('en el perfil de OTRA persona sí están el chat y el reporte', async () =>
   await render(<PerfilPublicoScreen />);
   expect(await screen.findByLabelText('Iniciar chat con Ana Pérez')).toBeTruthy();
   expect(screen.getByLabelText('Reportar usuario')).toBeTruthy();
+});
+
+// 0082 · una cuenta restringida no ve lo que la base va a rechazar. `useCuentaRestringida` está simulado por omisión en jest.setup.js (false).
+const { useCuentaRestringida } = jest.requireMock('@/hooks/queries/useCuentaRestringida');
+afterEach(() => useCuentaRestringida.mockReturnValue(false));
+
+test('una cuenta restringida no ve «Iniciar chat» ni «Reportar usuario»', async () => {
+  useCuentaRestringida.mockReturnValue(true);
+  await pintar();
+  await screen.findByText(/Estudio mecatrónica/);
+  expect(screen.queryByLabelText('Iniciar chat con Ana Pérez')).toBeNull();
+  expect(screen.queryByLabelText('Reportar usuario')).toBeNull();
 });

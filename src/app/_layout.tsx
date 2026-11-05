@@ -11,7 +11,7 @@ import { Stack, ThemeProvider, type Theme } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
 import { Sello } from '@/components/ficha/Sello';
@@ -21,6 +21,8 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Spacing, Tipografia } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLimpiarCacheAlCerrarSesion } from '@/hooks/queries/useLimpiarCacheAlCerrarSesion';
+import { useRestaurarSesion } from '@/hooks/use-restaurar-sesion';
+import { useVolverAlLoginSiSeCierraLaSesion } from '@/hooks/use-volver-al-login';
 import { crearClienteConsultas } from '@/lib/consultas';
 import { fallo, limpiar, textoDeError } from '@/lib/registro';
 import { iniciarRegistroRemoto } from '@/lib/registroRemoto';
@@ -70,6 +72,10 @@ export default function RootLayout() {
   const [clienteConsultas] = useState(crearClienteConsultas);
   // La caché no es de nadie en particular: al terminar la sesión se vacía entera.
   useLimpiarCacheAlCerrarSesion(clienteConsultas);
+  // La sesión guardada se lee al arrancar por CUALQUIER ruta, no solo por la pantalla de entrada (ver el hook).
+  useRestaurarSesion();
+  // Una sesión que termina sin que nadie pulse nada (revocada, cuenta borrada en otro dispositivo) saca de las pantallas protegidas.
+  useVolverAlLoginSiSeCierraLaSesion();
 
   const scheme = useColorScheme();
   const esOscuro = scheme === 'dark';
@@ -122,35 +128,51 @@ export default function RootLayout() {
         <Stack.Screen name="aviso-actualizado" options={{ gestureEnabled: false }} />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="publicacion/[id]" options={{ ...encabezado, title: 'Ficha' }} />
-        <Stack.Screen name="publicacion/nueva" options={{ ...encabezado, title: 'Nueva publicación' }} />
-        <Stack.Screen name="publicacion/editar/[id]" options={{ ...encabezado, title: 'Editar publicación' }} />
-        <Stack.Screen name="admin/index" options={{ ...encabezado, title: 'Administración' }} />
-        <Stack.Screen name="admin/verificaciones" options={{ ...encabezado, title: 'Verificaciones' }} />
-        <Stack.Screen name="admin/moderacion" options={{ ...encabezado, title: 'Moderación' }} />
-        <Stack.Screen name="admin/errores" options={{ ...encabezado, title: 'Errores de la app' }} />
-        <Stack.Screen name="negocio/nuevo" options={{ ...encabezado, title: 'Publicar negocio' }} />
-        <Stack.Screen name="negocio/editar/[id]" options={{ ...encabezado, title: 'Editar negocio' }} />
-        <Stack.Screen name="negocio/menu/[id]" options={{ ...encabezado, title: 'Menú' }} />
+        {/* En la web «Nueva publicación» trae su propio encabezado (MarcoSesionWeb) y una vista previa al lado. */}
+        <Stack.Screen name="publicacion/nueva" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Nueva publicación' }} />
+        <Stack.Screen name="publicacion/editar/[id]" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Editar publicación' }} />
+        {/* En la web, publicar y editar un negocio traen su propio encabezado (MarcoNegocioWeb) y una vista previa al lado. */}
+        <Stack.Screen name="negocio/nuevo" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Publicar negocio' }} />
+        <Stack.Screen name="negocio/editar/[id]" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Editar negocio' }} />
+        <Stack.Screen name="negocio/menu/[id]" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Menú' }} />
         <Stack.Screen name="negocio/[id]" options={{ ...encabezado, title: 'Negocio' }} />
-        <Stack.Screen name="perfil/[usuarioId]" options={{ ...encabezado, title: 'Perfil' }} />
+        <Stack.Screen name="negocio/producto/[id]" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Producto' }} />
+        {/* En la web el perfil de una persona trae su propio encabezado (MarcoSesionWeb). */}
+        <Stack.Screen name="perfil/[usuarioId]" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Perfil' }} />
         {/* Hoja modal, no empujada: editar tus preferencias es una tarea
             autocontenida de la que se sale cancelando, y el gesto de arrastrar
             hacia abajo para cerrar ya lo conoce cualquiera. */}
         <Stack.Screen
           name="perfil/preferencias"
-          options={{ ...encabezado, title: 'Mis preferencias', presentation: 'modal' }}
+          options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Mis preferencias', presentation: Platform.OS === 'web' ? 'card' : 'modal' }}
         />
+        <Stack.Screen name="perfil/sobre-mi" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Sobre mí' }} />
+        <Stack.Screen name="perfil/crear-vendedor" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Perfil de vendedor' }} />
+        <Stack.Screen name="perfil/personalizacion" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Personalización' }} />
         {/* La ruta es la conversación, no el otro usuario: el hilo existe como
             fila en `conversaciones` desde la migración 0012 (§26). */}
         <Stack.Screen name="chat/[conversacionId]" options={{ ...encabezado, title: 'Chat' }} />
         {/* §29 — se abre desde el registro ANTES de aceptar, y desde Mi perfil
             después. Con cabecera para que haya "atrás" sin gestos. */}
-        <Stack.Screen name="verificacion/[rol]" options={{ ...encabezado, title: 'Verificación' }} />
-        <Stack.Screen name="planes/[rol]" options={{ ...encabezado, title: 'Planes' }} />
-        <Stack.Screen name="pagos" options={{ ...encabezado, title: 'Pagos y facturación' }} />
-        <Stack.Screen name="notificaciones" options={{ ...encabezado, title: 'Avisos' }} />
-        <Stack.Screen name="configuracion" options={{ ...encabezado, title: 'Configuración' }} />
-        <Stack.Screen name="aviso-privacidad" options={{ ...encabezado, title: 'Aviso de privacidad' }} />
+        {/* En la web, verificación, planes y pagos van dentro del marco de la web (EnMarcoWeb): sin la cabecera de la app. */}
+        <Stack.Screen name="verificacion/[rol]" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Verificación' }} />
+        <Stack.Screen name="planes/[rol]" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Planes' }} />
+        <Stack.Screen name="pagos" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Mi plan y pagos' }} />
+        {/* En la web la página trae su propio encabezado (MarcoSesionWeb): la cabecera de la app sobraría. */}
+        <Stack.Screen name="notificaciones" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Avisos' }} />
+        <Stack.Screen name="configuracion" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Configuración' }} />
+        <Stack.Screen name="aviso-privacidad" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Aviso de privacidad' }} />
+        <Stack.Screen name="terminos" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Términos y condiciones' }} />
+        <Stack.Screen name="cambiar-contrasena" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Cambiar contraseña' }} />
+        <Stack.Screen name="eliminar-cuenta" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Eliminar mi cuenta' }} />
+        {/* Las páginas de ayuda: en la web traen su marco; en la app, la cabecera con «atrás». */}
+        <Stack.Screen name="ayuda" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Ayuda y contacto' }} />
+        <Stack.Screen name="guia-de-visita" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Guía para visitar un lugar' }} />
+        <Stack.Screen name="contrato" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Entiende tu contrato' }} />
+        <Stack.Screen name="acuerdos" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Acuerdos de convivencia' }} />
+        <Stack.Screen name="cerca" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Cerca de tu universidad' }} />
+        <Stack.Screen name="comparar" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Comparar lugares' }} />
+        <Stack.Screen name="presupuesto" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: '¿Qué alcanza con tu presupuesto?' }} />
       </Stack>
       {/* Después del Stack: se pinta encima de cualquier pantalla. Un solo host. */}
       <ToastHost />

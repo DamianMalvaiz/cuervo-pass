@@ -81,7 +81,7 @@ const ids = {};
 for (const c of CUENTAS) {
   let id = await idDe(c.email);
   if (!id) {
-    const { data, error } = await admin.auth.admin.createUser({ email: c.email, password: PASSWORD_DEMO, email_confirm: true });
+    const { data, error } = await admin.auth.admin.createUser({ email: c.email, password: PASSWORD_DEMO, email_confirm: true, app_metadata: { sin_restriccion: true } });
     if (error || !data?.user) { console.error(`${c.email}: ${error?.message}`); process.exit(1); }
     id = data.user.id;
     console.log(`${c.email}: creada`);

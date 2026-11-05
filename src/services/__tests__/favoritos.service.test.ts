@@ -225,3 +225,34 @@ describe('favoritos de negocios', () => {
     await expect(listarMisNegociosFavoritos('u1')).rejects.toMatchObject({ message: 'x' });
   });
 });
+
+// ── Cuántas personas guardaron MIS negocios (migración 0088) ────────────────
+describe('contarFavoritosDeMisNegocios', () => {
+  test('sin ids no pregunta nada', async () => {
+    const { contarFavoritosDeMisNegocios } = require('../favoritos.service');
+    mockRpc.mockClear();
+    await expect(contarFavoritosDeMisNegocios([])).resolves.toEqual(new Map());
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  test('pide los conteos por RPC y devuelve un mapa id → total', async () => {
+    const { contarFavoritosDeMisNegocios } = require('../favoritos.service');
+    mockRpc.mockResolvedValue({ data: [{ negocio_id: 'n1', total: 4 }], error: null });
+    const mapa = await contarFavoritosDeMisNegocios(['n1']);
+    expect(mockRpc).toHaveBeenCalledWith('favoritos_por_negocio', { p_ids: ['n1'] });
+    expect(mapa.get('n1')).toBe(4);
+  });
+
+  test('parte la consulta en tandas de 50 (la función rechaza más)', async () => {
+    const { contarFavoritosDeMisNegocios } = require('../favoritos.service');
+    mockRpc.mockReset().mockResolvedValue({ data: [], error: null });
+    await contarFavoritosDeMisNegocios(Array.from({ length: 120 }, (_, i) => `n${i}`));
+    expect(mockRpc).toHaveBeenCalledTimes(3);
+  });
+
+  test('si falla, LANZA: un fallo no es «cero personas»', async () => {
+    const { contarFavoritosDeMisNegocios } = require('../favoritos.service');
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'sin red' } });
+    await expect(contarFavoritosDeMisNegocios(['n1'])).rejects.toMatchObject({ message: 'sin red' });
+  });
+});

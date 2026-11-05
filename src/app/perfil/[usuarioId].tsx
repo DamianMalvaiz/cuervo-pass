@@ -2,11 +2,14 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { Calificacion } from '@/components/ficha/Calificacion';
 import { CampoFicha } from '@/components/ficha/CampoFicha';
+import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
+import { MarcoSesionWeb } from '@/components/web/MarcoSesionWeb';
+import { PerfilRoomieWeb } from '@/components/web/PerfilRoomieWeb';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Seccion } from '@/components/ficha/Seccion';
@@ -17,8 +20,10 @@ import { Filete, Spacing } from '@/constants/theme';
 import { useMovimientoReducido } from '@/hooks/use-movimiento-reducido';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { dialogo } from '@/lib/dialogo';
 import { folioDe } from '@/lib/folio';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
+import { useCuentaRestringida } from '@/hooks/queries/useCuentaRestringida';
 import { abrirChatCon } from '@/lib/abrirChat';
 import { obtenerAfinidadRoomie, obtenerPerfilPublico, reportarUsuario } from '@/services/usuarios.service';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -61,11 +66,25 @@ const ETIQUETA_HORARIO: Record<string, string> = {
 // escribirle a alguien era la única sin el dato por el que esa persona salió en
 // la lista — el mismo defecto que END-21 cerró para publicaciones.
 export default function PerfilRoomieScreen() {
+  // En la web, su propia página con el marco de la web; la cabecera de la app se apaga en el layout.
+  return Platform.OS === 'web' ? (
+    <MarcoSesionWeb>
+      <PerfilRoomieWeb />
+    </MarcoSesionWeb>
+  ) : (
+    <PerfilRoomieApp />
+  );
+}
+
+function PerfilRoomieApp() {
   const theme = useTheme();
   const { usuarioId } = useLocalSearchParams<{ usuarioId: string }>();
   const session = useAuthStore((s) => s.session);
   const [usuario, setUsuario] = useState<PerfilPublico | null>(null);
   const [cargando, setCargando] = useState(true);
+  // «Falló la lectura» NO es «no existe» (invariante 2): son dos pantallas distintas. `intento` repite la lectura.
+  const [fallo, setFallo] = useState(false);
+  const [intento, setIntento] = useState(0);
   const [abriendoChat, setAbriendoChat] = useState(false);
   const [afinidad, setAfinidad] = useState<{ similitud: number | null; nivel: 1 | 2 } | null>(null);
   const { anchoLista } = useTamanoPantalla();
@@ -73,11 +92,24 @@ export default function PerfilRoomieScreen() {
 
   useEffect(() => {
     if (!usuarioId) return;
+    let vivo = true;
     obtenerPerfilPublico(usuarioId)
-      .then(setUsuario)
-      .catch(() => setUsuario(null))
-      .finally(() => setCargando(false));
-  }, [usuarioId]);
+      .then((u) => {
+        if (!vivo) return;
+        setUsuario(u);
+        setFallo(false);
+      })
+      .catch((e) => {
+        aviso('obtenerPerfilPublico falló', undefined, e);
+        if (vivo) setFallo(true);
+      })
+      .finally(() => {
+        if (vivo) setCargando(false);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [usuarioId, intento]);
 
   // La afinidad va en SU PROPIA petición y su propio estado. Colgarla del mismo
   // `then` haría que un fallo al calcularla dejara la pantalla entera sin
@@ -97,6 +129,8 @@ export default function PerfilRoomieScreen() {
 
   const { urls: urlsFirmadas } = useFotosFirmadas([usuario?.foto_url]);
   const esPropio = Boolean(session?.user.id) && session?.user.id === usuarioId;
+  // 0082: una cuenta sin correo universitario no inicia chats ni reporta; no se ofrece lo que la base va a rechazar.
+  const restringida = useCuentaRestringida(session?.user.id);
 
   // AUD-07: la conversación la abre una función de Postgres, no un insert desde
   // el cliente. Dos personas tocando el botón a la vez reciben el MISMO
@@ -121,7 +155,7 @@ export default function PerfilRoomieScreen() {
         // Se dice QUÉ pasa, no solo «gracias». Hasta la migración 0023 este
         // acuse era falso: el trigger salía sin hacer nada para los reportes
         // de personas, así que la app agradecía por algo que no ocurría.
-        Alert.alert(
+        dialogo(
           'Reporte registrado',
           'Al tercer reporte de cuentas distintas, el perfil se suspende y deja de aparecer en la app. Si corres peligro, no uses solo esta app: avisa a alguien de confianza.'
         );
@@ -136,7 +170,7 @@ export default function PerfilRoomieScreen() {
         );
       }
     };
-    Alert.alert('Reportar usuario', '¿Por qué lo reportas?', [
+    dialogo('Reportar usuario', '¿Por qué lo reportas?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Comportamiento sospechoso', onPress: () => enviar('comportamiento sospechoso') },
       { text: 'Información falsa', onPress: () => enviar('información falsa') },
@@ -152,6 +186,20 @@ export default function PerfilRoomieScreen() {
         <ScrollView contentContainerStyle={[estilos.hoja, estilos.contenido, estilos.columna, { maxWidth: anchoLista }]}>
           <ListaEsqueleto variante="hoja" filas={1} conFoto={false} etiquetas={['Afinidad', 'CONVIVENCIA']} />
         </ScrollView>
+      </ThemedView>
+    );
+  }
+
+  if (fallo) {
+    return (
+      <ThemedView style={estilos.centrado}>
+        <ErrorDeCarga
+          etiqueta="No pudimos cargar este perfil"
+          onReintentar={() => {
+            setCargando(true);
+            setIntento((n) => n + 1);
+          }}
+        />
       </ThemedView>
     );
   }
@@ -286,6 +334,10 @@ export default function PerfilRoomieScreen() {
         {esPropio ? (
           <ThemedText type="small" themeColor="textSecondary">
             Así te ven las demás personas.
+          </ThemedText>
+        ) : restringida ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Una cuenta de vendedor no inicia conversaciones ni reporta. Sí puedes responder a quien te escribe.
           </ThemedText>
         ) : (
           <>

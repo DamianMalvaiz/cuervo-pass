@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import {
   FormularioCuestionario,
@@ -13,15 +13,20 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Spacing } from '@/constants/theme';
 import { useDesplazador } from '@/hooks/use-desplazador';
+import { useAsegurarMiPerfil } from '@/hooks/use-asegurar-perfil';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { parsearPerfil } from '@/lib/aiService';
+import { dialogo } from '@/lib/dialogo';
 import { geocodificarDireccion } from '@/lib/geocoding';
 import { construirTextoPerfil } from '@/lib/perfilTexto';
 import { avisoVector, campoVector, resolverPerfilVector } from '@/lib/perfilVector';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import { aviso } from '@/lib/registro';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
+import { TituloPaginaWeb } from '@/components/web/TituloPaginaWeb';
+import { medidasWeb } from '@/lib/medidasWeb';
 
 // Documento maestro v5 · §25 — el cuestionario es editable, no una pregunta de
 // una sola vez. Cambiar de presupuesto, de universidad o de consentimiento para
@@ -31,10 +36,21 @@ import { aviso } from '@/lib/registro';
 // en dos lugares, tarde o temprano divergen y solo uno de los dos coincide con
 // los CHECK de la tabla.
 export default function PreferenciasScreen() {
+  return (
+    <EnMarcoWeb>
+      <PreferenciasScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function PreferenciasScreenPantalla() {
+  useAsegurarMiPerfil();
   const theme = useTheme();
   const formulario = useRef<ControlCuestionario>(null);
   const [guardando, setGuardando] = useState(false);
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  // En la web ancha el formulario ocupa el ancho del sitio, en dos columnas; en el teléfono y en la app, una.
+  const ancha = Platform.OS === 'web' && medidasWeb(ancho).escritorio;
   // Scroll al primer error: el ScrollView es de ESTA pantalla y el formulario no
   // puede moverlo. Con un pie fijo y un formulario largo, un error puede quedar a
   // varias pantallas de donde se tocó el botón.
@@ -98,7 +114,7 @@ export default function PreferenciasScreen() {
 
     const avisoDeVector = avisoVector(resultadoVector, teniaVector);
     if (avisoDeVector) {
-      Alert.alert(avisoDeVector.titulo, avisoDeVector.cuerpo, [{ text: 'Entendido', onPress: () => router.back() }]);
+      dialogo(avisoDeVector.titulo, avisoDeVector.cuerpo, [{ text: 'Entendido', onPress: () => router.back() }]);
       return;
     }
     router.back();
@@ -122,11 +138,12 @@ export default function PreferenciasScreen() {
           ref={registrarScroll}
           onScroll={onScroll}
           scrollEventThrottle={16}
-          contentContainerStyle={[styles.container, clase === 'amplia' && styles.centradoAmplio]}
+          contentContainerStyle={[styles.container, clase === 'amplia' && styles.centradoAmplio, ancha && styles.anchoWeb]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={[styles.columna, { maxWidth: anchoContenido }]}>
+          <View style={[styles.columna, ancha ? null : { maxWidth: anchoContenido }]}>
+            <TituloPaginaWeb>Mis preferencias</TituloPaginaWeb>
             {/* Decir de entrada qué HACE este formulario: no son gustos, es el
                 corte que decide qué publicaciones existen para ti. */}
             <View style={styles.membrete}>
@@ -143,6 +160,7 @@ export default function PreferenciasScreen() {
             <FormularioCuestionario
               ref={formulario}
               botonEnPie
+              columnas={ancha}
               onEstadoEnvio={setGuardando}
               desplazador={desplazador}
               textoBoton="Guardar preferencias"
@@ -186,6 +204,7 @@ const styles = StyleSheet.create({
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
   container: { padding: Spacing.three, paddingBottom: Spacing.six },
   centradoAmplio: { alignItems: 'center' },
+  anchoWeb: { paddingHorizontal: Spacing.five },
   columna: { width: '100%', gap: Spacing.four },
   membrete: { gap: Spacing.one, paddingTop: Spacing.two },
   explicacion: { lineHeight: 20 },

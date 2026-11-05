@@ -60,3 +60,17 @@ test('un esquema sin mensaje propio no sale en inglés', () => {
 test('el mensaje de obligatorio está en español', () => {
   expect(MENSAJE_OBLIGATORIO).toBe('Este campo es obligatorio');
 });
+
+// La web publicada lleva una CSP sin `unsafe-eval`. Zod 4 prueba `new Function('')` para ver si puede compilar sus validadores; la CSP lo bloquea (y deja una violación en la
+// consola de cada pantalla con formulario) y cae a su camino normal. Con `jitless` no lo intenta: mismo resultado, sin la violación.
+describe('sin eval (CSP de la web)', () => {
+  it('Zod no intenta compilar validadores con eval', () => {
+    expect(z.core.globalConfig.jitless).toBe(true);
+  });
+
+  it('y las validaciones siguen funcionando igual', () => {
+    const r = z.object({ correo: z.string().email('Ese correo no parece válido') }).safeParse({ correo: 'no-es-un-correo' });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0].message).toBe('Ese correo no parece válido');
+  });
+});

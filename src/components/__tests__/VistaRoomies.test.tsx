@@ -288,3 +288,21 @@ test('pinta el selector que le pasa Inicio, arriba de su encabezado', async () =
   expect(await screen.findByText('SELECTOR DE PRUEBA')).toBeTruthy();
   expect(screen.queryByText('REGISTRO DE ROOMIES')).toBeNull();
 });
+
+describe('cuando FALLA la lectura se dice, no se pinta como «nadie busca roomie»', () => {
+  it('sin nada que enseñar: dice que no pudo cargar los roomies y ofrece reintentar', async () => {
+    const reintentar = jest.fn();
+    mockRoomies.mockReturnValue({ roomies: [], cargando: false, fallo: 'No pudimos cargar los roomies.', reintentar });
+    await render(<VistaRoomies />);
+    expect(screen.getByText('No pudimos cargar los roomies')).toBeTruthy();
+    expect(screen.queryByText('Sin resultados')).toBeNull();
+    await act(async () => { fireEvent.press(screen.getByLabelText('Reintentar')); });
+    expect(reintentar).toHaveBeenCalledTimes(1);
+  });
+
+  it('sin fallo y sin roomies sí es «Sin resultados»', async () => {
+    mockRoomies.mockReturnValue({ roomies: [], cargando: false, fallo: null, reintentar: jest.fn() });
+    await render(<VistaRoomies />);
+    expect(screen.getByText('Sin resultados')).toBeTruthy();
+  });
+});

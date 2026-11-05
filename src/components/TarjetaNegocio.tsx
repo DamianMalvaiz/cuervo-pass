@@ -11,10 +11,6 @@ import type { FuenteFoto } from '@/lib/miniaturas';
 import { useTheme } from '@/hooks/use-theme';
 import type { Negocio } from '@/types/database.types';
 
-/** «$», «$$» o «$$$». Sin dato no se inventa uno. */
-export const signosDePrecio = (rango: number | null): string | null =>
-  rango != null && rango >= 1 && rango <= 3 ? '$'.repeat(rango) : null;
-
 /**
  * Un negocio de Servicios · Cuervo 360. Dos formas: `fila` (foto cuadrada a la izquierda, para la lista) y `destacado`
  * (foto ancha arriba, para el carril). Un negocio sembrado se rotula «Negocio de ejemplo»: es inventado y no se
@@ -35,13 +31,14 @@ export function TarjetaNegocio({
   onPress: () => void;
 }) {
   const theme = useTheme();
-  const precio = signosDePrecio(negocio.rango_precio);
   const ejemplo = negocio.origen === 'sembrado';
+  // Cerrado ahora (se SABE que lo está; sin horario conocido no se apaga): se ve en gris y no se toca. «Cerrado» ya va en el texto de la tarjeta.
+  const cerrado = negocio.abierto_ahora === false;
   // «a 1.2 km»: lo que de verdad le sirve a quien busca; el puntaje del ranking NO se enseña.
   const distancia = negocio.distancia_km != null && Number.isFinite(negocio.distancia_km) ? `a ${negocio.distancia_km.toFixed(1)} km` : null;
   // Con horario estructurado (0070) el estado manda y el texto largo se queda para la ficha; sin él, se enseña el texto como antes.
   const estado = negocio.abierto_ahora === true ? 'Abierto ahora' : negocio.abierto_ahora === false ? 'Cerrado' : null;
-  const detalle = [estado, distancia, estado ? null : negocio.horario, precio].filter(Boolean).join(' · ');
+  const detalle = [estado, distancia, estado ? null : negocio.horario].filter(Boolean).join(' · ');
 
   const foto = fotoUrl || fotoMini ? (
     <FotoLista miniatura={fotoMini} completa={fotoUrl} style={forma === 'fila' ? estilos.fotoFila : estilos.fotoDestacado} />
@@ -55,7 +52,7 @@ export function TarjetaNegocio({
   );
 
   const textos = (
-    <View style={estilos.textos}>
+    <View style={[estilos.textos, forma === 'destacado' && estilos.textosDestacado]}>
       <ThemedText numberOfLines={1} style={[Texto.cuerpo, Texto.pesoFuerte]}>
         {negocio.nombre}
       </ThemedText>
@@ -75,14 +72,17 @@ export function TarjetaNegocio({
 
   return (
     <Pulsable
-      onPress={onPress}
+      onPress={cerrado ? undefined : onPress}
+      disabled={cerrado}
+      accessibilityState={{ disabled: cerrado }}
       accessibilityRole="button"
       accessibilityLabel={`${negocio.nombre}${detalle ? '. ' + detalle : ''}${ejemplo ? '. Negocio de ejemplo' : ''}`}
-      style={
+      style={[
         forma === 'fila'
           ? [estilos.fila, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]
-          : estilos.destacado
-      }
+          : [estilos.destacado, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }],
+        cerrado && estilos.cerrado,
+      ]}
     >
       {foto}
       {forma === 'destacado' && negocio.destacado ? (
@@ -93,7 +93,11 @@ export function TarjetaNegocio({
         </View>
       ) : null}
       {textos}
-      {forma === 'fila' ? <BotonFavoritoNegocio negocioId={negocio.id} /> : null}
+      {forma === 'fila' ? (
+        <View pointerEvents={cerrado ? 'none' : 'auto'}>
+          <BotonFavoritoNegocio negocioId={negocio.id} />
+        </View>
+      ) : null}
     </Pulsable>
   );
 }
@@ -107,9 +111,13 @@ const estilos = StyleSheet.create({
     borderWidth: Filete.fino,
     borderRadius: Radios.tarjeta,
   },
+  // Gris: la misma tarjeta, apagada. El texto dice «Cerrado», así que el color no es lo único que lo avisa.
+  cerrado: { opacity: 0.45 },
   fotoFila: { width: 72, height: 72, borderRadius: Radios.control },
-  destacado: { width: 220, gap: Spacing.two },
-  fotoDestacado: { width: 220, height: AltoFotoTarjeta * 0.6, borderRadius: Radios.tarjeta },
+  // La tarjeta del carril: con borde, la foto arriba hasta el borde y el texto con su margen (como la de Departamentos destacados).
+  destacado: { width: 220, borderWidth: Filete.fino, borderRadius: Radios.tarjeta, overflow: 'hidden' },
+  fotoDestacado: { width: 220 - 2 * Filete.fino, height: AltoFotoTarjeta * 0.6 },
+  textosDestacado: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.three },
   sinFoto: { alignItems: 'center', justifyContent: 'center' },
   textos: { flex: 1, gap: Spacing.half },
   insignia: {

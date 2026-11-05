@@ -50,6 +50,7 @@ import {
   crearPublicacion,
   obtenerAfinidad,
   obtenerParecidas,
+  obtenerDestacadas,
   obtenerNuevasEstaSemana,
   obtenerPublicacionPublica,
   obtenerSugerencias,
@@ -213,6 +214,17 @@ test('las novedades llevan limite y tipo al servidor', async () => {
   mockRpc.mockResolvedValue({ data: [], error: null });
   await obtenerNuevasEstaSemana(10, 'cuarto');
   expect(mockRpc).toHaveBeenCalledWith('nuevas_esta_semana', { p_limite: 10, p_tipo: 'cuarto' });
+});
+
+test('los destacados llevan limite y tipo al servidor y devuelven la lista', async () => {
+  mockRpc.mockResolvedValue({ data: [fila('d1', null)], error: null });
+  await expect(obtenerDestacadas(10, 'depa')).resolves.toHaveLength(1);
+  expect(mockRpc).toHaveBeenCalledWith('destacadas_publicaciones', { p_limite: 10, p_tipo: 'depa' });
+});
+
+test('un fallo al pedir los destacados se lanza (el hook decide si se esconde)', async () => {
+  mockRpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
+  await expect(obtenerDestacadas()).rejects.toMatchObject({ message: 'boom' });
 });
 
 // Este contador es ACCESORIO: adorna «Mis publicaciones» con cuanta gente pidio

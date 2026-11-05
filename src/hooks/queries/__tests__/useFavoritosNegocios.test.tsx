@@ -6,16 +6,18 @@ const mockIds = jest.fn();
 const mockLista = jest.fn();
 const mockGuardar = jest.fn();
 const mockQuitar = jest.fn();
+const mockConteo = jest.fn();
 jest.mock('@/services/favoritos.service', () => ({
   listarMisNegociosFavoritosIds: (...a: unknown[]) => mockIds(...a),
   listarMisNegociosFavoritos: (...a: unknown[]) => mockLista(...a),
   guardarFavoritoNegocio: (...a: unknown[]) => mockGuardar(...a),
   quitarFavoritoNegocio: (...a: unknown[]) => mockQuitar(...a),
+  contarFavoritosDeMisNegocios: (...a: unknown[]) => mockConteo(...a),
 }));
 
 import { clienteDePrueba } from '@pruebas/consultas';
 
-import { useAlternarFavoritoNegocio, useMisNegociosFavoritos, useMisNegociosFavoritosIds } from '../useFavoritosNegocios';
+import { useAlternarFavoritoNegocio, useConteoFavoritosDeMisNegocios, useMisNegociosFavoritos, useMisNegociosFavoritosIds } from '../useFavoritosNegocios';
 
 const envolver = () => {
   const cliente = clienteDePrueba({ queries: { retry: false }, mutations: { gcTime: 0 } });
@@ -68,4 +70,21 @@ test('al terminar se vuelve a pedir ids y lista', async () => {
   await act(async () => { await result.current.mutateAsync({ negocioId: 'n1', guardar: true }); });
   const claves = invalidar.mock.calls.map((c) => JSON.stringify((c[0] as { queryKey: unknown }).queryKey));
   expect(claves).toEqual(expect.arrayContaining([JSON.stringify(['favoritosNegociosIds', 'u1']), JSON.stringify(['favoritosNegocios', 'u1'])]));
+});
+
+test('el conteo de MIS negocios: sin ids no consulta; con ids devuelve el mapa; un fallo es fallo', async () => {
+  const { Envoltura } = envolver();
+  const vacio = await renderHook(() => useConteoFavoritosDeMisNegocios([]), { wrapper: Envoltura });
+  expect(mockConteo).not.toHaveBeenCalled();
+  expect(vacio.result.current.cargando).toBe(false);
+
+  mockConteo.mockResolvedValue(new Map([['n1', 3]]));
+  const ok = await renderHook(() => useConteoFavoritosDeMisNegocios(['n1']), { wrapper: Envoltura });
+  await waitFor(() => expect(ok.result.current.conteos.get('n1')).toBe(3));
+
+  mockConteo.mockRejectedValue(new Error('x'));
+  const roto = envolver();
+  const r = await renderHook(() => useConteoFavoritosDeMisNegocios(['n2']), { wrapper: roto.Envoltura });
+  await waitFor(() => expect(r.result.current.fallo).toBe(true));
+  expect(r.result.current.conteos.size).toBe(0);
 });

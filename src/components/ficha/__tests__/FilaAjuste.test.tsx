@@ -9,6 +9,26 @@ import { GrupoAjustes } from '../GrupoAjustes';
 // dentro de un cuadro redondeado, la etiqueta en negrita y, a la derecha, un dato corto o el chevron. Los
 // renglones se agrupan dentro de una tarjeta de bordes redondeados, separados por un filete.
 
+describe('FilaAjuste · bloqueada', () => {
+  it('una fila bloqueada no responde al toque, lo dice a quien usa lector de pantalla y lleva un candado en vez del chevron', async () => {
+    const onPress = jest.fn();
+    await render(<FilaAjuste icono="storefront-outline" etiqueta="Mis negocios" descripcion="Disponible cuando te verifiquemos" bloqueada onPress={onPress} />);
+    const fila = screen.getByLabelText(/Mis negocios/);
+    expect(fila.props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.press(fila);
+    expect(onPress).not.toHaveBeenCalled();
+    expect(screen.getByTestId('fila-bloqueada')).toBeTruthy();
+  });
+
+  it('sin `bloqueada` responde como siempre', async () => {
+    const onPress = jest.fn();
+    await render(<FilaAjuste icono="storefront-outline" etiqueta="Mis negocios" onPress={onPress} />);
+    await fireEvent.press(screen.getByLabelText(/Mis negocios/));
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('fila-bloqueada')).toBeNull();
+  });
+});
+
 describe('FilaAjuste', () => {
   it('muestra el dato corto de la derecha cuando lo hay', async () => {
     await render(<FilaAjuste icono="heart-outline" etiqueta="Favoritos" detalle="12" onPress={() => {}} />);

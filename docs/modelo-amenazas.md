@@ -80,6 +80,19 @@ alcance es mejor ingeniería que fingir que no existe.
 - **La app es solo para México.** `^[0-9]{10}$` y `wa.me/52` fijan el país. Es
   una decisión de alcance declarada (AUD-17), no un descuido.
 
+- **El registro revela qué correos ya tienen cuenta** (enumeración de cuentas).
+  Decisión del 23/10/2026: al registrar un correo repetido la app dice «Ese
+  correo ya tiene una cuenta» en vez de callar, porque callar dejaba a la
+  persona esperando un código que no iba a llegar. Quien pruebe correos puede
+  saber cuáles están registrados; el límite de envíos de Supabase frena el
+  uso masivo, sin verificar contra producción. Prueba:
+  `src/store/__tests__/useAuthStore.registro.test.ts`.
+
+- **Cuentas de vendedor con cualquier correo (0082, 24/10/2026).** Un arrendador o un comerciante puede registrarse sin correo `.edu.mx` si se declara
+  como tal, y esa declaración la manda el cliente. Lo que limita el daño es `cuenta_restringida`: no reporta, no reseña y no abre conversaciones; sí responde en
+  las que otra persona abrió. Queda abierto que una cuenta restringida escriba en esas conversaciones y que un correo `.edu.mx` real actúe de mala fe. El hook
+  de Auth que exige el dominio solo existe donde se active a mano (`docs/hook-de-alta.md`); la restricción funciona con o sin hook. Pruebas: `supabase/tests/rls.test.sql`, bloque 0082.
+
 ## Cómo se verifica
 
 Las mitigaciones de acceso no se comprueban con capturas de pantalla, que no se

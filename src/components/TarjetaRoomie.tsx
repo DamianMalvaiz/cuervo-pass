@@ -38,7 +38,7 @@ const MAX_RAZONES = 3;
  *
  * Mostrar precisión que no se puede justificar es peor que no mostrarla.
  */
-function etiquetaAfinidad(afinidad: number): string {
+export function etiquetaAfinidad(afinidad: number): string {
   if (afinidad >= 0.75) return 'Alta';
   if (afinidad >= 0.55) return 'Media';
   return 'Baja';

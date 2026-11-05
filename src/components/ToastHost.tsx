@@ -10,6 +10,7 @@ import { useMovimientoReducido } from '@/hooks/use-movimiento-reducido';
 import { aviso } from '@/lib/registro';
 import { useTheme } from '@/hooks/use-theme';
 import { useToastStore, type TipoToast } from '@/store/useToastStore';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 const ICONO: Record<TipoToast, keyof typeof Ionicons.glyphMap> = {
   exito: 'checkmark-circle-outline',
@@ -109,6 +110,7 @@ export function ToastHost() {
           {/* El cuerpo y el botón son HERMANOS y no uno dentro del otro: un
               Pressable que agrupa a sus hijos para el lector de pantalla (iOS) deja
               el botón inalcanzable. Tocar el cuerpo cierra; solo el botón actúa. */}
+          {/* respuesta-ok: el cuerpo del aviso solo se descarta al tocarlo; no es un botón y encogerlo lo haría parecer uno */}
           <Pressable
             onPress={() => descartar(actual.id)}
             accessibilityRole={actual.tipo === 'error' ? 'alert' : undefined}
@@ -122,7 +124,7 @@ export function ToastHost() {
             </ThemedText>
           </Pressable>
           {actual.accion && (
-            <Pressable
+            <Pulsable
               onPress={ejecutarAccion}
               accessibilityRole="button"
               accessibilityLabel={actual.accion.etiqueta}
@@ -131,7 +133,7 @@ export function ToastHost() {
               <ThemedText type="smallBold" style={{ color: theme.acento }}>
                 {actual.accion.etiqueta}
               </ThemedText>
-            </Pressable>
+            </Pulsable>
           )}
         </View>
       </Animated.View>

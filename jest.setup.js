@@ -27,7 +27,7 @@ jest.mock('react-native-safe-area-context', () =>
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
   const { View, Text, ScrollView, Image } = require('react-native');
-  const paso = () => ({ duration: () => paso(), delay: () => paso(), springify: () => paso(), damping: () => paso() });
+  const paso = () => ({ duration: () => paso(), delay: () => paso(), springify: () => paso(), damping: () => paso(), easing: () => paso() });
   return {
     __esModule: true,
     default: { View, Text, ScrollView, Image, createAnimatedComponent: (C) => C },
@@ -69,6 +69,17 @@ jest.mock('react-native-reanimated', () => {
     runOnJS: (fn) => fn,
   };
 });
+
+// `useCuentaRestringida` (0082) lee `usuarios` con react-query. Las pantallas que lo usan ya tenían sus pruebas, sin ese proveedor ni esa consulta:
+// por omisión es `false` (cuenta normal). Las pruebas de la restricción lo cambian con `mockReturnValue(true)`; la del propio hook lo desactiva
+// con `jest.unmock`.
+jest.mock('@/hooks/queries/useCuentaRestringida', () => ({ useCuentaRestringida: jest.fn(() => false) }));
+
+// `usePerfilActivo` (0083) lee `usuarios` con react-query y decide la barra de pestañas. Por omisión, un estudiante ya cargado. Las pruebas del
+// perfil de vendedor lo cambian con `mockReturnValue`; la del propio hook lo desactiva con `jest.unmock`.
+jest.mock('@/hooks/queries/usePerfilActivo', () => ({
+  usePerfilActivo: jest.fn(() => ({ perfil: 'estudiante', cargando: false, fallo: false, cambiar: jest.fn(), cambiando: false })),
+}));
 
 // `react-native-maps` es un módulo NATIVO: fuera de un dispositivo,
 // `TurboModuleRegistry.getEnforcing('RNMapsAirModule')` lanza al importarlo, y

@@ -3,13 +3,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import '@/lib/zodEs';
 
 import { Campo } from '@/components/Campo';
+import { EncabezadoAuth } from '@/components/EncabezadoAuth';
+import { Entrada, GolpeDeSello } from '@/components/ficha/EntradaAuth';
 import { Casilla } from '@/components/Casilla';
+import { SelectorTipoCuenta } from '@/components/SelectorTipoCuenta';
 import { Sello } from '@/components/ficha/Sello';
 import { Seccion } from '@/components/ficha/Seccion';
 import { RequisitosPassword } from '@/components/RequisitosPassword';
@@ -19,10 +22,12 @@ import { Filete, Radios, Spacing, Texto, escalarTexto } from '@/constants/theme'
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { MENSAJE_CORREO_NO_UNIVERSITARIO, esCorreoUniversitario } from '@/lib/correoUniversitario';
+import { destinoTrasConfirmar, esVendedor, tipoParaElAlta } from '@/lib/tipoCuenta';
 import { evaluarPassword } from '@/lib/password';
 import { useAuthStore } from '@/store/useAuthStore';
 import { LONGITUD_CODIGO, MENSAJE_CODIGO, verificarCodigo } from '@/lib/codigoCorreo';
 import { reenviarConfirmacion } from '@/lib/confirmacionCorreo';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 // Documento maestro v5 · §25 y §29. El aviso se lee DENTRO de la app
 // (src/app/aviso-privacidad.tsx), no en un enlace externo: pedir que se acepte
@@ -38,13 +43,11 @@ const esquemaRegistro = z
       .string()
       .min(3, 'Mínimo 3 caracteres')
       .regex(/^[a-z0-9_]+$/i, 'Solo letras, números y guion bajo'),
-    // §12 · A.7 — correo institucional. No verifica identidad; encarece crear
-    // cuentas desechables, que es lo que hacia barato el brigading de reportes
-    // (3 reportes ocultan una publicacion o suspenden una cuenta).
-    email: z
-      .string()
-      .email('Correo inválido')
-      .refine(esCorreoUniversitario, MENSAJE_CORREO_NO_UNIVERSITARIO),
+    tipoCuenta: z.enum(['estudiante', 'arrendador', 'comerciante']),
+    // §12 · A.7 — correo institucional PARA ESTUDIANTES (se exige abajo, según el tipo de cuenta). No verifica identidad; encarece crear
+    // cuentas desechables, que es lo que hacia barato el brigading de reportes (3 reportes ocultan una publicacion o suspenden una cuenta).
+    // Arrendadores y negocios entran con el correo que tengan (0082): lo que los frena es la restricción de la base, no el dominio.
+    email: z.string().email('Correo inválido'),
     password: z.string(),
     confirmarPassword: z.string(),
     // §29: la casilla NO viene premarcada y el registro no avanza sin ella. La
@@ -55,6 +58,11 @@ const esquemaRegistro = z
   .refine((datos) => datos.password === datos.confirmarPassword, {
     message: 'Las contraseñas no coinciden',
     path: ['confirmarPassword'],
+  })
+  .superRefine((datos, ctx) => {
+    if (!esVendedor(datos.tipoCuenta) && !esCorreoUniversitario(datos.email)) {
+      ctx.addIssue({ code: 'custom', message: MENSAJE_CORREO_NO_UNIVERSITARIO, path: ['email'] });
+    }
   })
   // La contraseña se valida contra el OBJETO entero, no de forma aislada: dos de
   // las reglas (no contener el correo, el usuario ni el nombre) necesitan los
@@ -99,11 +107,14 @@ export default function RegistroScreen() {
     formState: { errors },
   } = useForm<FormRegistro>({
     resolver: zodResolver(esquemaRegistro),
-    defaultValues: { aceptoAviso: false as unknown as true },
+    // Valida al SALIR del campo (y desde entonces al cambiar), no solo al enviar.
+    mode: 'onTouched',
+    defaultValues: { aceptoAviso: false as unknown as true, tipoCuenta: 'estudiante' },
   });
 
   // Para que los requisitos se marquen mientras se escribe, no al enviar.
   const passwordActual = watch('password') ?? '';
+  const tipoCuenta = watch('tipoCuenta') ?? 'estudiante';
   const contextoPassword = {
     email: watch('email'),
     nombreUsuario: watch('nombreUsuario'),
@@ -127,6 +138,7 @@ export default function RegistroScreen() {
         nombreUsuario: datos.nombreUsuario,
         nombreCompleto,
         aceptoAviso: datos.aceptoAviso,
+        tipoCuenta: tipoParaElAlta(datos.tipoCuenta),
       })) ?? { requiereConfirmacion: false };
 
       // Sin sesión no se puede seguir: ni el consentimiento (lo escribe el trigger) ni el cuestionario
@@ -138,7 +150,7 @@ export default function RegistroScreen() {
 
       // El consentimiento YA lo escribió el servidor al crear la cuenta (trigger `handle_new_user`, migración 0046/0075). Escribirlo aquí con
       // un `update` directo se rechaza desde 0075 (CP014): la hora y la versión no las fija el cliente.
-      router.replace('/(auth)/cuestionario-inicial');
+      router.replace(destinoTrasConfirmar(datos.tipoCuenta));
     } catch (e) {
       setErrorServidor(e instanceof Error ? e.message : 'No se pudo crear la cuenta');
     } finally {
@@ -153,7 +165,7 @@ export default function RegistroScreen() {
     setErrorCodigo(null);
     try {
       const r = await verificarCodigo(pendiente, codigo, 'signup');
-      if (r.estado === 'ok') router.replace('/(auth)/cuestionario-inicial');
+      if (r.estado === 'ok') router.replace(destinoTrasConfirmar(tipoCuenta));
       else setErrorCodigo(r.estado);
     } catch {
       setErrorCodigo('fallo');
@@ -179,7 +191,7 @@ export default function RegistroScreen() {
             </ThemedText>
             <ThemedText themeColor="textSecondary">
               Te mandamos un correo a {pendiente}. Escribe aquí el código de {LONGITUD_CODIGO} dígitos que trae para
-              activar tu cuenta, o abre el enlace y después entra con tu contraseña. Si no lo ves, mira en spam.
+              activar tu cuenta. Si no lo ves, mira en spam.
             </ThemedText>
             <Campo
               etiqueta={`Código de ${LONGITUD_CODIGO} dígitos`}
@@ -206,9 +218,9 @@ export default function RegistroScreen() {
               onPress={onConfirmarCodigo}
               cargando={verificando}
               deshabilitado={codigo.length !== LONGITUD_CODIGO}
-              accessibilityLabel="Confirmar código"
+              accessibilityLabel="Confirmar"
             >
-              Confirmar código
+              Confirmar
             </Sello>
             {reenvio === 'enviado' && <ThemedText type="small">Listo, te lo mandamos otra vez.</ThemedText>}
             {reenvio === 'fallo' && (
@@ -216,14 +228,7 @@ export default function RegistroScreen() {
                 No pudimos reenviarlo. Espera unos minutos e inténtalo de nuevo.
               </ThemedText>
             )}
-            <Sello
-              variante="contorno"
-              onPress={() => router.replace('/(auth)/login')}
-              accessibilityLabel="Ya confirmé, entrar"
-            >
-              Ya confirmé · Entrar
-            </Sello>
-            <Pressable
+            <Pulsable
               onPress={onReenviar}
               accessibilityRole="button"
               accessibilityLabel="Reenviar correo"
@@ -232,7 +237,17 @@ export default function RegistroScreen() {
               <ThemedText type="small" themeColor="acento">
                 Reenviar correo
               </ThemedText>
-            </Pressable>
+            </Pulsable>
+            <Pulsable
+              onPress={() => router.replace('/(auth)/login')}
+              accessibilityRole="button"
+              accessibilityLabel="Ya tengo cuenta, iniciar sesión"
+              style={estilos.enlace}
+            >
+              <ThemedText type="small" themeColor="acento">
+                ¿Ya tienes cuenta? Inicia sesión
+              </ThemedText>
+            </Pulsable>
           </View>
         </ScrollView>
       </ThemedView>
@@ -248,27 +263,35 @@ export default function RegistroScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
-            <View style={estilos.membrete}>
-              <ThemedText type="etiqueta" themeColor="textSecondary">
-                ALTA DE USUARIO
-              </ThemedText>
-              <ThemedText type="title" style={escalarTexto(Texto.tituloMedio, escalaTitulo)}>
-                Crear cuenta
-              </ThemedText>
-              <View style={[estilos.filete, { backgroundColor: theme.text }]} />
-            </View>
+            <EncabezadoAuth etiqueta="ALTA DE USUARIO" titulo="Crear cuenta" tamanoLogo={64} />
 
             {/* Seis campos seguidos no se leen: se agrupan. Es lo mismo que hace
                 cualquier formulario oficial y, de paso, lo que hace Airbnb con
                 sus formularios largos. */}
-            <Seccion titulo="Datos personales">
+            <Entrada orden={1}>
+              <Seccion titulo="¿Cómo vas a usar Cuervo 360?">
+                <Controller
+                  control={control}
+                  name="tipoCuenta"
+                  render={({ field: { onChange, value } }) => <SelectorTipoCuenta valor={value} onCambiar={onChange} />}
+                />
+                <ThemedText type="small" themeColor="textSecondary">
+                  {esVendedor(tipoCuenta)
+                    ? 'Puedes usar cualquier correo. Para publicar tendrás que verificar tu identidad.'
+                    : 'Como estudiante entras con tu correo institucional (termina en .edu.mx).'}
+                </ThemedText>
+              </Seccion>
+            </Entrada>
+
+            <Entrada orden={2}>
+              <Seccion titulo="Datos personales">
               <Controller
                 control={control}
                 name="nombre"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
                     etiqueta="Nombre"
-                    placeholder="Angel Damian"
+                    placeholder="Tu nombre"
                     autoComplete="given-name"
                     error={errors.nombre?.message}
                     onBlur={onBlur}
@@ -283,7 +306,7 @@ export default function RegistroScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
                     etiqueta="Apellido paterno"
-                    placeholder="Malvaiz"
+                    placeholder="Tu apellido"
                     autoComplete="family-name"
                     error={errors.apellidoPaterno?.message}
                     onBlur={onBlur}
@@ -298,7 +321,7 @@ export default function RegistroScreen() {
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
                     etiqueta="APELLIDO MATERNO (OPCIONAL)"
-                    placeholder="Gonzalez"
+                    placeholder="Tu segundo apellido"
                     error={errors.apellidoMaterno?.message}
                     onBlur={onBlur}
                     onChangeText={onChange}
@@ -307,15 +330,17 @@ export default function RegistroScreen() {
                 )}
               />
             </Seccion>
+            </Entrada>
 
-            <Seccion titulo="Datos de acceso">
+            <Entrada orden={3}>
+              <Seccion titulo="Datos de acceso">
               <Controller
                 control={control}
                 name="nombreUsuario"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <Campo
                     etiqueta="Nombre de usuario"
-                    placeholder="damianml"
+                    placeholder="tu_usuario"
                     autoCapitalize="none"
                     autoCorrect={false}
                     autoComplete="username"
@@ -378,8 +403,10 @@ export default function RegistroScreen() {
                 )}
               />
             </Seccion>
+            </Entrada>
 
-            <Seccion titulo="Consentimiento">
+            <Entrada orden={4}>
+              <Seccion titulo="Consentimiento">
               <Controller
                 control={control}
                 name="aceptoAviso"
@@ -392,7 +419,7 @@ export default function RegistroScreen() {
                   />
                 )}
               />
-              <Pressable
+              <Pulsable
                 onPress={() => router.push('/aviso-privacidad')}
                 style={estilos.enlaceAviso}
                 accessibilityRole="link"
@@ -402,13 +429,14 @@ export default function RegistroScreen() {
                 <ThemedText type="small" themeColor="acento" style={estilos.textoEnlaceAviso}>
                   Leer el aviso de privacidad
                 </ThemedText>
-              </Pressable>
+              </Pulsable>
               {errors.aceptoAviso && (
                 <ThemedText type="small" style={{ color: theme.error }} accessibilityLiveRegion="polite">
                   {errors.aceptoAviso.message}
                 </ThemedText>
               )}
             </Seccion>
+            </Entrada>
 
             {errorServidor && (
               <View style={[estilos.errorServidor, { borderColor: theme.error }]}>
@@ -423,9 +451,11 @@ export default function RegistroScreen() {
               </View>
             )}
 
-            <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel="Crear cuenta">
-              Crear cuenta
-            </Sello>
+            <GolpeDeSello retraso={500}>
+              <Sello onPress={handleSubmit(onSubmit)} cargando={enviando} accessibilityLabel="Crear cuenta">
+                Crear cuenta
+              </Sello>
+            </GolpeDeSello>
 
             <Link href="/(auth)/login" accessibilityRole="link" style={estilos.enlace}>
               <ThemedText type="small" themeColor="acento">
@@ -445,8 +475,6 @@ const estilos = StyleSheet.create({
   desplazable: { flexGrow: 1, justifyContent: 'center', padding: Spacing.four, paddingBottom: Spacing.five },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.four },
-  membrete: { gap: Spacing.one },
-  filete: { height: Filete.grueso, marginTop: Spacing.two },
   enlaceAviso: {
     flexDirection: 'row',
     alignItems: 'center',

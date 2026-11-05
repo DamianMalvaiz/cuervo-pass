@@ -1,12 +1,15 @@
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet } from 'react-native';
 
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
+import { ParaTiWeb } from '@/components/web/ParaTiWeb';
+import { PortadaWeb } from '@/components/web/PortadaWeb';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing, Texto } from '@/constants/theme';
+import { destinoInicial, type PerfilActivo } from '@/lib/perfilActivo';
 import { aviso } from '@/lib/registro';
 import { VERSION_AVISO } from '@/lib/verificacion';
 import { supabase, supabaseConfigurado } from '@/lib/supabase';
@@ -14,7 +17,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 // Documento maestro v5 · §26 — el guard de sesión tiene TRES estados, no dos:
 //
-//   sin sesión                      → login
+//   sin sesión                      → login (en la web, la portada pública, que se queda en `/`)
 //   con sesión, aviso sin aceptar   → aviso (la versión vigente; migración 0059)
 //   con sesión, sin cuestionario    → cuestionario
 //   con sesión y cuestionario       → pestañas
@@ -33,7 +36,7 @@ export default function Index() {
   // Qué se supo del cuestionario Y de quién. Con el id adentro, una respuesta de
   // una cuenta anterior no puede pasar por la de la actual: no hace falta
   // reiniciar nada al cambiar de usuario, solo comparar.
-  const [resultado, setResultado] = useState<{ usuarioId: string; estado: EstadoCuestionario } | null>(null);
+  const [resultado, setResultado] = useState<{ usuarioId: string; estado: EstadoCuestionario; perfil: PerfilActivo | null } | null>(null);
   const [intento, setIntento] = useState(0);
 
   useEffect(() => {
@@ -45,12 +48,12 @@ export default function Index() {
   useEffect(() => {
     if (!usuarioId) return;
     let activo = true;
-    const terminar = (estado: EstadoCuestionario) => {
-      if (activo) setResultado({ usuarioId, estado });
+    const terminar = (estado: EstadoCuestionario, perfil: PerfilActivo | null = null) => {
+      if (activo) setResultado({ usuarioId, estado, perfil });
     };
     supabase
       .from('usuarios')
-      .select('cuestionario_completo, version_aviso_aceptada')
+      .select('cuestionario_completo, version_aviso_aceptada, perfil_activo')
       .eq('id', usuarioId)
       .maybeSingle()
       .then(
@@ -73,7 +76,7 @@ export default function Index() {
             terminar('aviso');
             return;
           }
-          terminar(data?.cuestionario_completo ? 'completo' : 'incompleto');
+          terminar(data?.cuestionario_completo ? 'completo' : 'incompleto', data?.perfil_activo === 'vendedor' ? 'vendedor' : 'estudiante');
         },
         // Sin esta rama, una excepción dejaba el indicador girando para siempre.
         (e) => {
@@ -116,7 +119,8 @@ export default function Index() {
     );
   }
 
-  if (!session) return <Redirect href="/(auth)/login" />;
+  // La web se explora sin cuenta (migración 0090): quien llega sin sesión ve la portada pública EN `/` (no se redirige: la dirección del inicio es la raíz). En el teléfono, el login de siempre.
+  if (!session) return Platform.OS === 'web' ? <PortadaWeb /> : <Redirect href="/(auth)/login" />;
 
   // Un fallo no redirige a ninguna parte: ni al cuestionario ni a las pestañas,
   // porque no se sabe a cuál toca. Se dice y se ofrece reintentar.
@@ -138,7 +142,11 @@ export default function Index() {
 
   if (estado === 'aviso') return <Redirect href="/aviso-actualizado" />;
 
-  return <Redirect href={estado === 'completo' ? '/(tabs)/inicio' : '/(auth)/cuestionario-inicial'} />;
+  // 0083: un vendedor entra por su panel y no pasa por el cuestionario de estudiante.
+  const perfil = resultado && resultado.usuarioId === usuarioId ? resultado.perfil : null;
+  // En la web, quien busca y ya hizo todo cae en «Para ti» (la portada de dentro); el vendedor y quien aún no hizo el cuestionario siguen sus caminos.
+  if (Platform.OS === 'web' && perfil !== 'vendedor' && estado === 'completo') return <ParaTiWeb />;
+  return <Redirect href={destinoInicial(perfil, estado === 'completo')} />;
 }
 
 const styles = StyleSheet.create({

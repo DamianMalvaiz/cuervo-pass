@@ -60,6 +60,14 @@ export const CP = {
   PLAN_NO_DISPONIBLE: 'CP011',
   /** Más de 5 intentos de verificación de rostro por envío (migración 0056). Lo reserva la Edge Function, no la app. */
   INTENTOS_BIOMETRIA_AGOTADOS: 'CP013',
+  /** Una cuenta sin correo universitario intentó abrir una conversación nueva o reportar una reseña (migración 0082). */
+  CUENTA_RESTRINGIDA: 'CP016',
+  /** Pasar a «vendedor» sin ninguna función de vendedor, o cambiar el perfil activo con un update directo (migración 0083). */
+  SIN_FUNCION_DE_VENDEDOR: 'CP017',
+  /** `iniciar_prueba` sobre una función que la cuenta no tiene (migración 0084). */
+  SIN_ESA_FUNCION: 'CP018',
+  /** `iniciar_prueba` cuando la prueba ya se usó, o ya hubo un pago por esa función (migración 0084). */
+  PRUEBA_YA_USADA: 'CP019',
 } as const;
 
 /** El `code` de un error de PostgREST/supabase-js, si lo trae. */

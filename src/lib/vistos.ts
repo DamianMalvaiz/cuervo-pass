@@ -1,0 +1,61 @@
+import { alHidratar, cuandoListo, escribirAlmacen, leerAlmacen } from '@/lib/almacenLocal';
+import { alCambiarEnOtraPestana } from '@/lib/otraPestana';
+
+// «Vistos recientemente» de la web: los ids de las fichas que esta persona abrió, guardados SOLO en su navegador (localStorage). No viajan al servidor ni se ligan a una cuenta.
+// Lo guardado es texto de cualquiera (otra pestaña, otra versión, a mano): se valida al leer y lo que no sea un id se descarta. Sin almacenamiento disponible (modo privado, bloqueado) no pasa nada: no hay vistos.
+
+export const CLAVE_VISTOS = 'cuervo360.vistos';
+export const MAX_VISTOS = 12;
+export const ES_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Agrega `id` al frente (sin repetirlo) y recorta a `MAX_VISTOS`. Pura. */
+export function conVisto(actuales: string[], id: string): string[] {
+  if (!ES_ID.test(id)) return actuales;
+  return [id, ...actuales.filter((x) => x !== id)].slice(0, MAX_VISTOS);
+}
+
+const oyentes = new Set<() => void>();
+const avisar = () => oyentes.forEach((f) => f());
+/** Para `useSyncExternalStore`: avisa cuando esta pestaña (o, por `storage`, otra) registra o borra. */
+export function suscribirVistos(f: () => void) {
+  oyentes.add(f);
+  // Lo que cambie OTRA pestaña también llega (el evento `storage` no se dispara en la que escribe).
+  const bajaOtra = alCambiarEnOtraPestana(CLAVE_VISTOS, f);
+  // En la app, además, cuando termina de leerse lo guardado.
+  const bajaHidratar = alHidratar(f);
+  return () => {
+    oyentes.delete(f);
+    bajaOtra();
+    bajaHidratar();
+  };
+}
+/** Lo guardado tal cual (texto): una instantánea estable para comparar. `''` si no hay o no hay almacenamiento. */
+export function vistosCrudos(): string {
+  return leerAlmacen(CLAVE_VISTOS);
+}
+
+/** Lee la lista guardada: solo ids válidos, sin repetidos. Cualquier cosa rara es «no hay vistos». */
+export function leerVistos(crudo: string = vistosCrudos()): string[] {
+  try {
+    const datos: unknown = crudo ? JSON.parse(crudo) : [];
+    if (!Array.isArray(datos)) return [];
+    return [...new Set(datos.filter((x): x is string => typeof x === 'string' && ES_ID.test(x)))].slice(0, MAX_VISTOS);
+  } catch {
+    return [];
+  }
+}
+
+function guardar(ids: string[]) {
+  escribirAlmacen(CLAVE_VISTOS, JSON.stringify(ids));
+  avisar();
+}
+
+/** En la app espera a que se lea lo guardado: agregar a una lista aún vacía y escribirla pisaría lo que había. */
+export function registrarVisto(id: string) {
+  cuandoListo(() => guardar(conVisto(leerVistos(), id)));
+}
+
+export function borrarVistos() {
+  escribirAlmacen(CLAVE_VISTOS, null);
+  avisar();
+}

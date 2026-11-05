@@ -5,7 +5,7 @@ const expoConfig = require("eslint-config-expo/flat");
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ["dist/*"],
+    ignores: ["dist/*", "panel-admin/**", "web-admin/**", "web-publica/**"],
   },
   {
     // ── Invariante 7 · Tokens de diseño o nada · END-31 ──

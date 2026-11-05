@@ -39,5 +39,6 @@ export function useConversaciones(usuarioId: string | undefined) {
     conversaciones: q.data ?? [],
     cargando: q.isPending,
     fallo: q.isError ? 'No pudimos cargar tus conversaciones.' : null,
+    reintentar: () => void q.refetch(),
   };
 }

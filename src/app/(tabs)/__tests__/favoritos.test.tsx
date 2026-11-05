@@ -37,6 +37,16 @@ jest.mock('@/components/BotonFavorito', () => ({
   },
 }));
 
+// Vistos y Comparar viven solo en el teléfono y tienen sus propias pruebas; aquí solo importa que Favoritos los ofrezca y los monte.
+let mockVistos: string[] = [];
+let mockComparados: string[] = [];
+jest.mock('@/hooks/use-vistos', () => ({ useVistos: () => mockVistos }));
+jest.mock('@/hooks/use-comparar', () => ({ useComparar: () => ({ ids: mockComparados, lleno: false, alternar: jest.fn() }) }));
+jest.mock('@/components/ListasLocalesApp', () => {
+  const { Text } = require('react-native');
+  return { ListaVistos: () => <Text>LISTA VISTOS</Text>, ListaComparar: () => <Text>LISTA COMPARAR</Text> };
+});
+
 import FavoritosScreen from '../favoritos';
 
 const pub = (id: string, extra: Record<string, unknown> = {}) => ({
@@ -52,6 +62,8 @@ const estadoNegocios = (extra: Record<string, unknown> = {}) => ({ negocios: [],
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockVistos = [];
+  mockComparados = [];
   mockPerfil = { id: 'u1', latitud_universidad: 19.28, longitud_universidad: -99.55 };
   mockFavoritos.mockReturnValue(estado());
   mockNegocios.mockReturnValue(estadoNegocios());
@@ -223,5 +235,46 @@ describe('segmento Negocios (0073)', () => {
     await irANegocios();
     await fireEvent.press(screen.getByLabelText('Publicaciones'));
     expect(screen.getByText('Depa a')).toBeTruthy();
+  });
+});
+
+describe('Vistos y Comparar (solo en este teléfono)', () => {
+  test('ofrece Favoritos, Vistos y Comparar, con la cuenta de lo local (y sin cuenta de Favoritos, que viene de la red)', async () => {
+    mockVistos = ['a', 'b'];
+    mockComparados = ['a'];
+    await render(<FavoritosScreen />);
+    expect(screen.getByLabelText('Favoritos').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByLabelText('Vistos (2)')).toBeTruthy();
+    expect(screen.getByLabelText('Comparar (1)')).toBeTruthy();
+  });
+
+  test('«Vistos» muestra su lista y esconde los segmentos de Publicaciones y Negocios', async () => {
+    await render(<FavoritosScreen />);
+    await fireEvent.press(screen.getByLabelText('Vistos (0)'));
+    expect(screen.getByText('LISTA VISTOS')).toBeTruthy();
+    expect(screen.queryByLabelText('Publicaciones')).toBeNull();
+    expect(screen.queryByLabelText('Negocios')).toBeNull();
+  });
+
+  test('«Comparar» muestra su lista', async () => {
+    await render(<FavoritosScreen />);
+    await fireEvent.press(screen.getByLabelText('Comparar (0)'));
+    expect(screen.getByText('LISTA COMPARAR')).toBeTruthy();
+    expect(screen.queryByText('LISTA VISTOS')).toBeNull();
+  });
+
+  test('volver a «Favoritos» devuelve las publicaciones y sus segmentos', async () => {
+    mockFavoritos.mockReturnValue(estado({ publicaciones: [pub('a')] }));
+    await render(<FavoritosScreen />);
+    await fireEvent.press(screen.getByLabelText('Vistos (0)'));
+    await fireEvent.press(screen.getByLabelText('Favoritos'));
+    expect(screen.getByText('Depa a')).toBeTruthy();
+    expect(screen.getByLabelText('Negocios')).toBeTruthy();
+    expect(screen.queryByText('LISTA VISTOS')).toBeNull();
+  });
+
+  test('no ofrece «Búsquedas»: en la app la búsqueda es el perfil, no filtros libres que guardar', async () => {
+    await render(<FavoritosScreen />);
+    expect(screen.queryByText(/Búsquedas/)).toBeNull();
   });
 });

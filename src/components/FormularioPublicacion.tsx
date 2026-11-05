@@ -3,8 +3,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Controller, useForm, type FieldErrors } from 'react-hook-form';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Controller, useForm, useWatch, type FieldErrors } from 'react-hook-form';
+import { ActivityIndicator, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { z } from 'zod';
 
 import '@/lib/zodEs';
@@ -24,6 +24,7 @@ import { FileteHoja } from './ficha/CampoFicha';
 import { Sello } from './ficha/Sello';
 import { armarDireccion, partirDireccion } from '@/lib/direccion';
 import { ThemedText } from './themed-text';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 // AUD-27: el mismo tope que el CHECK de la tabla (migración 0010). Ambas capas,
 // siempre: el cliente para avisar, la base para garantizar.
@@ -111,6 +112,18 @@ export interface ValoresFormularioPublicacion {
   whatsapp: string;
 }
 
+/** Lo que la vista previa (en la web) necesita para dibujar cómo quedará la publicación: lo que se va escribiendo y la primera foto que se eligió en este dispositivo. */
+export interface VistaPreviaPublicacion {
+  tipo: TipoPublicacion;
+  colonia: string;
+  municipio: string;
+  precioRenta: string;
+  recamaras: string;
+  amueblado: boolean;
+  /** La primera foto elegida en este dispositivo (una ya guardada necesita firmarse y no se enseña). */
+  fotoUri?: string;
+}
+
 export interface DatosGuardarPublicacion extends ValoresFormularioPublicacion {
   fotos: FotoEntrada[];
 }
@@ -123,6 +136,11 @@ export interface ControlPublicacion {
 interface Props {
   valoresIniciales?: Partial<ValoresFormularioPublicacion>;
   fotosIniciales?: string[];
+  /**
+   * Las URL FIRMADAS de las fotos ya guardadas, por su ruta de Storage. Al editar, `fotosIniciales` trae RUTAS (el bucket es privado): sin firma no hay nada que mostrar. Es solo para PINTAR: lo que se guarda sigue siendo la ruta, que es la identidad de la foto
+   * (la URL caduca). Una foto que ya es una URL `https` (las de ejemplo) se muestra tal cual.
+   */
+  urlsDeFotos?: ReadonlyMap<string, string>;
   textoBoton: string;
   /** Oculta el botón interno: la pantalla lo pone en un PieFijo. */
   botonEnPie?: boolean;
@@ -132,6 +150,8 @@ interface Props {
    * formulario no puede moverlo. Opcional: sin él, un envío inválido solo avisa.
    */
   desplazador?: Desplazador;
+  /** Se llama con lo que se va escribiendo, para pintar una vista previa. Debe ser estable (un `setState`): si cambia de identidad se vuelve a llamar. */
+  onVistaPrevia?: (v: VistaPreviaPublicacion) => void;
   onGuardar: (datos: DatosGuardarPublicacion) => Promise<void>;
 }
 
@@ -212,7 +232,7 @@ function CampoDesplegable({
           onChangeText={onSeleccionar}
           value={valor}
         />
-        <Pressable
+        <Pulsable
           onPress={volverALista}
           style={styles.botonVolverLista}
           accessibilityRole="button"
@@ -220,7 +240,7 @@ function CampoDesplegable({
           hitSlop={8}
         >
           <Ionicons name="list" size={20} color={theme.textSecondary} />
-        </Pressable>
+        </Pulsable>
       </View>
     );
   }
@@ -236,7 +256,7 @@ function CampoDesplegable({
 
   return (
     <View style={[styles.envolturaDesplegable, abierto && styles.envolturaDesplegableAbierta]}>
-      <Pressable
+      <Pulsable
         onPress={alternar}
         style={[...estilo, styles.campoDesplegable]}
         accessibilityRole="button"
@@ -247,7 +267,7 @@ function CampoDesplegable({
           {valor || placeholder}
         </ThemedText>
         <Ionicons name={abierto ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textSecondary} />
-      </Pressable>
+      </Pulsable>
 
       {abierto && (
         <View style={[styles.desplegable, { borderColor: theme.border, backgroundColor: theme.background }]}>
@@ -293,7 +313,7 @@ function CampoDesplegable({
                     {indice > 0 && (
                       <View style={[styles.separadorDesplegable, { backgroundColor: theme.border }]} />
                     )}
-                    <Pressable
+                    <Pulsable
                       onPress={() => (esOtra ? setEscribiendoLibre(true) : onElegir(texto))}
                       style={styles.filaMenu}
                       accessibilityRole="button"
@@ -302,7 +322,7 @@ function CampoDesplegable({
                       <ThemedText type="small" style={esOtra ? styles.textoOtra : undefined}>
                         {esOtra ? 'Otra (escribir)' : esUsarTexto ? `Usar "${texto}"` : texto}
                       </ThemedText>
-                    </Pressable>
+                    </Pulsable>
                   </View>
                 );
               })
@@ -333,7 +353,7 @@ function MensajeError({ ancla, mensaje }: { ancla: (nodo: View | null) => void; 
 }
 
 export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(function FormularioPublicacion(
-  { valoresIniciales, fotosIniciales = [], textoBoton, botonEnPie, onEstadoEnvio, desplazador, onGuardar },
+  { valoresIniciales, fotosIniciales = [], urlsDeFotos, textoBoton, botonEnPie, onEstadoEnvio, desplazador, onVistaPrevia, onGuardar },
   ref
 ) {
   const theme = useTheme();
@@ -370,6 +390,8 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
     formState: { errors },
   } = useForm<FormPublicacion>({
     resolver: zodResolver(esquema),
+    // Valida al SALIR del campo (y desde entonces al cambiar), no solo al enviar.
+    mode: 'onTouched',
     defaultValues: {
       // Al EDITAR, la dirección llega como una sola cadena y el formulario la
       // pide en ocho campos. Sin esto nacían vacíos, y como siete son
@@ -394,6 +416,17 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
       whatsapp: valoresIniciales?.whatsapp,
     },
   });
+
+  // Qué imagen enseñar de una foto: la de este dispositivo, la URL firmada de una ya guardada, o la propia URL si ya lo es. Una RUTA de Storage sin firma NO se pinta como imagen (saldría rota): queda el hueco.
+  const verFoto = (foto: FotoEntrada): string | undefined => (foto.esNueva ? foto.uri : (urlsDeFotos?.get(foto.url) ?? (/^https:\/\//.test(foto.url) ? foto.url : undefined)));
+
+  // La vista previa: lo que se escribe se manda afuera con valores simples (no objetos), para que el efecto solo corra cuando algo cambió de verdad.
+  const [vTipo, vColonia, vMunicipio, vPrecio, vRecamaras, vAmueblado] = useWatch({ control, name: ['tipo', 'colonia', 'municipio', 'precioRenta', 'recamaras', 'amueblado'] });
+  const primeraFoto = fotos[0];
+  const fotoPrevia = primeraFoto ? verFoto(primeraFoto) : undefined;
+  useEffect(() => {
+    onVistaPrevia?.({ tipo: vTipo, colonia: vColonia ?? '', municipio: vMunicipio ?? '', precioRenta: vPrecio ?? '', recamaras: vRecamaras ?? '', amueblado: Boolean(vAmueblado), fotoUri: fotoPrevia });
+  }, [onVistaPrevia, vTipo, vColonia, vMunicipio, vPrecio, vRecamaras, vAmueblado, fotoPrevia]);
 
   useEffect(() => {
     return () => {
@@ -451,6 +484,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
   };
 
   const uriDeFoto = (foto: FotoEntrada) => (foto.esNueva ? foto.uri : foto.url);
+
 
   const onAgregarFotos = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -561,7 +595,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
             {TIPOS.map((tipo) => {
               const seleccionado = value === tipo.valor;
               return (
-                <Pressable
+                <Pulsable
                   key={tipo.valor}
                   onPress={() => onChange(tipo.valor)}
                   style={[
@@ -583,7 +617,7 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
                   >
                     {tipo.etiqueta}
                   </ThemedText>
-                </Pressable>
+                </Pulsable>
               );
             })}
           </View>
@@ -892,8 +926,8 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
       <View style={styles.fotosFila}>
         {fotos.map((foto, indice) => (
           <View key={uriDeFoto(foto)} style={styles.fotoMiniContenedor}>
-            <Image source={{ uri: uriDeFoto(foto) }} style={styles.fotoMini} contentFit="cover" />
-            <Pressable
+            <Image source={verFoto(foto) ? { uri: verFoto(foto) } : undefined} accessibilityLabel={`Foto ${indice + 1}`} style={styles.fotoMini} contentFit="cover" />
+            <Pulsable
               onPress={() => onQuitarFoto(foto)}
               style={[styles.fotoMiniQuitar, { backgroundColor: theme.error }]}
               hitSlop={12}
@@ -901,18 +935,18 @@ export const FormularioPublicacion = forwardRef<ControlPublicacion, Props>(funct
               accessibilityLabel={`Quitar foto ${indice + 1}`}
             >
               <Ionicons name="close" size={14} color={theme.errorTexto} />
-            </Pressable>
+            </Pulsable>
           </View>
         ))}
         {fotos.length < MAX_FOTOS && (
-          <Pressable
+          <Pulsable
             onPress={onAgregarFotos}
             style={[styles.fotoMini, styles.fotoAgregar, { backgroundColor: theme.backgroundSelected }]}
             accessibilityRole="button"
             accessibilityLabel="Agregar foto"
           >
             <Ionicons name="add" size={28} color={theme.textSecondary} />
-          </Pressable>
+          </Pulsable>
         )}
       </View>
 

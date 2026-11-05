@@ -45,7 +45,7 @@ const entrar = async (email = 'ana@utvtol.edu.mx', password = 'Contrasena#2026')
 beforeEach(() => {
   jest.clearAllMocks();
   mockIniciarSesion.mockResolvedValue(undefined);
-  mockSingle.mockResolvedValue({ data: { universidad: 'UTVT' } });
+  mockSingle.mockResolvedValue({ data: { cuestionario_completo: true } });
   mockReenviar.mockResolvedValue({ error: null });
 });
 
@@ -64,19 +64,51 @@ describe('la marca en la portada', () => {
   });
 });
 
+// El login NO decide el destino: entrega la persona al guardia de entrada (`app/index.tsx`), que es el ÚNICO que sabe los cuatro estados (aviso vigente, cuestionario, perfil de
+// vendedor, fallo de lectura) y que ya los prueba (`index.guard.test.tsx`). Antes el login leía el perfil él mismo y mandaba directo a las pestañas: una cuenta con un aviso
+// viejo entraba sin aceptar el nuevo hasta reabrir la app, y un fallo de red al leer el perfil la mandaba a repetir el cuestionario como si no lo hubiera hecho.
 describe('a dónde lleva entrar', () => {
-  it('con el cuestionario terminado, a Sugerencias', async () => {
+  it('entrega la decisión al guardia de entrada: va a «/»', async () => {
     await entrar();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(tabs)/inicio'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
 
-  it('con el cuestionario a medias, DE VUELTA al cuestionario', async () => {
-    // Sin universidad, el filtro duro no tiene con qué filtrar: la lista sale
-    // vacía y nada explica por qué. Mandar a Sugerencias a esta persona es
-    // enseñarle un motor roto que no lo está.
-    mockSingle.mockResolvedValue({ data: { universidad: null } });
+  it('no lee el perfil ni elige pestañas por su cuenta (se saltaría el aviso vigente)', async () => {
     await entrar();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/(auth)/cuestionario-inicial'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+    expect(mockSingle).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalledWith('/(tabs)/inicio');
+    expect(mockReplace).not.toHaveBeenCalledWith('/(tabs)/panel');
+    expect(mockReplace).not.toHaveBeenCalledWith('/(auth)/cuestionario-inicial');
+  });
+
+  it('con la clave mala no navega a ninguna parte', async () => {
+    mockIniciarSesion.mockRejectedValue(new Error('Invalid login credentials'));
+    await entrar();
+    await waitFor(() => expect(screen.getByText(/no coinciden/)).toBeTruthy());
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+});
+
+// Validar AL SALIR del campo y no solo al enviar (Apple: «validate inline, not on submit»): quien se equivoca en el correo lo sabe al pasar al siguiente
+// campo, no después de pulsar «Entrar» y esperar.
+describe('validación al salir del campo', () => {
+  it('un correo mal escrito se dice al salir del campo, SIN enviar', async () => {
+    await render(<LoginScreen />);
+    const campo = screen.getByPlaceholderText('tucorreo@ejemplo.mx');
+    await interactuar(() => fireEvent.changeText(campo, 'no-es-un-correo'));
+    expect(screen.queryByText('Ese correo no parece válido')).toBeNull();
+    await interactuar(() => fireEvent(campo, 'blur'));
+    expect(screen.getByText('Ese correo no parece válido')).toBeTruthy();
+    expect(mockIniciarSesion).not.toHaveBeenCalled();
+  });
+
+  it('un correo bien escrito no muestra error al salir', async () => {
+    await render(<LoginScreen />);
+    const campo = screen.getByPlaceholderText('tucorreo@ejemplo.mx');
+    await interactuar(() => fireEvent.changeText(campo, 'ana@utvtol.edu.mx'));
+    await interactuar(() => fireEvent(campo, 'blur'));
+    expect(screen.queryByText('Ese correo no parece válido')).toBeNull();
   });
 });
 

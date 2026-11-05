@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
 import { Estrellas } from '@/components/ficha/Estrellas';
@@ -12,11 +12,13 @@ import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import {
   useBorrarResena, useGuardarResena, useMiResena, useReportarResena, useResenas, useResponderResena,
 } from '@/hooks/queries/useResenas';
+import { useCuentaRestringida } from '@/hooks/queries/useCuentaRestringida';
 import { useTheme } from '@/hooks/use-theme';
 import { SQL, esCodigo } from '@/lib/erroresPostgres';
 import {
   MAX_RESPUESTA, MAX_TEXTO_RESENA, estrellasDe, validarRespuesta, validarResena, type Objetivo, type ResenaPublica,
 } from '@/lib/resenas';
+import { dialogo } from '@/lib/dialogo';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -60,6 +62,8 @@ export function SeccionResenas({
   const borrar = useBorrarResena(miId, objetivo);
   const responder = useResponderResena(miId, objetivo);
   const reportar = useReportarResena(miId, objetivo);
+  // 0082: una cuenta sin correo universitario ni reseña ni reporta; las reseñas de los demás sí las ve.
+  const restringida = useCuentaRestringida(miId);
 
   const [editando, setEditando] = useState(false);
   const [estrellas, setEstrellas] = useState(0);
@@ -100,7 +104,7 @@ export function SeccionResenas({
 
   const onBorrar = () => {
     if (!miResena) return;
-    Alert.alert('Borrar mi reseña', 'Se quita tu reseña y cambia el promedio. No se puede deshacer.', [
+    dialogo('Borrar mi reseña', 'Se quita tu reseña y cambia el promedio. No se puede deshacer.', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Borrar',
@@ -115,7 +119,7 @@ export function SeccionResenas({
   };
 
   const onReportar = (r: ResenaPublica) => {
-    Alert.alert('Reportar reseña', 'Si tres personas la reportan, deja de mostrarse. ¿Reportarla por contenido inapropiado?', [
+    dialogo('Reportar reseña', 'Si tres personas la reportan, deja de mostrarse. ¿Reportarla por contenido inapropiado?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Reportar',
@@ -162,7 +166,11 @@ export function SeccionResenas({
       <Estrellas calificacion={calificacion} numResenas={numResenas} />
 
       {/* Mi reseña: solo quien NO es dueña y tiene sesión. */}
-      {!esDueno && miId ? (
+      {!esDueno && miId && restringida ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Para reseñar necesitas una cuenta con correo de tu universidad.
+        </ThemedText>
+      ) : !esDueno && miId ? (
         editando ? (
           <View style={[estilos.tarjeta, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
             <ThemedText type="smallBold" themeColor="textSecondary">Tu reseña</ThemedText>
@@ -256,7 +264,7 @@ export function SeccionResenas({
                   <ThemedText type="small" themeColor="acento">{r.respuesta ? 'Editar respuesta' : 'Responder'}</ThemedText>
                 </Pulsable>
               )
-            ) : miId ? (
+            ) : miId && !restringida ? (
               <Pulsable onPress={() => onReportar(r)} accessibilityRole="button" accessibilityLabel={`Reportar la reseña de @${r.autor}`} style={estilos.accion}>
                 <ThemedText type="small" themeColor="textSecondary">Reportar</ThemedText>
               </Pulsable>

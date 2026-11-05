@@ -1,18 +1,36 @@
 import { useLocalSearchParams } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
-import { EditorMenu } from '@/components/EditorMenu';
+import { ConVistaPreviaApp } from '@/components/ConVistaPreviaApp';
+import { EditorMenu, type VistaPreviaMenu } from '@/components/EditorMenu';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useMiNegocio } from '@/hooks/queries/useMisNegocios';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
+import { MarcoMenuWeb } from '@/components/web/MarcoMenuWeb';
+import { VistaPreviaMenuWeb } from '@/components/web/VistaPreviaMenuWeb';
 
 /**
  * El menú de un negocio propio. Tres estados y no dos (END-11): cargando, falló, y «no existe o no es tuyo». El editor solo
  * se monta cuando YA está el menú cargado, para que arranque con los productos reales y no en blanco (y no pise lo guardado).
  */
 export default function MenuNegocioScreen() {
+  return (
+    <EnMarcoWeb titulo="Menú de mi negocio">
+      <MenuNegocioScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function MenuNegocioScreenPantalla() {
+  // En la web, el editor lleva al lado la vista previa del menú; en la app, una barra fija ofrece la vista previa en una hoja.
+  if (Platform.OS === 'web') return <MarcoMenuWeb>{(alVistaPrevia) => <MenuNegocio alVistaPrevia={alVistaPrevia} />}</MarcoMenuWeb>;
+  return <MenuNegocio />;
+}
+
+function MenuNegocio({ alVistaPrevia }: { alVistaPrevia?: (v: VistaPreviaMenu) => void }) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { negocio, items, cargando, fallo, reintentar } = useMiNegocio(id);
 
@@ -38,7 +56,16 @@ export default function MenuNegocioScreen() {
       </ThemedView>
     );
   }
-  return <EditorMenu negocioId={negocio.id} nombreNegocio={negocio.nombre} items={items} />;
+  const editor = (alVista?: (v: VistaPreviaMenu) => void) => <EditorMenu negocioId={negocio.id} nombreNegocio={negocio.nombre} items={items} onVistaPrevia={alVista} />;
+  // En la app (y solo con el menú ya cargado: no hay vista previa de lo que aún no se leyó) una barra fija ofrece la vista previa en una hoja.
+  if (Platform.OS !== 'web') {
+    return (
+      <ConVistaPreviaApp<VistaPreviaMenu> boton="Ver cómo se verá" titulo="Así se verá tu menú" vista={(v) => <VistaPreviaMenuWeb v={v} />}>
+        {(alVista) => editor(alVista)}
+      </ConVistaPreviaApp>
+    );
+  }
+  return editor(alVistaPrevia);
 }
 
 const estilos = StyleSheet.create({

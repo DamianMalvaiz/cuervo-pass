@@ -1,5 +1,4 @@
 import {
-  AVISO_PAGOS,
   ErrorPago,
   describirOrden,
   esUrlDePago,
@@ -80,18 +79,11 @@ describe('esUrlDePago · solo se abre una URL de Mercado Pago', () => {
 
 describe('textoConfirmarPago', () => {
   const t = textoConfirmarPago('$199');
-  test('dice cuánto, que en pruebas no se cobra dinero real, y qué pasa con OXXO', () => {
+  // Pedido explícito: el cliente no lee «modo de prueba» ni «no se cobra dinero real» al pagar. Dice cuánto y qué pasa con OXXO.
+  test('dice cuánto y qué pasa con OXXO, sin hablar de «modo de prueba»', () => {
     expect(t).toContain('$199');
-    expect(t).toMatch(/no se cobra dinero real/i);
     expect(t).toMatch(/OXXO/);
-  });
-});
-
-describe('AVISO_PAGOS', () => {
-  test('avisa que está en modo de PRUEBA y que el pago simulado existe', () => {
-    expect(AVISO_PAGOS).toMatch(/PRUEBA/);
-    expect(AVISO_PAGOS).toMatch(/no se cobra dinero real/i);
-    expect(AVISO_PAGOS).toMatch(/sin pagar/i);
+    expect(t).not.toMatch(/prueba|no se cobra dinero real/i);
   });
 });
 

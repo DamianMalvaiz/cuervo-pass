@@ -13,7 +13,7 @@ const mockError = jest.fn();
 jest.mock('@/lib/toast', () => ({ toast: { error: (...a: unknown[]) => mockError(...a), exito: jest.fn(), info: jest.fn() } }));
 jest.mock('@/lib/registro', () => ({ aviso: jest.fn(), fallo: jest.fn() }));
 
-import { abrirChatCon } from '../abrirChat';
+import { abrirChatCon, rutaDeConversacion } from '../abrirChat';
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -45,4 +45,27 @@ test('un fallo de red se dice como fallo de conexión, no como si la persona hub
 test('nunca lanza: la pantalla que lo llama no tiene que envolverlo', async () => {
   mockAbrir.mockRejectedValue(new Error('boom'));
   await expect(abrirChatCon('otro1')).resolves.toBeUndefined();
+});
+
+// 0082 · una cuenta sin correo universitario no abre conversaciones nuevas (responde en las que ya existen). Se dice POR CÓDIGO y con la razón
+// verdadera: decir «revisa tu conexión» a quien está restringida sería mentirle, y «esta persona no está disponible» también.
+test('una cuenta restringida (CP016) recibe la razón verdadera y no navega', async () => {
+  mockAbrir.mockRejectedValue({ code: 'CP016', message: 'cuenta restringida' });
+  await abrirChatCon('otro1');
+  expect(mockPush).not.toHaveBeenCalled();
+  expect(mockError).toHaveBeenCalledWith(expect.stringMatching(/no puede iniciar conversaciones/i));
+  expect(mockError).not.toHaveBeenCalledWith(expect.stringMatching(/conexión|ya no está disponible/i));
+});
+
+// En la web de escritorio la conversación se abre en la bandeja (lista y hilo en una página), con la recién abierta ya elegida; en el teléfono, en su pantalla.
+describe('rutaDeConversacion', () => {
+  it('web ancha: a la bandeja con la conversación elegida', () => {
+    expect(rutaDeConversacion('c1', 'web', 1440)).toBe('/chats?c=c1');
+    expect(rutaDeConversacion('c1', 'web', 1000)).toBe('/chats?c=c1');
+  });
+  it('web angosta y app: a su pantalla', () => {
+    expect(rutaDeConversacion('c1', 'web', 999)).toBe('/chat/c1');
+    expect(rutaDeConversacion('c1', 'ios', 1440)).toBe('/chat/c1');
+    expect(rutaDeConversacion('c1', 'android', 1440)).toBe('/chat/c1');
+  });
 });

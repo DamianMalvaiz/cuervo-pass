@@ -19,6 +19,7 @@ import {
   contarContactosRecibidos,
   listarMisPublicaciones,
   obtenerPublicacionPublica,
+  obtenerDestacadas,
   obtenerNuevasEstaSemana,
   obtenerParecidas,
   obtenerSugerencias,
@@ -79,6 +80,15 @@ export function useNuevas(tipo: TipoPublicacion | null) {
     // pantalla sigue entera. Poner un aviso de error sobre un bloque opcional
     // le da un peso que no tiene.
   };
+}
+
+/** Los destacados de Departamentos (0087). Accesorios como «Nuevas»: si no cargan, simplemente no se pintan. */
+export function useDestacadas(tipo: TipoPublicacion | null) {
+  const q = useQuery({
+    queryKey: claves.destacadas(tipo),
+    queryFn: () => obtenerDestacadas(10, tipo),
+  });
+  return { datos: (q.data ?? []) as PublicacionNueva[], cargando: q.isPending };
 }
 
 export function usePublicacion(id: string | undefined) {

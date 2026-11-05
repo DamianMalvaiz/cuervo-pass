@@ -38,7 +38,7 @@ async function crearCuenta(etiqueta) {
   const correo = `rls-${etiqueta}-${Date.now()}@ejemplo.mx`;
   const clave = `PruebaRls${Date.now()}Ok`;
   const { data, error } = await admin.auth.admin.createUser({
-    email: correo, password: clave, email_confirm: true,
+    email: correo, password: clave, email_confirm: true, app_metadata: { sin_restriccion: true },
     user_metadata: { nombre_usuario: `rls${etiqueta}${Date.now()}`, nombre_completo: `RLS ${etiqueta}` },
   });
   if (error) throw error;

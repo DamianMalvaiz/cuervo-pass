@@ -26,6 +26,7 @@ export function FilaAjuste({
   onPress,
   onCambiar,
   destructiva = false,
+  bloqueada = false,
 }: {
   icono: keyof typeof Ionicons.glyphMap;
   etiqueta: string;
@@ -37,6 +38,8 @@ export function FilaAjuste({
   onPress?: () => void;
   onCambiar?: (v: boolean) => void;
   destructiva?: boolean;
+  /** Lo que todavía no se puede usar (por ejemplo, publicar sin verificar): no responde, se ve apagado y lleva un candado en lugar del chevron. */
+  bloqueada?: boolean;
 }) {
   const theme = useTheme();
   const esInterruptor = valor !== undefined;
@@ -71,7 +74,11 @@ export function FilaAjuste({
               {detalle}
             </ThemedText>
           ) : null}
-          <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+          {bloqueada ? (
+            <Ionicons testID="fila-bloqueada" name="lock-closed-outline" size={18} color={theme.textSecondary} />
+          ) : (
+            <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+          )}
         </>
       )}
     </>
@@ -83,12 +90,14 @@ export function FilaAjuste({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={bloqueada ? undefined : onPress}
+      disabled={bloqueada}
+      accessibilityState={{ disabled: bloqueada }}
       accessibilityRole="button"
       accessibilityLabel={
         (descripcion ? `${etiqueta}. ${descripcion}` : etiqueta) + (detalle ? `${descripcion ? ',' : ','} ${detalle}` : '')
       }
-      style={({ pressed }) => [estilos.fila, pressed && estilos.presionada]}
+      style={({ pressed }) => [estilos.fila, pressed && estilos.presionada, bloqueada && estilos.apagada]}
     >
       {contenido}
     </Pressable>
@@ -106,6 +115,7 @@ const estilos = StyleSheet.create({
     paddingVertical: Spacing.two,
   },
   presionada: { opacity: 0.6 },
+  apagada: { opacity: 0.55 },
   // El icono vive en un cuadro redondeado, no suelto: es la forma de la propuesta visual del 17/10/2026.
   chipIcono: {
     width: 36,

@@ -2,10 +2,20 @@ import { MAX_FOTOS_NEGOCIO, validarNegocio, type DatosNegocioForm } from '../neg
 
 const completo: DatosNegocioForm = {
   categoriaId: 'comida', nombre: 'Tacos La Esquina', descripcion: 'Tacos al pastor', direccion: 'Calle 1, Lerma',
-  rangoPrecio: 1, horario: 'Lun a sáb · 6 pm a 11 pm', fotos: [],
+  horario: 'Lunes a sábado · 6 pm a 11 pm', fotos: [], totalProductos: 1, activo: true,
 };
 
 describe('validarNegocio', () => {
+  describe('lo que vende (mínimo un producto)', () => {
+    it('visible y sin productos: no se puede publicar, y dice qué hacer', () => {
+      expect(validarNegocio({ ...completo, totalProductos: 0 }).productos).toBe('Agrega al menos un producto para publicar tu negocio.');
+    });
+    it('con un producto basta', () => expect(validarNegocio({ ...completo, totalProductos: 1 }).productos).toBeUndefined());
+    it('pausado puede no tener productos: no se está publicando nada', () => {
+      expect(validarNegocio({ ...completo, totalProductos: 0, activo: false }).productos).toBeUndefined();
+    });
+  });
+
   it('completo, no falta nada', () => expect(validarNegocio(completo)).toEqual({}));
 
   it('una ficha vacía dice qué falta', () => {

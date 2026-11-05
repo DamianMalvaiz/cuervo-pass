@@ -1,9 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { forwardRef, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
 
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { Pulsable } from '@/components/ficha/Pulsable';
 
 /**
  * Campo de contraseña con ojo para verla.
@@ -51,7 +52,7 @@ export const CampoContrasena = forwardRef<TextInput, TextInputProps>(function Ca
         keyboardType={visible ? 'visible-password' : 'default'}
         {...props}
       />
-      <Pressable
+      <Pulsable
         onPress={() => setVisible((v) => !v)}
         style={estilos.boton}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -64,7 +65,7 @@ export const CampoContrasena = forwardRef<TextInput, TextInputProps>(function Ca
           size={20}
           color={theme.textSecondary}
         />
-      </Pressable>
+      </Pulsable>
     </View>
   );
 });

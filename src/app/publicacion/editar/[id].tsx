@@ -6,13 +6,17 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleShe
 import {
   FormularioPublicacion,
   type ControlPublicacion,
+  type VistaPreviaPublicacion,
 } from '@/components/FormularioPublicacion';
+import { ConVistaPreviaApp } from '@/components/ConVistaPreviaApp';
+import { VistaPreviaPublicacionWeb } from '@/components/web/VistaPreviaPublicacionWeb';
 import { PieFijo } from '@/components/ficha/PieFijo';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Spacing } from '@/constants/theme';
 import { useDesplazador } from '@/hooks/use-desplazador';
+import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { actualizarPublicacion, obtenerMiPublicacion } from '@/services/publicaciones.service';
@@ -20,12 +24,25 @@ import { useAuthStore } from '@/store/useAuthStore';
 import type { Publicacion } from '@/types/database.types';
 import { aviso } from '@/lib/registro';
 import { toast } from '@/lib/toast';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 
 export default function EditarPublicacionScreen() {
+  return (
+    <EnMarcoWeb>
+      <EditarPublicacionScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function EditarPublicacionScreenPantalla() {
   const formulario = useRef<ControlPublicacion>(null);
   const [guardando, setGuardando] = useState(false);
   const theme = useTheme();
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  const web = Platform.OS === 'web';
+  const [previa, setPrevia] = useState<VistaPreviaPublicacion | null>(null);
+  // La vista previa necesita sitio al lado del formulario: en una ventana angosta se omite (el formulario es lo que importa).
+  const conPrevia = web && ancho >= 1000;
   // Scroll al primer error: el ScrollView es de ESTA pantalla y el formulario no
   // puede moverlo. Con un pie fijo y un formulario largo, un error puede quedar a
   // varias pantallas de donde se tocó el botón.
@@ -41,6 +58,8 @@ export default function EditarPublicacionScreen() {
   // propia publicación ya no existe — la misma acusación inventada que END-11
   // corrigió en la ficha pública, en una pantalla que aquella orden no tocó.
   const [fallo, setFallo] = useState(false);
+  // Las fotos ya guardadas llegan como RUTAS de Storage (bucket privado): se firman para poder MOSTRARLAS (miniaturas y vista previa). Lo que se guarda sigue siendo la ruta.
+  const { urls: urlsFirmadas } = useFotosFirmadas(publicacion?.fotos ?? []);
 
   // `consultar` NO reinicia el estado: lo hace `reintentar`. Si lo hiciera, el
   // efecto de abajo estaría llamando a `setState` de forma síncrona en su
@@ -108,8 +127,8 @@ export default function EditarPublicacionScreen() {
     );
   }
 
-  return (
-    <ThemedView style={{ flex: 1 }}>
+  const cuerpo = (alVistaPrevia?: (v: VistaPreviaPublicacion) => void) => (
+    <ThemedView style={[{ flex: 1 }, conPrevia && styles.conPrevia]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           ref={registrarScroll}
@@ -149,6 +168,8 @@ export default function EditarPublicacionScreen() {
               whatsapp: publicacion.whatsapp,
             }}
             fotosIniciales={publicacion.fotos ?? []}
+            urlsDeFotos={urlsFirmadas}
+            onVistaPrevia={web ? setPrevia : alVistaPrevia}
             onGuardar={async (datos) => {
               if (!session?.user.id) return;
               await actualizarPublicacion(publicacion.id, {
@@ -186,11 +207,27 @@ export default function EditarPublicacionScreen() {
           </Sello>
         </PieFijo>
       </KeyboardAvoidingView>
+      {conPrevia ? (
+        <View style={styles.previa}>
+          <VistaPreviaPublicacionWeb v={previa} />
+        </View>
+      ) : null}
     </ThemedView>
   );
+  // En la app no hay lugar al lado: una barra fija ofrece la vista previa en una hoja.
+  if (!web) {
+    return (
+      <ConVistaPreviaApp<VistaPreviaPublicacion> boton="Ver cómo se verá" titulo="Así se verá en la lista" vista={(v) => <VistaPreviaPublicacionWeb v={v} />}>
+        {(alVistaPrevia) => cuerpo(alVistaPrevia)}
+      </ConVistaPreviaApp>
+    );
+  }
+  return cuerpo();
 }
 
 const styles = StyleSheet.create({
+  conPrevia: { flexDirection: 'row' },
+  previa: { width: 360, padding: Spacing.four, paddingTop: Spacing.five },
   centrado: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two, padding: Spacing.four },
   textoCentrado: { textAlign: 'center', lineHeight: 20 },
   container: { padding: Spacing.three, paddingBottom: Spacing.six },

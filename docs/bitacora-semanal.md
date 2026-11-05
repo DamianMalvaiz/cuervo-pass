@@ -1187,6 +1187,132 @@ escribirlo— en el camino feliz no cambia nada y ninguna otra prueba lo nota.
 - Las tres tramas no se han comparado en un Android real, que es donde
   `borderStyle` más se desvía.
 
+### Web pública, panel de admin web y correo con código (23/10/2026)
+
+- **Mercado Pago en producción.** 0077 aplicada tras respaldo (`respaldos/2026-10-23-antes-0077.sql`); `crear-pago` y `mp-webhook` desplegadas; secretos puestos; la
+  «Simular notificación» del panel de Mercado Pago dio 200 (firma y token funcionan juntos). Permisos de las funciones comprobados en producción con una consulta de solo
+  lectura al catálogo. **Sin verificar:** un pago completo de punta a punta (la orden de la tarjeta de prueba quedó en `creada` y no se supo por qué).
+- **Web pública** (`web-publica/`, rama `web-publica`): HTML estático con el aviso de privacidad generado desde `src/lib/avisoPrivacidad.ts`, publicada en `cuervo360.com`
+  como Worker `cuervo360-web`. `npx jest web-publica` (7 pruebas).
+- **Panel de admin web** (`panel-admin/`, rama `admin-web`): app aparte (Vite, React, TypeScript) detrás de **Cloudflare Access** (código por correo, solo una dirección)
+  en `admin.cuervo360.com`. Comprobado con `curl`: cualquier ruta sin sesión responde 302 a `cloudflareaccess.com`. La construcción
+  (`node --env-file=.env scripts/construir-web-admin.mjs`) exige que el bundle apunte al Supabase de producción; la CSP no permite scripts ni estilos en línea.
+  Paso 1 (login, guard, marco), paso 2 (resumen con detalle, migración 0078) y paso 3 (Verificaciones: ver documentos con confirmación y rastro, aprobar, rechazar con motivo):
+  `npm --prefix panel-admin test` (76 pruebas) y `npx supabase test db` (672 aserciones, con una mutación que la prueba de las ocho semanas detecta). Probado en Chromium contra el
+  Supabase local con un vendedor pendiente de prueba: las tres imágenes cargan bajo la CSP, aprobar deja el rol en `aprobado` con la prueba de 15 días y la bitácora registra `ver_documentos`.
+  Las imágenes solo se aceptan si salen de NUESTRO Supabase (origen exacto); en local la función firma con `kong:8000` y hubo que reescribirlo en la prueba.
+  **0078 aplicada a producción (respaldo `respaldos/2026-10-23-antes-0078.sql`) y función `admin` desplegada.** El panel nuevo (pasos 1 a 3) **SÍ está desplegado** en `admin.cuervo360.com` (Worker `cuervo360-admin`, 23/10/2026), detrás de Cloudflare Access: comprobado con `curl`, cualquier ruta sin sesión responde 302 a `cloudflareaccess.com`.
+  **Paso 4 (Moderación y Auditoría), sin desplegar:** migración **0079** (trigger sobre `verificaciones_vendedor` que escribe `aprobar_verificacion`/`rechazar_verificacion` en `acciones_admin`, con relleno de lo anterior,
+  y `admin_listar_auditoria`) y acción `auditoria` de la función `admin`. **Hallazgo:** la bitácora NO registraba aprobar ni rechazar verificaciones (quedaba solo `revisada_por`/`revisada_en`, que además se borran
+  al reenviar); ahora lo registra el trigger en la misma transacción. pgTAP 678 (con mutación: apagar el trigger rompe las pruebas); panel 116 pruebas. Probado en Chromium contra el Supabase local: aprobar deja su fila en Auditoría,
+  ocultar una reseña exige motivo y queda registrado, y el HTML de una reseña ajena se muestra como texto. **0079 y la función `admin` con `auditoria` NO están en producción.**
+  Las insignias del menú (verificaciones y reportes pendientes) se refrescan al cambiar de sección.
+  **0079 aplicada a producción (respaldo `respaldos/2026-10-23-antes-0079.sql`; el relleno recuperó las 2 decisiones anteriores), función `admin` con `auditoria` y panel redesplegados (pasos 1 a 4).**
+  **Paso 5 (Ingresos y planes), sin desplegar:** migración **0080** (`admin_ingresos`: cobrado por semana y a 30 días, suscripciones activas/en prueba/por vencer/vencidas, ingresos por plan, embudo de órdenes y últimos
+  pagos; **dinero de Mercado Pago y simulado SIEMPRE por separado**) y acción `ingresos`. pgTAP 689 (con mutación: quitar el filtro de 30 días rompe dos pruebas; los datos de prueba van en un `savepoint`);
+  panel 136 pruebas. Probado en Chromium contra el Supabase local con pagos de montos conocidos: $298.00 reales (el pago de hace 60 días no cuenta), $99.00 simulados, conversión 50 % y los montos en la semana correcta.
+  **Sin verificar:** si lo de Mercado Pago es dinero real o de pruebas (depende de las credenciales con que se cobró; el panel lo dice); modo oscuro y móvil.
+  **0080 aplicada a producción (respaldo `respaldos/2026-10-23-antes-0080.sql`), función `admin` con `ingresos` y panel redesplegados (pasos 1 a 5).**
+  **Paso 6 (Salud de la app), sin desplegar:** migración **0081** (`eventos_pago`, `registrar_evento_pago`, `admin_eventos_pago`; poda a 60 días), acciones `salud` y `eventos_pago` de la función `admin`
+  (`interpretarSaludIa` es pura; consulta `GET /salud` del servicio de IA, que es público: ningún token, y la URL no sale al navegador) y **`mp-webhook` ahora registra el resultado de cada aviso ya
+  verificado** (solo tras la firma, solo etiqueta, nivel, código e id numérico; un fallo al registrar no cambia la respuesta). Panel: servicios, avisos de pago y errores de la app con borrado confirmado.
+  pgTAP 701 (mutación: sin la poda falla), jest con guardas estáticas de `mp-webhook` y de `admin` (mutaciones: guardar el cuerpo, registrar antes de la firma y devolver un token fallan), panel 174 pruebas.
+  Probado en Chromium contra el Supabase local. **Límite conocido:** los avisos con firma inválida NO se registran (la URL es pública; quedan en el log de Supabase). **Sin verificar:** el estado real del servicio de IA
+  desde producción (en local no hay `AI_SERVICE_URL`). **0081 y las funciones `admin` y `mp-webhook` actualizadas NO están en producción.**
+  **Sin verificar:** modo oscuro y móvil en pantalla; el rechazo y la lista contra producción; imágenes con un documento real.
+- **Hallazgos corregidos.** (1) `/admin` sin sesión se quedaba en «Cargando…» para siempre y solo la pantalla de inicio leía la sesión guardada: `useEsAdmin` ahora la lee
+  y redirige al login con `volverA` (solo rutas del panel). (2) Metro cachea `EXPO_PUBLIC_*`: un export web sin `--clear` apuntó a producción cuando se quería local.
+  (3) **«Email OTP length» estaba en 8 en producción** y la app espera 6: ningún código se podía escribir completo. Cambiado a 6 en el panel de Supabase; la caducidad se baja a 600 s.
+  (4) La plantilla «Reset password» seguía con el enlace: el enlace gasta el código, así que las plantillas llevan solo `{{ .Token }}`.
+- **CI en rojo desde el 18/10, sin que nadie lo hubiera visto** (`gh run list`: rojo en `cuervo-360`, `endurecer-auditoria`, `mercado-pago`, `web-publica` y `admin-web`). Solo fallaba el job `frontend`, en `verificar:audit`;
+  `base-de-datos`, `edge-functions` (`deno check`), `secretos`, `servicio-ia` e `imagen` pasaban. Dos causas: (1) la excepción de `braces` ya no aparecía en la auditoría y la puerta pide quitarla; (2) un aviso ALTO NUEVO de
+  `zod` (GHSA-mrhx-c7xc-m3w5, `<4.6.6`): la zod directa de la app era la 4.6.5 y SÍ está en el bundle → subida a 4.6.7. Quedó una copia anidada (3.25.76, la trae `@expo/cli`, que ni en su última versión deja de pedirla): no se
+  puede corregir actualizando y NO está en el bundle (`expo export --platform android --dump-sourcemap`: 2076 fuentes, 88 paquetes). Para tapar solo esa copia la puerta ganó **excepciones por copia** (`copias` y `linea`):
+  si el aviso aparece en otra copia, o la copia cubierta cambia de línea, o hay corrección dentro de su línea, falla. `scripts/__tests__/verificar-audit.test.js` (21 pruebas, con mutaciones). **Sin verificar:** que el CI de GitHub
+  quede en verde tras subirlo (no se ha corrido desde entonces). `deno check` de las funciones `admin` y `mp-webhook` nuevas tampoco se ha corrido (no hay Deno local): lo hará el CI.
+- **Segunda capa del CI rojo (23/10/2026, corrida de `04d784c`):** con la auditoría ya en verde, `frontend` llegó por fin a `npm test --coverage` —paso que llevaba meses sin ejecutarse— y falló por **el umbral de
+  cobertura de `src/app/(tabs)/`: 91,63 % de ramas contra 92 %** (idéntico en GitHub y en local: determinista). Desde que se fijó (26/09) se añadió el segmento Negocios de Favoritos y otras cosas sin cubrir todas sus ramas.
+  Se escribieron 8 pruebas de comportamiento en `favoritos.test.tsx` (la distancia no se inventa sin coordenadas, publicaciones y negocios con foto, segmento activo, singular y carga de negocios); sin bajar el umbral.
+  Medido: `npm test -- --watchAll=false --coverage` → 190 suites, 2451 pruebas, `(tabs)` 93,91 % de ramas. **Pruebas intermitentes, SIN resolver:** en GitHub falló `BotonFavorito` («el tope de 200», `waitFor` de 1 s sin que
+  `mockError` se llamara) y en una corrida local con cobertura falló `useNotificaciones`; ninguna falla aislada (`BotonFavorito` 3 de 3) y en la corrida posterior no fallaron. Parecen carreras de tiempo bajo carga.
+  Si reaparecen en el CI hay que arreglarlas de raíz, no repetir la corrida. Nota: un comentario de `favoritos.tsx` dice que la fila muestra «—» sin distancia, pero el código no muestra nada.
+- **Admin fuera de la app móvil (23/10/2026).** Las pantallas de admin de la app (`src/app/admin/`, `EntradaAdmin`, `useAdmin`, `lib/admin`, `admin.service`) se retiraron: el panel web las reemplaza. **Antes** se llevó a la web lo único
+  que el panel no tenía, el **interruptor del modo demostración** (confirmación que avisa que los pagos de TODAS las cuentas serán simulados; muestra el estado que dejó el servidor; si lo rechaza no cambia nada).
+  Comprobado en Chromium contra el Supabase local: `configuracion_app` cambia y la bitácora registra `encendido` y `apagado`. También se quitó `destinoTrasLogin` y el `volverA` del login (solo existían para el panel
+  exportado a web). **No se tocó** la Edge Function `admin` (la usa el panel), el rol `admin` ni la base. `DESIGN.md`: 27 pantallas y 60 componentes (los cuenta `design-md-al-dia.test.ts`).
+  Medido con el comando del CI (`npm test -- --watchAll=false --coverage`): 181 suites, 2344 pruebas, todos los umbrales cumplidos (`(tabs)` 93,91 %; global de ramas 89,04 %); panel 185 pruebas. **Sin verificar:** un APK nuevo
+  sin esas pantallas (no se ha compilado); el CI de GitHub tras estos cambios.
+- **Sesión al recargar (23/10/2026).** Al exportar la app de estudiantes a web y recargar en una ruta distinta de `/`, Perfil salía «Sin nombre», Inicio «Sin presupuesto · Sin distancia · Sin universidad», Chats y Publicar en blanco y Favoritos
+  en esqueletos: la sesión guardada solo la leía `app/index.tsx`. Se arregló con `useRestaurarSesion`, llamado desde el layout raíz (que se monta en TODAS las rutas) y ANTES del `return` que espera las tipografías; dos pruebas
+  (`use-restaurar-sesion.test.ts` y una guarda sobre `_layout.tsx`, con dos mutaciones que fallan). Comprobado en Chromium contra el Supabase local recargando cada ruta: los cinco síntomas desaparecen. **Sin verificar en dispositivo:** que el mismo
+  defecto afectara al teléfono al abrir la app desde una notificación con la app cerrada (es una sospecha). Queda el aviso de hidratación de React #418 en `/perfil` (ya existía).
+- **Despliegues del 23/10/2026:** `ai-proxy` (v28) y `eliminar-cuenta` (v24) con los arreglos de los hallazgos 4 y 5 de la auditoría. Importa la segunda: antes borraba los archivos y después la cuenta, así que si el borrado de la
+  cuenta fallaba quedaba viva con sus fotos y su evidencia ya destruidas; ahora la cuenta va primero.
+- **Documentación puesta al día contra el estado real:** 13 casillas abiertas de esta bitácora se tacharon CON su evidencia (de 36 abiertas quedan 23, todas reales o sin verificar) y se corrigieron 4 líneas de `PRODUCT.md` (el chat y el
+  motor de sugerencias están construidos; el cifrado en reposo está retirado, §30; los reportes ocultan a los 3).
+- **Hallazgo del panel «Salud de la app»:** las notificaciones push NO funcionan en el APK actual. No hay `googleServicesFile` en `app.json` ni `google-services.json`, y el paquete `mx.cuervopass.app` es un build real: la etiqueta «normal en Expo Go»
+  de `registrarTokenPush` está escrita a mano y sale siempre. Hace falta un proyecto de Firebase y subir la clave FCM a EAS (entra en el próximo APK). El servicio de IA responde «API del LLM: sin configurar» (falta `ANTHROPIC_API_KEY`).
+- **Push (Firebase): cableado listo, falta lo que solo hace el usuario (23/10/2026).** `app.config.js` ahora toma `android.googleServicesFile` de la variable de EAS `GOOGLE_SERVICES_JSON` (tipo archivo) o de un `./google-services.json` local;
+  sin ninguno NO detiene la compilación pero avisa a gritos. `.gitignore` protege `google-services.json` y las claves de cuenta de servicio (gitleaks marca la clave de API del primero por su forma, así que no va al repositorio).
+  `scripts/verificar-google-services.mjs` comprueba el archivo antes de gastar un build (el fallo común es el nombre de paquete) y nunca imprime una clave. Guía paso a paso: `docs/firebase-push.md`. Pruebas: 21 (con dos mutaciones en
+  `app.config.js` y un rojo real del verificador sin el script). `expo config` con la CLI real: sin archivo no hay clave y no se rompe; con la variable usa esa ruta. **Falta (usuario):** crear el proyecto de Firebase, subir la clave de la
+  cuenta de servicio a EAS y `google-services.json` como variable, y compilar un APK. **Sin verificar:** el push de punta a punta en un teléfono.
+- **CI del panel de admin:** job `panel-admin` (`npm ci`, `typecheck`, `npm test`, `npm run build`, `verificar:audit`), reproducido desde cero en local (borrando `node_modules`); `ci-panel-admin.test.ts` (con mutaciones).
+- **Pendiente.**  correr las
+  pruebas del panel en el CI; decidir qué hacer con el admin `damianmalvaizadm@utvtol.edu.mx`; mover widgets (fase 2).
+- **Cuentas de vendedor sin correo universitario: migración 0082 escrita y probada en local, SIN aplicar a producción (24/10/2026).** Hallazgo: el filtro `.edu.mx` vivía
+  solo en la app (`correoUniversitario.ts`); con la llave anónima, que va en el APK, cualquiera daba de alta un Gmail llamando a Auth. En el repo el hook de Auth
+  estaba comentado; en producción **no se comprobó** si había alguno (probarlo implicaba crear una cuenta real). La 0082: `es_correo_universitario`, el hook
+  `hook_alta_de_usuario` (un correo no universitario solo entra si se declara `arrendador` o `comerciante`), la columna `usuarios.cuenta_restringida` (la fija el trigger de alta, la
+  dueña no la toca) y las políticas: una cuenta restringida no reporta, no reseña (`reportes_insert`, `resenas_insert`, `reportar_resena`) y no abre conversaciones nuevas
+  (`conversaciones_crear`, `abrir_conversacion`); sí responde en las que ya existen. La declaración «soy vendedor» la manda el cliente, así que NO es lo que protege: protege la
+  restricción. Las cuentas existentes quedan sin restricción. Los scripts que crean cuentas con la clave de servicio (`seed-demo`, `preparar-demo`, `verificar`,
+  `prueba-rls`) llevan `app_metadata.sin_restriccion`, que el cliente no puede escribir; Auth la escribe en un UPDATE posterior al INSERT, por eso hay un segundo trigger que la recoge.
+  Comprobado: `supabase test db` pasa (736 aserciones, 35 nuevas); mutación por mutación (quitar cada política, la rama de `abrir_conversacion`, el guardián de la columna y el hook)
+  cada una la caza exactamente su aserción; y contra el Auth LOCAL real con el hook activo: un Gmail sin declarar da 400, uno declarado arrendador da 200 y queda restringido, uno
+  universitario da 200 y no, y `admin/users` con la marca queda sin restricción. **Sin verificar:** producción (el hook se activa a mano en el panel de Supabase, ver `docs/hook-de-alta.md`);
+  riesgo abierto: una cuenta restringida puede escribir en las conversaciones que otra persona abrió. Falta la parte de la app (registro «Soy arrendador o tengo un negocio»,
+  leer CP016) y el aviso de privacidad.
+- **Registro de arrendadores y negocios, y cuentas restringidas en la app (24/10/2026, SIN aplicar a producción).** El registro pregunta «¿Cómo vas a usar Cuervo 360?» (estudiante,
+  arrendador, negocio o servicio): el estudiante sigue con correo `.edu.mx`, los vendedores entran con el que tengan y van a Inicio. El alta (0082) les crea su rol sin verificar y deja
+  el cuestionario de estudiante como hecho; el login decide por `cuestionario_completo`, no por `universidad`. Una cuenta restringida no ve «Iniciar chat», «Reportar» ni «Reseñar»
+  (`useCuentaRestringida`; un fallo de lectura NO esconde nada, porque quien protege es la base) y, si abre un chat nuevo por otra vía, `CP016` se dice con su razón. Comprobado:
+  jest completo, `tsc`, lint, toques, `supabase test db` (736); mutaciones: todos con correo universitario → fallan 3 pruebas, el vendedor al cuestionario → fallan 2, el hook siempre
+  `false` → falla 1, la sección de fotos siempre ofreciendo agregar → fallan 2. **Sin verificar en un teléfono.** Los tests del hook los escribí junto con el hook (no vi el rojo primero;
+  lo cubre la mutación). **Hallazgo aparte, SIN resolver:** el aviso de privacidad dice «los cobros son simulados: no se procesa ninguna tarjeta» (`src/lib/avisoPrivacidad.ts`) y Mercado
+  Pago ya está integrado; no nombra a Mercado Pago como encargado. Cambiarlo exige versión nueva y que se acepte otra vez.
+- **Prueba intermitente resuelta de raíz (24/10/2026):** `FormularioNegocio` «agrega y quita fotos» pulsaba 60 veces seguidas, repintando el formulario entero cada vez; bajo la carga de la suite
+  completa pasaba de 15 s y fallaba sin que nada estuviera roto (dos veces el mismo día). Ahora prueba el máximo del plan con 4 fotos (la suite del archivo: de ~30 s a 1,4 s).
+- **0082 aplicada a producción y hook activo (24/10/2026).** Respaldo previo (`respaldos/2026-10-24-antes-de-0082.sql`), `db push` de la 0082 (la corrió el usuario: el clasificador bloqueó el comando encadenado), y
+  comprobado en solo lectura: 107 usuarios y 0 restringidos, las 4 funciones y los 2 triggers, el hook ejecutable solo por `supabase_auth_admin`, las tres políticas con la restricción;
+  `prueba-rls` contra producción: 22 de 22. El hook se activó a mano en el panel (Authentication → Hooks → Before User Created → `public.hook_alta_de_usuario`; **antes no había ninguno**) y se
+  comprobó con una llamada real a `/auth/v1/signup` de producción con un correo `@example.com` sin declarar vendedor: 400 con el mensaje del hook, sin crear cuenta. **Sin probar en producción:**
+  el alta de un vendedor declarado y la de un universitario (crean cuentas reales; se prueban con el APK nuevo).
+- **Perfiles y barra por tipo de cuenta (24/10/2026, migración 0083 SIN aplicar a producción; la app todavía no la usa en un APK).** `usuarios.perfil_activo` ('estudiante' por omisión; el alta lo deja
+  en 'vendedor' si la persona se declaró arrendador o comerciante) y `cambiar_perfil_activo` (a 'vendedor' solo con alguna función de vendedor, CP017 si no; un guardián impide el update directo).
+  En la app: `lib/perfilActivo.ts` (qué pestañas ve cada perfil y adónde se entra), `usePerfilActivo`, la barra del vendedor (Mi panel · Publicaciones · Chats · Perfil, sin Inicio ni Favoritos)
+  y el panel (`(tabs)/panel.tsx`: un paso de verificación, mensajes sin leer, activos, plan; un dato que no llegó es «—», nunca 0). Entrar (índice, login) y confirmar el registro llevan a un
+  vendedor a su panel y no al cuestionario. Un estudiante con función de vendedor APROBADA conserva «Publicar» donde estaba. Comprobado: `supabase test db` (747), jest completo, `tsc`, lint, toques,
+  contraste; mutaciones: guardián del perfil, comprobación de la función, alta que ignora lo declarado, barra del vendedor, prioridad de pasos, `cambiar` sin actualizar, y «—» → 0: cada una la caza su prueba.
+  **Falta:** las pantallas de perfil por tipo (C1), el cambio de perfil desde la app (hoy no hay forma de pasar de uno a otro; las cuentas existentes siguen como estudiante), y probarlo en el teléfono.
+  **Sin verificar:** un destello de la barra de estudiante antes de cargar el perfil de un vendedor (el perfil se pide al abrir Tabs). Aplicar la 0083 a producción ANTES de instalar el APK que la use.
+- **Perfil por tipo de cuenta (C1) y cambio de perfil (24/10/2026, sin probar en teléfono; depende de la 0083, SIN aplicar a producción).** `perfil.tsx` pasó de 548 líneas a un selector por perfil activo más el
+  perfil de estudiante: tarjeta con la etiqueta «Correo verificado» (solo si el correo lo está), resumen de «Mi búsqueda» (ya no los siete campos; el detalle se ve y se edita en «Mis datos») y una lista corta.
+  Nuevos: `TarjetaIdentidad` (la foto, extraída; las pruebas de la foto se movieron aquí), `PerfilVendedor` (estado de la verificación, mi negocio/publicaciones, plan y pagos, activar perfil de estudiante),
+  `EncabezadoPerfil`, la pantalla «Sobre mí» (la biografía, movida) y «Crear perfil de vendedor» (pide la función solo si no se tiene → cambia de perfil → panel; si un paso falla NO avanza).
+  Se retiró `SeccionFunciones` («Tus funciones» con alertas) y las cuatro pruebas viejas del perfil, tras portar lo que cubrían. Se quitaron a propósito las cifras de la tarjeta y los campos
+  mascotas/tabaco/ruido del perfil (siguen en «Mis datos»). **Honestidad conservada:** una función heredada de la migración (0043) se rotula «Función heredada, sin revisión», no «verificada».
+  Comprobado: jest completo, `tsc`, lint (0 errores), toques, contraste; mutaciones: el vendedor ve la vista de estudiante, no cambia de perfil, pide la función aunque ya la tenga, una heredada se rotula
+  verificada, y un vendedor sin datos va directo a Inicio: cada una la caza su prueba. **Sin verificar:** todo en un teléfono; que quien tenía alertas de «Tus funciones» encuentre «Crea tu perfil de vendedor».
+- **Pasada de «Apple design» sobre la app (24/10/2026, sin probar en teléfono).** El skill descargado era idéntico al `apple-design` ya instalado (comparado byte a byte). Se midió el código contra
+  sus principios y se hicieron los seis hallazgos: (1) **respuesta al toque:** 26 `<Pressable>` crudos sin señal visual pasan a `Pulsable` (3 con exención escrita y motivo); `Sello` también, y `Pulsable` ahora
+  respeta la opacidad del estilo (un botón deshabilitado se sigue viendo así); una prueba (`controles-responden`) falla si aparece uno nuevo sin respuesta; (2) **agencia:** activar y desactivar una
+  publicación (reversibles) actúan al instante y avisan con «Deshacer», sin alerta de confirmación; (3) **feedback:** los cinco `useForm` validan al salir del campo (`mode: 'onTouched'`), con prueba
+  guardiana; (4) **hápticos:** se quitaron solo los de la campana y de abrir un aviso (navegar); el resto se queda porque `lib/tacto` ya los razona (END-37) y el hallazgo original estaba exagerado: 2 de 11, no 11;
+  (5) la fila del panel usa `FilaAjuste`; (6) la pestaña «Inicio» se llama «Explorar», con icono de brújula. No aplicaban (a propósito): resortes, inercia y rubber-banding (la app no tiene gestos propios) y
+  materiales translúcidos (el sistema visual es plano). Comprobado: jest completo, `tsc`, lint, toques, contraste; siete mutaciones, cada una la caza su prueba. **Sin verificar:** cómo se SIENTE en un teléfono
+  (la escala al tocar, el «Deshacer», el cambio de nombre de la pestaña).
+
 ### Pendientes abiertos
 
 Actualizado el 19/09/2026 por la noche. El plan completo, con sus órdenes
@@ -1339,9 +1465,10 @@ ejecutables y su secuencia, está en
       oscuro. Guarda nueva: `npx jest test-utils/__tests__/errortexto-sobre-relleno.test.ts`
       exige `backgroundColor: theme.error` junto a cada `errorTexto` (fallaba con exactamente
       esos cinco sitios antes del arreglo). **Sin verificar en dispositivo.**
-- [ ] **Compilar un APK nuevo** con el código por correo (commits `ba35620` y `355c45c` de
+- [x] **Compilar un APK nuevo** con el código por correo (commits `ba35620` y `355c45c` de
       la rama `codigo-por-correo`): `npx eas-cli build --platform android --profile preview`.
       Conviene juntar más cambios en el mismo build.
+      ✔ **Comprobado el 23/10/2026:** el build de EAS `aa6aea2d` está instalado en el teléfono y la recuperación de contraseña con código funciona (probado por el usuario).
 - [ ] **Añadir `{{ .Token }}` a la plantilla «Confirm sign up»** de Supabase **solo después
       de instalar ese APK**: antes, el correo traería un código que la app instalada no
       sabe usar. Hoy la plantilla está en español y solo lleva el enlace.
@@ -1355,7 +1482,7 @@ ejecutables y su secuencia, está en
       en un Supabase local, con el mismo valor de 30, 60 códigos malos seguidos no
       devolvieron ningún 429, y el código bueno seguía siendo válido después. Un intento
       fallido no invalida el código.
-- [ ] **Recuperar contraseña con código: implementado y probado, sin verificar en
+- [x] **Recuperar contraseña con código: implementado y probado, sin verificar en
       dispositivo.** `recuperar-contrasena.tsx` pide el código, y en un segundo paso recibe
       código y contraseña nueva. Verificar el código abre sesión: si el usuario sale sin
       cambiarla, se le cierra; al terminar, se cierra y se manda al login. Comprobado con
@@ -1364,14 +1491,16 @@ ejecutables y su secuencia, está en
       verificar el código y antes de cambiar la contraseña, la sesión queda guardada y la
       próxima vez entra directo; cerrarlo exige una marca de «recuperación pendiente» que
       obligue a cambiar la contraseña al reabrir.
-- [ ] **Site URL de Supabase** (Authentication → URL Configuration): hoy
+      ✔ **Comprobado el 23/10/2026:** probado por el usuario y funciona. El REGISTRO con código sigue sin verificar en un correo real.
+- [x] **Site URL de Supabase** (Authentication → URL Configuration): hoy
       `http://localhost:3000` y sin Redirect URLs (captura del 22/10/2026). El enlace del
       correo confirma la cuenta y termina en «no se puede conectar». Con el código deja de
       bloquear, pero conviene una página de confirmación en `cuervo360.com`.
+      ✔ **Comprobado el 23/10/2026:** cambiado a `https://cuervo360.com`; el correo de recuperación ya trae `redirect_to=https://cuervo360.com`.
 
 **Auditoría del 23/10/2026: hallazgos 1, 2 y 3 arreglados en código (rama `endurecer-auditoria`), sin aplicar todavía**
 
-- [ ] **Aplicar las migraciones 0075 y 0076 en producción.** Antes, el respaldo que exige AGENTS.md
+- [x] **Aplicar las migraciones 0075 y 0076 en producción.** Antes, el respaldo que exige AGENTS.md
       (`npx supabase db dump --data-only -f respaldos/$(date +%F).sql`) y después `npx supabase db push`.
       · **0075 · integridad del consentimiento.** Antes, un `update` directo guardaba cualquier versión y cualquier hora de
       aceptación (comprobado en un Postgres local: `'zzz'` y `1999-01-01`). Ahora la versión tiene que existir en
@@ -1380,11 +1509,14 @@ ejecutables y su secuencia, está en
       30 días. Se reproduce con `./scripts/prueba-carrera-pagos.sh` (antes: 30,0 días; ahora: 60,0).
       Comprobado en local: `npx supabase test db` (630 aserciones), el guion de la carrera y una falsificación real contra
       GoTrue y PostgREST. **Sin probar contra producción.**
-- [ ] **Desplegar `verificar-rostro`** (`supabase functions deploy verificar-rostro`): ahora exige la forma `v<n>` y contesta 400
+      ✔ **Comprobado el 23/10/2026:** `supabase migration list` muestra las 81 migraciones aplicadas en producción (ninguna pendiente).
+- [x] **Desplegar `verificar-rostro`** (`supabase functions deploy verificar-rostro`): ahora exige la forma `v<n>` y contesta 400
       `aviso_invalido` cuando la base rechaza la versión. `deno check` corre en el CI; aquí no hay `deno`.
-- [ ] **Reconstruir el contenedor de IA** (`./scripts/ia-arrancar.sh`) para llevar el arreglo del 500 por una cabecera
+      ✔ **Comprobado el 23/10/2026:** `supabase functions list`: desplegada 07:28, cuatro minutos después de su último cambio (07:24).
+- [x] **Reconstruir el contenedor de IA** (`./scripts/ia-arrancar.sh`) para llevar el arreglo del 500 por una cabecera
       `Authorization` con un byte no ASCII (ahora 401). Hasta entonces `verificar.mjs` verá un contenedor un commit atrás.
-- [ ] **Hallazgos 4 y 5 arreglados en código, sin desplegar.** Desplegar `ai-proxy` y `eliminar-cuenta`
+      ✔ **Comprobado el 23/10/2026:** `GET /salud` informa la versión `13d187a`, que es el último commit que tocó `ai-service`.
+- [x] **Hallazgos 4 y 5 arreglados en código, sin desplegar.** Desplegar `ai-proxy` y `eliminar-cuenta`
       (`supabase functions deploy ai-proxy` y `supabase functions deploy eliminar-cuenta`).
       · **`ai-proxy`:** un cuerpo `null` daba 500 (ahora 400 `cuerpo inválido`), y cualquier error al consumir la cuota se contestaba 429 «cuota
       agotada». Ahora solo `CP001` es 429; lo demás es un 503 `degradado` (`cuota-no-disponible`) y la app lo trata como fallo, no como límite.
@@ -1393,22 +1525,25 @@ ejecutables y su secuencia, está en
       error es genérico. De paso: ya no se sacan las rutas de `fotos_huerfanas` si el borrado de Storage falló (antes el barredor las perdía).
       Comprobado con `npx jest test-utils/__tests__/ai-proxy-politica.test.ts test-utils/__tests__/eliminar-cuenta-politica.test.ts`.
       **`deno check` solo corre en el CI** (aquí no hay `deno`): la sintaxis se comprobó con el compilador de TypeScript, los tipos no.
+      ✔ **Comprobado el 23/10/2026:** desplegadas `ai-proxy` (v28) y `eliminar-cuenta` (v24); sin sesión responden 401.
 - [ ] Hallazgos 6 y 7 de la misma auditoría, sin tocar: la copia de `igualEnTiempoConstante` y `respaldos/`.
 - [ ] **Antes de enseñar «Contratar plan»** hay que encender `demo_mode` desde el panel de administración: en producción está en
       `false` (comprobado el 23/10/2026) y la app dice «los pagos de demostración no están activos».
 
 **Mercado Pago (rama `mercado-pago`, pagos reales de PRUEBA con sandbox; OXXO habilitado como «pendiente»)**
 
-- [ ] **Paso 1 hecho en local, sin aplicar a producción: la migración 0077** (`ordenes_pago`, `crear_orden_pago`, `registrar_pago_mp`).
+- [x] **Paso 1 hecho en local, sin aplicar a producción: la migración 0077** (`ordenes_pago`, `crear_orden_pago`, `registrar_pago_mp`).
       El servidor decide plan y monto desde `planes`; un pago por otro monto no activa nada; el aviso duplicado no extiende dos veces.
       Comprobado: `npx supabase test db` (666 aserciones) y `./scripts/prueba-carrera-webhook.sh` (dos sesiones reales; sin el candado
       `for update` falla con `duplicate key`, comprobado con una mutación). Los reembolsos NO se manejan todavía.
-- [ ] **Paso 2 hecho: la lógica pura del webhook** (`supabase/functions/mp-webhook/politica.ts`, más `_shared/tiempoConstante.ts`):
+      ✔ **Comprobado el 23/10/2026:** 0077 aplicada a producción con respaldo previo (`respaldos/2026-10-23-antes-0077.sql`).
+- [x] **Paso 2 hecho: la lógica pura del webhook** (`supabase/functions/mp-webhook/politica.ts`, más `_shared/tiempoConstante.ts`):
       verificación de la firma (HMAC-SHA256 de `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`, falla cerrado sin secreto o sin id), lectura del
       aviso, decisión sobre el pago (monto en centavos, MXN, referencia uuid; un monto con fracciones de centavo se rechaza) y qué contestar a Mercado
       Pago. Comprobado con `npx jest test-utils/__tests__/mp-webhook-politica.test.ts` (91 pruebas; el HMAC se valida contra el vector público RFC 4231
       y la regla de fallo cerrado con una mutación). Añade `allowImportingTsExtensions` a `tsconfig.json` (Deno exige la extensión `.ts` en los imports).
-- [ ] **Paso 4 hecho en local, sin desplegar: `crear-pago` y la pantalla de planes.** `crear-pago` (con sesión) crea la orden con el plan que dice la
+      ✔ **Comprobado el 23/10/2026:** en producción: `mp-webhook` desplegada; «Simular notificación» del panel de Mercado Pago dio 200.
+- [x] **Paso 4 hecho en local, sin desplegar: `crear-pago` y la pantalla de planes.** `crear-pago` (con sesión) crea la orden con el plan que dice la
       cuenta, pide la preferencia a Mercado Pago (`X-Idempotency-Key` = la orden; sin datos de la persona; los avisos van a la URL del panel) y devuelve
       la URL, que se comprueba (https y dominio de Mercado Pago) tanto en el servidor como en la app. La pantalla añade «Pagar con Mercado Pago»
       (`Linking.openURL`, sin APK nuevo por el módulo, pero SÍ hace falta un APK para llevar el código a un teléfono), deja el pago simulado como respaldo
@@ -1417,19 +1552,23 @@ ejecutables y su secuencia, está en
       src/services/__tests__/planes.service.test.ts src/hooks/queries/__tests__/usePlanes.test.tsx src/app/planes/__tests__/planes.test.tsx` y dos mutaciones
       (quitar la comprobación de la URL; refrescar por una orden que ya estaba pagada). Sin `back_urls`: tras pagar, Mercado Pago deja a la persona en su
       propia pantalla y vuelve a la app a mano.
-- [ ] **ANTES de llevar este código a un teléfono: aplicar la 0077 a producción.** La pantalla de planes lee `ordenes_pago`; sin la migración, esa lectura
+      ✔ **Comprobado el 23/10/2026:** `crear-pago` desplegada; sin sesión responde 401.
+- [x] **ANTES de llevar este código a un teléfono: aplicar la 0077 a producción.** La pantalla de planes lee `ordenes_pago`; sin la migración, esa lectura
       falla y la pantalla dice «No pudimos comprobar si tienes un pago pendiente» a todo el mundo.
-- [ ] **Paso 3 escrito, SIN desplegar:** `supabase/functions/mp-webhook/index.ts` (+ `clasificarConsultaPago`, `respuestaDeFirmaFallida` y
+      ✔ **Comprobado el 23/10/2026:** hecho: la 0077 se aplicó antes del build que está en el teléfono.
+- [x] **Paso 3 escrito, SIN desplegar:** `supabase/functions/mp-webhook/index.ts` (+ `clasificarConsultaPago`, `respuestaDeFirmaFallida` y
       `respuestaDeDecisionFallida` en `politica.ts`). Orden: secretos → forma del aviso → firma → consulta del pago a Mercado Pago → decisión → RPC → respuesta.
       Orden, estado y monto salen de la respuesta de Mercado Pago, no del aviso. Comprobado con `npx jest test-utils/__tests__/mp-webhook` (131 pruebas,
       las de `index.ts` son guardas estáticas de orden) y la suite completa (2340), tsc, lint y verificar:env/toques en verde. Sintaxis de `index.ts`
       revisada con TypeScript; **sin `deno check` ni ejecución real** (no hay Deno local): el primer contacto real es el despliegue.
+      ✔ **Comprobado el 23/10/2026:** `mp-webhook` desplegada con `--no-verify-jwt`; una llamada sin firma responde 401 `sin-firma`.
 - [ ] Paso pendiente: 5 prueba completa con las cuentas de prueba. **Necesita lo tuyo de abajo** (aplicación de prueba, secreto del webhook,
       `MP_ACCESS_TOKEN`) y desplegar con `supabase functions deploy mp-webhook --no-verify-jwt`. `crear-pago` y `mp-webhook` sin sus secretos contestan
       503 `sin-configurar` y no hacen nada. Antes: aplicar la 0077 a producción (con respaldo).
-- [ ] **Tuyo (Mercado Pago):** crear la aplicación de Checkout Pro DENTRO de la cuenta vendedora de prueba, crear las cuentas de prueba (vendedora y
+- [x] **Tuyo (Mercado Pago):** crear la aplicación de Checkout Pro DENTRO de la cuenta vendedora de prueba, crear las cuentas de prueba (vendedora y
       compradora), configurar Webhooks con el evento «Pagos» y copiar el secreto. Luego `supabase secrets set MP_ACCESS_TOKEN=… MP_WEBHOOK_SECRET=…`
       (los valores nunca en el chat ni en el repo).
+      ✔ **Comprobado el 23/10/2026:** aplicación, cuentas, webhook y secretos puestos (`supabase secrets list`; «Simular notificación» dio 200). Falta el pago de punta a punta: la orden de la tarjeta de prueba quedó en `creada`.
 - [ ] **No verificado:** cómo se simula que un pago en OXXO se completa en modo prueba (la documentación no lo dice): el estado «pendiente» sí, la
       activación por OXXO no. La plantilla de la firma sale de dos fuentes concordantes; la prueba definitiva es «Simular notificación» del panel.
 
@@ -1439,3 +1578,5 @@ ejecutables y su secuencia, está en
       dominio caduca: se queda reintentando, así que nada avisa. Mitigado —no
       resuelto— por `scripts/tunel.sh` y `scripts/verificar.mjs`. Correr el
       verificador **antes de cada exposición**.
+      **Actualización 23/10/2026:** desde el 20/10 el túnel tiene nombre y dominio fijo, y `GET /salud` lo comprobó funcionando. Lo que sigue abierto es que el servicio de IA corre en una máquina personal
+      (`ia-arrancar.sh`), no en un anfitrión alojado (barra B1 del plan de excelencia): si esa máquina se apaga, la afinidad semántica se degrada al Nivel 1.

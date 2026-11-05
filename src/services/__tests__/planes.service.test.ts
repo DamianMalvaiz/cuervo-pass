@@ -12,7 +12,7 @@ jest.mock('@/lib/supabase', () => ({
 }));
 
 import { ErrorPago } from '@/lib/pagoMp';
-import { crearPago, listarMisPagos, listarPlanes, obtenerMiSuscripcion, obtenerMiUltimaOrden, simularPago } from '../planes.service';
+import { crearPago, listarMisPagos, listarPlanes, obtenerMiSuscripcion, obtenerMiUltimaOrden, iniciarPrueba } from '../planes.service';
 
 function cadena(resultado: { data?: unknown; error?: unknown }) {
   const c: Record<string, unknown> = {};
@@ -77,22 +77,21 @@ describe('listarMisPagos', () => {
   });
 });
 
-describe('simularPago', () => {
-  test('llama a la RPC con el plan y devuelve hasta cuándo queda vigente', async () => {
-    mockRpc.mockResolvedValue({ data: '2026-11-17T00:00:00Z', error: null });
-    await expect(simularPago('comerciante_destacado')).resolves.toBe('2026-11-17T00:00:00Z');
-    expect(mockRpc).toHaveBeenCalledWith('simular_pago', { p_plan: 'comerciante_destacado' });
+describe('iniciarPrueba', () => {
+  test('llama a la RPC con la función y devuelve hasta cuándo dura la prueba', async () => {
+    mockRpc.mockResolvedValue({ data: '2026-11-08T00:00:00Z', error: null });
+    await expect(iniciarPrueba('comerciante')).resolves.toBe('2026-11-08T00:00:00Z');
+    expect(mockRpc).toHaveBeenCalledWith('iniciar_prueba', { p_rol: 'comerciante' });
   });
-  test('CP010 (modo demostración apagado) llega con su código', async () => {
-    mockRpc.mockResolvedValue({ error: { code: 'CP010', message: 'apagado' } });
-    await expect(simularPago('x')).rejects.toMatchObject({ code: 'CP010' });
+  test('CP019 (la prueba ya se usó) llega con su código', async () => {
+    mockRpc.mockResolvedValue({ error: { code: 'CP019', message: 'usada' } });
+    await expect(iniciarPrueba('comerciante')).rejects.toMatchObject({ code: 'CP019' });
   });
-  test('CP011 (plan no disponible) llega con su código', async () => {
-    mockRpc.mockResolvedValue({ error: { code: 'CP011', message: 'no' } });
-    await expect(simularPago('x')).rejects.toMatchObject({ code: 'CP011' });
+  test('CP018 (sin esa función) llega con su código', async () => {
+    mockRpc.mockResolvedValue({ error: { code: 'CP018', message: 'no' } });
+    await expect(iniciarPrueba('arrendador')).rejects.toMatchObject({ code: 'CP018' });
   });
 });
-
 
 // Pagos con Mercado Pago (paso 4). `crearPago` llama a la Edge Function `crear-pago` y devuelve la URL a la que mandar a pagar; todo desenlace que no sea
 // un 2xx con la forma esperada LANZA un `ErrorPago` con SU motivo (nunca se confunde un fallo con un éxito ni con «plan no disponible»).

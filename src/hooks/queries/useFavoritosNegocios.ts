@@ -4,6 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  contarFavoritosDeMisNegocios,
   guardarFavoritoNegocio,
   listarMisNegociosFavoritos,
   listarMisNegociosFavoritosIds,
@@ -57,4 +58,14 @@ export function useAlternarFavoritoNegocio(uid: string | undefined) {
       void cliente.invalidateQueries({ queryKey: claveLista(uid) });
     },
   });
+}
+
+/** Cuántas personas guardaron MIS negocios (0088). Sin ids no consulta; un fallo es `fallo`, nunca un mapa que parezca «cero». */
+export function useConteoFavoritosDeMisNegocios(ids: string[]) {
+  const q = useQuery({
+    queryKey: ['conteoFavoritosMisNegocios', [...ids].sort().join(',')] as const,
+    queryFn: () => contarFavoritosDeMisNegocios(ids),
+    enabled: ids.length > 0,
+  });
+  return { conteos: q.data ?? new Map<string, number>(), cargando: q.isPending && ids.length > 0, fallo: q.isError };
 }

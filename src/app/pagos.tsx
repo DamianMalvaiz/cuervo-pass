@@ -1,25 +1,100 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
+import Head from 'expo-router/head';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
+import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
+import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
+import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useMisPagos, useMiSuscripcion, usePlanes } from '@/hooks/queries/usePlanes';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
-import { describirSuscripcion, fechaLarga, precioDe } from '@/lib/planes';
+import { medidasWeb } from '@/lib/medidasWeb';
+import { DIAS_DE_PRUEBA, describirSuscripcion, diasRestantes, fechaLarga, precioDe, type MiSuscripcion } from '@/lib/planes';
 import { useAuthStore } from '@/store/useAuthStore';
 
 /**
- * Pagos y facturación · Cuervo 360 (migración 0053).
+ * Mi plan y pagos · Cuervo 360 (migraciones 0053 y 0084).
  *
- * El estado de cada suscripción y el historial de pagos. Los pagos de hoy son de DEMOSTRACIÓN y cada renglón lo dice
- * («Simulado»). Esto NO es una factura: la facturación fiscal está en el roadmap. «Falló» y «no tienes pagos» se pintan
- * distinto (END-11).
+ * Por cada función que tiene la cuenta: su plan con las mismas palabras de siempre, la prueba gratis (días que quedan y una barra) y el acceso a empezarla
+ * o a ver otros planes. Debajo, el historial de pagos. «Falló» y «no tienes pagos» se pintan distinto (END-11). Esto NO es una factura: la facturación
+ * fiscal está en el roadmap.
+ *
+ * No promete lo que la base no hace: al terminar la prueba, si no se elige un plan, lo suyo deja de mostrarse; NO hay un aviso previo que prometer.
  */
-export default function PagosScreen() {
+
+type Rol = 'comerciante' | 'arrendador';
+
+function TarjetaPlan({ rol, titulo, s }: { rol: Rol; titulo: string; s: MiSuscripcion }) {
   const theme = useTheme();
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const aVer = () => router.push({ pathname: '/planes/[rol]', params: { rol } });
+  const empezable = s.estado === 'gratis' && s.prueba_disponible;
+  const dias = diasRestantes(s.hasta);
+
+  return (
+    <View style={[estilos.tarjeta, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+      <View style={estilos.cabecera}>
+        <ThemedText type="smallBold" themeColor="textSecondary">{titulo}</ThemedText>
+        {s.estado === 'prueba' ? (
+          <View style={[estilos.insignia, { backgroundColor: theme.lima }]}>
+            <ThemedText type="smallBold" style={{ color: theme.limaTexto }}>Prueba gratis</ThemedText>
+          </View>
+        ) : null}
+      </View>
+
+      {empezable ? (
+        <>
+          <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>Todavía no empiezas tu prueba gratis</ThemedText>
+          <Sello onPress={aVer} accessibilityLabel="Empezar prueba gratis">Empezar prueba gratis</Sello>
+        </>
+      ) : (
+        <>
+          <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>{s.plan_nombre}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">{describirSuscripcion(s)}</ThemedText>
+          {s.estado === 'prueba' ? (
+            <>
+              <View
+                accessible
+                accessibilityLabel={`Prueba gratis: quedan ${dias} de ${DIAS_DE_PRUEBA} días`}
+                style={[estilos.barra, { backgroundColor: theme.filete }]}
+              >
+                <View style={[estilos.relleno, { backgroundColor: theme.acento, width: `${Math.min(100, Math.round((dias / DIAS_DE_PRUEBA) * 100))}%` }]} />
+              </View>
+              <ThemedText type="small" themeColor="textSecondary">
+                Cuando termine, si no eliges un plan, lo tuyo deja de mostrarse.
+              </ThemedText>
+            </>
+          ) : null}
+          <Pulsable
+            onPress={aVer}
+            accessibilityRole="button"
+            accessibilityLabel={`Ver otros planes de ${rol}`}
+            style={estilos.enlace}
+          >
+            <ThemedText type="small" themeColor="acento" style={Texto.pesoFuerte}>Ver otros planes</ThemedText>
+          </Pulsable>
+        </>
+      )}
+    </View>
+  );
+}
+
+export default function PagosScreen() {
+  return (
+    <EnMarcoWeb>
+      <PagosScreenPantalla />
+    </EnMarcoWeb>
+  );
+}
+
+function PagosScreenPantalla() {
+  const theme = useTheme();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  const ancha = Platform.OS === 'web' && medidasWeb(ancho).escritorio;
   const miId = useAuthStore((s) => s.session?.user.id);
   const { pagos, cargando, fallo, reintentar } = useMisPagos(miId);
   const comerciante = useMiSuscripcion(miId, 'comerciante');
@@ -29,28 +104,44 @@ export default function PagosScreen() {
 
   // El nombre de cada plan, para no mostrar «comerciante_destacado» a una persona.
   const nombres = new Map([...planesC.planes, ...planesA.planes].map((p) => [p.id, p.nombre]));
-  const suscripciones = [
-    { titulo: 'Comerciante', s: comerciante.suscripcion },
-    { titulo: 'Arrendador', s: arrendador.suscripcion },
-  ].filter((x) => x.s);
+  const planes = [
+    { rol: 'comerciante' as const, titulo: 'Comerciante', s: comerciante.suscripcion },
+    { rol: 'arrendador' as const, titulo: 'Arrendador', s: arrendador.suscripcion },
+  ];
 
   return (
     <ThemedView style={estilos.pantalla}>
       <ScrollView
-        contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]}
+        contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio, ancha && estilos.anchoWeb]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
-          <ThemedText type="subtitle">Pagos y facturación</ThemedText>
+        <View style={[estilos.columna, ancha ? estilos.rejilla : { maxWidth: anchoContenido }]}>
+          {/* El título va aquí y no en EnMarcoWeb: así queda alineado con el contenido (a dos columnas o en una) y no sale repetido. */}
+          {Platform.OS === 'web' ? (
+            <Head>
+              <title>Mi plan y pagos · Cuervo 360</title>
+            </Head>
+          ) : null}
+          <ThemedText accessibilityRole="header" style={[Texto.tituloHoja, estilos.titulo]}>Mi plan y pagos</ThemedText>
 
-          {suscripciones.map(({ titulo, s }) => (
-            <View key={titulo} style={[estilos.tarjeta, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
-              <ThemedText type="smallBold" themeColor="textSecondary">{titulo}</ThemedText>
-              <ThemedText type="small">{s ? describirSuscripcion(s) : ''}</ThemedText>
-            </View>
-          ))}
+          <View style={ancha ? estilos.mitad : estilos.columna}>
 
-          <ThemedText type="subtitle">Historial de pagos</ThemedText>
+          {comerciante.fallo || arrendador.fallo ? (
+            // Sin leer el plan no se omite la tarjeta en silencio (parecería que no hay plan): se dice y se puede reintentar.
+            <ErrorDeCarga
+              etiqueta="No pudimos cargar tu plan"
+              onReintentar={() => {
+                if (comerciante.fallo) comerciante.reintentar();
+                if (arrendador.fallo) arrendador.reintentar();
+              }}
+            />
+          ) : null}
+          {planes.map(({ rol, titulo, s }) => (s ? <TarjetaPlan key={rol} rol={rol} titulo={titulo} s={s} /> : null))}
+
+          </View>
+
+          <View style={ancha ? estilos.mitad : estilos.columna}>
+          <ThemedText type="etiqueta" themeColor="textSecondary">HISTORIAL DE PAGOS</ThemedText>
 
           {cargando ? (
             <ThemedText type="small" themeColor="textSecondary" accessibilityLabel="Cargando">Cargando tus pagos…</ThemedText>
@@ -62,7 +153,13 @@ export default function PagosScreen() {
               <Sello variante="contorno" icono="refresh" onPress={reintentar} accessibilityLabel="Reintentar">Reintentar</Sello>
             </View>
           ) : pagos.length === 0 ? (
-            <ThemedText type="small" themeColor="textSecondary">Todavía no has hecho pagos.</ThemedText>
+            <View style={[estilos.vacio, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+              <Ionicons name="card-outline" size={28} color={theme.textSecondary} />
+              <ThemedText style={Texto.pesoFuerte}>Todavía no tienes pagos</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={estilos.centrado}>
+                Cuando pagues un plan, aquí verás cada cobro.
+              </ThemedText>
+            </View>
           ) : (
             pagos.map((p) => (
               <View key={p.id} style={[estilos.tarjeta, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
@@ -73,16 +170,18 @@ export default function PagosScreen() {
                 <ThemedText type="small" themeColor="textSecondary">
                   {fechaLarga(p.creado_en)} · cubre hasta el {fechaLarga(p.periodo_fin)}
                 </ThemedText>
+                {/* Los registros de cuando existía el pago de demostración se conservan, pero ya no se rotulan así. */}
                 <ThemedText type="small" themeColor="textSecondary">
-                  {p.origen === 'simulado' ? 'Simulado (demostración)' : 'Mercado Pago'}
+                  {p.origen === 'mercadopago' ? 'Mercado Pago' : 'Activado sin cobro'}
                 </ThemedText>
               </View>
             ))
           )}
 
           <ThemedText type="small" themeColor="textSecondary" style={estilos.nota}>
-            Los pagos con tarjeta real y la facturación fiscal llegarán más adelante. Lo que ves aquí no es una factura.
+            Esto no es una factura.
           </ThemedText>
+          </View>
         </View>
       </ScrollView>
     </ThemedView>
@@ -94,7 +193,17 @@ const estilos = StyleSheet.create({
   desplazable: { padding: Spacing.three, paddingBottom: Spacing.six },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
-  tarjeta: { padding: Spacing.three, gap: Spacing.one, borderWidth: Filete.fino, borderRadius: Radios.tarjeta },
+  titulo: { width: '100%' },
+  rejilla: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' },
+  mitad: { flexBasis: 440, flexGrow: 1, flexShrink: 1, maxWidth: '100%', gap: Spacing.three },
+  anchoWeb: { paddingHorizontal: Spacing.five },
+  tarjeta: { padding: Spacing.three, gap: Spacing.two, borderWidth: Filete.fino, borderRadius: Radios.tarjeta },
   cabecera: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  insignia: { borderRadius: Radios.full, paddingHorizontal: Spacing.three, paddingVertical: Spacing.half },
+  barra: { height: 8, borderRadius: Radios.full, overflow: 'hidden' },
+  relleno: { height: 8, borderRadius: Radios.full },
+  enlace: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
+  vacio: { alignItems: 'center', gap: Spacing.one, padding: Spacing.four, borderWidth: Filete.fino, borderRadius: Radios.hoja },
+  centrado: { textAlign: 'center' },
   nota: { lineHeight: 20 },
 });

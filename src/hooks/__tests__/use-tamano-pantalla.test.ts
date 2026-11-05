@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 // END-36 · `MaxContentWidth = 800` estaba declarado en el corazon del sistema
 // visual y tenia CERO usos en todo el codigo. La orden D.10 daba la alternativa
 // de borrarlo —«un token muerto es peor que ningun token»—; se conserva porque
@@ -42,5 +43,17 @@ test('el ancho de formulario y el de lista NO son el mismo numero', () => {
 test('nunca devuelve mas ancho del que hay', () => {
   for (const ancho of [320, 360, 390, 430, 700, 800, 1200]) {
     expect(en(ancho).anchoLista).toBeLessThanOrEqual(ancho);
+  }
+});
+
+// En la web la columna de formulario es un poco más ancha: 480 centrado en un monitor se leía como «vista de teléfono». Sigue siendo MÁS ANGOSTA que una lista, y en un teléfono no ensancha nada.
+test('en la web la columna de formulario mide 560 en pantalla ancha, sin pasar de la lista ni ensanchar un teléfono', () => {
+  jest.replaceProperty(Platform, 'OS', 'web');
+  try {
+    expect(en(1200).anchoContenido).toBe(560);
+    expect(en(1200).anchoContenido).toBeLessThan(en(1200).anchoLista);
+    expect(en(390).anchoContenido).toBe(390);
+  } finally {
+    jest.restoreAllMocks();
   }
 });

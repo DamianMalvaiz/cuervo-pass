@@ -16,6 +16,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 const mockSugerencias = jest.fn();
 const mockNuevas = jest.fn();
+const mockDestacadas = jest.fn();
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn() },
@@ -24,6 +25,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/hooks/queries/usePublicaciones', () => ({
   useSugerencias: (...a: unknown[]) => mockSugerencias(...a),
   useNuevas: (...a: unknown[]) => mockNuevas(...a),
+  useDestacadas: (...a: unknown[]) => mockDestacadas(...a),
 }));
 jest.mock('@/hooks/use-fotos-firmadas', () => ({ useFotosFirmadas: () => ({ urls: new Map(), fallo: null }) }));
 // Mutable para poder pintar el resumen de filtros SIN preferencias, que es la
@@ -49,6 +51,16 @@ jest.mock('@/components/BotonFavorito', () => ({ BotonFavorito: () => null }));
 // La campana de avisos tiene sus propias pruebas; Inicio no monta consultas por ella.
 jest.mock('@/components/CampanaAvisos', () => ({ CampanaAvisos: () => null }));
 jest.mock('@/lib/registro', () => ({ aviso: jest.fn(), fallo: jest.fn() }));
+
+// «Vistos recientemente» tiene sus propias pruebas; aquí solo importa que Inicio lo monte.
+jest.mock('@/components/VistosRecientes', () => ({
+  VistosRecientes: () => {
+    const { Text } = require('react-native');
+    return <Text>VISTOS RECIENTES</Text>;
+  },
+}));
+
+import { router } from 'expo-router';
 
 import InicioScreen from '../inicio';
 
@@ -87,6 +99,7 @@ beforeEach(() => {
   mockPerfil.valor = { id: 'u1', presupuesto_max: 4000, distancia_max_km: 10, universidad: 'UTVT' };
   mockSugerencias.mockReturnValue(respuesta());
   mockNuevas.mockReturnValue({ datos: [], cargando: false });
+  mockDestacadas.mockReturnValue({ datos: [], cargando: false });
 });
 
 // Cuervo 360 · el orden y el nivel son AUTOMÁTICOS. Hasta el 17/10/2026 Inicio decía «NIVEL 1 · FILTROS PONDERADOS» o
@@ -129,6 +142,22 @@ describe('el nivel y el orden son automáticos', () => {
     await render(<InicioScreen />);
     expect(screen.getByText('Todas las publicaciones')).toBeTruthy();
     expect(screen.queryByText(/por afinidad/)).toBeNull();
+  });
+
+  it('«Cerca» abre «Cerca de tu universidad»; es un enlace y no una pestaña, y no cambia la lista', async () => {
+    mockSugerencias.mockReturnValue(respuesta({ datos: [publicacion('p1')], conAfinidad: 0, total: 1 }));
+    await render(<InicioScreen />);
+    const llamadasAntes = mockSugerencias.mock.calls.length;
+    await fireEvent.press(screen.getByLabelText('Cerca de tu universidad'));
+    expect(router.push).toHaveBeenCalledWith('/cerca');
+    expect(screen.getByLabelText('Cerca de tu universidad').props.accessibilityRole).toBe('link');
+    expect(mockSugerencias.mock.calls.length).toBe(llamadasAntes);
+  });
+
+  it('monta «Vistos recientemente» (lo que se abrió en este teléfono) junto a la lista', async () => {
+    mockSugerencias.mockReturnValue(respuesta({ datos: [publicacion('p1')], conAfinidad: 0, total: 1 }));
+    await render(<InicioScreen />);
+    expect(screen.getByText('VISTOS RECIENTES')).toBeTruthy();
   });
 
   it('el orden va fijo en «ajuste»: se le pide al servidor sin que nadie lo elija', async () => {
@@ -202,6 +231,27 @@ describe('un fallo mientras hay resultados en pantalla', () => {
   });
 });
 
+// Los destacados salen del PLAN del arrendador (0087). A diferencia de «Nuevas», uno solo ya vale: es algo que se paga, no un relleno.
+describe('el carrusel de destacados', () => {
+  const destacada = (id: string) => ({ ...publicacion(id), creado_en: '2026-09-20T10:00:00Z' });
+
+  it('sin destacados no se pinta', async () => {
+    await render(<InicioScreen />);
+    expect(screen.queryByText('Destacados cerca de ti')).toBeNull();
+  });
+
+  it('con uno solo ya se pinta', async () => {
+    mockDestacadas.mockReturnValue({ datos: [destacada('d1')], cargando: false });
+    await render(<InicioScreen />);
+    expect(screen.getByText('Destacados cerca de ti')).toBeTruthy();
+  });
+
+  it('pide los del mismo tipo que el chip elegido', async () => {
+    await render(<InicioScreen />);
+    expect(mockDestacadas).toHaveBeenCalledWith(null);
+  });
+});
+
 // «Un carril con dos es un hueco con título»: el mínimo es tres. El límite se
 // prueba por los dos lados, que es donde un `>` en vez de un `>=` se esconde.
 describe('el carrusel de nuevas', () => {
@@ -245,6 +295,14 @@ describe('el resumen de filtros sin preferencias', () => {
     expect(screen.getByText(/Sin presupuesto/)).toBeTruthy();
     expect(screen.getByText(/Sin distancia/)).toBeTruthy();
     expect(screen.getByText(/Sin universidad/)).toBeTruthy();
+  });
+
+  // Probado en un teléfono real el 24/10/2026: «Sin presupuesto · 5 km · Sin unive…». Con el perfil a medio llenar el resumen es largo, y el
+  // dato que se corta es justo el que dice qué falta. Cabe en dos renglones.
+  it('cabe en dos renglones: no corta con puntos lo que dice qué falta', async () => {
+    mockPerfil.valor = { id: 'u1', presupuesto_max: null, distancia_max_km: null, universidad: null };
+    await render(<InicioScreen />);
+    expect(screen.getByText(/Sin presupuesto/).props.numberOfLines).toBe(2);
   });
 
   it('y con ellas puestas las muestra', async () => {

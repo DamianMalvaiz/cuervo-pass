@@ -12,9 +12,12 @@ export interface DatosNegocioForm {
   nombre: string;
   descripcion: string;
   direccion: string;
-  rangoPrecio: number | null;
   horario: string;
   fotos: string[];
+  /** Cuántos productos tiene o tendrá al guardar. Un negocio visible necesita al menos uno. */
+  totalProductos: number;
+  /** ¿Se está publicando (visible)? Uno pausado no se exige nada de lo que se muestra. */
+  activo: boolean;
 }
 
 export interface ErroresNegocio {
@@ -24,6 +27,7 @@ export interface ErroresNegocio {
   direccion?: string;
   horario?: string;
   fotos?: string;
+  productos?: string;
 }
 
 /** `maxFotos` es el límite del plan de la cuenta, si se conoce; si no, rige la cota técnica y la base hace cumplir el plan (CP012). */
@@ -39,6 +43,7 @@ export function validarNegocio(d: DatosNegocioForm, maxFotos: number = MAX_FOTOS
   if (d.descripcion.trim().length > 600) e.descripcion = 'La descripción es demasiado larga (máximo 600)';
   if (d.horario.trim().length > 120) e.horario = 'El horario es demasiado largo (máximo 120)';
   const tope = Math.min(maxFotos, MAX_FOTOS_NEGOCIO);
+  if (d.activo && d.totalProductos < 1) e.productos = 'Agrega al menos un producto para publicar tu negocio.';
   if (d.fotos.length > tope) e.fotos = `Tu plan permite hasta ${tope} fotos. Quita ${d.fotos.length - tope} para guardar.`;
 
   return e;

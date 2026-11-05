@@ -30,6 +30,7 @@ export function FichaCompacta({
   fotoMini,
   distanciaKm,
   score,
+  destacada = false,
   onPress,
 }: {
   titulo: string;
@@ -40,6 +41,8 @@ export function FichaCompacta({
   fotoMini?: FuenteFoto | null;
   distanciaKm?: number | null;
   score?: number | null;
+  /** Del plan del arrendador (0087): lleva una insignia lima encima de la foto. */
+  destacada?: boolean;
   onPress?: () => void;
 }) {
   const theme = useTheme();
@@ -53,6 +56,7 @@ export function FichaCompacta({
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={[
+        destacada ? 'Destacado' : null,
         tipo ? PALABRA_ACCESIBLE[tipo] : null,
         titulo,
         calificacion ? `afinidad ${calificacion} de 10` : 'sin calificación',
@@ -74,6 +78,11 @@ export function FichaCompacta({
         {/* El mismo sello que en la fila. Que la marca sea idéntica en los dos
             sitios es lo que la vuelve legible sin explicación: una convención
             que cambia de forma según dónde aparezca no es una convención. */}
+        {destacada ? (
+          <View style={[estilos.insigniaDestacada, { backgroundColor: theme.lima }]}>
+            <ThemedText type="smallBold" style={{ color: theme.limaTexto }}>Destacado</ThemedText>
+          </View>
+        ) : null}
         {tipo && (
           <View style={estilos.selloTipo}>
             <SelloTipo tipo={tipo} />
@@ -117,6 +126,7 @@ const estilos = StyleSheet.create({
   foto: { width: '100%', aspectRatio: 1, borderRadius: Radios.control, borderWidth: Filete.fino },
   sinFoto: { alignItems: 'center', justifyContent: 'center' },
   selloTipo: { position: 'absolute', left: 4, bottom: 4 },
+  insigniaDestacada: { position: 'absolute', left: Spacing.one, top: Spacing.one, borderRadius: Radios.full, paddingHorizontal: Spacing.two, paddingVertical: Spacing.half },
   datos: { gap: Spacing.half },
   filaCifras: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   precio: { flexShrink: 1 },

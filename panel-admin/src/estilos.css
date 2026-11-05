@@ -1,0 +1,47 @@
+/* Colores de `src/constants/theme.ts` de la app (claro y oscuro). Sin estilos en línea: la CSP del panel no los permite. */
+:root {
+  --fondo: #f4f6f2; --tarjeta: #ffffff; --texto: #171a18; --suave: #55605a; --acento: #2f5d3a;
+  --lima: #a5d83e; --lima-texto: #171a18; --filete: #d3dacf; --error: #b3261e; --borde: #7a857b;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --fondo: #171a18; --tarjeta: #232823; --texto: #f4f6f2; --suave: #a3ada4; --acento: #a5d83e; --filete: #2c332c; --error: #ff8a80; --borde: #6f7a70; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fondo); color: var(--texto); font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+h1 { font-size: 1.6rem; margin: 0 0 1rem; } h2 { font-size: 1.2rem; margin: 0 0 .75rem; }
+button { min-height: 44px; padding: .55rem 1rem; border-radius: .6rem; border: 1px solid var(--borde); background: transparent; color: var(--texto); font: inherit; cursor: pointer; }
+button.primario { background: var(--lima); color: var(--lima-texto); border-color: var(--lima); font-weight: 700; }
+button:disabled { opacity: .6; cursor: default; }
+input { width: 100%; min-height: 44px; padding: .55rem .75rem; border-radius: .6rem; border: 1px solid var(--borde); background: var(--tarjeta); color: var(--texto); font: inherit; }
+label { display: block; margin: .9rem 0 .25rem; font-weight: 600; color: var(--suave); }
+.centrado { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
+.tarjeta { background: var(--tarjeta); border: 1px solid var(--filete); border-radius: .75rem; padding: 1.25rem; }
+.login { width: min(26rem, 100%); } .login button { margin-top: 1.25rem; width: 100%; }
+.estado { width: min(30rem, 100%); } .estado button { margin: .5rem .5rem 0 0; }
+.etiqueta { margin: 0; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); }
+.error { color: var(--error); margin: .75rem 0 0; }
+.marco { min-height: 100vh; display: grid; grid-template-columns: 14rem 1fr; grid-template-rows: auto 1fr; grid-template-areas: 'barra barra' 'menu contenido'; }
+.barra { grid-area: barra; display: flex; justify-content: space-between; align-items: center; padding: .75rem 1.25rem; border-bottom: 1px solid var(--filete); background: var(--tarjeta); }
+.menu { grid-area: menu; padding: 1rem; border-right: 1px solid var(--filete); display: flex; flex-direction: column; gap: .25rem; }
+.menu a { padding: .6rem .75rem; border-radius: .5rem; color: var(--texto); text-decoration: none; min-height: 44px; display: flex; align-items: center; }
+.menu a[aria-current='page'] { background: var(--lima); color: var(--lima-texto); font-weight: 700; }
+.contenido { grid-area: contenido; padding: 1.5rem; max-width: 70rem; width: 100%; }
+.rejilla { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
+.cifra .valor { margin: .25rem 0 0; font-size: 2rem; font-weight: 700; }
+@media (max-width: 720px) { .marco { grid-template-columns: 1fr; grid-template-areas: 'barra' 'menu' 'contenido'; } .menu { flex-direction: row; border-right: 0; border-bottom: 1px solid var(--filete); } }
+.ancha { grid-column: 1 / -1; } h3 { font-size: 1rem; margin: 0 0 .75rem; } .rejilla + h2 { margin-top: 1.5rem; } h2 + .rejilla { margin-top: .5rem; }
+.suave { color: var(--suave); }
+.grafica { width: 100%; max-width: 40rem; height: auto; }
+.barra { fill: var(--acento); } .valor-barra { fill: var(--texto); font-size: 12px; font-weight: 700; } .etiqueta-barra { fill: var(--suave); font-size: 10px; }
+table { width: 100%; border-collapse: collapse; } th, td { padding: .5rem .75rem; text-align: right; border-bottom: 1px solid var(--filete); } th[scope='row'], thead th:first-child { text-align: left; } thead th { color: var(--suave); font-weight: 600; font-size: .85rem; }
+.insignia { margin-left: .5rem; padding: 0 .5rem; border-radius: 1rem; background: var(--texto); color: var(--fondo); font-size: .8rem; font-weight: 700; }
+.verificacion { margin-bottom: 1rem; max-width: 48rem; } .verificacion h3 { margin-bottom: .25rem; } .verificacion p { margin: .25rem 0; }
+.acciones, .confirmar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .75rem; } .confirmar p, .confirmar label { flex-basis: 100%; }
+textarea { width: 100%; padding: .55rem .75rem; border-radius: .6rem; border: 1px solid var(--borde); background: var(--tarjeta); color: var(--texto); font: inherit; }
+button.peligro { background: var(--error); border-color: var(--error); color: #ffffff; font-weight: 700; }
+.documentos { display: grid; gap: 1rem; margin-top: .75rem; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); } .documentos > p { grid-column: 1 / -1; } figure { margin: 0; } figcaption { font-weight: 600; color: var(--suave); margin-bottom: .25rem; } figure img { max-width: 100%; max-height: 24rem; border: 1px solid var(--filete); border-radius: .5rem; background: var(--fondo); }
+@media (prefers-color-scheme: dark) { button.peligro { color: #171a18; } }
+.tabla { overflow-x: auto; } .tabla th, .tabla td { text-align: left; vertical-align: top; } .tabla td:first-child { white-space: nowrap; }
+.subtitulo { margin: 1.5rem 0 .5rem; } .separada { margin-top: 1.5rem; }
+.embudo { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 0 0 .75rem; } .embudo div { display: flex; flex-direction: column; } .embudo dt { color: var(--suave); font-size: .85rem; } .embudo dd { margin: 0; font-size: 1.5rem; font-weight: 700; }
+.bloque { margin-bottom: 1.5rem; } strong.error { margin: 0; }

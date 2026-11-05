@@ -85,3 +85,21 @@ test('si la afinidad falla, el perfil se pinta igual', async () => {
   expect(await screen.findByText('Ana Prueba')).toBeTruthy();
   expect(screen.getByText('Convivencia')).toBeTruthy();
 });
+
+// Invariante 2: «falló la lectura» no es «no existe». Antes el `catch` dejaba el perfil en null y la pantalla decía «No se encontró este perfil»
+// ante cualquier corte de red: una persona que sí existe parecía borrada.
+test('si la lectura del perfil FALLA, lo dice (con reintento) y no dice que no existe', async () => {
+  mockPerfil.mockRejectedValue(new Error('sin red'));
+  mockAfinidad.mockResolvedValue(null);
+  await render(<PerfilRoomieScreen />);
+  expect(await screen.findByText('No pudimos cargar este perfil')).toBeTruthy();
+  expect(screen.queryByText('No se encontró este perfil.')).toBeNull();
+  expect(screen.getByLabelText('Reintentar')).toBeTruthy();
+});
+
+test('si la persona de verdad no existe, sí dice que no se encontró', async () => {
+  mockPerfil.mockResolvedValue(null);
+  mockAfinidad.mockResolvedValue(null);
+  await render(<PerfilRoomieScreen />);
+  expect(await screen.findByText('No se encontró este perfil.')).toBeTruthy();
+});

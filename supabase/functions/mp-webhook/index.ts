@@ -50,6 +50,21 @@ Deno.serve(async (req) => {
   });
   if (!firma.ok) return responder(respuestaDeFirmaFallida(firma.motivo));
 
+  // Desde aquí el aviso es AUTÉNTICO: su resultado se registra para el panel (migración 0081). Antes de la firma NO se escribe nada: la URL es pública y cualquiera la llenaría.
+  // Se guarda solo la etiqueta, el nivel, el código y el id numérico del pago (nunca el cuerpo, las cabeceras ni la firma). Un fallo al registrar jamás cambia la respuesta.
+  const servicio = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const cerrar = async (r: { status: number; nivel: string; etiqueta: string }, extra: Record<string, unknown> = {}, ordenId: string | null = null) => {
+    try {
+      const { error } = await servicio.rpc('registrar_evento_pago', {
+        p_etiqueta: r.etiqueta, p_nivel: r.nivel, p_status: r.status, p_pago_id: aviso.dataId, p_orden: ordenId,
+      });
+      if (error) console.error('mp-webhook: no se pudo registrar el evento', { codigo: error.code });
+    } catch {
+      console.error('mp-webhook: no se pudo registrar el evento');
+    }
+    return responder(r, extra);
+  };
+
   let estadoMp: number;
   let cuerpoMp: unknown;
   try {
@@ -60,16 +75,15 @@ Deno.serve(async (req) => {
     estadoMp = r.status;
     cuerpoMp = await r.json().catch(() => null);
   } catch (e) {
-    return responder({ status: 500, nivel: 'alerta', etiqueta: 'mp-inalcanzable' }, { nombre: e instanceof Error ? e.name : typeof e });
+    return cerrar({ status: 500, nivel: 'alerta', etiqueta: 'mp-inalcanzable' }, { nombre: e instanceof Error ? e.name : typeof e });
   }
 
   const consulta = clasificarConsultaPago(estadoMp, cuerpoMp);
-  if (consulta.accion === 'responder') return responder(consulta, { estado: estadoMp, pago: aviso.dataId });
+  if (consulta.accion === 'responder') return cerrar(consulta, { estado: estadoMp, pago: aviso.dataId });
 
   const decision = decidirPago(consulta.pago);
-  if (!decision.ok) return responder(respuestaDeDecisionFallida(decision.motivo), { pago: aviso.dataId });
+  if (!decision.ok) return cerrar(respuestaDeDecisionFallida(decision.motivo), { pago: aviso.dataId });
 
-  const servicio = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const { data, error: eRegistro } = await servicio.rpc('registrar_pago_mp', {
     p_orden: decision.ordenId,
     p_mp_payment_id: aviso.dataId,
@@ -77,7 +91,7 @@ Deno.serve(async (req) => {
     p_monto_centavos: decision.montoCentavos,
   });
   // Un fallo de la base es transitorio: 500 para que Mercado Pago reintente. Solo el código, nunca el mensaje.
-  if (eRegistro) return responder({ status: 500, nivel: 'alerta', etiqueta: 'registro-fallido' }, { codigo: eRegistro.code, pago: aviso.dataId });
+  if (eRegistro) return cerrar({ status: 500, nivel: 'alerta', etiqueta: 'registro-fallido' }, { codigo: eRegistro.code, pago: aviso.dataId }, decision.ordenId);
 
-  return responder(respuestaDeRegistro(data), { orden: decision.ordenId, pago: aviso.dataId });
+  return cerrar(respuestaDeRegistro(data), { orden: decision.ordenId, pago: aviso.dataId }, decision.ordenId);
 });

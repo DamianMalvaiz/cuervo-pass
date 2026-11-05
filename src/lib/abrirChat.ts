@@ -1,9 +1,15 @@
 import { router } from 'expo-router';
+import { Dimensions, Platform } from 'react-native';
 
-import { SQL, esCodigo } from '@/lib/erroresPostgres';
+import { CP, SQL, esCodigo } from '@/lib/erroresPostgres';
 import { aviso } from '@/lib/registro';
 import { toast } from '@/lib/toast';
 import { abrirConversacion } from '@/services/mensajes.service';
+
+/** A dónde va una conversación recién abierta: en la web de escritorio, a la bandeja con ella elegida; en el teléfono y en la app, a su pantalla. */
+export function rutaDeConversacion(conversacionId: string, plataforma: string, ancho: number): string {
+  return plataforma === 'web' && ancho >= 1000 ? `/chats?c=${conversacionId}` : `/chat/${conversacionId}`;
+}
 
 /**
  * Abre —o recupera— la conversación con otra persona y navega a ella. NUNCA lanza: quien la llama
@@ -21,13 +27,15 @@ import { abrirConversacion } from '@/services/mensajes.service';
 export async function abrirChatCon(otroUsuarioId: string): Promise<void> {
   try {
     const conversacionId = await abrirConversacion(otroUsuarioId);
-    router.push(`/chat/${conversacionId}`);
+    router.push(rutaDeConversacion(conversacionId, Platform.OS, Dimensions.get('window').width) as never);
   } catch (e) {
     aviso('abrirConversacion falló', undefined, e);
     toast.error(
-      esCodigo(e, SQL.RAISE_EXCEPTION)
-        ? 'No se pudo abrir el chat. Esta persona ya no está disponible.'
-        : 'No pudimos abrir el chat. Revisa tu conexión e intenta de nuevo.'
+      esCodigo(e, CP.CUENTA_RESTRINGIDA)
+        ? 'Una cuenta de vendedor no puede iniciar conversaciones. Sí puedes responder a quien te escribe.'
+        : esCodigo(e, SQL.RAISE_EXCEPTION)
+          ? 'No se pudo abrir el chat. Esta persona ya no está disponible.'
+          : 'No pudimos abrir el chat. Revisa tu conexión e intenta de nuevo.'
     );
   }
 }

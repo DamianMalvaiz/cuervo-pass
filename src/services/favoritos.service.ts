@@ -97,6 +97,20 @@ export async function contarFavoritos(ids: string[]): Promise<Map<string, number
   return conteos;
 }
 
+/**
+ * Cuántas personas guardaron CADA UNO DE MIS negocios (0088): el número, nunca quién. La función solo responde por los negocios del propio vendedor; uno ajeno no
+ * tiene entrada. Va en tandas de 50 (la base rechaza más) y LANZA si falla: un fallo no es «cero personas» (END-11).
+ */
+export async function contarFavoritosDeMisNegocios(ids: string[]): Promise<Map<string, number>> {
+  const conteos = new Map<string, number>();
+  for (let i = 0; i < ids.length; i += TANDA) {
+    const { data, error } = await supabase.rpc('favoritos_por_negocio', { p_ids: ids.slice(i, i + TANDA) });
+    if (error) throw error;
+    for (const fila of data ?? []) conteos.set(fila.negocio_id, fila.total);
+  }
+  return conteos;
+}
+
 // ── Favoritos de negocios (0073) ───────────────────────────────────────────────────────────────────────────────
 
 /** Los ids de negocios que esta cuenta guardó, los más recientes primero. LANZA si falla (END-11). */

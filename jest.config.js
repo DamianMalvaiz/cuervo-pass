@@ -16,6 +16,8 @@ module.exports = {
     '^@pruebas/(.*)$': '<rootDir>/test-utils/$1',
   },
   modulePathIgnorePatterns: ['<rootDir>/.claude/worktrees/'],
+  // El panel de admin web es un proyecto aparte con su propio vitest (`npm --prefix panel-admin test`).
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/panel-admin/'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
 
   // END-22 · Sin esto, Jest solo instrumenta los archivos que ALGUN test

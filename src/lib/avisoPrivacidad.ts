@@ -33,7 +33,7 @@ export interface Seccion {
 
 export const AVISO_TITULO = 'Aviso de privacidad integral — Cuervo 360';
 
-export const AVISO_ACTUALIZACION = '17 de octubre de 2026 · Versión 3';
+export const AVISO_ACTUALIZACION = '26 de octubre de 2026 · Versión 5';
 
 export const AVISO_INTRO =
   'Emitido conforme a la Ley Federal de Protección de Datos Personales en ' +
@@ -79,7 +79,7 @@ export const SECCIONES: Seccion[] = [
           'Cuervo 360 es un proyecto académico desarrollado dentro del programa ' +
           'integrador de la UTVT y no persigue fines de lucro. Para quien ofrece ' +
           'servicios o viviendas existen planes de suscripción; **en esta etapa los ' +
-          'cobros son simulados: no se procesa ninguna tarjeta ni se recibe dinero.**',
+          'pagos funcionan en el modo de pruebas de Mercado Pago: no se cobra dinero real.**',
       },
     ],
   },
@@ -101,8 +101,9 @@ export const SECCIONES: Seccion[] = [
       {
         tipo: 'lista',
         puntos: [
-          'Tus favoritos. **Son privados:** la app muestra cuántas personas guardaron una publicación, nunca quiénes.',
+          'Tus favoritos, de publicaciones y de negocios. **Son privados:** la app muestra cuántas personas guardaron una publicación o un negocio, nunca quiénes.',
           'Tus conversaciones con otras personas dentro de la app.',
+          'Tus **avisos** dentro de la app (por ejemplo, que aprobaron tu verificación).',
           'Tus reseñas de negocios y viviendas. **Las ve cualquier usuario con sesión, junto con tu nombre de usuario.**',
         ],
       },
@@ -130,7 +131,8 @@ export const SECCIONES: Seccion[] = [
           'Tu **nombre legal** y tu **domicilio**, para verificar quién eres.',
           'Fotografías de tu **INE** (frente y reverso).',
           'Fotografías de tu local o de tu inmueble, su ubicación y los datos de contacto del negocio.',
-          'Los datos de tu **suscripción**: plan, fechas y estado. **La app no ve datos de tarjeta**, y por ahora los pagos son simulados.',
+          'Los **productos** de tu tienda: nombre, descripción, precio y fotos, que verá cualquier usuario con sesión.',
+          'Los datos de tu **suscripción y de tus pagos**: plan, fechas, estado y el número de orden. **La app no ve ni guarda datos de tarjeta**: el pago se hace en la página de Mercado Pago (ver sección 5).',
         ],
       },
       {
@@ -165,7 +167,7 @@ export const SECCIONES: Seccion[] = [
           'Ahora bien, el **texto libre** es un campo abierto: si escribes ahí ' +
           'información sensible, la estaremos tratando sin habértela pedido. Te ' +
           'pedimos expresamente que no lo hagas. Puedes borrar ese texto cuando ' +
-          'quieras desde Mi perfil → Editar mis preferencias.',
+          'quieras desde Mi perfil → Mis datos.',
       },
     ],
   },
@@ -196,7 +198,7 @@ export const SECCIONES: Seccion[] = [
         tipo: 'lista',
         puntos: [
           '**Verificar que quien publica es quien dice ser**, con una revisión hecha por una persona del equipo, para proteger a quienes buscan vivienda o servicios. Sin esta verificación no se puede publicar.',
-          'Gestionar tu suscripción y los límites de tu plan.',
+          'Gestionar tu suscripción y los límites de tu plan, y procesar su pago con Mercado Pago.',
         ],
       },
       { tipo: 'subtitulo', texto: 'Secundaria (opcional)' },
@@ -217,8 +219,8 @@ export const SECCIONES: Seccion[] = [
       {
         tipo: 'parrafo',
         texto:
-          'Si ya la marcaste, puedes retirarla cuando quieras desde Mi perfil → ' +
-          'Editar mis preferencias. No necesitas escribirnos ni justificarlo.',
+          'Si ya la marcaste, puedes retirarla cuando quieras desde Configuración → ' +
+          'Personalización. No necesitas escribirnos ni justificarlo.',
       },
       {
         tipo: 'parrafo',
@@ -297,7 +299,13 @@ export const SECCIONES: Seccion[] = [
           },
           {
             titulo: 'Expo',
-            detalle: 'El identificador de tu dispositivo, para enviarte avisos en el teléfono.',
+            detalle: 'El identificador de tu dispositivo, para enviarte avisos en el teléfono. En Android los entrega a través de Firebase Cloud Messaging (Google).',
+          },
+          {
+            titulo: 'Mercado Pago',
+            detalle:
+              'Procesa el pago de tu plan en **su propia página**, con sus términos y su aviso de privacidad. Cuervo 360 solo le envía **el plan, el monto y un número de orden**: ' +
+              'ni tu nombre ni tu correo. **La app no ve ni guarda datos de tarjeta.**',
           },
         ],
       },
@@ -325,6 +333,11 @@ export const SECCIONES: Seccion[] = [
       {
         tipo: 'filas',
         filas: [
+          {
+            titulo: 'Cualquier persona, sin cuenta (la web)',
+            detalle:
+              'De una publicación de vivienda: el título, el tipo, el precio, las recámaras, las condiciones, la zona (la dirección sin la calle ni el número), una ubicación aproximada (redondeada a cerca de 1 km), la calificación y las fotos. **No** la dirección exacta, **no** el teléfono, **no** quién publica y **no** la descripción de una vivienda. De un negocio: el nombre, la descripción, la zona, el horario, los productos con su precio, la calificación y las fotos. Las fotos se ven con un enlace temporal, que dura una hora.',
+          },
           {
             titulo: 'Cualquier usuario con sesión',
             detalle:
@@ -372,6 +385,14 @@ export const SECCIONES: Seccion[] = [
           {
             titulo: 'Registro de contactos solicitados',
             detalle: 'Mientras la cuenta exista: es lo que permite detectar abuso. Se elimina con la cuenta.',
+          },
+          {
+            titulo: 'Productos de tu tienda y sus fotos',
+            detalle: 'Mientras la cuenta exista o hasta que los quites. Puedes borrarlos tú.',
+          },
+          {
+            titulo: 'Órdenes y pagos',
+            detalle: 'Mientras la cuenta exista. Se eliminan con ella.',
           },
           {
             titulo: 'Favoritos y reseñas',
@@ -424,21 +445,13 @@ export const SECCIONES: Seccion[] = [
         tipo: 'filas',
         filas: [
           {
-            titulo: 'Acceso',
-            detalle:
-              'Mi perfil → Descargar mis datos. Entrega un archivo JSON con tu perfil, ' +
-              'tus publicaciones, tus mensajes enviados, los contactos que solicitaste, tus ' +
-              'funciones y su verificación (sin las rutas internas de tu INE), tus negocios y ' +
-              'su menú, tus favoritos, tus reseñas y tus suscripciones y pagos.',
-          },
-          {
             titulo: 'Rectificación',
-            detalle: 'Mi perfil y Editar mis preferencias corrigen cualquier dato que hayas proporcionado.',
+            detalle: 'Mi perfil → Mis datos y Mi perfil → Sobre mí corrigen cualquier dato que hayas proporcionado.',
           },
-          { titulo: 'Cancelación', detalle: 'Mi perfil → Eliminar mi cuenta.' },
+          { titulo: 'Cancelación', detalle: 'Configuración → Eliminar mi cuenta.' },
           {
             titulo: 'Oposición',
-            detalle: 'Desmarcar la casilla de análisis con IA en Editar mis preferencias.',
+            detalle: 'Configuración → Personalización: apagar «Usar mi descripción».',
           },
         ],
       },
@@ -446,8 +459,9 @@ export const SECCIONES: Seccion[] = [
       {
         tipo: 'parrafo',
         texto:
-          'Si algo de lo anterior falla, o prefieres el trámite formal, escribe al ' +
-          'correo de la sección 1 indicando:',
+          'El **acceso** a tus datos se ejerce por escrito, y este camino sirve también para ' +
+          'cualquier otro derecho si algo de lo anterior falla o prefieres el trámite formal. ' +
+          'Escribe al correo de la sección 1 indicando:',
       },
       {
         tipo: 'lista',
@@ -457,6 +471,14 @@ export const SECCIONES: Seccion[] = [
           'La descripción clara de los datos sobre los que ejerces el derecho.',
           'Cualquier elemento que facilite localizar los datos.',
         ],
+      },
+      {
+        tipo: 'parrafo',
+        texto:
+          'Para el acceso te entregamos un archivo con tu perfil, tus publicaciones, tus ' +
+          'mensajes enviados, los contactos que solicitaste, tus funciones y su verificación ' +
+          '(sin las rutas internas de tu INE), tus negocios y su menú, tus favoritos, tus ' +
+          'reseñas y tus suscripciones y pagos.',
       },
       {
         tipo: 'parrafo',
@@ -484,8 +506,8 @@ export const SECCIONES: Seccion[] = [
       {
         tipo: 'lista',
         puntos: [
-          '**Para el análisis con IA:** desmarca la casilla en Editar mis preferencias. Surte efecto de inmediato y el vector se borra.',
-          '**Para el tratamiento en general:** equivale a cancelar la cuenta, porque sin los datos de la sección 2 el servicio no puede operar. Se hace desde Mi perfil → Eliminar mi cuenta.',
+          '**Para el análisis con IA:** apágalo en Configuración → Personalización. Surte efecto de inmediato y el vector se borra.',
+          '**Para el tratamiento en general:** equivale a cancelar la cuenta, porque sin los datos de la sección 2 el servicio no puede operar. Se hace desde Configuración → Eliminar mi cuenta.',
         ],
       },
       {

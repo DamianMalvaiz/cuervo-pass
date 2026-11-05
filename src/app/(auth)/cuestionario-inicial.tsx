@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { FormularioCuestionario, type RespuestasCuestionario } from '@/components/FormularioCuestionario';
 import { ThemedText } from '@/components/themed-text';
@@ -9,6 +9,7 @@ import { useDesplazador } from '@/hooks/use-desplazador';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { parsearPerfil } from '@/lib/aiService';
+import { dialogo } from '@/lib/dialogo';
 import { geocodificarDireccion } from '@/lib/geocoding';
 import { construirTextoPerfil } from '@/lib/perfilTexto';
 import { avisoVector, campoVector, resolverPerfilVector } from '@/lib/perfilVector';
@@ -98,7 +99,7 @@ export default function CuestionarioInicialScreen() {
 
     const avisoDeVector = avisoVector(resultadoVector, false);
     if (avisoDeVector) {
-      Alert.alert(avisoDeVector.titulo, avisoDeVector.cuerpo, [
+      dialogo(avisoDeVector.titulo, avisoDeVector.cuerpo, [
         { text: 'Entendido', onPress: () => router.replace('/(tabs)/inicio') },
       ]);
       return;

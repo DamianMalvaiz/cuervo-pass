@@ -70,3 +70,41 @@ test('no hay CORS: lo llama Mercado Pago desde su servidor, nunca un navegador',
 test('un error al registrar el pago es un 500 (que reintente), no un 200 que lo pierda', () => {
   expect(fuente).toMatch(/if \(eRegistro\)[\s\S]{0,400}status:\s*500|if \(eRegistro\)[\s\S]{0,400}, 500\)/);
 });
+
+// ── Registro de eventos (0081) ──────────────────────────────────────────────
+// Cada aviso con la firma ya VERIFICADA deja su resultado en `eventos_pago` para el panel. La URL es pública: si se escribiera antes de verificar, cualquiera llenaría la tabla.
+// Los argumentos EXACTOS de la llamada (hasta su cierre) y el cuerpo de `cerrar`: nada de código vecino.
+const argumentosEvento = (() => {
+  const i = fuente.indexOf("rpc('registrar_evento_pago'");
+  return i === -1 ? '' : fuente.slice(i, fuente.indexOf('});', i) + 3);
+})();
+const cuerpoDeCerrar = (() => {
+  const i = fuente.indexOf('const cerrar = async');
+  return i === -1 ? '' : fuente.slice(i, fuente.indexOf('return responder(r, extra);', i) + 30);
+})();
+
+test('registra el resultado de cada aviso mediante la función de la base', () => {
+  expect(fuente).toContain("rpc('registrar_evento_pago'");
+});
+
+test('solo se registra DESPUÉS de verificar la firma (ni una sola escritura antes)', () => {
+  const iFirma = donde('verificarFirma(');
+  expect(donde("rpc('registrar_evento_pago'")).toBeGreaterThan(iFirma);
+  expect(fuente.slice(0, iFirma)).not.toContain('registrar_evento_pago');
+});
+
+test('lo que se guarda es la etiqueta, el nivel, el código y el id numérico: nunca el cuerpo, las cabeceras ni la firma', () => {
+  expect(argumentosEvento).toMatch(/p_etiqueta:\s*r\.etiqueta/);
+  expect(argumentosEvento).toMatch(/p_nivel:\s*r\.nivel/);
+  expect(argumentosEvento).toMatch(/p_status:\s*r\.status/);
+  expect(argumentosEvento).toMatch(/p_pago_id:\s*aviso\.dataId/);
+  expect(argumentosEvento).not.toMatch(/cuerpo|x-signature|headers|secreto|Authorization|firma/i);
+});
+
+test('un fallo al registrar NUNCA cambia lo que se le contesta a Mercado Pago', () => {
+  expect(cuerpoDeCerrar).toMatch(/try \{/);
+  expect(cuerpoDeCerrar).toMatch(/catch/);
+  expect(cuerpoDeCerrar).toMatch(/console\.error/);
+  // La respuesta sale del `responder(...)`, nunca del resultado del registro.
+  expect(cuerpoDeCerrar.trimEnd()).toMatch(/return responder\(r, extra\);$/);
+});
