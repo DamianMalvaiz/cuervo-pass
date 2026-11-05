@@ -82,7 +82,7 @@ Después de la demo: `preparar-demo.mjs --limpiar --aplicar` (quita las tres cue
 
 | Tema | Respuesta honesta |
 |---|---|
-| IA | Los embeddings de afinidad corren en **nuestro** microservicio (modelo multilingüe local), expuesto por `ia.cuervo360.com`; depende de que la laptop esté encendida y con internet. Sin él la app baja a Nivel 1 (sin afinidad) y **lo dice en pantalla**. El análisis del texto libre con LLM necesita `ANTHROPIC_API_KEY`: [ ] puesta / [ ] pendiente (marcar antes de la demo) |
+| IA | Los embeddings de afinidad corren en **nuestro** microservicio (modelo multilingüe local), expuesto por `ia.cuervo360.com`; depende de que la laptop esté encendida y con internet. Sin él la app baja a Nivel 1 (sin afinidad) y **lo dice en pantalla**. El análisis del texto libre con LLM necesita `ANTHROPIC_API_KEY`: [ ] puesta / [x] pendiente (no puesta al 05/11/2026; el campo `horario` queda en «Variable») |
 | Biometría | La comparación de rostro está construida, no activa: el aviso de privacidad dice que se avisaría aparte antes de usarla. La verificación hoy la aprueba una persona |
 | Pagos | **Mercado Pago en modo de pruebas**; no se cobra dinero real. El plan se activa cuando llega el aviso del pago (unos segundos) |
 | Mapa | No hay mapa embebido en la web: «Ver en el mapa» abre el mapa externo. Falta la clave de Google Maps |
