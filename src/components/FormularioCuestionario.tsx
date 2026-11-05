@@ -110,6 +110,8 @@ interface Props {
   /** Oculta el botón interno: la pantalla lo pone en un PieFijo y lo dispara
    *  por la referencia. */
   botonEnPie?: boolean;
+  /** En la web ancha: las secciones se reparten en dos columnas (lo de la universidad y el dinero a la izquierda; la convivencia, el texto y la IA a la derecha). Sin esto, una sola columna. */
+  columnas?: boolean;
   /** Para que el pie pueda mostrar su estado de carga. */
   onEstadoEnvio?: (enviando: boolean) => void;
   /**
@@ -121,7 +123,7 @@ interface Props {
 }
 
 export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(function FormularioCuestionario(
-  { valoresIniciales, textoBoton = 'Guardar y continuar', botonEnPie, onEstadoEnvio, desplazador, onCompletar },
+  { valoresIniciales, textoBoton = 'Guardar y continuar', botonEnPie, columnas, onEstadoEnvio, desplazador, onCompletar },
   ref
 ) {
   const theme = useTheme();
@@ -213,7 +215,8 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
   const ATAJOS_KM = ['1', '3', '5', '10'];
 
   return (
-    <View style={estilos.contenedor}>
+    <View style={columnas ? estilos.rejilla : estilos.contenedor}>
+      <View style={columnas ? estilos.columnaForm : estilos.contenedor}>
       {/* ── Dónde estudias ───────────────────────────────────────────── */}
       <Seccion titulo="Tu universidad">
         <Controller
@@ -356,6 +359,9 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
         />
       </Seccion>
 
+      </View>
+
+      <View style={columnas ? estilos.columnaForm : estilos.contenedor}>
       {/* ── Convivencia ──────────────────────────────────────────────── */}
       <Seccion titulo="Convivencia">
         <View style={estilos.grupo}>
@@ -486,6 +492,7 @@ export const FormularioCuestionario = forwardRef<ControlCuestionario, Props>(fun
           {textoBoton}
         </Sello>
       )}
+      </View>
     </View>
   );
 });
@@ -541,6 +548,8 @@ function OpcionRadio({
 
 const estilos = StyleSheet.create({
   contenedor: { gap: Spacing.four },
+  rejilla: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: Spacing.four },
+  columnaForm: { flexBasis: 440, flexGrow: 1, flexShrink: 1, maxWidth: '100%', gap: Spacing.four },
   flexible: { flex: 1 },
   presionado: { opacity: 0.7 },
   fila: { flexDirection: 'row', gap: Spacing.three },

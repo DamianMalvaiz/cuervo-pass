@@ -8,6 +8,7 @@ import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing, Texto } from '@/constants/theme';
+import { useAsegurarMiPerfil } from '@/hooks/use-asegurar-perfil';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { medidasWeb } from '@/lib/medidasWeb';
 import { irAlLogin } from '@/lib/navegacion';
@@ -35,6 +36,7 @@ export default function ConfiguracionScreen() {
 }
 
 function ConfiguracionScreenPantalla() {
+  useAsegurarMiPerfil();
   const { anchoContenido, clase, ancho } = useTamanoPantalla();
   // En la web ancha los grupos van en dos columnas a todo el ancho del sitio (como Mi perfil), no en la columna de teléfono.
   const ancha = Platform.OS === 'web' && medidasWeb(ancho).escritorio;

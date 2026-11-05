@@ -7,6 +7,7 @@ import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing } from '@/constants/theme';
+import { useAsegurarMiPerfil } from '@/hooks/use-asegurar-perfil';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { toast } from '@/lib/toast';
@@ -31,6 +32,7 @@ export default function SobreMiScreen() {
 }
 
 function SobreMiScreenPantalla() {
+  useAsegurarMiPerfil();
   const theme = useTheme();
   const { anchoContenido, clase, ancho } = useTamanoPantalla();
   // En la web ancha va alineado con el encabezado del sitio y el campo no se estira a todo el ancho.

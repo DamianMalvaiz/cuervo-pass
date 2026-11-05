@@ -9,6 +9,7 @@ import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useAsegurarMiPerfil } from '@/hooks/use-asegurar-perfil';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { construirTextoPerfil } from '@/lib/perfilTexto';
@@ -39,6 +40,7 @@ export default function PersonalizacionScreen() {
 }
 
 function PersonalizacionScreenPantalla() {
+  useAsegurarMiPerfil();
   const theme = useTheme();
   const { anchoContenido, clase, ancho } = useTamanoPantalla();
   // En la web ancha, dos columnas a todo el ancho del sitio (como Mi perfil), no la columna de teléfono.
