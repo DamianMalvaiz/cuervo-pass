@@ -15,6 +15,8 @@ import { supabase } from '@/lib/supabase';
 import { eliminarMiCuenta } from '@/services/usuarios.service';
 import { useAuthStore } from '@/store/useAuthStore';
 import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
+import { TituloPaginaWeb } from '@/components/web/TituloPaginaWeb';
+import { medidasWeb } from '@/lib/medidasWeb';
 
 const SE_PIERDE = [
   'Tu perfil y tus preferencias',
@@ -32,7 +34,7 @@ const SE_PIERDE = [
  */
 export default function EliminarCuentaScreen() {
   return (
-    <EnMarcoWeb titulo="Eliminar mi cuenta">
+    <EnMarcoWeb>
       <EliminarCuentaScreenPantalla />
     </EnMarcoWeb>
   );
@@ -40,7 +42,9 @@ export default function EliminarCuentaScreen() {
 
 function EliminarCuentaScreenPantalla() {
   const theme = useTheme();
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  // En la web ancha: lo que se pierde a la izquierda y la contraseña con los botones a la derecha, a todo el ancho del sitio.
+  const ancha = Platform.OS === 'web' && medidasWeb(ancho).escritorio;
   const email = useAuthStore((s) => s.session?.user.email);
   const [clave, setClave] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -74,11 +78,13 @@ function EliminarCuentaScreenPantalla() {
     <ThemedView style={estilos.pantalla}>
       <KeyboardAvoidingView style={estilos.pantalla} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]}
+          contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio, ancha && estilos.anchoWeb]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
+          <View style={[estilos.columna, ancha ? estilos.rejilla : { maxWidth: anchoContenido }]}>
+            <TituloPaginaWeb>Eliminar mi cuenta</TituloPaginaWeb>
+            <View style={ancha ? estilos.mitad : estilos.columna}>
             <ThemedText type="small" themeColor="textSecondary">Antes de seguir, esto es lo que pasará.</ThemedText>
 
             <View style={[estilos.tarjeta, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
@@ -91,7 +97,9 @@ function EliminarCuentaScreenPantalla() {
               ))}
               <ThemedText type="small" themeColor="textSecondary">No se puede deshacer y no conservamos copia.</ThemedText>
             </View>
+            </View>
 
+            <View style={ancha ? estilos.mitad : estilos.columna}>
             <Campo etiqueta="Tu contraseña" contrasena autoComplete="current-password" value={clave} onChangeText={setClave} />
             {error ? (
               <ThemedText type="small" style={{ color: theme.error }} accessibilityLiveRegion="assertive">
@@ -107,6 +115,7 @@ function EliminarCuentaScreenPantalla() {
                 Mejor no, conservar mi cuenta
               </Sello>
             </View>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -119,6 +128,9 @@ const estilos = StyleSheet.create({
   desplazable: { padding: Spacing.three, paddingBottom: Spacing.six },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
+  anchoWeb: { paddingHorizontal: Spacing.five },
+  rejilla: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' },
+  mitad: { flexBasis: 440, flexGrow: 1, flexShrink: 1, maxWidth: '100%', gap: Spacing.three },
   tarjeta: { padding: Spacing.three, gap: Spacing.two, borderWidth: Filete.fino, borderRadius: Radios.hoja },
   fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   crece: { flex: 1 },
