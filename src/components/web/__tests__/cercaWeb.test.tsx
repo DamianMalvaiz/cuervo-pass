@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 
 // /cerca: usa la universidad de la cuenta si la tiene y, si no, la de la lista (y lo dice); ordena por cercanía con el tiempo rotulado como estimación; cambiar el radio cambia la consulta al servidor;
 // y los estados cargando / falló / nada son distintos (END-11).
@@ -26,12 +27,16 @@ import { CercaWeb } from '../CercaWeb';
 
 const U = { lat: 19.32568, lng: -99.458244 };
 const lugar = (id: string, dLat: number | null) => ({ id, titulo_publico: id, latitud_aprox: dLat === null ? null : U.lat + dLat, longitud_aprox: dLat === null ? null : U.lng });
+// Estas pruebas son de la WEB; la app tiene las suyas en cercaApp.test.tsx.
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.replaceProperty(Platform, 'OS', 'web');
   mockCajas.length = 0;
   Object.assign(mockLect, { pubs: [], cargando: false, fallo: false });
   mockPerfil.valor = null;
 });
+
+afterEach(() => jest.restoreAllMocks());
 
 it('sin cuenta usa la universidad de la lista y lo dice', async () => {
   await render(<CercaWeb />);

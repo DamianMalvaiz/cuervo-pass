@@ -145,6 +145,16 @@ function ChipsTipo({
       contentContainerStyle={estilos.tiraChips}
       accessibilityRole="tablist"
     >
+      {/* No es un filtro de tipo (no marca ni cambia la lista): abre «Cerca de tu universidad». Por eso es un enlace, con su icono, y no una pestaña. */}
+      <Pressable
+        onPress={() => router.push('/cerca')}
+        accessibilityRole="link"
+        accessibilityLabel="Cerca de tu universidad"
+        style={({ pressed }) => [estilos.chip, estilos.chipCerca, { borderColor: theme.border }, pressed && estilos.presionado]}
+      >
+        <Ionicons name="location-outline" size={16} color={theme.text} />
+        <ThemedText type="small">Cerca</ThemedText>
+      </Pressable>
       {TIPOS.map((t) => {
         const activo = valor === t.valor;
         return (
@@ -439,6 +449,7 @@ const estilos = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
+  chipCerca: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   chipActivo: Texto.pesoFuerte,
   avisoError: {
     flexDirection: 'row',

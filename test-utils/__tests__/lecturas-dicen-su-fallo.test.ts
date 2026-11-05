@@ -19,6 +19,7 @@ const OMITE_A_PROPOSITO: Record<string, string> = {
   'src/components/web/CuentaWeb.tsx': 'igual que (tabs)/_layout: sin leer el perfil o las funciones, el menú ofrece lo de estudiante de siempre (perfil, favoritos, configuración) y no afirma nada nuevo; nunca enseña el panel de un vendedor sin saberlo',
   'src/components/web/BarraInferiorWeb.tsx': 'igual que (tabs)/_layout: sin leer el perfil la barra cae a la de estudiante de siempre; el panel del vendedor solo aparece cuando se sabe que lo es',
   'src/components/web/TarjetaPublicacionWeb.tsx': 'una foto que no cargó deja el recuadro gris y la tarjeta sigue diciendo título, zona y precio: no afirma nada falso',
+  'src/components/FilaLugarCercano.tsx': 'igual que TarjetaPublicacionWeb: la foto que no cargó deja el recuadro gris y la fila sigue diciendo título, zona, precio y cercanía; la lista que sí falla lo dice la pantalla (CercaWeb)',
   'src/components/web/MosaicoNegociosWeb.tsx': 'igual que TarjetaPublicacionWeb: la foto que no cargó deja el recuadro gris y el mosaico sigue diciendo el nombre y si está abierto',
   'src/components/web/FilaProductoWeb.tsx': 'igual que TarjetaPublicacionWeb: la foto del producto que no cargó no se pinta y la fila sigue diciendo nombre y precio',
   'src/components/web/TarjetaNegocioWeb.tsx': 'igual que TarjetaPublicacionWeb: la foto que no cargó deja el recuadro gris y la tarjeta sigue diciendo el nombre y si está abierto',

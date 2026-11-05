@@ -60,6 +60,8 @@ jest.mock('@/components/VistosRecientes', () => ({
   },
 }));
 
+import { router } from 'expo-router';
+
 import InicioScreen from '../inicio';
 
 const publicacion = (id: string, nivel: 1 | 2 = 1) => ({
@@ -140,6 +142,16 @@ describe('el nivel y el orden son automáticos', () => {
     await render(<InicioScreen />);
     expect(screen.getByText('Todas las publicaciones')).toBeTruthy();
     expect(screen.queryByText(/por afinidad/)).toBeNull();
+  });
+
+  it('«Cerca» abre «Cerca de tu universidad»; es un enlace y no una pestaña, y no cambia la lista', async () => {
+    mockSugerencias.mockReturnValue(respuesta({ datos: [publicacion('p1')], conAfinidad: 0, total: 1 }));
+    await render(<InicioScreen />);
+    const llamadasAntes = mockSugerencias.mock.calls.length;
+    await fireEvent.press(screen.getByLabelText('Cerca de tu universidad'));
+    expect(router.push).toHaveBeenCalledWith('/cerca');
+    expect(screen.getByLabelText('Cerca de tu universidad').props.accessibilityRole).toBe('link');
+    expect(mockSugerencias.mock.calls.length).toBe(llamadasAntes);
   });
 
   it('monta «Vistos recientemente» (lo que se abrió en este teléfono) junto a la lista', async () => {
