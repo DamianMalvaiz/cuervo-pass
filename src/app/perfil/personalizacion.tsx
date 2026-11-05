@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View, Platform } from 'react-native';
 
 import { FilaAjuste } from '@/components/ficha/FilaAjuste';
 import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
@@ -18,6 +18,8 @@ import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
+import { TituloPaginaWeb } from '@/components/web/TituloPaginaWeb';
+import { medidasWeb } from '@/lib/medidasWeb';
 
 /**
  * «Personalización»: el consentimiento a que se use tu descripción para ordenar lo que ves (antes «Sugerencias con IA», una fila de Privacidad que llevaba
@@ -30,7 +32,7 @@ import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
  */
 export default function PersonalizacionScreen() {
   return (
-    <EnMarcoWeb titulo="Personalización">
+    <EnMarcoWeb>
       <PersonalizacionScreenPantalla />
     </EnMarcoWeb>
   );
@@ -38,7 +40,9 @@ export default function PersonalizacionScreen() {
 
 function PersonalizacionScreenPantalla() {
   const theme = useTheme();
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  // En la web ancha, dos columnas a todo el ancho del sitio (como Mi perfil), no la columna de teléfono.
+  const ancha = Platform.OS === 'web' && medidasWeb(ancho).escritorio;
   const session = useAuthStore((s) => s.session);
   const { perfil, actualizarPerfil } = usePerfilStore();
   // Lo que se pinta mientras se guarda; vuelve al valor real si el guardado falla.
@@ -79,8 +83,10 @@ function PersonalizacionScreenPantalla() {
 
   return (
     <ThemedView style={estilos.pantalla}>
-      <ScrollView contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]} showsVerticalScrollIndicator={false}>
-        <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
+      <ScrollView contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio, ancha && estilos.anchoWeb]} showsVerticalScrollIndicator={false}>
+        <View style={[estilos.columna, ancha ? estilos.rejilla : { maxWidth: anchoContenido }]}>
+          <TituloPaginaWeb>Personalización</TituloPaginaWeb>
+          <View style={ancha ? estilos.mitad : estilos.apilada}>
           <ThemedText type="small" themeColor="textSecondary">
             Cómo ordenamos lo que ves, y qué parte de tu perfil usamos para hacerlo.
           </ThemedText>
@@ -95,6 +101,9 @@ function PersonalizacionScreenPantalla() {
             />
           </GrupoAjustes>
 
+          </View>
+
+          <View style={ancha ? estilos.mitad : estilos.apilada}>
           <ThemedText type="etiqueta" themeColor="textSecondary">QUÉ USAMOS</ThemedText>
           <View style={estilos.lista}>
             <View style={estilos.fila}>
@@ -133,6 +142,7 @@ function PersonalizacionScreenPantalla() {
           >
             <ThemedText type="small" themeColor="acento">Leer el aviso de privacidad</ThemedText>
           </Pulsable>
+          </View>
         </View>
       </ScrollView>
     </ThemedView>
@@ -144,6 +154,10 @@ const estilos = StyleSheet.create({
   desplazable: { padding: Spacing.three, paddingBottom: Spacing.six },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
+  apilada: { gap: Spacing.three },
+  anchoWeb: { paddingHorizontal: Spacing.five },
+  rejilla: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' },
+  mitad: { flexBasis: 440, flexGrow: 1, flexShrink: 1, maxWidth: '100%', gap: Spacing.three },
   lista: { gap: Spacing.two },
   fila: { flexDirection: 'row', gap: Spacing.two, alignItems: 'flex-start' },
   crece: { flex: 1 },

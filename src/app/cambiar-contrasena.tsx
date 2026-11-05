@@ -17,6 +17,8 @@ import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
+import { TituloPaginaWeb } from '@/components/web/TituloPaginaWeb';
+import { medidasWeb } from '@/lib/medidasWeb';
 
 /**
  * Cambiar contraseña, dentro de la app (antes solo existía «Olvidé mi contraseña», que manda un código al correo).
@@ -27,7 +29,7 @@ import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
  */
 export default function CambiarContrasenaScreen() {
   return (
-    <EnMarcoWeb titulo="Cambiar contraseña">
+    <EnMarcoWeb>
       <CambiarContrasenaScreenPantalla />
     </EnMarcoWeb>
   );
@@ -35,7 +37,8 @@ export default function CambiarContrasenaScreen() {
 
 function CambiarContrasenaScreenPantalla() {
   const theme = useTheme();
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  const ancha = Platform.OS === 'web' && medidasWeb(ancho).escritorio;
   const email = useAuthStore((s) => s.session?.user.email);
   const { perfil } = usePerfilStore();
   const [actual, setActual] = useState('');
@@ -79,15 +82,22 @@ function CambiarContrasenaScreenPantalla() {
     }
   };
 
+  // En la app va justo bajo el campo de la contraseña nueva; en la web ancha, en la columna de la derecha.
+  const requisitos = (
+    <RequisitosPassword password={nueva} contexto={{ email, nombreUsuario: perfil?.nombre_usuario, nombre: perfil?.nombre_completo }} />
+  );
+
   return (
     <ThemedView style={estilos.pantalla}>
       <KeyboardAvoidingView style={estilos.pantalla} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]}
+          contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio, ancha && estilos.anchoWeb]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
+          <View style={[estilos.columna, ancha ? estilos.rejilla : { maxWidth: anchoContenido }]}>
+            <TituloPaginaWeb>Cambiar contraseña</TituloPaginaWeb>
+            <View style={ancha ? estilos.mitad : estilos.apilada}>
             <ThemedText type="small" themeColor="textSecondary">
               Por seguridad, primero escribe la que usas ahora.
             </ThemedText>
@@ -101,10 +111,7 @@ function CambiarContrasenaScreenPantalla() {
               onChangeText={setNueva}
               error={igualALaActual ? 'La contraseña nueva debe ser distinta de la actual' : undefined}
             />
-            <RequisitosPassword
-              password={nueva}
-              contexto={{ email, nombreUsuario: perfil?.nombre_usuario, nombre: perfil?.nombre_completo }}
-            />
+            {ancha ? null : requisitos}
             <Campo
               etiqueta="Repite la contraseña nueva"
               contrasena
@@ -123,9 +130,14 @@ function CambiarContrasenaScreenPantalla() {
             <Sello onPress={guardar} cargando={guardando} deshabilitado={!listo} accessibilityLabel="Guardar contraseña">
               Guardar contraseña
             </Sello>
-            <ThemedText type="small" themeColor="textSecondary" style={estilos.nota}>
+            </View>
+
+            <View style={ancha ? estilos.mitad : estilos.apilada}>
+            {ancha ? requisitos : null}
+            <ThemedText type="small" themeColor="textSecondary" style={ancha ? undefined : estilos.nota}>
               Al cambiarla, cerramos tu sesión en los demás dispositivos.
             </ThemedText>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -139,4 +151,8 @@ const estilos = StyleSheet.create({
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
   nota: { textAlign: 'center' },
+  apilada: { gap: Spacing.three },
+  anchoWeb: { paddingHorizontal: Spacing.five },
+  rejilla: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' },
+  mitad: { flexBasis: 440, flexGrow: 1, flexShrink: 1, maxWidth: '100%', gap: Spacing.three },
 });

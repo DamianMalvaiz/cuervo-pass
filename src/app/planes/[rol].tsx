@@ -5,6 +5,7 @@ import { Alert, Linking, Platform, ScrollView, StyleSheet, View } from 'react-na
 
 import { Sello } from '@/components/ficha/Sello';
 import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
+import { medidasWeb } from '@/lib/medidasWeb';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
@@ -40,7 +41,10 @@ export default function PlanesScreen() {
 function PlanesScreenPantalla() {
   const theme = useTheme();
   const { rol: rolParam } = useLocalSearchParams<{ rol: string }>();
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  // En la web ancha la pantalla ocupa todo el ancho del sitio: las tarjetas de plan van en fila y lo que es de una sola tarjeta no se estira.
+  const ancha = Platform.OS === 'web' && medidasWeb(ancho).escritorio;
+  const tope = ancha ? estilos.tope : null;
   const miId = useAuthStore((s) => s.session?.user.id);
 
   const rolValido = esRolVendedor(rolParam);
@@ -67,10 +71,10 @@ function PlanesScreenPantalla() {
   const envoltura = (hijos: React.ReactNode) => (
     <ThemedView style={estilos.pantalla}>
       <ScrollView
-        contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]}
+        contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio, ancha && estilos.anchoWeb]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[estilos.columna, { maxWidth: anchoContenido }]}>{hijos}</View>
+        <View style={[estilos.columna, ancha ? null : { maxWidth: anchoContenido }]}>{hijos}</View>
       </ScrollView>
     </ThemedView>
   );
@@ -183,7 +187,7 @@ function PlanesScreenPantalla() {
         <ThemedText style={Texto.tituloHoja}>Empieza gratis</ThemedText>
         {plan ? <ThemedText themeColor="textSecondary">{textoDePrueba(plan.nombre)}</ThemedText> : null}
         {plan ? (
-          <View style={[estilos.tarjeta, { borderColor: theme.text, borderWidth: Filete.grueso, backgroundColor: theme.backgroundElement }]}>
+          <View style={[estilos.tarjeta, tope, { borderColor: theme.text, borderWidth: Filete.grueso, backgroundColor: theme.backgroundElement }]}>
             <View style={estilos.cabeceraPlan}>
               <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>{`Plan ${plan.nombre}`}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">{`Después, ${precioDe(plan.precio_centavos)} al mes`}</ThemedText>
@@ -196,9 +200,11 @@ function PlanesScreenPantalla() {
             ))}
           </View>
         ) : null}
-        <Sello onPress={empezarPrueba} cargando={iniciar.isPending} accessibilityLabel="Empezar prueba gratis">
-          Empezar prueba gratis
-        </Sello>
+        <View style={tope}>
+          <Sello onPress={empezarPrueba} cargando={iniciar.isPending} accessibilityLabel="Empezar prueba gratis">
+            Empezar prueba gratis
+          </Sello>
+        </View>
       </>
     );
   }
@@ -213,14 +219,14 @@ function PlanesScreenPantalla() {
         </ThemedText>
       ) : null}
       {textoOrden ? (
-        <View style={[estilos.aviso, { borderColor: theme.filete, backgroundColor: theme.backgroundSelected }]}>
+        <View style={[estilos.aviso, tope, { borderColor: theme.filete, backgroundColor: theme.backgroundSelected }]}>
           <Ionicons name="time-outline" size={20} color={theme.text} />
           <ThemedText type="small" style={estilos.crece}>{textoOrden}</ThemedText>
           <Sello variante="contorno" onPress={refrescarTodo} accessibilityLabel="Actualizar el estado del pago">Actualizar</Sello>
         </View>
       ) : null}
 
-      <View style={[estilos.tarjeta, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
+      <View style={[estilos.tarjeta, tope, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
         <ThemedText type="smallBold" themeColor="textSecondary">Tu plan actual</ThemedText>
         <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>{suscripcion.plan_nombre}</ThemedText>
         <ThemedText type="small" themeColor="textSecondary">{describirSuscripcion(suscripcion)}</ThemedText>
@@ -236,10 +242,11 @@ function PlanesScreenPantalla() {
       {planes.length === 0 ? (
         <ThemedText type="small" themeColor="textSecondary">Por ahora no hay planes de pago para esta función.</ThemedText>
       ) : (
-        planes.map((p) => {
+        <View style={ancha ? estilos.fila_planes : estilos.columna}>
+        {planes.map((p) => {
           const esElActual = suscripcion.estado === 'vigente' && suscripcion.plan_id === p.id;
           return (
-            <View key={p.id} style={[estilos.tarjeta, { borderColor: esElActual ? theme.bosque : theme.filete, backgroundColor: theme.backgroundElement }]}>
+            <View key={p.id} style={[estilos.tarjeta, ancha && estilos.tarjetaPlan, { borderColor: esElActual ? theme.bosque : theme.filete, backgroundColor: theme.backgroundElement }]}>
               <View style={estilos.cabeceraPlan}>
                 <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>{p.nombre}</ThemedText>
                 {esElActual ? (
@@ -265,7 +272,8 @@ function PlanesScreenPantalla() {
               </Sello>
             </View>
           );
-        })
+        })}
+        </View>
       )}
     </>
   );
@@ -277,6 +285,10 @@ const estilos = StyleSheet.create({
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
   crece: { flex: 1 },
+  anchoWeb: { paddingHorizontal: Spacing.five },
+  tope: { maxWidth: 560, width: '100%' },
+  fila_planes: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'stretch', gap: Spacing.three },
+  tarjetaPlan: { flexBasis: 300, flexGrow: 1, flexShrink: 1, maxWidth: 480 },
   aviso: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, padding: Spacing.three, borderWidth: Filete.fino, borderRadius: Radios.tarjeta },
   tarjeta: { padding: Spacing.three, gap: Spacing.two, borderWidth: Filete.fino, borderRadius: Radios.tarjeta },
   fila: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
