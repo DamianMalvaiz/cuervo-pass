@@ -1,7 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
+import Head from 'expo-router/head';
 import { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
@@ -13,6 +14,7 @@ import { useAgregarFuncion, useMisRoles } from '@/hooks/queries/useRoles';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
+import { medidasWeb } from '@/lib/medidasWeb';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
@@ -38,7 +40,7 @@ const OPCIONES: { valor: Vendedor; etiqueta: string; descripcion: string; icono:
  */
 export default function CrearVendedorScreen() {
   return (
-    <EnMarcoWeb titulo="Perfil de vendedor">
+    <EnMarcoWeb>
       <CrearVendedorScreenPantalla />
     </EnMarcoWeb>
   );
@@ -46,7 +48,9 @@ export default function CrearVendedorScreen() {
 
 function CrearVendedorScreenPantalla() {
   const theme = useTheme();
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  // En la web ancha: las opciones a la izquierda y «Lo que sigue» con el botón a la derecha, a todo el ancho del sitio.
+  const ancha = Platform.OS === 'web' && medidasWeb(ancho).escritorio;
   const miId = useAuthStore((s) => s.session?.user.id);
   const { roles } = useMisRoles(miId);
   const agregar = useAgregarFuncion(miId);
@@ -78,13 +82,20 @@ function CrearVendedorScreenPantalla() {
 
   return (
     <ThemedView style={estilos.pantalla}>
-      <ScrollView contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]} showsVerticalScrollIndicator={false}>
-        <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
+      <ScrollView contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio, ancha && estilos.anchoWeb]} showsVerticalScrollIndicator={false}>
+        <View style={[estilos.columna, ancha ? null : { maxWidth: anchoContenido }]}>
+          {Platform.OS === 'web' ? (
+            <Head>
+              <title>Perfil de vendedor · Cuervo 360</title>
+            </Head>
+          ) : null}
           <ThemedText style={Texto.tituloHoja}>Crea tu perfil de vendedor</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             Tu cuenta sigue siendo la misma. Elige qué quieres ofrecer.
           </ThemedText>
 
+          <View style={ancha ? estilos.rejilla : estilos.columna}>
+          <View style={ancha ? estilos.mitad : estilos.columna}>
           <View accessibilityRole="radiogroup" style={estilos.opciones}>
             {OPCIONES.map((o) => {
               const activo = o.valor === elegido;
@@ -114,7 +125,9 @@ function CrearVendedorScreenPantalla() {
               );
             })}
           </View>
+          </View>
 
+          <View style={ancha ? estilos.mitad : estilos.columna}>
           <View style={[estilos.siguiente, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}>
             <ThemedText type="smallBold">Lo que sigue</ThemedText>
             <ThemedText type="small">1. Verificamos tu identidad con tu INE y unas fotos.</ThemedText>
@@ -123,6 +136,8 @@ function CrearVendedorScreenPantalla() {
           </View>
 
           <Sello onPress={continuar} cargando={enCurso} accessibilityLabel="Continuar">Continuar</Sello>
+          </View>
+          </View>
         </View>
       </ScrollView>
     </ThemedView>
@@ -134,6 +149,9 @@ const estilos = StyleSheet.create({
   desplazable: { padding: Spacing.three, paddingBottom: Spacing.six },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
+  anchoWeb: { paddingHorizontal: Spacing.five },
+  rejilla: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: Spacing.three },
+  mitad: { flexBasis: 440, flexGrow: 1, flexShrink: 1, maxWidth: '100%', gap: Spacing.three },
   opciones: { gap: Spacing.three },
   opcion: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, borderRadius: Radios.hoja, padding: Spacing.three, minHeight: 72 },
   textosOpcion: { flex: 1, gap: Spacing.half },
