@@ -13,6 +13,8 @@ import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
 import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
+import { TituloPaginaWeb } from '@/components/web/TituloPaginaWeb';
+import { medidasWeb } from '@/lib/medidasWeb';
 
 /**
  * «Sobre mí»: la biografía, en su propia pantalla. Antes era un bloque del perfil, donde competía con la ficha de búsqueda, las funciones y los accesos.
@@ -22,7 +24,7 @@ import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
  */
 export default function SobreMiScreen() {
   return (
-    <EnMarcoWeb titulo="Sobre mí">
+    <EnMarcoWeb>
       <SobreMiScreenPantalla />
     </EnMarcoWeb>
   );
@@ -30,7 +32,9 @@ export default function SobreMiScreen() {
 
 function SobreMiScreenPantalla() {
   const theme = useTheme();
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  // En la web ancha va alineado con el encabezado del sitio y el campo no se estira a todo el ancho.
+  const ancha = Platform.OS === 'web' && medidasWeb(ancho).escritorio;
   const session = useAuthStore((s) => s.session);
   const { perfil, actualizarPerfil } = usePerfilStore();
   const [biografia, setBiografia] = useState('');
@@ -68,11 +72,13 @@ function SobreMiScreenPantalla() {
     <ThemedView style={estilos.pantalla}>
       <KeyboardAvoidingView style={estilos.pantalla} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]}
+          contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio, ancha && estilos.anchoWeb]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
+          <View style={[estilos.columna, ancha ? estilos.alineada : { maxWidth: anchoContenido }]}>
+            <TituloPaginaWeb>Sobre mí</TituloPaginaWeb>
+            <View style={ancha ? estilos.tope : estilos.columna}>
             <ThemedText type="small" themeColor="textSecondary">
               Cuéntale a otros quién eres. Genera confianza para quien no puede ir a verte antes de decidir.
             </ThemedText>
@@ -109,6 +115,7 @@ function SobreMiScreenPantalla() {
                 Guardar biografía
               </Sello>
             )}
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -121,6 +128,9 @@ const estilos = StyleSheet.create({
   desplazable: { padding: Spacing.three, paddingBottom: Spacing.six },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
+  anchoWeb: { paddingHorizontal: Spacing.five },
+  alineada: { alignItems: 'flex-start' },
+  tope: { width: '100%', maxWidth: 720, gap: Spacing.three },
   flexible: { flex: 1 },
   biografia: { minHeight: 140, textAlignVertical: 'top', paddingTop: Spacing.three },
   pie: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
