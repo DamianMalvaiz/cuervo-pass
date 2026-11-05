@@ -1,12 +1,15 @@
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import Head from 'expo-router/head';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { GrupoMiPlan } from '@/components/GrupoMiPlan';
 import { FilaAjuste } from '@/components/ficha/FilaAjuste';
 import { GrupoAjustes } from '@/components/ficha/GrupoAjustes';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text';
+import { Spacing, Texto } from '@/constants/theme';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
+import { medidasWeb } from '@/lib/medidasWeb';
 import { irAlLogin } from '@/lib/navegacion';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePerfilStore } from '@/store/usePerfilStore';
@@ -25,14 +28,16 @@ import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
  */
 export default function ConfiguracionScreen() {
   return (
-    <EnMarcoWeb titulo="Configuración">
+    <EnMarcoWeb>
       <ConfiguracionScreenPantalla />
     </EnMarcoWeb>
   );
 }
 
 function ConfiguracionScreenPantalla() {
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  // En la web ancha los grupos van en dos columnas a todo el ancho del sitio (como Mi perfil), no en la columna de teléfono.
+  const ancha = Platform.OS === 'web' && medidasWeb(ancho).escritorio;
   const cerrarSesion = useAuthStore((s) => s.cerrarSesion);
   const { perfil } = usePerfilStore();
 
@@ -44,10 +49,19 @@ function ConfiguracionScreenPantalla() {
   return (
     <ThemedView style={estilos.pantalla}>
       <ScrollView
-        contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]}
+        contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio, ancha && estilos.anchoWeb]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
+        {Platform.OS === 'web' ? (
+          <Head>
+            <title>Configuración · Cuervo 360</title>
+          </Head>
+        ) : null}
+        <View style={[estilos.columna, ancha ? estilos.rejilla : { maxWidth: anchoContenido }]}>
+          {Platform.OS === 'web' ? (
+            <ThemedText accessibilityRole="header" style={[Texto.seccionWebCompacto, estilos.titulo]}>Configuración</ThemedText>
+          ) : null}
+          <View style={ancha ? estilos.mitad : estilos.apilada}>
           <GrupoMiPlan />
 
           <GrupoAjustes titulo="Cuenta">
@@ -58,7 +72,9 @@ function ConfiguracionScreenPantalla() {
               onPress={() => router.push('/cambiar-contrasena')}
             />
           </GrupoAjustes>
+          </View>
 
+          <View style={ancha ? estilos.mitad : estilos.apilada}>
           <GrupoAjustes titulo="Privacidad y datos">
             <FilaAjuste
               icono="document-text-outline"
@@ -91,6 +107,7 @@ function ConfiguracionScreenPantalla() {
               onPress={() => router.push('/eliminar-cuenta')}
             />
           </GrupoAjustes>
+          </View>
         </View>
       </ScrollView>
     </ThemedView>
@@ -100,6 +117,11 @@ function ConfiguracionScreenPantalla() {
 const estilos = StyleSheet.create({
   pantalla: { flex: 1 },
   desplazable: { padding: Spacing.three, paddingBottom: Spacing.six },
+  anchoWeb: { paddingHorizontal: Spacing.five },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.four },
+  rejilla: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' },
+  mitad: { flexBasis: 440, flexGrow: 1, flexShrink: 1, maxWidth: '100%', gap: Spacing.four },
+  apilada: { gap: Spacing.four },
+  titulo: { width: '100%', paddingTop: Spacing.two },
 });
