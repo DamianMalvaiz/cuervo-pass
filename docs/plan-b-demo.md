@@ -6,7 +6,7 @@ Complementa `docs/guion-demo.md`. Escrito el 03/11/2026. **Regla de oro:** si al
 
 | ✓ | Qué | Cómo |
 |---|---|---|
-| [ ] | Capturas de respaldo de **cada paso** del guion, tomadas en el ensayo | Una carpeta `demo-capturas/` (fuera del repo) con 8–10 imágenes en orden: Para ti, ficha, Comparar, Cerca, Guardados→Búsquedas, perfil de roomie, panel del vendedor, vista previa de negocio, vista previa de menú, chat |
+| [ ] | Capturas de respaldo de **cada paso** del guion, tomadas en el ensayo | `node scripts/capturas-demo.mjs` crea `~/demo-capturas/` (fuera del repo) con un LEEME de nombres; `… --revisar` dice qué falta. Imágenes en orden: Para ti, ficha, Comparar, Cerca, Guardados→Búsquedas, perfil de roomie, panel del vendedor, vista previa de negocio, vista previa de menú, chat |
 | [ ] | Una grabación corta de pantalla (1–2 min) del recorrido completo | Para el caso de **sin internet** |
 | [ ] | Hotspot del teléfono probado con la laptop | La laptop conecta a internet por el teléfono en menos de 1 min |
 | [ ] | Laptop **sin suspensión automática** y cargando | Una laptop que se duerme corta el túnel de la IA |
