@@ -165,6 +165,12 @@ export default function RootLayout() {
         <Stack.Screen name="terminos" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Términos y condiciones' }} />
         <Stack.Screen name="cambiar-contrasena" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Cambiar contraseña' }} />
         <Stack.Screen name="eliminar-cuenta" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Eliminar mi cuenta' }} />
+        {/* Las páginas de ayuda: en la web traen su marco; en la app, la cabecera con «atrás». */}
+        <Stack.Screen name="ayuda" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Ayuda y contacto' }} />
+        <Stack.Screen name="guia-de-visita" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Guía para visitar un lugar' }} />
+        <Stack.Screen name="contrato" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Entiende tu contrato' }} />
+        <Stack.Screen name="acuerdos" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Acuerdos de convivencia' }} />
+        <Stack.Screen name="presupuesto" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: '¿Qué alcanza con tu presupuesto?' }} />
       </Stack>
       {/* Después del Stack: se pinta encima de cualquier pantalla. Un solo host. */}
       <ToastHost />

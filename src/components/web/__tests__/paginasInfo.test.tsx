@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 // Las páginas informativas (ayuda, guía de visita, contrato, acuerdos): contenido fijo, que se ve igual con o sin cuenta. Lo que se fija: lo que prometen lo cumplen (marcar, buscar, copiar) y no dicen más de lo que saben.
 
@@ -14,7 +14,12 @@ import { ContratoWeb, PUNTOS_CONTRATO } from '../ContratoWeb';
 import { GuiaVisitaWeb, QUE_MIRAR, QUE_PREGUNTAR } from '../GuiaVisitaWeb';
 import { CORREO_RESPONSABLE } from '@/lib/avisoPrivacidad';
 
-beforeEach(() => jest.clearAllMocks());
+// Estas pruebas son de la WEB; la app tiene las suyas en paginasInfoApp.test.tsx.
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.replaceProperty(Platform, 'OS', 'web');
+});
+afterEach(() => jest.restoreAllMocks());
 
 describe('en todas: cruces y encabezado', () => {
   it('cada página enseña su título y enlaza a las OTRAS tres (no a sí misma)', async () => {

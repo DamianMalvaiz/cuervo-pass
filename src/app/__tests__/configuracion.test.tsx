@@ -46,6 +46,20 @@ beforeEach(() => {
   almacen.consiente = true;
 });
 
+describe('Ayuda', () => {
+  it.each([
+    [/^Ayuda y contacto/, '/ayuda'],
+    [/^Guía para visitar un lugar/, '/guia-de-visita'],
+    [/^Entiende tu contrato/, '/contrato'],
+    [/^Acuerdos de convivencia/, '/acuerdos'],
+    [/^¿Qué alcanza con tu presupuesto\?/, '/presupuesto'],
+  ])('%s lleva a su página', async (etiqueta, ruta) => {
+    await pintar();
+    await pulsar(etiqueta);
+    expect(mockPush).toHaveBeenCalledWith(ruta);
+  });
+});
+
 describe('Cuenta', () => {
   it('«Cambiar contraseña» lleva a su pantalla', async () => {
     await pintar();

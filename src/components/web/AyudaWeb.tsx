@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
-import { Linking, StyleSheet, TextInput, View } from 'react-native';
+import { Linking, Platform, StyleSheet, TextInput, View } from 'react-native';
 
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
@@ -20,12 +20,15 @@ export const PREGUNTAS: { p: string; r: string }[] = [
   { p: '¿Cómo reporto una publicación, una persona o una reseña?', r: 'En la web, desde el perfil de una persona o desde una reseña; en la app, también desde la ficha de una publicación. Al tercer reporte de cuentas distintas, un perfil se suspende y deja de aparecer.' },
   { p: '¿Cuánto cuesta publicar?', r: 'Empezar con una cuenta de vendedor es gratis, y hay una prueba gratis de 15 días con todo lo de un plan. Los pagos son con Mercado Pago (tarjeta u OXXO) y, por ahora, funcionan en modo de pruebas.' },
   { p: '¿Qué hacen con mis datos?', r: 'No los usamos para publicidad ni prospección comercial, y no los vendemos ni los cedemos a nadie. El detalle está en el aviso de privacidad.' },
-  { p: '¿Dónde se guardan mis favoritos, vistos y búsquedas?', r: 'Los favoritos y las búsquedas guardadas, en tu cuenta. Lo que viste y lo que quieres comparar, solo en este navegador.' },
+  {
+    p: Platform.OS === 'web' ? '¿Dónde se guardan mis favoritos, vistos y búsquedas?' : '¿Dónde se guardan mis favoritos?',
+    r: Platform.OS === 'web' ? 'Los favoritos y las búsquedas guardadas, en tu cuenta. Lo que viste y lo que quieres comparar, solo en este navegador.' : 'Tus favoritos se guardan en tu cuenta: los ves en cualquier teléfono donde inicies sesión.',
+  },
   { p: '¿Cómo borro mi cuenta?', r: 'En Configuración, «Eliminar mi cuenta». Se borra todo y no se puede deshacer.' },
 ];
 
 // El campo vive dentro de la píldora: el anillo de foco lo dibuja la píldora (redondeada), no un rectángulo suelto dentro de ella. Ver global.css.
-const EMBEBIDO = { dataSet: { campoEmbebido: '1' } } as object;
+const EMBEBIDO = (Platform.OS === 'web' ? { dataSet: { campoEmbebido: '1' } } : {}) as object;
 
 /** Sin acentos ni mayúsculas: «direccion» encuentra «dirección». */
 const plano = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();

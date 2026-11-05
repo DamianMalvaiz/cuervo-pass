@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, Share, StyleSheet, View } from 'react-native';
 
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
@@ -40,8 +40,13 @@ export function AcuerdosWeb() {
   const copiar = async () => {
     if (!texto) return;
     try {
-      await navigator.clipboard.writeText(texto);
-      setAviso('Copiado. Pégalo en el chat con tus roomies.');
+      // En la app se comparte con el menú del sistema (el portapapeles exigiría otra dependencia); en la web se copia.
+      if (Platform.OS === 'web') {
+        await navigator.clipboard.writeText(texto);
+        setAviso('Copiado. Pégalo en el chat con tus roomies.');
+      } else {
+        await Share.share({ message: texto });
+      }
     } catch {
       setAviso('No se pudo copiar solo. Selecciona el texto de abajo y cópialo.');
     }
@@ -81,12 +86,16 @@ export function AcuerdosWeb() {
             ) : (
               <ThemedText style={Texto.cuerpo} themeColor="textSecondary">Elige una opción en cada tema que quieras acordar; aquí va quedando el resumen.</ThemedText>
             )}
-            {texto ? <BotonWeb onPress={copiar} accessibilityLabel="Copiar para mis roomies">Copiar para mis roomies</BotonWeb> : null}
+            {texto ? (
+              <BotonWeb onPress={copiar} accessibilityLabel={Platform.OS === 'web' ? 'Copiar para mis roomies' : 'Compartir con mis roomies'}>
+                {Platform.OS === 'web' ? 'Copiar para mis roomies' : 'Compartir con mis roomies'}
+              </BotonWeb>
+            ) : null}
             {aviso ? <ThemedText style={Texto.pequeno} themeColor="textSecondary" accessibilityRole="alert">{aviso}</ThemedText> : null}
           </BloqueInfoWeb>
         </View>
       </View>
-      <NotaInfoWeb>Es una guía para conversar, no un contrato. Nada de esto se guarda ni se envía: se queda en tu navegador hasta que lo copies.</NotaInfoWeb>
+      <NotaInfoWeb>{`Es una guía para conversar, no un contrato. Nada de esto se guarda ni se envía: se queda en tu ${Platform.OS === 'web' ? 'navegador hasta que lo copies' : 'teléfono hasta que lo compartas'}.`}</NotaInfoWeb>
     </PaginaInfoWeb>
   );
 }

@@ -74,6 +74,14 @@ function ConfiguracionScreenPantalla() {
               onPress={() => router.push('/cambiar-contrasena')}
             />
           </GrupoAjustes>
+
+          <GrupoAjustes titulo="Ayuda">
+            <FilaAjuste icono="help-circle-outline" etiqueta="Ayuda y contacto" descripcion="Lo que más nos preguntan, y cómo escribirnos." onPress={() => router.push('/ayuda')} />
+            <FilaAjuste icono="walk-outline" etiqueta="Guía para visitar un lugar" descripcion="Qué mirar y qué preguntar antes de decidir." onPress={() => router.push('/guia-de-visita')} />
+            <FilaAjuste icono="document-text-outline" etiqueta="Entiende tu contrato" descripcion="Seis cosas que conviene revisar antes de firmar." onPress={() => router.push('/contrato')} />
+            <FilaAjuste icono="people-outline" etiqueta="Acuerdos de convivencia" descripcion="Ponte de acuerdo con tus roomies antes de mudarte." onPress={() => router.push('/acuerdos')} />
+            <FilaAjuste icono="calculator-outline" etiqueta="¿Qué alcanza con tu presupuesto?" descripcion="Cuántos lugares publicados caben en un monto." onPress={() => router.push('/presupuesto')} />
+          </GrupoAjustes>
           </View>
 
           <View style={ancha ? estilos.mitad : estilos.apilada}>

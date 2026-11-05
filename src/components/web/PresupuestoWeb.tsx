@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { Pulsable } from '@/components/ficha/Pulsable';
@@ -77,9 +77,12 @@ export function PresupuestoWeb() {
             </BloqueInfoWeb>
           </View>
         </View>
-        <View style={estilos.acciones}>
-          <BotonWeb onPress={() => router.push({ pathname: RutasWeb.departamentos, params: { presupuesto: String(monto) } })} accessibilityLabel="Ver los lugares que alcanzan">Ver los lugares que alcanzan</BotonWeb>
-        </View>
+        {/* La búsqueda con el monto puesto es una página de la web; en la app no hay equivalente al que llevar. */}
+        {Platform.OS === 'web' ? (
+          <View style={estilos.acciones}>
+            <BotonWeb onPress={() => router.push({ pathname: RutasWeb.departamentos, params: { presupuesto: String(monto) } })} accessibilityLabel="Ver los lugares que alcanzan">Ver los lugares que alcanzan</BotonWeb>
+          </View>
+        ) : null}
         {truncado ? <NotaInfoWeb>Hay más lugares publicados de los que se pueden contar aquí; la cifra es de los más recientes.</NotaInfoWeb> : null}
       </>
     );

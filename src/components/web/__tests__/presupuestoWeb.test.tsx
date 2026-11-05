@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 
 // «¿Qué alcanza con tu presupuesto?»: todo sale de las rentas publicadas; cambiar el monto cambia la cuenta; abre en el presupuesto de la cuenta; cargando / falló / vacío son distintos; si se llegó al tope de filas, se dice.
 
@@ -21,9 +22,12 @@ const LISTA = [
 ];
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.replaceProperty(Platform, 'OS', 'web');
   mockPerfil.presupuesto_max = null;
   Object.assign(mockPrecios, { precios: LISTA, truncado: false, cargando: false, fallo: false });
 });
+
+afterEach(() => jest.restoreAllMocks());
 
 describe('montoInicial', () => {
   it('sin presupuesto, 4,000; con él, el monto de la lista más cercano', () => {
