@@ -30,3 +30,15 @@ test('con la función aprobada sí', async () => {
   await render(<NuevoNegocioScreen />);
   expect(screen.getByText('FORMULARIO DE NEGOCIO')).toBeTruthy();
 });
+
+test('con la función aprobada ofrece la vista previa (en la app, en una hoja)', async () => {
+  con(rol('aprobado'));
+  await render(<NuevoNegocioScreen />);
+  expect(screen.getByLabelText('Ver cómo se verá')).toBeTruthy();
+});
+
+test('sin verificar no ofrece vista previa de lo que no se puede publicar', async () => {
+  con(rol('sin_verificar'));
+  await render(<NuevoNegocioScreen />);
+  expect(screen.queryByLabelText('Ver cómo se verá')).toBeNull();
+});

@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 
 // `publicacion/nueva.tsx` · alta de publicación. No tenía ninguna prueba.
 //
@@ -100,4 +100,9 @@ test('si crear falla no hay aviso de éxito, ni vibración, ni navegación', asy
 test('le pasa al formulario un desplazador para llevar la vista al error', async () => {
   await render(<NuevaPublicacionScreen />);
   expect(typeof capturado.desplazador?.alNodo).toBe('function');
+});
+
+test('ofrece «Ver cómo se verá» (la vista previa de la app, en una hoja)', async () => {
+  await render(<NuevaPublicacionScreen />);
+  expect(screen.getByLabelText('Ver cómo se verá')).toBeTruthy();
 });

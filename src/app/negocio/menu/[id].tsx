@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { Platform, StyleSheet } from 'react-native';
 
+import { ConVistaPreviaApp } from '@/components/ConVistaPreviaApp';
 import { EditorMenu, type VistaPreviaMenu } from '@/components/EditorMenu';
 import { Sello } from '@/components/ficha/Sello';
 import { ThemedText } from '@/components/themed-text';
@@ -9,6 +10,7 @@ import { Spacing } from '@/constants/theme';
 import { useMiNegocio } from '@/hooks/queries/useMisNegocios';
 import { EnMarcoWeb } from '@/components/web/EnMarcoWeb';
 import { MarcoMenuWeb } from '@/components/web/MarcoMenuWeb';
+import { VistaPreviaMenuWeb } from '@/components/web/VistaPreviaMenuWeb';
 
 /**
  * El menú de un negocio propio. Tres estados y no dos (END-11): cargando, falló, y «no existe o no es tuyo». El editor solo
@@ -23,7 +25,7 @@ export default function MenuNegocioScreen() {
 }
 
 function MenuNegocioScreenPantalla() {
-  // En la web, el editor lleva al lado la vista previa del menú; en la app, solo el editor.
+  // En la web, el editor lleva al lado la vista previa del menú; en la app, una barra fija ofrece la vista previa en una hoja.
   if (Platform.OS === 'web') return <MarcoMenuWeb>{(alVistaPrevia) => <MenuNegocio alVistaPrevia={alVistaPrevia} />}</MarcoMenuWeb>;
   return <MenuNegocio />;
 }
@@ -54,7 +56,16 @@ function MenuNegocio({ alVistaPrevia }: { alVistaPrevia?: (v: VistaPreviaMenu) =
       </ThemedView>
     );
   }
-  return <EditorMenu negocioId={negocio.id} nombreNegocio={negocio.nombre} items={items} onVistaPrevia={alVistaPrevia} />;
+  const editor = (alVista?: (v: VistaPreviaMenu) => void) => <EditorMenu negocioId={negocio.id} nombreNegocio={negocio.nombre} items={items} onVistaPrevia={alVista} />;
+  // En la app (y solo con el menú ya cargado: no hay vista previa de lo que aún no se leyó) una barra fija ofrece la vista previa en una hoja.
+  if (Platform.OS !== 'web') {
+    return (
+      <ConVistaPreviaApp<VistaPreviaMenu> boton="Ver cómo se verá" titulo="Así se verá tu menú" vista={(v) => <VistaPreviaMenuWeb v={v} />}>
+        {(alVista) => editor(alVista)}
+      </ConVistaPreviaApp>
+    );
+  }
+  return editor(alVistaPrevia);
 }
 
 const estilos = StyleSheet.create({

@@ -20,10 +20,11 @@ import { useTheme } from '@/hooks/use-theme';
 import { crearPublicacion } from '@/services/publicaciones.service';
 import { sello } from '@/lib/tacto';
 import { toast } from '@/lib/toast';
+import { ConVistaPreviaApp } from '@/components/ConVistaPreviaApp';
 import { GuardaPublicar } from '@/components/GuardaPublicar';
 import { useAuthStore } from '@/store/useAuthStore';
 
-function NuevaPublicacion() {
+function NuevaPublicacion({ alVistaPrevia }: { alVistaPrevia?: (v: VistaPreviaPublicacion) => void }) {
   const web = Platform.OS === 'web';
   const [previa, setPrevia] = useState<VistaPreviaPublicacion | null>(null);
   const formulario = useRef<ControlPublicacion>(null);
@@ -65,7 +66,7 @@ function NuevaPublicacion() {
               botonEnPie
               onEstadoEnvio={setGuardando}
               desplazador={desplazador}
-              onVistaPrevia={web ? setPrevia : undefined}
+              onVistaPrevia={web ? setPrevia : alVistaPrevia}
             textoBoton="Publicar"
             onGuardar={async (datos) => {
               if (!session?.user.id) return;
@@ -121,13 +122,24 @@ function NuevaPublicacion() {
 
 /** Crear una publicación exige una función de vendedor aprobada (ver GuardaPublicar). */
 export default function NuevaPublicacionScreen() {
-  const pantalla = (
+  // En la web, con el marco de la web (encabezado y barra inferior; la cabecera de la app se apaga en el layout) y la vista previa al lado.
+  if (Platform.OS === 'web') {
+    return (
+      <MarcoSesionWeb>
+        <GuardaPublicar>
+          <NuevaPublicacion />
+        </GuardaPublicar>
+      </MarcoSesionWeb>
+    );
+  }
+  // En la app no hay lugar al lado: una barra fija ofrece la vista previa en una hoja.
+  return (
     <GuardaPublicar>
-      <NuevaPublicacion />
+      <ConVistaPreviaApp<VistaPreviaPublicacion> boton="Ver cómo se verá" titulo="Así se verá en la lista" vista={(v) => <VistaPreviaPublicacionWeb v={v} />}>
+        {(alVistaPrevia) => <NuevaPublicacion alVistaPrevia={alVistaPrevia} />}
+      </ConVistaPreviaApp>
     </GuardaPublicar>
   );
-  // En la web, con el marco de la web (encabezado y barra inferior); la cabecera de la app se apaga en el layout.
-  return Platform.OS === 'web' ? <MarcoSesionWeb>{pantalla}</MarcoSesionWeb> : pantalla;
 }
 
 const styles = StyleSheet.create({

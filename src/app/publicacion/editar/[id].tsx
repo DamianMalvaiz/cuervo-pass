@@ -8,6 +8,7 @@ import {
   type ControlPublicacion,
   type VistaPreviaPublicacion,
 } from '@/components/FormularioPublicacion';
+import { ConVistaPreviaApp } from '@/components/ConVistaPreviaApp';
 import { VistaPreviaPublicacionWeb } from '@/components/web/VistaPreviaPublicacionWeb';
 import { PieFijo } from '@/components/ficha/PieFijo';
 import { Sello } from '@/components/ficha/Sello';
@@ -126,7 +127,7 @@ function EditarPublicacionScreenPantalla() {
     );
   }
 
-  return (
+  const cuerpo = (alVistaPrevia?: (v: VistaPreviaPublicacion) => void) => (
     <ThemedView style={[{ flex: 1 }, conPrevia && styles.conPrevia]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
@@ -168,7 +169,7 @@ function EditarPublicacionScreenPantalla() {
             }}
             fotosIniciales={publicacion.fotos ?? []}
             urlsDeFotos={urlsFirmadas}
-            onVistaPrevia={web ? setPrevia : undefined}
+            onVistaPrevia={web ? setPrevia : alVistaPrevia}
             onGuardar={async (datos) => {
               if (!session?.user.id) return;
               await actualizarPublicacion(publicacion.id, {
@@ -213,6 +214,15 @@ function EditarPublicacionScreenPantalla() {
       ) : null}
     </ThemedView>
   );
+  // En la app no hay lugar al lado: una barra fija ofrece la vista previa en una hoja.
+  if (!web) {
+    return (
+      <ConVistaPreviaApp<VistaPreviaPublicacion> boton="Ver cómo se verá" titulo="Así se verá en la lista" vista={(v) => <VistaPreviaPublicacionWeb v={v} />}>
+        {(alVistaPrevia) => cuerpo(alVistaPrevia)}
+      </ConVistaPreviaApp>
+    );
+  }
+  return cuerpo();
 }
 
 const styles = StyleSheet.create({

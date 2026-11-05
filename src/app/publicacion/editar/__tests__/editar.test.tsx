@@ -190,3 +190,16 @@ describe('carga fallida · END-11', () => {
     expect(mockObtener).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('vista previa en la app', () => {
+  it('con la publicación cargada ofrece «Ver cómo se verá»', async () => {
+    await montar();
+    expect(screen.getByLabelText('Ver cómo se verá')).toBeTruthy();
+  });
+  it('mientras carga no ofrece vista previa de lo que no se ha leído', async () => {
+    mockObtener.mockReturnValue(new Promise(() => {}));
+    await render(<EditarPublicacionScreen />);
+    expect(screen.getByText('CONSULTANDO LA PUBLICACIÓN')).toBeTruthy();
+    expect(screen.queryByLabelText('Ver cómo se verá')).toBeNull();
+  });
+});

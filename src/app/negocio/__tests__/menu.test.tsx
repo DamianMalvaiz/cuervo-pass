@@ -48,3 +48,12 @@ test('un negocio que no existe o no es tuyo lo dice', async () => {
   await render(<MenuNegocioScreen />);
   expect(screen.getByText(/no existe o no es tuyo/)).toBeTruthy();
 });
+
+test('con el menú cargado ofrece la vista previa; mientras carga no', async () => {
+  const { unmount } = await render(<MenuNegocioScreen />);
+  expect(screen.getByLabelText('Ver cómo se verá')).toBeTruthy();
+  unmount();
+  mockMiNegocio.mockReturnValue(estado({ negocio: null, items: [], cargando: true }));
+  await render(<MenuNegocioScreen />);
+  expect(screen.queryByLabelText('Ver cómo se verá')).toBeNull();
+});
