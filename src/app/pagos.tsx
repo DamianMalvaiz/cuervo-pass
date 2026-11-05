@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import Head from 'expo-router/head';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { Pulsable } from '@/components/ficha/Pulsable';
@@ -12,6 +13,7 @@ import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useMisPagos, useMiSuscripcion, usePlanes } from '@/hooks/queries/usePlanes';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { medidasWeb } from '@/lib/medidasWeb';
 import { DIAS_DE_PRUEBA, describirSuscripcion, diasRestantes, fechaLarga, precioDe, type MiSuscripcion } from '@/lib/planes';
 import { useAuthStore } from '@/store/useAuthStore';
 
@@ -83,7 +85,7 @@ function TarjetaPlan({ rol, titulo, s }: { rol: Rol; titulo: string; s: MiSuscri
 
 export default function PagosScreen() {
   return (
-    <EnMarcoWeb titulo="Mi plan y pagos">
+    <EnMarcoWeb>
       <PagosScreenPantalla />
     </EnMarcoWeb>
   );
@@ -91,7 +93,8 @@ export default function PagosScreen() {
 
 function PagosScreenPantalla() {
   const theme = useTheme();
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  const ancha = Platform.OS === 'web' && medidasWeb(ancho).escritorio;
   const miId = useAuthStore((s) => s.session?.user.id);
   const { pagos, cargando, fallo, reintentar } = useMisPagos(miId);
   const comerciante = useMiSuscripcion(miId, 'comerciante');
@@ -109,11 +112,19 @@ function PagosScreenPantalla() {
   return (
     <ThemedView style={estilos.pantalla}>
       <ScrollView
-        contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]}
+        contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio, ancha && estilos.anchoWeb]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[estilos.columna, { maxWidth: anchoContenido }]}>
-          <ThemedText style={Texto.tituloHoja}>Mi plan y pagos</ThemedText>
+        <View style={[estilos.columna, ancha ? estilos.rejilla : { maxWidth: anchoContenido }]}>
+          {/* El título va aquí y no en EnMarcoWeb: así queda alineado con el contenido (a dos columnas o en una) y no sale repetido. */}
+          {Platform.OS === 'web' ? (
+            <Head>
+              <title>Mi plan y pagos · Cuervo 360</title>
+            </Head>
+          ) : null}
+          <ThemedText accessibilityRole="header" style={[Texto.tituloHoja, estilos.titulo]}>Mi plan y pagos</ThemedText>
+
+          <View style={ancha ? estilos.mitad : estilos.columna}>
 
           {comerciante.fallo || arrendador.fallo ? (
             // Sin leer el plan no se omite la tarjeta en silencio (parecería que no hay plan): se dice y se puede reintentar.
@@ -127,6 +138,9 @@ function PagosScreenPantalla() {
           ) : null}
           {planes.map(({ rol, titulo, s }) => (s ? <TarjetaPlan key={rol} rol={rol} titulo={titulo} s={s} /> : null))}
 
+          </View>
+
+          <View style={ancha ? estilos.mitad : estilos.columna}>
           <ThemedText type="etiqueta" themeColor="textSecondary">HISTORIAL DE PAGOS</ThemedText>
 
           {cargando ? (
@@ -167,6 +181,7 @@ function PagosScreenPantalla() {
           <ThemedText type="small" themeColor="textSecondary" style={estilos.nota}>
             Esto no es una factura.
           </ThemedText>
+          </View>
         </View>
       </ScrollView>
     </ThemedView>
@@ -178,6 +193,10 @@ const estilos = StyleSheet.create({
   desplazable: { padding: Spacing.three, paddingBottom: Spacing.six },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
+  titulo: { width: '100%' },
+  rejilla: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' },
+  mitad: { flexBasis: 440, flexGrow: 1, flexShrink: 1, maxWidth: '100%', gap: Spacing.three },
+  anchoWeb: { paddingHorizontal: Spacing.five },
   tarjeta: { padding: Spacing.three, gap: Spacing.two, borderWidth: Filete.fino, borderRadius: Radios.tarjeta },
   cabecera: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   insignia: { borderRadius: Radios.full, paddingHorizontal: Spacing.three, paddingVertical: Spacing.half },
