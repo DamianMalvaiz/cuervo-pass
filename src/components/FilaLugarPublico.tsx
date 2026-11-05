@@ -16,19 +16,20 @@ const precio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
 const LADO_FOTO = 92;
 
 /**
- * Un lugar de «Cerca de tu universidad» en la app: foto cuadrada a la izquierda; a la derecha título, zona, precio y, con su icono, lo que dice la cercanía («a menos de 1 km · ~6 min a pie»). Solo lo que la vista pública enseña: nada de
- * dirección exacta ni de quién publica. La distancia es aproximada y el tiempo, una estimación en línea recta: `textoDeCercania` lo redacta así.
+ * Un lugar de la vista pública en una lista de la app: foto cuadrada a la izquierda; a la derecha título, zona, precio y, si se le pasa `km` (la de «Cerca de tu universidad»), con su icono, lo que dice la cercanía
+ * («a menos de 1 km · ~6 min a pie»). Solo lo que la vista pública enseña: nada de dirección exacta ni de quién publica. La distancia es aproximada y el tiempo, una estimación en línea recta: `textoDeCercania` lo redacta así.
+ * Sin `km` (Vistos, Comparar) no hay línea de cercanía.
  */
-export function FilaLugarCercano({ p, km }: { p: PublicacionExplorar; km: number }) {
+export function FilaLugarPublico({ p, km }: { p: PublicacionExplorar; km?: number }) {
   const theme = useTheme();
   const { fotos } = useFotosPublicas('publicacion', p.id, p.num_fotos, true);
   const subtitulo = subtituloTarjeta(p);
-  const cercania = textoDeCercania(km);
+  const cercania = km === undefined ? null : textoDeCercania(km);
   return (
     <Pulsable
       onPress={() => router.push(`/publicacion/${p.id}`)}
       accessibilityRole="button"
-      accessibilityLabel={`${p.titulo_publico}, ${precio.format(p.precio_renta)} pesos al mes, ${cercania}`}
+      accessibilityLabel={`${p.titulo_publico}, ${precio.format(p.precio_renta)} pesos al mes${cercania ? `, ${cercania}` : ''}`}
       style={[estilos.fila, { borderColor: theme.filete, backgroundColor: theme.backgroundElement }]}
     >
       <View style={[estilos.foto, { backgroundColor: theme.backgroundSelected }]}>
@@ -38,10 +39,12 @@ export function FilaLugarCercano({ p, km }: { p: PublicacionExplorar; km: number
         <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]} numberOfLines={2}>{p.titulo_publico}</ThemedText>
         {subtitulo ? <ThemedText style={Texto.pequeno} themeColor="textSecondary" numberOfLines={1}>{subtitulo}</ThemedText> : null}
         <ThemedText style={Texto.pequenoFuerte}>{`$${precio.format(p.precio_renta)} al mes`}</ThemedText>
-        <View style={estilos.cercania}>
-          <Ionicons name="location-outline" size={16} color={theme.bosque} />
-          <ThemedText style={[Texto.pequeno, estilos.textoCercania]} themeColor="textSecondary">{cercania}</ThemedText>
-        </View>
+        {cercania ? (
+          <View style={estilos.cercania}>
+            <Ionicons name="location-outline" size={16} color={theme.bosque} />
+            <ThemedText style={[Texto.pequeno, estilos.textoCercania]} themeColor="textSecondary">{cercania}</ThemedText>
+          </View>
+        ) : null}
       </View>
     </Pulsable>
   );

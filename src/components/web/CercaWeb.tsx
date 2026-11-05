@@ -3,7 +3,7 @@ import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { Pulsable } from '@/components/ficha/Pulsable';
-import { FilaLugarCercano } from '@/components/FilaLugarCercano';
+import { FilaLugarPublico } from '@/components/FilaLugarPublico';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { EsqueletoFilasWeb, EsqueletoTarjetasWeb } from '@/components/web/EsqueletoWeb';
@@ -47,7 +47,7 @@ export function CercaWeb() {
           </View>
         ) : (
           <View style={estilos.filas}>
-            {lista.map(({ item, km }) => <FilaLugarCercano key={item.id} p={item} km={km} />)}
+            {lista.map(({ item, km }) => <FilaLugarPublico key={item.id} p={item} km={km} />)}
           </View>
         )}
       </>

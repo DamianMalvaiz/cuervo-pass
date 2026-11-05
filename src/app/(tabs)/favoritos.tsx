@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Platform, StyleSheet, View } from 'react-native';
+import { FlatList, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { FilaPublicacion } from '@/components/FilaPublicacion';
 import { BloqueEstado } from '@/components/ficha/BloqueEstado';
@@ -8,6 +8,7 @@ import { Encabezado } from '@/components/ficha/Encabezado';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { Sello } from '@/components/ficha/Sello';
+import { ListaComparar, ListaVistos } from '@/components/ListasLocalesApp';
 import { TarjetaNegocio } from '@/components/TarjetaNegocio';
 import { GuardadosWeb } from '@/components/web/GuardadosWeb';
 import { ThemedText } from '@/components/themed-text';
@@ -15,11 +16,13 @@ import { ThemedView } from '@/components/themed-view';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
 import { useMisFavoritos } from '@/hooks/queries/useFavoritos';
 import { useMisNegociosFavoritos } from '@/hooks/queries/useFavoritosNegocios';
+import { useComparar } from '@/hooks/use-comparar';
 import { useFotosFirmadas } from '@/hooks/use-fotos-firmadas';
 import { useMargenSuperior } from '@/hooks/use-margen-superior';
 import { useMiniaturas } from '@/hooks/use-miniaturas';
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
+import { useVistos } from '@/hooks/use-vistos';
 import { calcularDistanciaKm } from '@/lib/distancia';
 import { ANCHOS } from '@/lib/miniaturas';
 import { toque } from '@/lib/tacto';
@@ -32,6 +35,9 @@ const SEGMENTOS: { valor: Segmento; etiqueta: string }[] = [
   { valor: 'negocios', etiqueta: 'Negocios' },
 ];
 
+// Lo que esta pantalla guarda, en tres vistas: Favoritos (en la cuenta), Vistos y Comparar (solo en este teléfono).
+type Modo = 'favoritos' | 'vistos' | 'comparar';
+
 /**
  * Favoritos · Cuervo 360. Lo que esta cuenta guardó: publicaciones y (desde la 0073) negocios, en dos segmentos.
  *
@@ -39,7 +45,10 @@ const SEGMENTOS: { valor: Segmento; etiqueta: string }[] = [
  * nada». Lo guardado que ya no es visible (el dueño lo desactivó, o se ocultó por reportes) se DICE: la fila del favorito se conserva y si vuelve a ser
  * visible, vuelve a aparecer.
  */
-/** En la web, «Guardados»: una página con Favoritos, Vistos, Búsquedas y Comparar; en la app, la lista de siempre. */
+/**
+ * En la web, «Guardados»: una página con Favoritos, Vistos, Búsquedas y Comparar. En la app, los mismos Favoritos de siempre más Vistos y Comparar (que viven solo en este teléfono). Las búsquedas guardadas no están en la app: ahí la búsqueda es
+ * el perfil de la persona, no filtros libres, y no hay una forma natural de «volver a aplicar» una sin cambiarlo.
+ */
 export default function FavoritosScreen() {
   return Platform.OS === 'web' ? <GuardadosWeb /> : <FavoritosApp />;
 }
@@ -48,23 +57,39 @@ function FavoritosApp() {
   const margenSuperior = useMargenSuperior();
   const { anchoLista } = useTamanoPantalla();
   const [segmento, setSegmento] = useState<Segmento>('publicaciones');
+  const [modo, setModo] = useState<Modo>('favoritos');
+  const vistos = useVistos();
+  const { ids: comparados } = useComparar();
+  // Vistos y Comparar son locales: su cuenta siempre se sabe. Favoritos no lleva cuenta (viene de la red y, si no se pudo leer, un número sería un hecho que no lo es).
+  const modos: { valor: Modo; etiqueta: string }[] = [
+    { valor: 'favoritos', etiqueta: 'Favoritos' },
+    { valor: 'vistos', etiqueta: `Vistos (${vistos.length})` },
+    { valor: 'comparar', etiqueta: `Comparar (${comparados.length})` },
+  ];
 
   return (
     <ThemedView style={estilos.pantalla}>
       <View style={[estilos.cabecera, { paddingTop: margenSuperior, maxWidth: anchoLista }]}>
         <Encabezado titulo="Favoritos" />
-        <Segmentos valor={segmento} onCambiar={setSegmento} />
+        <Segmentos opciones={modos} valor={modo} onCambiar={setModo} />
+        {modo === 'favoritos' ? <Segmentos opciones={SEGMENTOS} valor={segmento} onCambiar={setSegmento} /> : null}
       </View>
-      {segmento === 'publicaciones' ? <ListaPublicaciones /> : <ListaNegocios />}
+      {modo === 'favoritos' ? (
+        segmento === 'publicaciones' ? <ListaPublicaciones /> : <ListaNegocios />
+      ) : (
+        <ScrollView contentContainerStyle={[estilos.lista, { maxWidth: anchoLista }]} showsVerticalScrollIndicator={false}>
+          {modo === 'vistos' ? <ListaVistos /> : <ListaComparar />}
+        </ScrollView>
+      )}
     </ThemedView>
   );
 }
 
-function Segmentos({ valor, onCambiar }: { valor: Segmento; onCambiar: (s: Segmento) => void }) {
+function Segmentos<T extends string>({ opciones, valor, onCambiar }: { opciones: { valor: T; etiqueta: string }[]; valor: T; onCambiar: (s: T) => void }) {
   const theme = useTheme();
   return (
     <View accessibilityRole="tablist" style={estilos.segmentos}>
-      {SEGMENTOS.map((s) => {
+      {opciones.map((s) => {
         const activo = s.valor === valor;
         return (
           <Pulsable
