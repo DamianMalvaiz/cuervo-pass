@@ -548,6 +548,7 @@ find src/components -name '*.tsx' ! -path '*__tests__*' | wc -l
 - Con la paleta de Cuervo 360 (claro y oscuro): **sin revisar en dispositivo**. Lo que se revisó el 19/09/2026 (filetes del modo oscuro, densidad de cuatro renglones) fue con la paleta anterior y **ya no vale**.
 - Barra inferior y columnas de la lista: se vieron fallar en un Android real el 17/10/2026 y se corrigieron; **la corrección no se ha visto**.
 - Ícono, portada, corazón de favoritos, selector de módulo y «Escribir en la app»: **sin ver en dispositivo**.
+- Funciones nuevas de la app (páginas de ayuda, Comparar, Vistos, Cerca, Favoritos con chips, vista previa en hoja): **vistas en un teléfono el 05/11/2026** con la app de desarrollo (plataforma sin anotar); modo claro y oscuro solo en ayuda y Comparar. Detalle en `docs/prueba-en-dispositivo.md`. Con el APK independiente, sin ver.
 - Escalado al 200 %: **sin ejecutar**.
 - Sin capturas guardadas de ninguna pasada.
 

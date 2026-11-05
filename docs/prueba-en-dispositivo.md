@@ -96,6 +96,21 @@ Marca cada casilla con ✓ o ✗ y la fecha. Si algo falla, anota **qué viste**
 |---|---|---|---|---|
 | 36 | Cerrar sesión y entrar con **otra cuenta**: no queda nada de la anterior (perfil, favoritos, chats) | | | |
 
+## Funciones nuevas de la app · prueba del 05/11/2026
+
+Probado por Damián en su teléfono, con la app de desarrollo (dev client) cargando el código desde la laptop (`expo start --dev-client --tunnel`), commit `428dd39`. **La plataforma del teléfono (iPhone o Android) no se anotó** y por eso hay una sola columna. Lo que no aparece aquí **no se probó**.
+
+| # | Qué se comprueba | Resultado | Modo |
+|---|---|---|---|
+| 37 | Configuración → Ayuda: abren las 5 páginas (ayuda, guía de visita, contrato, acuerdos, presupuesto) y «Compartir con mis roomies» | ✓ 05/11/2026 | claro y oscuro |
+| 38 | Ficha: la píldora «Comparar» y la tabla de Comparar que se desliza de lado | ✓ 05/11/2026 | claro y oscuro |
+| 39 | Cerrar la app de verdad y abrirla: **Vistos y Comparar persisten** (AsyncStorage) | ✓ 05/11/2026 | sin indicar |
+| 40 | Inicio: el chip «Cerca», la pantalla Cerca de tu universidad (radios 1, 3 y 5 km, filas con foto) y la tira «Vistos recientemente» | ✓ 05/11/2026 | sin indicar |
+| 41 | Favoritos: los chips Favoritos, Vistos (n) y Comparar (n) y sus listas | ✓ 05/11/2026 | sin indicar |
+| 42 | Cuenta de vendedor: «Ver cómo se verá» abre la hoja de vista previa en Nueva publicación, Editar publicación, Nuevo negocio, Editar negocio y Menú | ✓ 05/11/2026 | sin indicar |
+
+Sin capturas guardadas. Pendiente de probar con el APK independiente (no con el servidor de desarrollo): arranque en frío sin la laptop, y el modo claro y oscuro de los puntos 39 a 42.
+
 ## Después de la prueba
 1. Anotar aquí lo que falló y **abrir un hallazgo por cada ✗**, con lo que se vio.
 2. Actualizar la sección «Estado de la implementación» de `DESIGN.md` con lo que sí se vio.
