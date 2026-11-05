@@ -58,6 +58,14 @@ jest.mock('@/components/vistas/VistaServicios', () => ({
 }));
 
 import { useModuloStore } from '@/store/useModuloStore';
+// «Vistos recientemente» tiene sus propias pruebas; aquí solo importa que Inicio lo monte.
+jest.mock('@/components/VistosRecientes', () => ({
+  VistosRecientes: () => {
+    const { Text } = require('react-native');
+    return <Text>VISTOS RECIENTES</Text>;
+  },
+}));
+
 import InicioScreen from '../inicio';
 
 beforeEach(() => {

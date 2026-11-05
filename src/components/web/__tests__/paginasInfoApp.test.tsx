@@ -83,9 +83,11 @@ describe('Presupuesto en la app', () => {
 });
 
 describe('Ayuda en la app', () => {
-  it('no promete vistos ni comparar en el navegador: solo lo que la app guarda', async () => {
+  it('dice dónde se guarda cada cosa EN LA APP: favoritos en la cuenta; vistos y comparar en el teléfono; sin hablar del navegador ni de búsquedas guardadas', async () => {
     await render(<AyudaWeb />);
-    expect(screen.getByLabelText('¿Dónde se guardan mis favoritos?')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('¿Dónde se guardan mis favoritos y lo que comparo?'));
+    expect(screen.getByText(/solo en este teléfono/)).toBeTruthy();
+    expect(screen.queryByText(/navegador/)).toBeNull();
     expect(screen.queryByLabelText(/vistos y búsquedas/)).toBeNull();
   });
 });

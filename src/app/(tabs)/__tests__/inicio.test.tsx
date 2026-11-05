@@ -52,6 +52,14 @@ jest.mock('@/components/BotonFavorito', () => ({ BotonFavorito: () => null }));
 jest.mock('@/components/CampanaAvisos', () => ({ CampanaAvisos: () => null }));
 jest.mock('@/lib/registro', () => ({ aviso: jest.fn(), fallo: jest.fn() }));
 
+// «Vistos recientemente» tiene sus propias pruebas; aquí solo importa que Inicio lo monte.
+jest.mock('@/components/VistosRecientes', () => ({
+  VistosRecientes: () => {
+    const { Text } = require('react-native');
+    return <Text>VISTOS RECIENTES</Text>;
+  },
+}));
+
 import InicioScreen from '../inicio';
 
 const publicacion = (id: string, nivel: 1 | 2 = 1) => ({
@@ -132,6 +140,12 @@ describe('el nivel y el orden son automáticos', () => {
     await render(<InicioScreen />);
     expect(screen.getByText('Todas las publicaciones')).toBeTruthy();
     expect(screen.queryByText(/por afinidad/)).toBeNull();
+  });
+
+  it('monta «Vistos recientemente» (lo que se abrió en este teléfono) junto a la lista', async () => {
+    mockSugerencias.mockReturnValue(respuesta({ datos: [publicacion('p1')], conAfinidad: 0, total: 1 }));
+    await render(<InicioScreen />);
+    expect(screen.getByText('VISTOS RECIENTES')).toBeTruthy();
   });
 
   it('el orden va fijo en «ajuste»: se le pide al servidor sin que nadie lo elija', async () => {

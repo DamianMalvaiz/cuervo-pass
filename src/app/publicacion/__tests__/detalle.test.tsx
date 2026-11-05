@@ -77,6 +77,16 @@ jest.mock('@/components/BotonFavorito', () => ({
   },
 }));
 
+// «Comparar» y «Vistos» tienen sus propias pruebas; aquí solo importa que la ficha los monte con SU id.
+const mockRegistrarVisto = jest.fn();
+jest.mock('@/lib/vistos', () => ({ registrarVisto: (...a: unknown[]) => mockRegistrarVisto(...a) }));
+jest.mock('@/components/BotonComparar', () => ({
+  BotonComparar: ({ id }: { id: string }) => {
+    const { Text } = require('react-native');
+    return <Text>{`COMPARAR:${id}`}</Text>;
+  },
+}));
+
 jest.mock('@/hooks/queries/useResenas', () => ({ useCalificacionPublicacion: (...a: unknown[]) => mockCalificacion(...a) }));
 // Las reseñas tienen sus propias pruebas; aquí solo importa que la ficha las monte con lo correcto.
 jest.mock('@/components/SeccionResenas', () => ({
@@ -352,6 +362,27 @@ test('el precio va GRANDE y «al mes» aparte, en pequeño', async () => {
 });
 
 // La ficha de un depa (maqueta 1, 24/10/2026): la calificación junto al título, la distancia junto a la dirección y los servicios como una línea con palomita.
+describe('Vistos y Comparar', () => {
+  it('una ficha que cargó se registra como vista (en este teléfono)', async () => {
+    await pintar();
+    expect(mockRegistrarVisto).toHaveBeenCalledWith(PUBLICACION.id);
+  });
+  it('un fallo de lectura NO cuenta como vista', async () => {
+    mockPublicacion.mockReturnValue(estado({ publicacion: null, fallo: 'No pudimos cargar' }));
+    await pintar();
+    expect(mockRegistrarVisto).not.toHaveBeenCalled();
+  });
+  it('una ficha que de verdad no está NO cuenta como vista', async () => {
+    mockPublicacion.mockReturnValue(estado({ publicacion: null }));
+    await pintar();
+    expect(mockRegistrarVisto).not.toHaveBeenCalled();
+  });
+  it('monta «Comparar» con el id de ESTA publicación', async () => {
+    await pintar();
+    expect(screen.getByText(`COMPARAR:${PUBLICACION.id}`)).toBeTruthy();
+  });
+});
+
 describe('el encabezado de la ficha', () => {
   it('con reseñas, la calificación va junto al título', async () => {
     mockCalificacion.mockReturnValue({ calificacion: 4.5, numResenas: 12 });

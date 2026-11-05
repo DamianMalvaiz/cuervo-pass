@@ -170,6 +170,7 @@ export default function RootLayout() {
         <Stack.Screen name="guia-de-visita" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Guía para visitar un lugar' }} />
         <Stack.Screen name="contrato" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Entiende tu contrato' }} />
         <Stack.Screen name="acuerdos" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Acuerdos de convivencia' }} />
+        <Stack.Screen name="comparar" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: 'Comparar lugares' }} />
         <Stack.Screen name="presupuesto" options={{ ...encabezado, headerShown: Platform.OS !== 'web', title: '¿Qué alcanza con tu presupuesto?' }} />
       </Stack>
       {/* Después del Stack: se pinta encima de cualquier pantalla. Un solo host. */}

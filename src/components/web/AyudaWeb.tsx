@@ -21,8 +21,8 @@ export const PREGUNTAS: { p: string; r: string }[] = [
   { p: '¿Cuánto cuesta publicar?', r: 'Empezar con una cuenta de vendedor es gratis, y hay una prueba gratis de 15 días con todo lo de un plan. Los pagos son con Mercado Pago (tarjeta u OXXO) y, por ahora, funcionan en modo de pruebas.' },
   { p: '¿Qué hacen con mis datos?', r: 'No los usamos para publicidad ni prospección comercial, y no los vendemos ni los cedemos a nadie. El detalle está en el aviso de privacidad.' },
   {
-    p: Platform.OS === 'web' ? '¿Dónde se guardan mis favoritos, vistos y búsquedas?' : '¿Dónde se guardan mis favoritos?',
-    r: Platform.OS === 'web' ? 'Los favoritos y las búsquedas guardadas, en tu cuenta. Lo que viste y lo que quieres comparar, solo en este navegador.' : 'Tus favoritos se guardan en tu cuenta: los ves en cualquier teléfono donde inicies sesión.',
+    p: Platform.OS === 'web' ? '¿Dónde se guardan mis favoritos, vistos y búsquedas?' : '¿Dónde se guardan mis favoritos y lo que comparo?',
+    r: Platform.OS === 'web' ? 'Los favoritos y las búsquedas guardadas, en tu cuenta. Lo que viste y lo que quieres comparar, solo en este navegador.' : 'Tus favoritos, en tu cuenta: los ves en cualquier teléfono donde inicies sesión. Lo que viste y lo que quieres comparar, solo en este teléfono.',
   },
   { p: '¿Cómo borro mi cuenta?', r: 'En Configuración, «Eliminar mi cuenta». Se borra todo y no se puede deshacer.' },
 ];

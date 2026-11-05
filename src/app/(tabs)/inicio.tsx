@@ -5,6 +5,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { FlatList, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ANCHO_FICHA_COMPACTA, FichaCompacta } from '@/components/FichaCompacta';
+import { VistosRecientes } from '@/components/VistosRecientes';
 import { FilaPublicacion } from '@/components/FilaPublicacion';
 import { CampanaAvisos } from '@/components/CampanaAvisos';
 import { SelectorModulo } from '@/components/SelectorModulo';
@@ -324,6 +325,9 @@ function VistaDepas({ selector, campana }: { selector?: ReactNode; campana?: Rea
                 anchoItem={ANCHO_FICHA_COMPACTA}
               />
             )}
+
+            {/* Lo que esta persona abrió en ESTE teléfono; sin nada visto no ocupa lugar. */}
+            <VistosRecientes />
 
             {filtradas.length > 0 && (
               <View style={[estilos.margen, estilos.tituloLista]}>

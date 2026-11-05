@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 
 // /comparar: nada elegido, cargando, falló, y la tabla. Solo marca como hecho la renta más baja (y no en un empate); un «sin dato» no es un «No»; lo que ya no es visible se dice.
 
@@ -22,10 +23,14 @@ const pub = (n: number, extra: Record<string, unknown> = {}) => ({
   id: id(n), titulo_publico: `Lugar ${n}`, tipo: 'cuarto', precio_renta: 3000, recamaras: 1, amueblado: true, permite_mascotas: false,
   servicios_incluidos: null, zona: 'Santa María, Lerma, México, CP 52000', calificacion: null, num_resenas: null, ...extra,
 });
+// Estas pruebas son de la WEB; la app tiene las suyas en compararApp.test.tsx.
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.replaceProperty(Platform, 'OS', 'web');
   Object.assign(mockEstado, { ids: [], pubs: [], cargando: false, fallo: false });
 });
+
+afterEach(() => jest.restoreAllMocks());
 
 it('sin nada elegido explica cómo agregar y lleva a explorar', async () => {
   await render(<CompararWeb />);

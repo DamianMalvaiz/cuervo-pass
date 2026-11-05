@@ -1,3 +1,4 @@
+import { alHidratar, cuandoListo, escribirAlmacen, leerAlmacen } from '@/lib/almacenLocal';
 import { alCambiarEnOtraPestana } from '@/lib/otraPestana';
 import { ES_ID } from '@/lib/vistos';
 
@@ -20,18 +21,17 @@ export function suscribirComparar(f: () => void) {
   oyentes.add(f);
   // Lo que cambie OTRA pestaña también llega (el evento `storage` no se dispara en la que escribe).
   const bajaOtra = alCambiarEnOtraPestana(CLAVE_COMPARAR, f);
+  // En la app, además, cuando termina de leerse lo guardado.
+  const bajaHidratar = alHidratar(f);
   return () => {
     oyentes.delete(f);
     bajaOtra();
+    bajaHidratar();
   };
 }
 /** Lo guardado tal cual (texto): una instantánea estable para comparar. `''` si no hay o no hay almacenamiento. */
 export function compararCrudo(): string {
-  try {
-    return globalThis.localStorage?.getItem(CLAVE_COMPARAR) ?? '';
-  } catch {
-    return '';
-  }
+  return leerAlmacen(CLAVE_COMPARAR);
 }
 
 export function leerComparar(crudo: string = compararCrudo()): string[] {
@@ -45,21 +45,17 @@ export function leerComparar(crudo: string = compararCrudo()): string[] {
 }
 
 function guardar(ids: string[]) {
-  try {
-    if (ids.length === 0) globalThis.localStorage?.removeItem(CLAVE_COMPARAR);
-    else globalThis.localStorage?.setItem(CLAVE_COMPARAR, JSON.stringify(ids));
-  } catch {
-    // Sin almacenamiento no se recuerda nada; no es un error que mostrar.
-  }
+  escribirAlmacen(CLAVE_COMPARAR, ids.length === 0 ? null : JSON.stringify(ids));
   avisar();
 }
 
+// En la app cada cambio espera a que se lea lo guardado (ver `almacenLocal`): sobre una lista aún vacía, agregar y escribir pisaría lo que había.
 export function alternarComparar(id: string) {
-  guardar(conComparado(leerComparar(), id));
+  cuandoListo(() => guardar(conComparado(leerComparar(), id)));
 }
 
 export function quitarComparar(id: string) {
-  guardar(leerComparar().filter((x) => x !== id));
+  cuandoListo(() => guardar(leerComparar().filter((x) => x !== id)));
 }
 
 export function vaciarComparar() {

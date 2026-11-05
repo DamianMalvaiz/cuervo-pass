@@ -1,3 +1,4 @@
+import { alHidratar, cuandoListo, escribirAlmacen, leerAlmacen } from '@/lib/almacenLocal';
 import { alCambiarEnOtraPestana } from '@/lib/otraPestana';
 
 // «Vistos recientemente» de la web: los ids de las fichas que esta persona abrió, guardados SOLO en su navegador (localStorage). No viajan al servidor ni se ligan a una cuenta.
@@ -20,18 +21,17 @@ export function suscribirVistos(f: () => void) {
   oyentes.add(f);
   // Lo que cambie OTRA pestaña también llega (el evento `storage` no se dispara en la que escribe).
   const bajaOtra = alCambiarEnOtraPestana(CLAVE_VISTOS, f);
+  // En la app, además, cuando termina de leerse lo guardado.
+  const bajaHidratar = alHidratar(f);
   return () => {
     oyentes.delete(f);
     bajaOtra();
+    bajaHidratar();
   };
 }
 /** Lo guardado tal cual (texto): una instantánea estable para comparar. `''` si no hay o no hay almacenamiento. */
 export function vistosCrudos(): string {
-  try {
-    return globalThis.localStorage?.getItem(CLAVE_VISTOS) ?? '';
-  } catch {
-    return '';
-  }
+  return leerAlmacen(CLAVE_VISTOS);
 }
 
 /** Lee la lista guardada: solo ids válidos, sin repetidos. Cualquier cosa rara es «no hay vistos». */
@@ -46,23 +46,16 @@ export function leerVistos(crudo: string = vistosCrudos()): string[] {
 }
 
 function guardar(ids: string[]) {
-  try {
-    globalThis.localStorage?.setItem(CLAVE_VISTOS, JSON.stringify(ids));
-  } catch {
-    // Sin almacenamiento no se recuerda nada; no es un error que mostrar.
-  }
+  escribirAlmacen(CLAVE_VISTOS, JSON.stringify(ids));
   avisar();
 }
 
+/** En la app espera a que se lea lo guardado: agregar a una lista aún vacía y escribirla pisaría lo que había. */
 export function registrarVisto(id: string) {
-  guardar(conVisto(leerVistos(), id));
+  cuandoListo(() => guardar(conVisto(leerVistos(), id)));
 }
 
 export function borrarVistos() {
-  try {
-    globalThis.localStorage?.removeItem(CLAVE_VISTOS);
-  } catch {
-    // Igual que arriba.
-  }
+  escribirAlmacen(CLAVE_VISTOS, null);
   avisar();
 }

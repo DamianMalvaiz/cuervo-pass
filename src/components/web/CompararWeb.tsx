@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ErrorDeCarga } from '@/components/ficha/ErrorDeCarga';
 import { Pulsable } from '@/components/ficha/Pulsable';
 import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import { BotonWeb } from '@/components/web/BotonWeb';
 import { PaginaWeb } from '@/components/web/PaginaWeb';
 import { Filete, Radios, Spacing, Texto } from '@/constants/theme';
@@ -44,6 +45,10 @@ const FILAS: Fila[] = [
  */
 export function CompararWeb() {
   const theme = useTheme();
+  // La misma pantalla en la app: sin el marco de la web, y con las rutas de la app (la ficha es `/publicacion/<id>`; explorar es la pestaña de inicio).
+  const web = Platform.OS === 'web';
+  const aLaFicha = (id: string) => router.push((web ? RutasWeb.ficha(id) : `/publicacion/${id}`) as never);
+  const aExplorar = () => router.push((web ? RutasWeb.departamentos : '/(tabs)/inicio') as never);
   const { ids } = useComparar();
   const { publicaciones, cargando, fallo, reintentar } = usePublicacionesPorIds(ids);
 
@@ -60,7 +65,7 @@ export function CompararWeb() {
     cuerpo = (
       <View style={estilos.vacio}>
         <ThemedText style={Texto.cuerpo} themeColor="textSecondary">{`Aún no eliges nada. En la ficha de un lugar toca «Comparar» (hasta ${MAX_COMPARAR}) y vuelve aquí.`}</ThemedText>
-        <BotonWeb variante="contorno" onPress={() => router.push(RutasWeb.departamentos)} accessibilityLabel="Explorar lugares">Explorar lugares</BotonWeb>
+        <BotonWeb variante="contorno" onPress={aExplorar} accessibilityLabel="Explorar lugares">Explorar lugares</BotonWeb>
       </View>
     );
   } else if (fallo) {
@@ -85,7 +90,7 @@ export function CompararWeb() {
                 <View style={{ width: ANCHO_ETIQUETA }} />
                 {columnas.map((p) => (
                   <View key={p.id} style={[estilos.celda, estilos.cabecera]} role="columnheader">
-                    <Pulsable onPress={() => router.push(RutasWeb.ficha(p.id) as never)} accessibilityRole="link" accessibilityLabel={`Ver ${p.titulo_publico}`} style={estilos.titulo}>
+                    <Pulsable onPress={() => aLaFicha(p.id)} accessibilityRole="link" accessibilityLabel={`Ver ${p.titulo_publico}`} style={estilos.titulo}>
                       <ThemedText style={Texto.subtitulo}>{p.titulo_publico}</ThemedText>
                     </Pulsable>
                     <Pulsable onPress={() => quitarComparar(p.id)} accessibilityRole="button" accessibilityLabel={`Quitar ${p.titulo_publico} de la comparación`} style={estilos.quitar}>
@@ -114,13 +119,23 @@ export function CompararWeb() {
           </ScrollView>
         ) : null}
         <View style={estilos.acciones}>
-          {ids.length < MAX_COMPARAR ? <BotonWeb variante="contorno" onPress={() => router.push(RutasWeb.departamentos)} accessibilityLabel="Agregar otro lugar">Agregar otro lugar</BotonWeb> : null}
+          {ids.length < MAX_COMPARAR ? <BotonWeb variante="contorno" onPress={aExplorar} accessibilityLabel="Agregar otro lugar">Agregar otro lugar</BotonWeb> : null}
           <BotonWeb variante="contorno" onPress={vaciarComparar} accessibilityLabel="Vaciar la comparación">Vaciar</BotonWeb>
         </View>
       </>
     );
   }
 
+  if (!web) {
+    return (
+      <ThemedView style={estilos.pantalla}>
+        <ScrollView contentContainerStyle={estilos.desplazable} showsVerticalScrollIndicator={false}>
+          <ThemedText style={Texto.cuerpo} themeColor="textSecondary">Lo que dice la ficha pública de cada uno, lado a lado. La lista se queda en este teléfono.</ThemedText>
+          {cuerpo}
+        </ScrollView>
+      </ThemedView>
+    );
+  }
   return (
     <PaginaWeb activa="depas" titulo="Comparar lugares">
       <View style={estilos.cuerpo}>
@@ -133,6 +148,8 @@ export function CompararWeb() {
 }
 
 const estilos = StyleSheet.create({
+  pantalla: { flex: 1 },
+  desplazable: { padding: Spacing.three, paddingBottom: Spacing.six, gap: Spacing.three },
   cuerpo: { gap: Spacing.three },
   vacio: { gap: Spacing.three, alignItems: 'flex-start' },
   aviso: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Spacing.three },

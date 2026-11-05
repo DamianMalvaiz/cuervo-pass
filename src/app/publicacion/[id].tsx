@@ -21,6 +21,7 @@ import { SeccionParecidas } from '@/components/SeccionParecidas';
 import { ListaEsqueleto } from '@/components/ficha/FichaEsqueleto';
 import { BotonEscribir } from '@/components/BotonEscribir';
 import { useCuentaRestringida } from '@/hooks/queries/useCuentaRestringida';
+import { BotonComparar } from '@/components/BotonComparar';
 import { BotonFavorito } from '@/components/BotonFavorito';
 import { ConteoFavoritos } from '@/components/ConteoFavoritos';
 import { MapaUbicacion } from '@/components/MapaUbicacion';
@@ -45,6 +46,7 @@ import { usePublicacion , useAfinidad } from '@/hooks/queries/usePublicaciones';
 import { SQL, esCodigo } from '@/lib/erroresPostgres';
 import { etiquetaDeAjuste, razonesDeAjuste } from '@/lib/razonesDeAjuste';
 import { toast } from '@/lib/toast';
+import { registrarVisto } from '@/lib/vistos';
 import { Pulsable } from '@/components/ficha/Pulsable';
 
 const formateadorPrecio = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
@@ -104,6 +106,12 @@ export default function DetallePublicacionScreen() {
   }, [session?.user.id, cargarPerfil]);
 
   const { urls: urlsFirmadas, fallo: falloFotos } = useFotosFirmadas(publicacion?.fotos ?? []);
+
+  // «Vistos recientemente»: solo una ficha que SÍ cargó cuenta como vista (no un enlace roto ni un fallo). Se guarda en este teléfono.
+  const idVisto = publicacion?.id;
+  useEffect(() => {
+    if (idVisto) registrarVisto(idVisto);
+  }, [idVisto]);
 
   const onReportar = () => {
     if (!session?.user.id || !publicacion) return;
@@ -353,6 +361,8 @@ export default function DetallePublicacionScreen() {
             atenuada={!publicacion.amueblado}
           />
         </View>
+
+        <BotonComparar id={publicacion.id} />
 
         {afinidad?.scoreFinal != null ? <PorQueEsBuena razones={razones} /> : null}
 
