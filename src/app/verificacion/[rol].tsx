@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Campo } from '@/components/Campo';
 import { Casilla } from '@/components/Casilla';
@@ -19,6 +19,7 @@ import { useEnviarVerificacion, useMiVerificacion } from '@/hooks/queries/useVer
 import { useTamanoPantalla } from '@/hooks/use-tamano-pantalla';
 import { useTheme } from '@/hooks/use-theme';
 import { CP, esCodigo } from '@/lib/erroresPostgres';
+import { medidasWeb } from '@/lib/medidasWeb';
 import { avisarPermisoDeFotosDenegado } from '@/lib/permisos';
 import { toast } from '@/lib/toast';
 import {
@@ -103,7 +104,10 @@ export default function VerificacionScreen() {
 function VerificacionScreenPantalla() {
   const theme = useTheme();
   const { rol: rolParam } = useLocalSearchParams<{ rol: string }>();
-  const { anchoContenido, clase } = useTamanoPantalla();
+  const { anchoContenido, clase, ancho } = useTamanoPantalla();
+  // En la web ancha la pantalla ocupa todo el ancho del sitio: el formulario va en dos columnas y lo que es de un solo bloque no se estira.
+  const ancha = Platform.OS === 'web' && medidasWeb(ancho).escritorio;
+  const tope = ancha ? estilos.tope : null;
   const miId = useAuthStore((s) => s.session?.user.id);
 
   const rolValido = esRolVendedor(rolParam);
@@ -123,11 +127,11 @@ function VerificacionScreenPantalla() {
   const envoltura = (hijos: React.ReactNode) => (
     <ThemedView style={estilos.pantalla}>
       <ScrollView
-        contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio]}
+        contentContainerStyle={[estilos.desplazable, clase === 'amplia' && estilos.centradoAmplio, ancha && estilos.anchoWeb]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={[estilos.columna, { maxWidth: anchoContenido }]}>{hijos}</View>
+        <View style={[estilos.columna, ancha ? null : { maxWidth: anchoContenido }]}>{hijos}</View>
       </ScrollView>
     </ThemedView>
   );
@@ -176,14 +180,16 @@ function VerificacionScreenPantalla() {
     return envoltura(
       <>
         <ThemedText type="subtitle">{titulo}</ThemedText>
-        <View style={[estilos.panel, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
+        <View style={[estilos.panel, tope, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
           <Ionicons name="time-outline" size={24} color={theme.bosque} />
           <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>En revisión</ThemedText>
           <ThemedText type="small" themeColor="textSecondary" style={estilos.texto}>
             Recibimos tus documentos y una persona del equipo los revisa a mano. Mientras tanto no puedes publicar.
           </ThemedText>
         </View>
-        <SeccionRostro rol={rol} />
+        <View style={tope}>
+          <SeccionRostro rol={rol} />
+        </View>
       </>
     );
   }
@@ -192,7 +198,7 @@ function VerificacionScreenPantalla() {
     return envoltura(
       <>
         <ThemedText type="subtitle">{titulo}</ThemedText>
-        <View style={[estilos.panel, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
+        <View style={[estilos.panel, tope, { backgroundColor: theme.backgroundElement, borderColor: theme.filete }]}>
           <Ionicons name="checkmark-circle" size={24} color={theme.bosque} />
           <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte]}>
             {miRol.origen === 'migracion' ? 'Función heredada' : 'Verificada'}
@@ -236,12 +242,12 @@ function VerificacionScreenPantalla() {
   return envoltura(
     <>
       <ThemedText type="subtitle">{titulo}</ThemedText>
-      <ThemedText themeColor="textSecondary" style={estilos.texto}>
+      <ThemedText themeColor="textSecondary" style={[estilos.texto, tope]}>
         Para publicar necesitamos confirmar quién eres. Revisamos tus documentos a mano, una sola vez.
       </ThemedText>
 
       {miRol.estado === 'rechazado' ? (
-        <View style={[estilos.panel, { borderColor: theme.error, backgroundColor: theme.backgroundElement }]}>
+        <View style={[estilos.panel, tope, { borderColor: theme.error, backgroundColor: theme.backgroundElement }]}>
           <ThemedText style={[Texto.cuerpo, Texto.pesoFuerte, { color: theme.error }]}>
             Tu verificación fue rechazada
           </ThemedText>
@@ -253,6 +259,8 @@ function VerificacionScreenPantalla() {
         </View>
       ) : null}
 
+      <View style={ancha ? estilos.rejilla : estilos.columna}>
+      <View style={ancha ? estilos.mitad : estilos.columna}>
       <Campo
         etiqueta="Nombre completo (como en tu INE)"
         value={nombreLegal}
@@ -281,6 +289,9 @@ function VerificacionScreenPantalla() {
         error={errores.ineReverso}
         onElegir={() => void elegir(setIneReverso)}
       />
+      </View>
+
+      <View style={ancha ? estilos.mitad : estilos.columna}>
 
       <View style={estilos.bloque}>
         <ThemedText type="smallBold" themeColor="textSecondary">
@@ -343,6 +354,8 @@ function VerificacionScreenPantalla() {
       <Sello onPress={onEnviar} cargando={enviar.isPending} accessibilityLabel="Enviar a revisión">
         Enviar a revisión
       </Sello>
+      </View>
+      </View>
     </>
   );
 }
@@ -352,6 +365,10 @@ const estilos = StyleSheet.create({
   desplazable: { padding: Spacing.three, paddingBottom: Spacing.six },
   centradoAmplio: { alignItems: 'center' },
   columna: { width: '100%', gap: Spacing.three },
+  anchoWeb: { paddingHorizontal: Spacing.five },
+  tope: { maxWidth: 560, width: '100%' },
+  rejilla: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: Spacing.three },
+  mitad: { flexBasis: 440, flexGrow: 1, flexShrink: 1, maxWidth: '100%', gap: Spacing.three },
   bloque: { gap: Spacing.two },
   texto: { lineHeight: 22 },
   textos: { flex: 1, gap: Spacing.half },
